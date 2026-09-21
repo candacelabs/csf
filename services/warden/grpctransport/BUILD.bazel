@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "grpctransport",
+    srcs = ["transport.go"],
+    importpath = "github.com/candacelabs/csf/services/warden/grpctransport",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/warden",
+        "//services/warden/proto/warden/v1:warden",
+        "//services/warden/wireconv",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//backoff",
+        "@org_golang_google_grpc//credentials/insecure",
+    ],
+)
+
+go_test(
+    name = "grpctransport_test",
+    srcs = ["transport_contract_test.go"],
+    deps = [
+        ":grpctransport",
+        "//services/warden",
+        "//services/warden/grpcmux",
+        "//services/warden/httpserver",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

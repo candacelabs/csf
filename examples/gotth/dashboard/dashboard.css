@@ -1,0 +1,323 @@
+/* The dashboard example's stylesheet.
+ *
+ * Plain CSS, no build step, embedded in the binary and served by the same
+ * process that serves the page and the client runtime.
+ *
+ * Two things here are load-bearing rather than decorative.
+ *
+ * The connection indicator selects on data-gotth-status, which the client
+ * runtime writes on <html> — connecting, live, reconnecting, closed. No script
+ * of this application's runs on the page at all, which is what makes the
+ * indicator survive FR-49's `script-src 'self'` with no inline handler and no
+ * hash to maintain.
+ *
+ * The bar widths are eleven fixed classes rather than an inline style
+ * attribute. An inline `style="width:73%"` would need 'unsafe-inline' in
+ * style-src the moment anybody tightened that directive too, and a gauge that
+ * moves twenty times a second is the last place to want a per-render hash.
+ * `State.BarClass` buckets the reading and the vocabulary is closed.
+ */
+
+:root {
+  --bg: #10131a;
+  --card: #171b24;
+  --line: #262c3a;
+  --ink: #e6e9ef;
+  --dim: #8b93a7;
+  --accent: #6ea8fe;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 52rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.lede {
+  margin: 0;
+  color: var(--dim);
+}
+
+.warn {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--warn);
+  border-radius: 0.5rem;
+  color: var(--warn);
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem 1.25rem;
+}
+
+/* The meters. */
+
+.seq,
+.at {
+  font-variant-numeric: tabular-nums;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.at {
+  margin-left: auto;
+}
+
+.gauges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.gauge {
+  display: grid;
+  grid-template-columns: 6rem 3rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.gauge .name {
+  color: var(--dim);
+}
+
+.gauge .value {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.gauge .bar {
+  height: 0.6rem;
+  border-radius: 0.3rem;
+  background: var(--accent);
+  /* No transition. A bar that eased between values would keep painting after
+   * the patch that moved it, which makes "the feed is pushing" and "the feed
+   * stalled a moment ago" look the same to the eye — the exact confusion
+   * Reading.Seq exists to prevent on the wire. */
+}
+
+.gauge.high .bar {
+  background: var(--warn);
+}
+
+.gauge.over .bar {
+  background: var(--bad);
+}
+
+.gauge.over .value {
+  color: var(--bad);
+}
+
+/* Eleven buckets, w0 to w10. State.BarClass picks one. */
+.w0 { width: 4%; }
+.w1 { width: 10%; }
+.w2 { width: 20%; }
+.w3 { width: 30%; }
+.w4 { width: 40%; }
+.w5 { width: 50%; }
+.w6 { width: 60%; }
+.w7 { width: 70%; }
+.w8 { width: 80%; }
+.w9 { width: 90%; }
+.w10 { width: 100%; }
+
+.spark {
+  margin: 0.75rem 0 0;
+  color: var(--accent);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 1.1rem;
+  line-height: 1;
+  letter-spacing: 0.1em;
+  min-height: 1.1rem;
+}
+
+/* The alert log. */
+
+.count {
+  font-variant-numeric: tabular-nums;
+}
+
+.alerts .empty {
+  margin: 0;
+  color: var(--dim);
+}
+
+.alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.alert {
+  display: grid;
+  grid-template-columns: 6rem 6rem 1fr;
+  gap: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.alert .at {
+  margin-left: 0;
+  color: var(--dim);
+}
+
+.alert .value {
+  color: var(--bad);
+}
+
+/* This session's controls. */
+
+.feed-state,
+.health,
+.notice {
+  margin: 0 0 0.5rem;
+  color: var(--dim);
+}
+
+.health.degraded {
+  color: var(--warn);
+}
+
+.notice {
+  color: var(--bad);
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: #202634;
+  border: 1px solid var(--line);
+  border-radius: 0.4rem;
+  padding: 0.4rem 0.8rem;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+/* The two plain-HTMX islands. Dashed, so that what HTMX owns and what the
+ * server owns are distinguishable on screen and not only in the source. */
+
+.island,
+.deploys {
+  border: 1px dashed var(--line);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.island {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.notes,
+.deploy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.25rem;
+  color: var(--dim);
+}
+
+.notes .at,
+.deploy-list .at {
+  margin-left: 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+/* The connection indicator: CSS over an attribute the runtime writes. */
+
+.status {
+  margin: 0;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--dim);
+}
+
+html[data-gotth-status="connecting"] .dot {
+  background: var(--warn);
+}
+
+html[data-gotth-status="live"] .dot {
+  background: var(--good);
+}
+
+html[data-gotth-status="reconnecting"] .dot {
+  background: var(--warn);
+}
+
+html[data-gotth-status="closed"] .dot {
+  background: var(--bad);
+}
+
+.try {
+  color: var(--dim);
+}
+
+.try summary {
+  cursor: pointer;
+}
+
+.try ul {
+  margin: 0.5rem 0 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.4rem;
+}

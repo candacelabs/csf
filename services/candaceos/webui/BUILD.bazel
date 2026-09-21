@@ -1,0 +1,50 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "webui",
+    srcs = [
+        "brand.go",
+        "nav.go",
+        "overlay.go",
+        "palette.go",
+        "webui.go",
+    ],
+    embedsrcs = [
+        "assets/app.css",
+        "assets/app.js",
+        "templates/chat.html",
+        "templates/index.html",
+    ],
+    importpath = "github.com/candacelabs/csf/services/candaceos/webui",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/browserroutes",
+        "@com_github_gin_gonic_gin//:gin",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "webui_test",
+    srcs = [
+        "brand_test.go",
+        "golden_test.go",
+        "nav_test.go",
+        "overlay_test.go",
+        "webui_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":webui",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/browserroutes",
+        "//services/candaceos/httpserver",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

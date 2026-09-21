@@ -1,0 +1,141 @@
+{{- /*
+  cluster_partial.html — the live region of the dashboard.
+
+  Rendered inline by index.html on first paint and re-fetched by the HTMX
+  poll every 2s (GET /partials/cluster). It carries the leadership summary
+  strip in addition to the cluster table and incident feed so that a
+  leadership change (new leader, term bump, loss of quorum) shows up on the
+  next poll without a full page reload.
+
+  Styling comes from the embedded /assets/warden.css (semantic classes; the
+  color mapping lives in helpers.go so it stays unit-testable).
+
+  Data model (dashboard.viewData): .View .Incidents .Version .Now
+*/ -}}
+<div class="stack">
+
+  {{- if eq .View.LeaderID "" }}
+  <div class="banner banner-red">
+    <span aria-hidden="true">⚠</span>
+    <span>NO LEADER — the cluster is currently leaderless (no quorum or election in progress)</span>
+  </div>
+  {{- end }}
+
+  {{- if not .View.Authoritative }}
+  <div class="banner banner-amber">
+    <span aria-hidden="true">⚠</span>
+    <span>local view — may be stale/incomplete (not sourced from the current leader)</span>
+  </div>
+  {{- end }}
+
+  <!-- Leadership summary strip -->
+  <div class="stat-grid">
+    <div class="stat-card">
+      <div class="stat-label">Role</div>
+      <div class="stat-value">
+        <span class="badge {{ roleBadgeClass .View.Role }}">{{ upper .View.Role }}</span>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Term</div>
+      <div class="stat-value stat-value-big">{{ .View.Term }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Leader</div>
+      <div class="stat-value {{ if eq .View.LeaderID "" }}text-danger{{ end }}">
+        {{- if eq .View.LeaderID "" }}NO LEADER{{ else }}<span class="mono">{{ .View.LeaderID }}</span>{{ end -}}
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">View Source</div>
+      <div class="stat-value"><span class="mono">{{ .View.Source }}</span></div>
+      <div class="stat-note {{ if .View.Authoritative }}text-ok{{ else }}text-warn{{ end }}">
+        {{- if .View.Authoritative }}authoritative{{ else }}local / may be stale{{ end -}}
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Updated</div>
+      <div class="stat-value">{{ age .Now .View.UpdatedAt }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Membership</div>
+      <div class="stat-value">{{ membershipSummary .View.Membership }}</div>
+    </div>
+  </div>
+
+  <!-- Cluster table -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="panel-title">Cluster</h2>
+      <span class="panel-sub">{{ len .View.Peers }} node(s)</span>
+    </div>
+    <div class="table-scroll">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Node</th>
+            <th scope="col">Address</th>
+            <th scope="col">Member</th>
+            <th scope="col">Status</th>
+            <th scope="col">Last Seen</th>
+            <th scope="col">Latency</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{- range .View.Peers }}
+          <tr>
+            <td class="cell-primary">
+              <span class="mono">{{ .Node.ID }}</span>
+              {{- if eq .Node.ID $.View.Self }} <span class="tag-self">(this node)</span>{{ end }}
+              {{- if eq .Node.ID $.View.LeaderID }} <span class="tag-leader" title="current leader">👑 [leader]</span>{{ end }}
+            </td>
+            <td class="mono">{{ .Node.Addr }}</td>
+            <td>
+              <span class="pill {{ memberPillClass .Member }}">{{ memberLabel .Member }}</span>
+            </td>
+            <td>
+              <span class="pill {{ statusPillClass .Status }}">{{ upper .Status }}</span>
+            </td>
+            <td>{{ age $.Now .LastSeen }}</td>
+            <td class="cell-num">{{ latency .LatencyMS }}</td>
+          </tr>
+          {{- else }}
+          <tr>
+            <td colspan="6" class="empty-cell">No peers in view</td>
+          </tr>
+          {{- end }}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Incident feed (most recent first) -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2 class="panel-title">Incidents</h2>
+    </div>
+    {{- if .Incidents }}
+    <ul class="incident-list">
+      {{- range .Incidents }}
+      <li class="incident-item">
+        <span class="badge {{ incidentBadgeClass .Type }}">{{ incidentLabel .Type }}</span>
+        <div class="incident-body">
+          <div class="incident-msg">
+            <span class="mono">{{ .Peer.ID }}</span>
+            <span class="msg-text">— {{ .Message }}</span>
+          </div>
+          <div class="incident-meta">
+            detected {{ age $.Now .DetectedAt }}
+            {{- if .ReportedBy }} <span class="ghost">·</span> by <span class="mono">{{ .ReportedBy }}</span>{{ end }}
+            <span class="ghost">·</span> term {{ .Term }}
+          </div>
+        </div>
+      </li>
+      {{- end }}
+    </ul>
+    {{- else }}
+    <div class="empty-cell">No incidents</div>
+    {{- end }}
+  </section>
+
+</div>

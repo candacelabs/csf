@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "api",
+    srcs = ["api.gen.go"],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/gen/api",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_getkin_kin_openapi//openapi3",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_oapi_codegen_runtime//:runtime",
+        "@com_github_oapi_codegen_runtime//types",
+    ],
+)

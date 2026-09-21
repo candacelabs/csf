@@ -1,0 +1,282 @@
+/* warden.css — hand-rolled dark ops theme for the candacenet warden dashboard.
+ *
+ * Embedded in the binary and served from /assets/ so the dashboard renders
+ * fully offline: warden is a fault-tolerance tool, and the moment an operator
+ * stares at this page is exactly when WAN/CDN access may be broken. This
+ * deliberately replaces the repo's Tailwind-via-CDN convention for this one
+ * service; the palette mirrors Tailwind's slate/green/amber/red/sky scales so
+ * it stays visually consistent with the rest of the fleet's pages.
+ */
+
+:root {
+  --bg: #020617;        /* slate-950 */
+  --panel: #0f172a;     /* slate-900 */
+  --panel-soft: rgba(15, 23, 42, 0.7);
+  --edge: #1e293b;      /* slate-800 */
+  --edge-soft: rgba(30, 41, 59, 0.7);
+  --text: #f1f5f9;      /* slate-100 */
+  --text-dim: #94a3b8;  /* slate-400 */
+  --text-faint: #64748b;/* slate-500 */
+  --text-ghost: #475569;/* slate-600 */
+  --green: #86efac;     /* green-300 */
+  --green-deep: #22c55e;
+  --amber: #fcd34d;     /* amber-300 */
+  --amber-deep: #f59e0b;
+  --red: #fca5a5;       /* red-300 */
+  --red-soft: #fecaca;
+  --red-deep: #ef4444;
+  --slate-pill: #cbd5e1;/* slate-300 */
+  --sky: #38bdf8;       /* sky-400 */
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.mono { font-family: var(--mono); }
+.muted { color: var(--text-faint); }
+.dim { color: var(--text-dim); }
+.ghost { color: var(--text-ghost); }
+
+.wrap {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+.stack > * + * { margin-top: 1.5rem; }
+
+/* --- header / footer ---------------------------------------------------- */
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--edge);
+  padding-bottom: 1rem;
+}
+
+.brand {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.brand-accent { color: var(--sky); }
+
+.subtitle {
+  margin: 0.25rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-dim);
+}
+
+.subtitle .mono { color: var(--text); }
+
+.live-note { font-size: 0.75rem; color: var(--text-faint); }
+
+.page-footer {
+  border-top: 1px solid var(--edge);
+  padding-top: 1rem;
+  font-size: 0.75rem;
+  color: var(--text-ghost);
+}
+
+.page-footer .mono { color: var(--text-dim); }
+
+/* --- banners ------------------------------------------------------------ */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+}
+
+.banner-red {
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  background: rgba(239, 68, 68, 0.1);
+  color: var(--red-soft);
+  font-weight: 600;
+}
+
+.banner-amber {
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--amber);
+}
+
+/* --- leadership summary strip ------------------------------------------- */
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+@media (min-width: 640px) { .stat-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (min-width: 1024px) { .stat-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
+
+.stat-card {
+  border-radius: 0.5rem;
+  background: var(--panel-soft);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  padding: 0.75rem 1rem;
+  min-width: 0;
+}
+
+.stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+
+.stat-value {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-value-big { font-size: 1.125rem; font-variant-numeric: tabular-nums; }
+.stat-note { margin-top: 0.15rem; font-size: 0.7rem; }
+.text-ok { color: var(--green-deep); }
+.text-warn { color: var(--amber-deep); }
+.text-danger { color: var(--red); }
+
+/* --- panels (cluster table, incidents) ---------------------------------- */
+
+.panel {
+  border-radius: 0.5rem;
+  box-shadow: inset 0 0 0 1px var(--edge);
+  overflow: hidden;
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--edge);
+  background: var(--panel-soft);
+  padding: 0.75rem 1rem;
+}
+
+.panel-title {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.panel-sub { font-size: 0.75rem; color: var(--text-faint); }
+
+.table-scroll { overflow-x: auto; }
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.table th {
+  padding: 0.5rem 1rem;
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.table td {
+  padding: 0.5rem 1rem;
+  border-top: 1px solid var(--edge-soft);
+  white-space: nowrap;
+  color: var(--text-dim);
+}
+
+.table td.cell-primary { color: var(--text); font-weight: 500; }
+.table td.cell-num { font-variant-numeric: tabular-nums; }
+.table tbody tr:hover { background: rgba(15, 23, 42, 0.4); }
+
+.empty-cell {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--text-faint);
+}
+
+/* --- pills, badges, tags ------------------------------------------------- */
+
+.pill,
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.pill { border-radius: 9999px; }
+.badge { border-radius: 0.375rem; font-size: 0.75rem; }
+
+.pill-green,  .badge-green  { background: rgba(34, 197, 94, 0.15);  color: var(--green); box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.4); }
+.pill-amber,  .badge-amber  { background: rgba(245, 158, 11, 0.15); color: var(--amber); box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.4); }
+.pill-red,    .badge-red    { background: rgba(239, 68, 68, 0.15);  color: var(--red);   box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.4); }
+.pill-slate,  .badge-slate  { background: rgba(100, 116, 139, 0.15); color: var(--slate-pill); box-shadow: inset 0 0 0 1px rgba(100, 116, 139, 0.4); }
+.pill-sky,    .badge-sky    { background: rgba(56, 189, 248, 0.15); color: var(--sky); box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.4); }
+
+/* discovered/unverified nodes: neutral slate text with a dashed outline and no
+   fill, signalling "advisory, not admitted" against the solid-fill pills. */
+.pill-outline { background: transparent; color: var(--text-dim); box-shadow: none; border: 1px dashed var(--text-ghost); }
+
+.tag-self { margin-left: 0.25rem; font-size: 0.7rem; font-weight: 400; color: var(--sky); }
+
+.tag-leader {
+  margin-left: 0.25rem;
+  border-radius: 0.25rem;
+  background: rgba(34, 197, 94, 0.15);
+  padding: 0.125rem 0.375rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--green);
+}
+
+/* --- incident feed ------------------------------------------------------- */
+
+.incident-list { list-style: none; margin: 0; padding: 0; }
+
+.incident-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+}
+
+.incident-item + .incident-item { border-top: 1px solid var(--edge-soft); }
+
+.incident-item .badge { flex-shrink: 0; margin-top: 0.1rem; }
+
+.incident-body { min-width: 0; }
+.incident-msg { font-size: 0.875rem; color: var(--text); }
+.incident-msg .mono { font-weight: 600; }
+.incident-msg .msg-text { color: var(--text-dim); }
+.incident-meta { margin-top: 0.15rem; font-size: 0.75rem; color: var(--text-faint); }

@@ -1,0 +1,152 @@
+// Browser-facing contracts for the CandaceOS Core operator UI.
+syntax = "proto3";
+
+package candace.candaceos.v1;
+
+import "google/protobuf/timestamp.proto";
+import "candace/candaceos/v1/control_runtime.proto";
+import "candace/candaceos/v1/harness.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/candaceos/v1;candaceosv1";
+
+// WebUISnapshot is the immutable state rendered by the server-side page,
+// returned by GET /api/snapshot, and published in snapshot SSE events.
+message WebUISnapshot {
+  google.protobuf.Timestamp generated_at = 1;
+  WebUISystem system = 2;
+  repeated WebUIAttention attention = 3;
+  WebUIRun run = 4;
+  WebUIFleet fleet = 5;
+  repeated WebUIApp apps = 6;
+  repeated WebUIActivity activity = 7;
+}
+
+// WebUISystem describes the local control plane. name and agent_name are the
+// two brand-bearing strings the browser client renders as data: the product
+// the operator sees and the agent that acts on their behalf.
+message WebUISystem {
+  string name = 1;
+  string status = 2;
+  string summary = 3;
+  string version = 4;
+  HarnessBackend harness_backend = 5;
+  string harness_model = 6;
+  string harness_implementation = 7;
+  repeated HarnessCapability harness_capabilities = 8;
+  string agent_name = 9;
+}
+
+// WebUIAttention is one pending operator decision.
+message WebUIAttention {
+  string id = 1;
+  string title = 2;
+  string detail = 3;
+  string risk = 4;
+  google.protobuf.Timestamp requested_at = 5;
+}
+
+// WebUIRun is the current agent run and its ordered transcript.
+message WebUIRun {
+  string id = 1;
+  string title = 2;
+  string status = 3;
+  google.protobuf.Timestamp started_at = 4;
+  bool can_abort = 5;
+  repeated WebUIRunEntry entries = 6;
+  string session_id = 7;
+}
+
+// WebUIRunEntry is either a conversational message or a tool card.
+message WebUIRunEntry {
+  string id = 1;
+  string kind = 2;
+  string role = 3;
+  string name = 4;
+  string text = 5;
+  string detail = 6;
+  string status = 7;
+  google.protobuf.Timestamp at = 8;
+}
+
+// WebUIFleet summarizes leader election, quorum, and observed nodes.
+message WebUIFleet {
+  string leader_id = 1;
+  uint64 term = 2;
+  WebUIQuorum quorum = 3;
+  repeated WebUINode nodes = 4;
+}
+
+// WebUIQuorum reports the current voting-node count.
+message WebUIQuorum {
+  bool healthy = 1;
+  uint32 online = 2;
+  uint32 required = 3;
+}
+
+// WebUINode is the browser-safe projection of one fleet node.
+message WebUINode {
+  string id = 1;
+  string name = 2;
+  string role = 3;
+  map<string, string> labels = 4;
+  string status = 5;
+  string address = 6;
+  uint32 apps = 7;
+  double cpu_percent = 8;
+  double memory_percent = 9;
+  google.protobuf.Timestamp last_seen = 10;
+}
+
+// WebUIApp is an application and its latest deployment.
+message WebUIApp {
+  string id = 1;
+  string name = 2;
+  string summary = 3;
+  string status = 4;
+  string node_id = 5;
+  repeated string node_ids = 6;
+  string url = 7;
+  string revision = 8;
+  google.protobuf.Timestamp updated_at = 9;
+}
+
+// WebUIActivity is one durable operator receipt summary.
+message WebUIActivity {
+  string id = 1;
+  string kind = 2;
+  string title = 3;
+  string detail = 4;
+  string status = 5;
+  google.protobuf.Timestamp at = 6;
+  string receipt_id = 7;
+}
+
+// WebUIPromptRequest is the JSON body accepted by POST /api/prompts.
+message WebUIPromptRequest {
+  string prompt = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 12000"
+  }];
+}
+
+// WebUIClawMessageRequest is one session- and run-scoped operator message.
+// expected_run_id prevents a stale browser from steering or continuing a
+// different execution than the one it rendered.
+message WebUIClawMessageRequest {
+  string prompt = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 12000"
+  }];
+  HarnessDelivery delivery = 2 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2"
+  }];
+  string expected_run_id = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+}
+
+// WebUIApprovalRequest is the JSON body accepted by POST /api/approvals/{id}.
+message WebUIApprovalRequest {
+  string decision = 1 [(candace.liquid.v1.field) = {
+    expr: "this == `approve` || this == `reject`"
+  }];
+}

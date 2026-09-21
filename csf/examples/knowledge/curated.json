@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "kind": "reference_bibliography",
+  "selection_date": "2026-09-16",
+  "boundary": "Reference links only. Paper content, feed membership, license reviews, pinned source code and historical ingestion receipts are not bundled.",
+  "documents": [
+    {
+      "source_id": "arxiv:2609.14858",
+      "title": "Dream-RSI: Recursive Self-Improvement through Evolving Worlds",
+      "url": "https://huggingface.co/papers/2609.14858",
+      "repository": "https://github.com/zhengkid/Dream-RSI"
+    },
+    {
+      "source_id": "arxiv:2609.15364",
+      "title": "RSIAgent: Autonomous Exploration for Recursive Self-improvement in New Environments",
+      "url": "https://huggingface.co/papers/2609.15364",
+      "repository": "https://github.com/AetherLabsAI/RSIAgent"
+    },
+    {
+      "source_id": "arxiv:2609.06986",
+      "title": "Continual Learning Mechanisms Compose for Long-Horizon Memorization",
+      "url": "https://huggingface.co/papers/2609.06986",
+      "repository": "https://github.com/cozheyuanzhangde/compose-cl"
+    },
+    {
+      "source_id": "arxiv:2609.13948",
+      "title": "Thought without systematicity? Evaluating reasoning models on rule induction tasks",
+      "url": "https://huggingface.co/papers/2609.13948",
+      "repository": "https://github.com/smonsays/systematicity-eval"
+    }
+  ]
+}

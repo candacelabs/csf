@@ -1,0 +1,166 @@
+=== campaign c2 obs=on seq='eng cur cur eng' started 2026-08-04T22:54:07+00:00
+--- c2 step 1: arm=eng obs=on tree=/tmp/g2ab/eng 2026-08-04T22:54:07+00:00 load=9.07 9.59 9.88
+
+[1m==> building memsrv and memdrv into /tmp/g2-bin.zeJSyCHE (outside the measured container)[0m
+go: downloading go.opentelemetry.io/otel/trace v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk/metric v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk v1.45.0
+go: downloading go.opentelemetry.io/otel/metric v1.45.0
+go: downloading go.opentelemetry.io/otel v1.45.0
+go: downloading github.com/coder/websocket v1.8.15
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading github.com/go-logr/logr v1.4.4
+go: downloading golang.org/x/sys v0.47.0
+go: downloading github.com/google/uuid v1.6.0
+
+[1m==> cell n1000-obs-on: 1 run(s), N=1000, settle 240 s, window 60 s[0m
+    image dis-gotth-live:latest (sha256:e146d50d5de6cb0cf179302017b7f314272c75371b4000eb82e1b3478b38d317)
+    git unknown (dirty=true)
+    sut cpus 24-27 (4 cores), driver cpus 28-31, memory 2g
+    GOGC=100 GOMEMLIMIT=2GiB
+
+[1m==> run n1000-obs-on-r01: m0 window, 0 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-a75f3a42553d3d3ee41579150a5123e4119041c2997647172d928a4ffbdac3e5.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    settling 240 s, then sampling 60 times at 1 Hz
+
+[1m==> run n1000-obs-on-r01: mn window, 1000 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-9cb203ec9d0760fb344106e08a2b6be2b346dc31f88996055bc10a67ae01c2cc.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    established: 1000 idle sessions
+    settling 240 s, then sampling 60 times at 1 Hz
+    wrote /tmp/g2ab/scratch.RgTbrb/n1000-obs-on-r01/run.json
+
+[1m==> cell n1000-obs-on complete: /tmp/g2ab/scratch.RgTbrb[0m
+compute the figure with:
+  docker run --rm -v "/tmp/g2ab/eng/gotth-live:/w" -v "/tmp/g2ab/scratch.RgTbrb:/cell" -w /w/test/memory dis-gotth-live:latest \
+      bash -c 'go run ./cmd/memstat -cell /cell'
+--- c2 step 1: arm=eng done 2026-08-04T23:04:49+00:00 -> /tmp/g2ab/cells/c2-eng-obson/step01
+--- c2 step 2: arm=cur obs=on tree=/tmp/g2ab/new 2026-08-04T23:04:49+00:00 load=10.82 9.17 9.22
+
+[1m==> building memsrv and memdrv into /tmp/g2-bin.VgMt3efy (outside the measured container)[0m
+go: downloading go.opentelemetry.io/otel/trace v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk/metric v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk v1.45.0
+go: downloading go.opentelemetry.io/otel/metric v1.45.0
+go: downloading go.opentelemetry.io/otel v1.45.0
+go: downloading github.com/coder/websocket v1.8.15
+go: downloading github.com/google/uuid v1.6.0
+go: downloading golang.org/x/sys v0.47.0
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/go-logr/logr v1.4.4
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading github.com/go-logr/stdr v1.2.2
+
+[1m==> cell n1000-obs-on: 1 run(s), N=1000, settle 240 s, window 60 s[0m
+    image dis-gotth-live:latest (sha256:e146d50d5de6cb0cf179302017b7f314272c75371b4000eb82e1b3478b38d317)
+    git unknown (dirty=true)
+    sut cpus 24-27 (4 cores), driver cpus 28-31, memory 2g
+    GOGC=100 GOMEMLIMIT=2GiB
+
+[1m==> run n1000-obs-on-r01: m0 window, 0 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-e49042067a6dab859eba9dbb0d845c3f41444c36f08fe019b5c0563f18c110d7.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    settling 240 s, then sampling 60 times at 1 Hz
+
+[1m==> run n1000-obs-on-r01: mn window, 1000 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-20d41a1c3539eafc2f6ac7f4ade2d8d0540fa4bbad7395597c010602f9cb3873.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    established: 1000 idle sessions
+    settling 240 s, then sampling 60 times at 1 Hz
+    wrote /tmp/g2ab/scratch.EoVBcl/n1000-obs-on-r01/run.json
+
+[1m==> cell n1000-obs-on complete: /tmp/g2ab/scratch.EoVBcl[0m
+compute the figure with:
+  docker run --rm -v "/tmp/g2ab/new/gotth-live:/w" -v "/tmp/g2ab/scratch.EoVBcl:/cell" -w /w/test/memory dis-gotth-live:latest \
+      bash -c 'go run ./cmd/memstat -cell /cell'
+--- c2 step 2: arm=cur done 2026-08-04T23:15:30+00:00 -> /tmp/g2ab/cells/c2-cur-obson/step02
+--- c2 step 3: arm=cur obs=on tree=/tmp/g2ab/new 2026-08-04T23:15:30+00:00 load=11.22 10.00 9.64
+
+[1m==> building memsrv and memdrv into /tmp/g2-bin.AkTNSgS5 (outside the measured container)[0m
+go: downloading go.opentelemetry.io/otel/trace v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk/metric v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk v1.45.0
+go: downloading go.opentelemetry.io/otel/metric v1.45.0
+go: downloading go.opentelemetry.io/otel v1.45.0
+go: downloading github.com/coder/websocket v1.8.15
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/go-logr/logr v1.4.4
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading github.com/google/uuid v1.6.0
+go: downloading golang.org/x/sys v0.47.0
+
+[1m==> cell n1000-obs-on: 1 run(s), N=1000, settle 240 s, window 60 s[0m
+    image dis-gotth-live:latest (sha256:e146d50d5de6cb0cf179302017b7f314272c75371b4000eb82e1b3478b38d317)
+    git unknown (dirty=true)
+    sut cpus 24-27 (4 cores), driver cpus 28-31, memory 2g
+    GOGC=100 GOMEMLIMIT=2GiB
+
+[1m==> run n1000-obs-on-r01: m0 window, 0 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-8fd8460b59d2196960ceb81af210caa72ff0ea14ec06ce15a63ced4613425525.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    settling 240 s, then sampling 60 times at 1 Hz
+
+[1m==> run n1000-obs-on-r01: mn window, 1000 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-20784ab90b777c7838fdd1659124cc032088de15d10ac10777bd490669e54e6f.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    established: 1000 idle sessions
+    settling 240 s, then sampling 60 times at 1 Hz
+    wrote /tmp/g2ab/scratch.gpVt3T/n1000-obs-on-r01/run.json
+
+[1m==> cell n1000-obs-on complete: /tmp/g2ab/scratch.gpVt3T[0m
+compute the figure with:
+  docker run --rm -v "/tmp/g2ab/new/gotth-live:/w" -v "/tmp/g2ab/scratch.gpVt3T:/cell" -w /w/test/memory dis-gotth-live:latest \
+      bash -c 'go run ./cmd/memstat -cell /cell'
+--- c2 step 3: arm=cur done 2026-08-04T23:26:12+00:00 -> /tmp/g2ab/cells/c2-cur-obson/step03
+--- c2 step 4: arm=eng obs=on tree=/tmp/g2ab/eng 2026-08-04T23:26:12+00:00 load=4.55 7.63 9.10
+
+[1m==> building memsrv and memdrv into /tmp/g2-bin.HPNCpkLo (outside the measured container)[0m
+go: downloading go.opentelemetry.io/otel/trace v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk v1.45.0
+go: downloading go.opentelemetry.io/otel/sdk/metric v1.45.0
+go: downloading go.opentelemetry.io/otel/metric v1.45.0
+go: downloading go.opentelemetry.io/otel v1.45.0
+go: downloading github.com/coder/websocket v1.8.15
+go: downloading github.com/google/uuid v1.6.0
+go: downloading golang.org/x/sys v0.47.0
+go: downloading go.opentelemetry.io/auto/sdk v1.2.1
+go: downloading github.com/go-logr/stdr v1.2.2
+go: downloading github.com/cespare/xxhash/v2 v2.3.0
+go: downloading github.com/go-logr/logr v1.4.4
+
+[1m==> cell n1000-obs-on: 1 run(s), N=1000, settle 240 s, window 60 s[0m
+    image dis-gotth-live:latest (sha256:e146d50d5de6cb0cf179302017b7f314272c75371b4000eb82e1b3478b38d317)
+    git unknown (dirty=true)
+    sut cpus 24-27 (4 cores), driver cpus 28-31, memory 2g
+    GOGC=100 GOMEMLIMIT=2GiB
+
+[1m==> run n1000-obs-on-r01: m0 window, 0 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-cb82c93c1eaddeeb24f730e4fd934c50299f931e8e8c1d18931f2fb7c0cd89e0.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    settling 240 s, then sampling 60 times at 1 Hz
+
+[1m==> run n1000-obs-on-r01: mn window, 1000 session(s)[0m
+    cgroup: /sys/fs/cgroup/system.slice/docker-28cf2d552fe10401f2c6fe15ca59d70c83cc1171188c641e81a5cbe599d07679.scope
+    TLS boundary: outside (0 listeners, plaintext yes, TLS handshake refused)
+    warm-up: 200 full-page loads from the driver cpuset
+    established: 1000 idle sessions
+    settling 240 s, then sampling 60 times at 1 Hz
+    wrote /tmp/g2ab/scratch.4C9viR/n1000-obs-on-r01/run.json
+
+[1m==> cell n1000-obs-on complete: /tmp/g2ab/scratch.4C9viR[0m
+compute the figure with:
+  docker run --rm -v "/tmp/g2ab/eng/gotth-live:/w" -v "/tmp/g2ab/scratch.4C9viR:/cell" -w /w/test/memory dis-gotth-live:latest \
+      bash -c 'go run ./cmd/memstat -cell /cell'
+--- c2 step 4: arm=eng done 2026-08-04T23:36:52+00:00 -> /tmp/g2ab/cells/c2-eng-obson/step04
+=== campaign c2 complete 2026-08-04T23:36:52+00:00

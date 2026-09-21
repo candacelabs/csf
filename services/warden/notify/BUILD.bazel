@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "notify",
+    srcs = [
+        "doc.go",
+        "file.go",
+        "log.go",
+        "smtp.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/notify",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+    ],
+)
+
+go_test(
+    name = "notify_test",
+    srcs = [
+        "file_test.go",
+        "log_test.go",
+        "notify_contract_test.go",
+        "notify_test.go",
+        "smtp_test.go",
+    ],
+    embed = [":notify"],
+    deps = [
+        "//services/warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "card",
+    srcs = [
+        "view_templ.go",
+        "widget.gen.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/kanban/card",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)

@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sampling",
+    srcs = ["doc.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/test/sampling",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "sampling_test",
+    srcs = [
+        "harness_test.go",
+        "sampling_test.go",
+    ],
+    embed = [":sampling"],
+    deps = [
+        "//pkg/gotth/internal/obs",
+        "//pkg/gotth/internal/obstest",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/live",
+        "//pkg/patience",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@io_opentelemetry_go_otel_sdk//trace",
+        "@io_opentelemetry_go_otel_sdk//trace/tracetest",
+        "@io_opentelemetry_go_otel_trace//:trace",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

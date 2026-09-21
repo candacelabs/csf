@@ -1,0 +1,2857 @@
+openapi: 3.0.3
+
+info:
+  title: Copilot Adapter API
+  version: 1.1.0
+  description: |
+    HTTP contract for the Copilot operator workbench: a REST surface over
+    GitHub Copilot CLI sessions, bounded git worktrees, terminals, durable chat
+    schedules, and the subagents reported by a live session. Every 4xx and 5xx
+    response carries the shared Error schema. Identifiers are UUIDs unless a
+    schema says an upstream identifier is retained, and every timestamp is an
+    RFC 3339 instant in UTC.
+
+servers:
+  - url: http://127.0.0.1:8090
+    description: The adapter running as a bare binary on loopback.
+
+security:
+  - {}
+  - bearerAuth: []
+
+tags:
+  - name: health
+    description: Liveness of the adapter process itself.
+  - name: models
+    description: The models the host Copilot CLI can be switched to.
+  - name: sessions
+    description: Copilot CLI sessions and their lifecycle.
+  - name: turns
+    description: Prompting a session and stopping the turn in flight.
+  - name: transcript
+    description: The persisted, sequence-numbered transcript of a session.
+  - name: requests
+    description: Exact-identity permission requests awaiting an operator decision.
+  - name: repositories
+    description: Configured repository roots in which the workbench may operate.
+  - name: worktrees
+    description: Git worktrees that group chats and expose real repository state.
+  - name: terminals
+    description: Bounded interactive terminal sessions owned by a worktree.
+  - name: schedules
+    description: Durable recurring prompts executed by the Candace cron runtime.
+  - name: subagents
+    description: Actual child-agent lifecycle and activity reported by a session adapter.
+
+paths:
+  /v1/workspace/refresh:
+    post:
+      operationId: refreshWorkspace
+      summary: Ingest current linked issue checkpoints and notify live widgets
+      tags: [sessions]
+      description: Explicit external-change ingestion. Invoke after publishing or editing a linked checkpoint. Fetches the issue authority; does not trust checkpoint payloads supplied by a caller.
+      responses:
+        '204':
+          description: Linked sources were checked and subscribers notified. Individual source failures remain visible on their cards.
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/task:
+    parameters:
+      - name: sessionId
+        in: path
+        required: true
+        schema: {type: string, format: uuid}
+    put:
+      operationId: linkSessionTask
+      summary: Associate an exact session with its authoritative GitHub task
+      tags: [sessions]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkSessionTaskRequest'
+      responses:
+        '200':
+          description: Durable explicit association.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceTaskLink'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/workspace:
+    get:
+      operationId: getWorkspace
+      summary: Read the current workspace snapshot used by live widgets
+      tags: [sessions]
+      description: Reads retained session and worktree identities without inspecting git or starting processes. Live widgets subscribe to committed changes in the same Go process.
+      responses:
+        '200':
+          description: Current retained workspace state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/telemetry:
+    get:
+      operationId: getTelemetry
+      summary: Retained provider usage and observed execution timing
+      tags: [sessions]
+      description: Missing usage fields are unknown. Premium requests are cumulative provider checkpoints, never inferred currency. Durations exclude queue time.
+      responses:
+        '200':
+          description: A complete retained snapshot; errors never become measured zero.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetrySnapshot'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /healthz:
+    get:
+      operationId: getHealth
+      summary: Report adapter liveness
+      tags:
+        - health
+      responses:
+        '200':
+          description: The adapter is serving.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/models:
+    get:
+      operationId: listModels
+      summary: List the models the CLI can use
+      description: |
+        The host CLI is the source of truth. When it cannot enumerate models the
+        adapter returns the empty list and the UI falls back to free text.
+      tags:
+        - models
+      responses:
+        '200':
+          description: The models available to new and existing sessions.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ModelList'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /v1/sessions:
+    get:
+      operationId: listSessions
+      summary: List sessions
+      tags:
+        - sessions
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/SessionStatusFilter'
+      responses:
+        '200':
+          description: One page of sessions, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createSession
+      summary: Start a Copilot CLI session
+      description: |
+        idempotencyKey is a client-generated UUID bound to the complete request.
+        Retrying the exact body with the same key returns the original session
+        without provisioning another worktree or CLI session; reusing the key
+        for different content returns 409. worktreeMode selects one generated
+        request branch, so mode-incompatible fields are rejected by the schema.
+      tags:
+        - sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSessionRequest'
+      responses:
+        '201':
+          description: |
+            A durable session record was created. status is idle when the SDK
+            session started, or failed when an ambiguous SDK create could not
+            be reconciled to a remote session. Exact retries return this same
+            record without repeating an external create.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /v1/sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      operationId: getSession
+      summary: Get one session
+      tags:
+        - sessions
+      responses:
+        '200':
+          description: The session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      operationId: updateSession
+      summary: Change a session model or display name
+      tags:
+        - sessions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSessionRequest'
+      responses:
+        '200':
+          description: The updated session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: endSession
+      summary: End a session
+      description: |
+        Ends the underlying CLI session. The metadata persists with status
+        ended, so the transcript stays readable afterwards.
+      tags:
+        - sessions
+      responses:
+        '200':
+          description: The ended session.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/prompts:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      operationId: submitPrompt
+      summary: Send a prompt to a session
+      description: |
+        queue appends the prompt behind whatever the session is doing; steer
+        interrupts the current turn with it immediately. idempotencyKey is a
+        client-generated UUID scoped to this session. Retrying the exact body
+        with the same key returns the original turn without a second SDK
+        handoff; reusing the key for a different body returns 409.
+      tags:
+        - turns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PromptRequest'
+      responses:
+        '202':
+          description: The prompt was accepted; the turn it belongs to.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turn'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '502':
+          $ref: '#/components/responses/BadGateway'
+
+  /v1/sessions/{sessionId}/abort:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      operationId: abortTurn
+      summary: Stop the turn in flight
+      description: |
+        The client binds the request to the exact turn it observed. Retrying an
+        exact idempotencyKey and turnId returns that turn's durable abort result;
+        key reuse with another turn, or a successor becoming active before the
+        request reaches the CLI, returns 409 without aborting the successor.
+      tags:
+        - turns
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AbortTurnRequest'
+      responses:
+        '200':
+          description: The turn that was stopped, in its post-abort state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turn'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/active-turn:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      operationId: getActiveTurn
+      summary: Read the exact turn currently running
+      description: |
+        Returns the durable running turn a client must bind into an abort
+        request. A turn that has not started or already became terminal is not
+        an abort target and returns 404.
+      tags:
+        - turns
+      responses:
+        '200':
+          description: The exact currently running turn.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Turn'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/transcript:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      operationId: listTranscript
+      summary: Read a session's persisted transcript
+      description: |
+        Items are ordered by seq, which is monotonic and gapless within a
+        session. Page forward with afterSeq; assistant token deltas are
+        collapsed into one item per assistant message before persistence.
+      tags:
+        - transcript
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/AfterSeq'
+      responses:
+        '200':
+          description: One page of transcript items.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TranscriptPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/events:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      operationId: streamSessionEvents
+      summary: Stream session events as Server-Sent Events
+      description: |
+        A text/event-stream of SessionEvent envelopes, one JSON object per SSE
+        data frame, with the event's seq as its SSE id. A client that
+        reconnects sends Last-Event-ID and receives everything after that
+        sequence number, so a replica never has to be rebuilt from scratch.
+
+        The generated strict server cannot produce a streaming body, so this is
+        the ONE handler the backend stage writes by hand against the same
+        envelope schema; every other operation is served through the generated
+        strict interface. SessionEvent is declared under components/schemas
+        purely so the generator emits the Go and TypeScript types for it: no
+        generated handler ever returns it.
+      tags:
+        - sessions
+      parameters:
+        - $ref: '#/components/parameters/LastEventId'
+      responses:
+        '200':
+          description: The event stream. Each frame's data is one SessionEvent.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: A newline-delimited SSE frame sequence.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/requests:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      operationId: listSessionRequests
+      summary: List the requests awaiting a decision
+      description: |
+        Permission requests the session is blocked on, oldest first. Each
+        request is derived from the SDK event's exact request identifier. The
+        list is short by construction, so it is not paged.
+      tags:
+        - requests
+      responses:
+        '200':
+          description: The pending requests.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRequestList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/requests/{requestId}/resolve:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/RequestId'
+    post:
+      operationId: resolveSessionRequest
+      summary: Resolve a pending permission request
+      description: |
+        Permission requests accept approve or deny. Resolution is delivered to
+        the exact SDK request identifier and succeeds only after the SDK
+        acknowledges it. Repeating the same delivered decision is idempotent
+        and returns 200; a different decision is 409.
+      tags:
+        - requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveSessionRequestBody'
+      responses:
+        '200':
+          description: The resolved request.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/repositories:
+    get:
+      operationId: listRepositories
+      summary: List configured repository roots
+      description: |
+        Only repositories in this list may be selected when a chat asks the
+        adapter to create or reuse a worktree. The adapter configuration, not a
+        browser-supplied path, owns this trust boundary.
+      tags:
+        - repositories
+      responses:
+        '200':
+          description: Repository roots available to the workbench.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryList'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees:
+    get:
+      operationId: listWorktrees
+      summary: List worktrees containing chats
+      description: |
+        Worktrees are returned by most-recent activity so a client can group
+        the persistent session list into a stable sidebar without inventing
+        browser-local workspace state.
+      tags:
+        - worktrees
+      responses:
+        '200':
+          description: Worktrees known to the adapter.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorktreeList'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees/{worktreeId}:
+    parameters:
+      - $ref: '#/components/parameters/WorktreeId'
+    get:
+      operationId: getWorktree
+      summary: Read current worktree metadata
+      description: |
+        The branch, HEAD, cleanliness and presence are inspected from git for
+        this response; they are not stale creation-time labels.
+      tags:
+        - worktrees
+      responses:
+        '200':
+          description: The worktree and its current git metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Worktree'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees/{worktreeId}/changes:
+    parameters:
+      - $ref: '#/components/parameters/WorktreeId'
+    get:
+      operationId: getWorktreeChanges
+      summary: Inspect repository status and diff
+      description: |
+        Returns real porcelain status and a bounded patch from the addressed
+        worktree. When the patch reaches the server limit, truncated is true;
+        file status remains complete.
+      tags:
+        - worktrees
+      responses:
+        '200':
+          description: Current tracked and untracked changes.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorktreeChanges'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees/{worktreeId}/terminals:
+    parameters:
+      - $ref: '#/components/parameters/WorktreeId'
+    get:
+      operationId: listTerminals
+      summary: List terminal sessions for a worktree
+      tags:
+        - terminals
+      responses:
+        '200':
+          description: Live and recently exited terminals, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminalList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createTerminal
+      summary: Start a bounded terminal in a worktree
+      description: |
+        Starts the configured shell with its working directory fixed to the
+        worktree. The server owns the child process, output bound and cleanup;
+        clients cannot choose an executable or a different directory.
+      tags:
+        - terminals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTerminalRequest'
+      responses:
+        '201':
+          description: The terminal was started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Terminal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees/{worktreeId}/terminals/{terminalId}:
+    parameters:
+      - $ref: '#/components/parameters/WorktreeId'
+      - $ref: '#/components/parameters/TerminalId'
+    get:
+      operationId: getTerminal
+      summary: Read terminal lifecycle state
+      tags:
+        - terminals
+      responses:
+        '200':
+          description: The terminal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Terminal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      operationId: resizeTerminal
+      summary: Resize a running terminal
+      tags:
+        - terminals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResizeTerminalRequest'
+      responses:
+        '200':
+          description: The resized terminal.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Terminal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: stopTerminal
+      summary: Stop a terminal and release its process
+      tags:
+        - terminals
+      responses:
+        '200':
+          description: The terminal after bounded shutdown.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Terminal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees/{worktreeId}/terminals/{terminalId}/input:
+    parameters:
+      - $ref: '#/components/parameters/WorktreeId'
+      - $ref: '#/components/parameters/TerminalId'
+    post:
+      operationId: writeTerminalInput
+      summary: Write input to a running terminal
+      tags:
+        - terminals
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TerminalInputRequest'
+      responses:
+        '202':
+          description: The bounded input chunk was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Terminal'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/worktrees/{worktreeId}/terminals/{terminalId}/events:
+    parameters:
+      - $ref: '#/components/parameters/WorktreeId'
+      - $ref: '#/components/parameters/TerminalId'
+    get:
+      operationId: streamTerminalEvents
+      summary: Stream bounded terminal output and exit state
+      description: |
+        A text/event-stream of TerminalEvent envelopes. Last-Event-ID resumes
+        from the terminal's bounded replay buffer. A cursor older than retained
+        output receives the oldest retained event with replayTruncated true.
+      tags:
+        - terminals
+      parameters:
+        - $ref: '#/components/parameters/LastEventId'
+      responses:
+        '200':
+          description: Terminal event stream; each data frame is one TerminalEvent.
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: A newline-delimited SSE frame sequence.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/schedules:
+    get:
+      operationId: listChatSchedules
+      summary: List durable chat schedules
+      tags:
+        - schedules
+      responses:
+        '200':
+          description: Schedules ordered by next run.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatScheduleList'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      operationId: createChatSchedule
+      summary: Schedule a recurring prompt
+      description: |
+        Persists the prompt and recurrence, then hands due occurrences to the
+        existing Candace cron runtime. It does not create a browser timer or a
+        second in-process scheduler. An exact retry with the same
+        idempotencyKey and normalized request returns the original schedule;
+        reusing that key for a different normalized request returns a 409 with
+        code idempotency_key_reused.
+      tags:
+        - schedules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChatScheduleRequest'
+      responses:
+        '201':
+          description: The durable schedule was created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/schedules/{scheduleId}:
+    parameters:
+      - $ref: '#/components/parameters/ScheduleId'
+    get:
+      operationId: getChatSchedule
+      summary: Read one chat schedule
+      tags:
+        - schedules
+      responses:
+        '200':
+          description: The schedule.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      operationId: updateChatSchedule
+      summary: Edit or pause a chat schedule
+      description: |
+        Setting status to paused prevents future handoffs while preserving the
+        schedule and its run history. Re-activating recomputes nextRunAt from
+        the current time rather than replaying paused occurrences.
+      tags:
+        - schedules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChatScheduleRequest'
+      responses:
+        '200':
+          description: The updated schedule.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatSchedule'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      operationId: deleteChatSchedule
+      summary: Delete a chat schedule
+      description: Future occurrences stop; completed run records remain durable.
+      tags:
+        - schedules
+      responses:
+        '204':
+          description: The schedule was deleted.
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/subagents:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      operationId: listSubagents
+      summary: List actual subagents reported by a session
+      description: |
+        Rows come from SDK or adapter events persisted for this session. The
+        adapter never synthesizes active work merely to populate the pane.
+      tags:
+        - subagents
+      responses:
+        '200':
+          description: Active agents first, then completed agents by recency.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubagentList'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/subagents/{subagentId}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/SubagentId'
+    get:
+      operationId: getSubagent
+      summary: Read one subagent's current lifecycle state
+      tags:
+        - subagents
+      responses:
+        '200':
+          description: The subagent.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subagent'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /v1/sessions/{sessionId}/subagents/{subagentId}/activity:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - $ref: '#/components/parameters/SubagentId'
+    get:
+      operationId: listSubagentActivity
+      summary: Read one subagent's progress activity
+      tags:
+        - subagents
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/AfterSeq'
+      responses:
+        '200':
+          description: Activity in occurrence order.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubagentActivityPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  parameters:
+    SessionId:
+      name: sessionId
+      in: path
+      required: true
+      description: Session identifier.
+      schema:
+        type: string
+        format: uuid
+
+    RequestId:
+      name: requestId
+      in: path
+      required: true
+      description: Pending-request identifier.
+      schema:
+        type: string
+        format: uuid
+
+    WorktreeId:
+      name: worktreeId
+      in: path
+      required: true
+      description: Adapter-owned worktree identifier.
+      schema:
+        type: string
+        format: uuid
+
+    TerminalId:
+      name: terminalId
+      in: path
+      required: true
+      description: Terminal identifier.
+      schema:
+        type: string
+        format: uuid
+
+    ScheduleId:
+      name: scheduleId
+      in: path
+      required: true
+      description: Durable chat-schedule identifier.
+      schema:
+        type: string
+        format: uuid
+
+    SubagentId:
+      name: subagentId
+      in: path
+      required: true
+      description: |
+        Opaque child-agent identifier retained from the SDK or adapter seam.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 200
+
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Maximum items to return in one page.
+      schema:
+        type: integer
+        format: int32
+        minimum: 1
+        maximum: 200
+        default: 50
+
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: Opaque cursor taken from a previous page's nextCursor.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
+
+    AfterSeq:
+      name: afterSeq
+      in: query
+      required: false
+      description: Return only transcript items with a seq greater than this.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+
+    SessionStatusFilter:
+      name: status
+      in: query
+      required: false
+      description: Return only sessions in this status.
+      schema:
+        $ref: '#/components/schemas/SessionStatus'
+
+    LastEventId:
+      name: Last-Event-ID
+      in: header
+      required: false
+      description: |
+        The seq of the last event the client already holds. The stream resumes
+        immediately after it.
+      schema:
+        type: integer
+        format: int64
+        minimum: 0
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        Optional. The adapter binds loopback and requires no credential there;
+        a deployment that fronts it with a reverse proxy may require a bearer
+        token, which is why every operation accepts either.
+
+  schemas:
+    WorkspaceSnapshot:
+      type: object
+      required: [sessions, worktrees, repositories, taskLinks]
+      properties:
+        taskLinks:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceTaskLink'
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        worktrees:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceWorktree'
+        repositories:
+          type: array
+          items:
+            $ref: '#/components/schemas/Repository'
+
+    WorkspaceWorktree:
+      type: object
+      description: Retained worktree identity; does not assert current filesystem or Git state.
+      required: [id, repositoryId, path, baseRef, managed]
+      properties:
+        id: {type: string, format: uuid}
+        repositoryId: {type: string}
+        path: {type: string}
+        baseRef: {type: string}
+        managed: {type: boolean}
+
+    WorkspaceTaskLink:
+      type: object
+      required: [sessionId, taskUrl, generation]
+      properties:
+        sessionId: {type: string, format: uuid}
+        taskUrl: {type: string, format: uri}
+        generation: {type: integer, format: int64, minimum: 1}
+
+    LinkSessionTaskRequest:
+      type: object
+      additionalProperties: false
+      required: [taskUrl, expectedGeneration]
+      properties:
+        taskUrl:
+          type: string
+          pattern: '^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$'
+        expectedGeneration: {type: integer, format: int64, minimum: 0}
+
+    Health:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - ok
+            - degraded
+        version:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Build version of the adapter binary.
+        cliAvailable:
+          type: boolean
+          description: Whether the host Copilot CLI answered its last probe.
+
+    Model:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - capabilities
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: The model identifier the CLI accepts.
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        capabilities:
+          type: array
+          description: Capability tags the CLI reports for this model.
+          items:
+            $ref: '#/components/schemas/ModelCapability'
+
+    ModelCapability:
+      type: string
+      description: A capability the CLI reports for a model.
+      enum:
+        - chat
+        - tools
+        - vision
+        - reasoning
+
+    ModelList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Model'
+
+    Repository:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - root
+        - defaultRef
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Stable configured identifier accepted by createSession.
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        root:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          readOnly: true
+          description: Canonical absolute repository path configured by the operator.
+        defaultRef:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          readOnly: true
+
+    RepositoryList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Repository'
+
+    WorktreeMode:
+      type: string
+      default: newWorktree
+      description: |
+        newWorktree is the default and creates an isolated git worktree for the
+        chat. reuseCurrentWorktree explicitly runs in the configured root.
+        reuseExistingWorktree selects a server-recorded worktree by worktreeId;
+        the browser never supplies its filesystem path.
+      enum:
+        - newWorktree
+        - reuseCurrentWorktree
+        - reuseExistingWorktree
+      x-enum-varnames:
+        - NewWorktree
+        - ReuseCurrentWorktree
+        - ReuseExistingWorktree
+
+    WorktreeState:
+      type: string
+      description: |
+        active is present on disk; missing means its recorded path disappeared;
+        released is an adapter-managed worktree that was intentionally removed.
+      enum:
+        - active
+        - missing
+        - released
+
+    Worktree:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - repositoryId
+        - repositoryRoot
+        - path
+        - branch
+        - headSha
+        - baseRef
+        - managed
+        - clean
+        - state
+        - sessionCount
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        repositoryId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          readOnly: true
+        repositoryRoot:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          readOnly: true
+        path:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          readOnly: true
+        branch:
+          type: string
+          maxLength: 1024
+          readOnly: true
+          description: Empty for a detached HEAD or a missing or released worktree.
+        headSha:
+          type: string
+          pattern: '^$|^[0-9a-f]{40,64}$'
+          readOnly: true
+          description: Empty only when the worktree is missing or released.
+        baseRef:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          readOnly: true
+        managed:
+          type: boolean
+          readOnly: true
+          description: Whether the adapter created and owns cleanup of this worktree.
+        clean:
+          type: boolean
+          readOnly: true
+        state:
+          $ref: '#/components/schemas/WorktreeState'
+        sessionCount:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        createdAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+
+    WorktreeList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Worktree'
+
+    GitFileState:
+      type: string
+      enum:
+        - unmodified
+        - modified
+        - added
+        - deleted
+        - renamed
+        - copied
+        - untracked
+        - ignored
+        - unmerged
+
+    GitChange:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - indexState
+        - worktreeState
+      properties:
+        path:
+          type: string
+          minLength: 1
+          maxLength: 4096
+        previousPath:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Original path for a rename or copy.
+        indexState:
+          $ref: '#/components/schemas/GitFileState'
+        worktreeState:
+          $ref: '#/components/schemas/GitFileState'
+
+    WorktreeChanges:
+      type: object
+      additionalProperties: false
+      required:
+        - worktreeId
+        - headSha
+        - clean
+        - files
+        - patch
+        - truncated
+        - capturedAt
+      properties:
+        worktreeId:
+          type: string
+          format: uuid
+          readOnly: true
+        headSha:
+          type: string
+          pattern: '^[0-9a-f]{40,64}$'
+          readOnly: true
+        clean:
+          type: boolean
+          readOnly: true
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/GitChange'
+        patch:
+          type: string
+          maxLength: 1048576
+          description: Bounded `git diff HEAD --no-ext-diff --binary` output.
+        truncated:
+          type: boolean
+          readOnly: true
+        capturedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+
+    SessionStatus:
+      type: string
+      description: |
+        starting until the CLI is ready, then idle between turns and running
+        during one. ended and failed are terminal.
+      enum:
+        - starting
+        - idle
+        - running
+        - ended
+        - failed
+
+    Session:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - displayName
+        - model
+        - worktreeId
+        - workingDirectory
+        - status
+        - createdAt
+        - updatedAt
+        - turnCount
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+        worktreeId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Worktree grouping this chat in the workbench sidebar.
+        workingDirectory:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          description: Absolute path the CLI session was started in.
+        status:
+          $ref: '#/components/schemas/SessionStatus'
+        createdAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: RFC 3339 timestamp in UTC, ending in Z.
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: RFC 3339 timestamp in UTC, ending in Z.
+        lastTurnAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: When the most recent turn started. Absent until the first prompt.
+        turnCount:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+
+    SessionList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Session'
+        nextCursor:
+          type: string
+          minLength: 1
+          maxLength: 512
+          description: Pass as cursor for the next page. Absent on the last page.
+
+    CreateSessionRequest:
+      description: |
+        A generated discriminated union. Every branch carries the complete
+        session creation request and only the worktree fields valid for its
+        required worktreeMode discriminator.
+      oneOf:
+        - $ref: '#/components/schemas/NewWorktreeSessionRequest'
+        - $ref: '#/components/schemas/ExistingWorktreeSessionRequest'
+        - $ref: '#/components/schemas/CurrentWorktreeSessionRequest'
+      discriminator:
+        propertyName: worktreeMode
+        mapping:
+          newWorktree: '#/components/schemas/NewWorktreeSessionRequest'
+          reuseExistingWorktree: '#/components/schemas/ExistingWorktreeSessionRequest'
+          reuseCurrentWorktree: '#/components/schemas/CurrentWorktreeSessionRequest'
+
+    NewWorktreeSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+        - model
+        - repositoryId
+        - worktreeMode
+      properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Client-generated identity bound to this complete request.
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+        agentId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z][a-z0-9_-]{0,63}$'
+          description: Optional CSF agent identity used to resolve that session's MCP configuration.
+        repositoryId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Identifier from listRepositories, never an arbitrary path.
+        worktreeMode:
+          type: string
+          enum: [newWorktree]
+          x-enum-varnames: [NewWorktreeRequestMode]
+        baseRef:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: |
+            Ref used for a new worktree. Absent means the repository's
+            configured defaultRef. Invalid or remote-only refs are rejected.
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        systemInstructions:
+          type: string
+          minLength: 1
+          maxLength: 16384
+
+    ExistingWorktreeSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+        - model
+        - repositoryId
+        - worktreeMode
+        - worktreeId
+      properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Client-generated identity bound to this complete request.
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+        agentId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z][a-z0-9_-]{0,63}$'
+          description: Optional CSF agent identity used to resolve that session's MCP configuration.
+        repositoryId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Identifier from listRepositories, never an arbitrary path.
+        worktreeMode:
+          type: string
+          enum: [reuseExistingWorktree]
+          x-enum-varnames: [ExistingWorktreeRequestMode]
+        worktreeId:
+          type: string
+          format: uuid
+          description: Required server-recorded worktree selected by identifier.
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        systemInstructions:
+          type: string
+          minLength: 1
+          maxLength: 16384
+
+    CurrentWorktreeSessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+        - model
+        - repositoryId
+        - worktreeMode
+      properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Client-generated identity bound to this complete request.
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+        agentId:
+          type: string
+          minLength: 1
+          maxLength: 64
+          pattern: '^[a-z][a-z0-9_-]{0,63}$'
+          description: Optional CSF agent identity used to resolve that session's MCP configuration.
+        repositoryId:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Identifier from listRepositories, never an arbitrary path.
+        worktreeMode:
+          type: string
+          enum: [reuseCurrentWorktree]
+          x-enum-varnames: [CurrentWorktreeRequestMode]
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        systemInstructions:
+          type: string
+          minLength: 1
+          maxLength: 16384
+
+    UpdateSessionRequest:
+      type: object
+      additionalProperties: false
+      description: At least one property must be present.
+      minProperties: 1
+      properties:
+        model:
+          type: string
+          minLength: 1
+          maxLength: 200
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    PromptMode:
+      type: string
+      description: queue appends behind the current work; steer interrupts it.
+      enum:
+        - queue
+        - steer
+
+    PromptRequest:
+      description: |
+        One prompt submission. idempotencyKey identifies this exact text,
+        mode, and optional author within the session so a client can safely
+        retry after losing the response.
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+        - text
+        - mode
+      properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          not:
+            enum:
+              - '00000000-0000-0000-0000-000000000000'
+          description: Non-zero client-generated retry identity scoped to the session.
+        text:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        mode:
+          $ref: '#/components/schemas/PromptMode'
+        author:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: |
+            Display name the prompt is attributed to in the shared transcript.
+            Absent means the adapter attributes it to the session owner.
+
+    TurnStatus:
+      type: string
+      enum:
+        - queued
+        - running
+        - completed
+        - aborted
+        - failed
+
+    Turn:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sessionId
+        - status
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sessionId:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/TurnStatus'
+        createdAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: RFC 3339 timestamp in UTC, ending in Z.
+        startedAt:
+          type: string
+          format: date-time
+          description: First observed provider turn start; absent when historical evidence is unavailable.
+        completedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: Absent while the turn is queued or running.
+
+    TranscriptItemKind:
+      type: string
+      description: |
+        assistantMessage is delta-collapsed: the stream's token deltas are
+        already joined into one persisted item.
+      enum:
+        - userMessage
+        - assistantMessage
+        - toolCall
+        - toolResult
+        - systemNotice
+
+    TranscriptItem:
+      type: object
+      additionalProperties: false
+      required:
+        - seq
+        - sessionId
+        - kind
+        - occurredAt
+        - text
+      properties:
+        seq:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
+          description: Monotonic, gapless position within the session.
+        sessionId:
+          type: string
+          format: uuid
+          readOnly: true
+        turnId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: Absent for items that belong to no turn.
+        kind:
+          $ref: '#/components/schemas/TranscriptItemKind'
+        occurredAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: RFC 3339 timestamp in UTC, ending in Z.
+        author:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Present on userMessage; the display name that sent it.
+        toolName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Present on toolCall and toolResult.
+        toolCallId:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: |
+            The CLI's identifier for one tool invocation. Present on toolCall
+            and toolResult; a result carries the same value as its call, so a
+            client pairs them on this rather than on toolName.
+        text:
+          type: string
+          maxLength: 1048576
+          description: |
+            The rendered body: message Markdown, the tool's arguments, the
+            tool's output, or the notice. Empty when the item carries no body.
+
+    TranscriptPage:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TranscriptItem'
+        nextAfterSeq:
+          type: integer
+          format: int64
+          minimum: 1
+          description: |
+            Pass as afterSeq for the next page. Absent when the page reached
+            the end of the transcript.
+
+    SessionEventKind:
+      type: string
+      description: The kind of change an SSE frame reports.
+      enum:
+        - sessionUpdated
+        - turnStarted
+        - turnCompleted
+        - transcriptAppended
+        - assistantDelta
+        - requestOpened
+        - requestResolved
+        - subagentUpdated
+        - subagentActivityAppended
+        - heartbeat
+
+    SessionEvent:
+      description: |
+        The generated discriminated union of SSE frames. Each kind carries one
+        exact payload type; clients never cast an untyped map into a response
+        model. heartbeat is the only variant without a payload.
+      oneOf:
+        - $ref: '#/components/schemas/SessionUpdatedEvent'
+        - $ref: '#/components/schemas/TurnStartedEvent'
+        - $ref: '#/components/schemas/TurnCompletedEvent'
+        - $ref: '#/components/schemas/TranscriptAppendedEvent'
+        - $ref: '#/components/schemas/AssistantDeltaEvent'
+        - $ref: '#/components/schemas/RequestOpenedEvent'
+        - $ref: '#/components/schemas/RequestResolvedEvent'
+        - $ref: '#/components/schemas/SubagentUpdatedEvent'
+        - $ref: '#/components/schemas/SubagentActivityAppendedEvent'
+        - $ref: '#/components/schemas/HeartbeatEvent'
+      discriminator:
+        propertyName: kind
+        mapping:
+          sessionUpdated: '#/components/schemas/SessionUpdatedEvent'
+          turnStarted: '#/components/schemas/TurnStartedEvent'
+          turnCompleted: '#/components/schemas/TurnCompletedEvent'
+          transcriptAppended: '#/components/schemas/TranscriptAppendedEvent'
+          assistantDelta: '#/components/schemas/AssistantDeltaEvent'
+          requestOpened: '#/components/schemas/RequestOpenedEvent'
+          requestResolved: '#/components/schemas/RequestResolvedEvent'
+          subagentUpdated: '#/components/schemas/SubagentUpdatedEvent'
+          subagentActivityAppended: '#/components/schemas/SubagentActivityAppendedEvent'
+          heartbeat: '#/components/schemas/HeartbeatEvent'
+
+    SessionUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [sessionUpdated]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/Session'}
+
+    TurnStartedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [turnStarted]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/Turn'}
+
+    TurnCompletedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [turnCompleted]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/Turn'}
+
+    TranscriptAppendedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [transcriptAppended]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/TranscriptItem'}
+
+    AssistantDeltaEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [assistantDelta]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/AssistantDelta'}
+
+    RequestOpenedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [requestOpened]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/SessionRequest'}
+
+    RequestResolvedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [requestResolved]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/SessionRequest'}
+
+    SubagentUpdatedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [subagentUpdated]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/Subagent'}
+
+    SubagentActivityAppendedEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt, payload]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [subagentActivityAppended]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+        payload: {$ref: '#/components/schemas/SubagentActivity'}
+
+    HeartbeatEvent:
+      type: object
+      additionalProperties: false
+      required: [seq, sessionId, kind, occurredAt]
+      properties:
+        seq: {type: integer, format: int64, minimum: 1}
+        sessionId: {type: string, format: uuid}
+        kind: {type: string, enum: [heartbeat]}
+        occurredAt: {type: string, format: date-time, pattern: 'Z$'}
+
+    AssistantDelta:
+      type: object
+      additionalProperties: false
+      required:
+        - turnId
+        - text
+      properties:
+        turnId:
+          type: string
+          format: uuid
+        text:
+          type: string
+          maxLength: 65536
+
+    SessionRequestKind:
+      type: string
+      enum:
+        - permission
+
+    SessionRequestStatus:
+      type: string
+      enum:
+        - pending
+        - approved
+        - denied
+
+    SessionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sessionId
+        - kind
+        - status
+        - prompt
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sessionId:
+          type: string
+          format: uuid
+          readOnly: true
+        turnId:
+          type: string
+          format: uuid
+          readOnly: true
+          description: The turn the request was raised in, when there is one.
+        kind:
+          $ref: '#/components/schemas/SessionRequestKind'
+        status:
+          $ref: '#/components/schemas/SessionRequestStatus'
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 65536
+          description: What the CLI is asking, rendered for a human.
+        toolName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Present on permission; the tool asking for it.
+        createdAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: RFC 3339 timestamp in UTC, ending in Z.
+        resolvedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: Absent while status is pending.
+
+    SessionRequestList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionRequest'
+
+    ResolveDecision:
+      type: string
+      description: A pending permission request accepts approve or deny.
+      enum:
+        - approve
+        - deny
+      x-enum-varnames:
+        - Approve
+        - Deny
+
+    ResolveSessionRequestBody:
+      type: object
+      additionalProperties: false
+      required: [decision]
+      properties:
+        decision:
+          $ref: '#/components/schemas/ResolveDecision'
+
+    AbortTurnRequest:
+      type: object
+      additionalProperties: false
+      required: [idempotencyKey, turnId]
+      properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: Client-generated identity bound to this exact abort target.
+        turnId:
+          type: string
+          format: uuid
+          description: Exact active turn the client intends to stop.
+
+    TerminalStatus:
+      type: string
+      description: starting and running are live; exited and failed are terminal.
+      enum:
+        - starting
+        - running
+        - exited
+        - failed
+
+    Terminal:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - worktreeId
+        - status
+        - shell
+        - columns
+        - rows
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        worktreeId:
+          type: string
+          format: uuid
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/TerminalStatus'
+        shell:
+          type: string
+          minLength: 1
+          maxLength: 4096
+          readOnly: true
+          description: Configured executable; clients cannot select it.
+        columns:
+          type: integer
+          format: int32
+          minimum: 20
+          maximum: 400
+        rows:
+          type: integer
+          format: int32
+          minimum: 5
+          maximum: 200
+        exitCode:
+          type: integer
+          format: int32
+          readOnly: true
+          description: Present after a normal process exit.
+        createdAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+
+    CreateTerminalRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - columns
+        - rows
+      properties:
+        columns:
+          type: integer
+          format: int32
+          minimum: 20
+          maximum: 400
+        rows:
+          type: integer
+          format: int32
+          minimum: 5
+          maximum: 200
+
+    ResizeTerminalRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - columns
+        - rows
+      properties:
+        columns:
+          type: integer
+          format: int32
+          minimum: 20
+          maximum: 400
+        rows:
+          type: integer
+          format: int32
+          minimum: 5
+          maximum: 200
+
+    TerminalInputRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: string
+          minLength: 1
+          maxLength: 65536
+          description: UTF-8 input written to the terminal's pseudo-terminal.
+
+    TerminalEventKind:
+      type: string
+      enum:
+        - output
+        - exited
+        - failed
+        - heartbeat
+
+    TerminalList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Terminal'
+
+    TerminalEvent:
+      type: object
+      additionalProperties: false
+      required:
+        - seq
+        - terminalId
+        - kind
+        - occurredAt
+        - replayTruncated
+      properties:
+        seq:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
+        terminalId:
+          type: string
+          format: uuid
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/TerminalEventKind'
+        occurredAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        data:
+          type: string
+          maxLength: 65536
+          description: UTF-8 output chunk; present only for output.
+        exitCode:
+          type: integer
+          format: int32
+          readOnly: true
+          description: Present on exited.
+        replayTruncated:
+          type: boolean
+          readOnly: true
+          description: True on the first replayed event when older output was evicted.
+
+    ChatScheduleStatus:
+      type: string
+      enum:
+        - active
+        - paused
+
+    ChatScheduleRunStatus:
+      type: string
+      enum:
+        - running
+        - succeeded
+        - failed
+        - canceled
+        - skipped
+
+    ChatSchedule:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sessionId
+        - displayName
+        - prompt
+        - cronExpression
+        - timezone
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          readOnly: true
+        sessionId:
+          type: string
+          format: uuid
+          readOnly: true
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        cronExpression:
+          type: string
+          minLength: 1
+          maxLength: 1024
+          description: Five-field expression validated by candace/pkg/cron.Raw.
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: Portable IANA zone; Local is rejected.
+        status:
+          $ref: '#/components/schemas/ChatScheduleStatus'
+        nextRunAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+          description: Absent while paused.
+        lastRunAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        lastRunStatus:
+          $ref: '#/components/schemas/ChatScheduleRunStatus'
+        lastError:
+          type: string
+          maxLength: 4096
+          readOnly: true
+          description: Human-readable failure or skip reason from the most recent occurrence.
+        createdAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+
+    ChatScheduleList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatSchedule'
+
+    CreateChatScheduleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - idempotencyKey
+        - sessionId
+        - displayName
+        - prompt
+        - cronExpression
+        - timezone
+      properties:
+        idempotencyKey:
+          type: string
+          format: uuid
+          description: |
+            Stable identity for one create attempt. Exact retries return the
+            original schedule; reusing the key for a different normalized
+            request returns idempotency_key_reused.
+        sessionId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        cronExpression:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    UpdateChatScheduleRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        prompt:
+          type: string
+          minLength: 1
+          maxLength: 65536
+        cronExpression:
+          type: string
+          minLength: 1
+          maxLength: 1024
+        timezone:
+          type: string
+          minLength: 1
+          maxLength: 200
+        status:
+          $ref: '#/components/schemas/ChatScheduleStatus'
+
+    SubagentStatus:
+      type: string
+      enum:
+        - active
+        - completed
+        - failed
+
+    Subagent:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - sessionId
+        - displayName
+        - status
+        - activityCount
+        - startedAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 200
+          readOnly: true
+          description: Opaque identifier retained from the SDK or adapter seam.
+        sessionId:
+          type: string
+          format: uuid
+          readOnly: true
+        turnId:
+          type: string
+          format: uuid
+          readOnly: true
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 200
+          readOnly: true
+        status:
+          $ref: '#/components/schemas/SubagentStatus'
+        summary:
+          type: string
+          maxLength: 65536
+          readOnly: true
+          description: Latest actual progress text, absent when none was reported.
+        activityCount:
+          type: integer
+          format: int64
+          minimum: 0
+          readOnly: true
+        startedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        completedAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+
+    SubagentList:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Subagent'
+
+    SubagentActivityKind:
+      type: string
+      enum:
+        - started
+        - progress
+        - toolCall
+        - toolResult
+        - message
+        - completed
+        - failed
+
+    SubagentActivity:
+      type: object
+      additionalProperties: false
+      required:
+        - seq
+        - sessionId
+        - subagentId
+        - kind
+        - occurredAt
+        - text
+      properties:
+        seq:
+          type: integer
+          format: int64
+          minimum: 1
+          readOnly: true
+          description: Monotonic, gapless position within this subagent.
+        sessionId:
+          type: string
+          format: uuid
+          readOnly: true
+        subagentId:
+          type: string
+          minLength: 1
+          maxLength: 200
+          readOnly: true
+        kind:
+          $ref: '#/components/schemas/SubagentActivityKind'
+        occurredAt:
+          type: string
+          format: date-time
+          pattern: 'Z$'
+          readOnly: true
+        text:
+          type: string
+          maxLength: 1048576
+          description: Actual progress, message, arguments, output, or failure text.
+        toolName:
+          type: string
+          minLength: 1
+          maxLength: 200
+        toolCallId:
+          type: string
+          minLength: 1
+          maxLength: 200
+
+    SubagentActivityPage:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubagentActivity'
+        nextAfterSeq:
+          type: integer
+          format: int64
+          minimum: 1
+
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Stable machine-readable reason, such as session_not_found.
+        message:
+          type: string
+          minLength: 1
+          maxLength: 2048
+        details:
+          type: object
+          description: Optional per-code context, such as the offending field.
+          additionalProperties: true
+
+    UsageObservation:
+      type: object
+      additionalProperties: false
+      required: [kind]
+      description: Source SDK usage; omitted fields are unknown. modelCall is incremental; sessionCheckpoint is cumulative.
+      properties:
+        kind:
+          type: string
+          enum: [modelCall, sessionCheckpoint]
+        model:
+          type: string
+        apiCallId:
+          type: string
+        providerCallId:
+          type: string
+        serviceRequestId:
+          type: string
+        inputTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        outputTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        cacheReadTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        cacheWriteTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        apiDurationMs:
+          type: integer
+          format: int64
+          minimum: 0
+        billingMultiplier:
+          type: number
+          format: double
+          minimum: 0
+          description: Provider model multiplier; not USD or premium request consumption.
+        premiumRequests:
+          type: number
+          format: double
+          minimum: 0
+          description: Cumulative session premium requests explicitly reported by the provider.
+        nanoAiu:
+          type: number
+          format: double
+          minimum: 0
+          description: Provider-reported nano AI units; incremental for modelCall and cumulative for sessionCheckpoint.
+
+    SessionTelemetry:
+      type: object
+      additionalProperties: false
+      required: [sessionId, displayName, model, status, createdAt, updatedAt, turnCount, knownStartedTurnCount, knownCompletedTurnCount, durationKnownTurnCount, observedModelCallCount, uncorrelatedUsageCount]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        displayName:
+          type: string
+        model:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        latestStartedAt:
+          type: string
+          format: date-time
+        latestCompletedAt:
+          type: string
+          format: date-time
+        latestUsageAt:
+          type: string
+          format: date-time
+        latestTurnId:
+          type: string
+          format: uuid
+        latestTurnStatus:
+          type: string
+        turnCount:
+          type: integer
+          format: int64
+          minimum: 0
+        knownStartedTurnCount:
+          type: integer
+          format: int64
+          minimum: 0
+        knownCompletedTurnCount:
+          type: integer
+          format: int64
+          minimum: 0
+        durationKnownTurnCount:
+          type: integer
+          format: int64
+          minimum: 0
+        observedModelCallCount:
+          type: integer
+          format: int64
+          minimum: 0
+        uncorrelatedUsageCount:
+          type: integer
+          format: int64
+          minimum: 0
+        inputTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        outputTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        cacheReadTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        cacheWriteTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        reasoningTokens:
+          type: integer
+          format: int64
+          minimum: 0
+        apiDurationMs:
+          type: integer
+          format: int64
+          minimum: 0
+        durationSeconds:
+          type: number
+          format: double
+          minimum: 0
+        premiumRequests:
+          type: number
+          format: double
+          minimum: 0
+
+    TraceDeliveryCount:
+      type: object
+      additionalProperties: false
+      required: [state, count]
+      properties:
+        state:
+          type: string
+          enum: [pending, running, accepted, failed]
+          x-enum-varnames: [TracePending, TraceRunning, TraceAccepted, TraceFailed]
+        count:
+          type: integer
+          format: int64
+          minimum: 0
+
+    TelemetrySnapshot:
+      type: object
+      additionalProperties: false
+      required: [observedAt, sessions, traces]
+      properties:
+        observedAt:
+          type: string
+          format: date-time
+        sessions:
+          type: array
+          items:
+            $ref: '#/components/schemas/SessionTelemetry'
+        traces:
+          type: array
+          items:
+            $ref: '#/components/schemas/TraceDeliveryCount'
+
+  responses:
+    BadRequest:
+      description: The request is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: The addressed resource does not exist.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: The resource is not in a state that allows this.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    BadGateway:
+      description: The host Copilot CLI could not be reached or rejected the call.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalServerError:
+      description: The request could not be completed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

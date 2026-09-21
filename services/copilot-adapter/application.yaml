@@ -1,0 +1,675 @@
+schema_version: 1
+
+application:
+  name: copilot-adapter
+  intent: |
+    Expose one host's GitHub Copilot CLI as a browser workbench: configured
+    repositories, isolated git worktrees, chats, transcript and permission
+    requests, bounded terminals, durable chat schedules, and the real subagent
+    activity reported by the SDK. Routes and wire types live in openapi.yaml;
+    SQL migrations and generated SQLC queries own relational persistence.
+
+  resources:
+    - name: repository
+      read_only: true
+      source: process_configuration
+      identifier:
+        name: id
+        type: string
+        generated_by: operator
+      attributes:
+        - name: display_name
+          type: string
+          required: true
+        - name: root
+          type: string
+          required: true
+          generated_by: application
+        - name: default_ref
+          type: string
+          required: true
+          generated_by: operator
+
+    - name: worktree
+      identifier:
+        name: id
+        type: uuid
+        generated_by: application
+      attributes:
+        - name: repository_id
+          type: string
+          required: true
+          mutable: false
+        - name: repository_root
+          type: string
+          required: true
+          mutable: false
+        - name: path
+          type: string
+          required: true
+          mutable: false
+        - name: branch
+          type: string
+          required: true
+          generated_by: git
+        - name: head_sha
+          type: string
+          required: true
+          generated_by: git
+        - name: base_ref
+          type: string
+          required: true
+          mutable: false
+        - name: managed
+          type: boolean
+          required: true
+          mutable: false
+        - name: clean
+          type: boolean
+          required: true
+          generated_by: git
+        - name: state
+          type: enum
+          required: true
+          generated_by: application
+          values: [active, missing, released]
+        - name: session_count
+          type: integer
+          required: true
+          generated_by: database
+        - name: created_at
+          type: timestamp
+          generated_by: application
+        - name: updated_at
+          type: timestamp
+          generated_by: application
+
+    - name: session
+      belongs_to: worktree
+      identifier:
+        name: id
+        type: uuid
+        generated_by: application
+      attributes:
+        - name: display_name
+          type: string
+          required: true
+          mutable: true
+          min_length: 1
+          max_length: 200
+        - name: model
+          type: string
+          required: true
+          mutable: true
+          min_length: 1
+          max_length: 200
+        - name: worktree_id
+          type: uuid
+          required: true
+          mutable: false
+        - name: working_directory
+          type: string
+          required: true
+          mutable: false
+          min_length: 1
+          max_length: 4096
+        - name: system_instructions
+          type: string
+          required: false
+          mutable: false
+          max_length: 16384
+        - name: status
+          type: enum
+          required: true
+          mutable: true
+          values: [starting, idle, running, ended, failed]
+        - name: created_at
+          type: timestamp
+          generated_by: application
+        - name: updated_at
+          type: timestamp
+          generated_by: application
+        - name: last_turn_at
+          type: timestamp
+          required: false
+          generated_by: application
+        - name: turn_count
+          type: integer
+          required: true
+          generated_by: database
+
+    - name: turn
+      belongs_to: session
+      identifier:
+        name: id
+        type: uuid
+        generated_by: application
+      attributes:
+        - name: status
+          type: enum
+          required: true
+          mutable: true
+          values: [queued, running, completed, aborted, failed]
+        - name: prompt_text
+          type: string
+          required: true
+          mutable: false
+          min_length: 1
+          max_length: 65536
+        - name: prompt_mode
+          type: enum
+          required: true
+          mutable: false
+          values: [queue, steer]
+        - name: author
+          type: string
+          required: false
+          mutable: false
+          max_length: 100
+        - name: schedule_occurrence_id
+          type: string
+          required: false
+          mutable: false
+          generated_by: cron
+        - name: delivery_status
+          type: enum
+          required: true
+          mutable: true
+          values: [pending, unknown, accepted, failed]
+        - name: created_at
+          type: timestamp
+          generated_by: application
+        - name: completed_at
+          type: timestamp
+          required: false
+          generated_by: application
+
+    - name: transcript_item
+      belongs_to: session
+      identifier:
+        name: seq
+        type: integer
+        generated_by: database
+        scope: session
+      attributes:
+        - name: kind
+          type: enum
+          required: true
+          mutable: false
+          values: [userMessage, assistantMessage, toolCall, toolResult, systemNotice]
+        - name: turn_id
+          type: uuid
+          required: false
+          mutable: false
+        - name: author
+          type: string
+          required: false
+          mutable: false
+          max_length: 100
+        - name: tool_name
+          type: string
+          required: false
+          mutable: false
+          max_length: 200
+        - name: tool_call_id
+          type: string
+          required: false
+          mutable: false
+          max_length: 200
+        - name: text
+          type: string
+          required: true
+          mutable: false
+          max_length: 1048576
+        - name: occurred_at
+          type: timestamp
+          generated_by: application
+
+    - name: session_request
+      belongs_to: session
+      identifier:
+        name: id
+        type: uuid
+        generated_by: application
+      attributes:
+        - name: kind
+          type: enum
+          required: true
+          mutable: false
+          values: [permission]
+        - name: status
+          type: enum
+          required: true
+          mutable: true
+          values: [pending, approved, denied]
+        - name: prompt
+          type: string
+          required: true
+          mutable: false
+          min_length: 1
+          max_length: 65536
+        - name: tool_name
+          type: string
+          required: false
+          mutable: false
+          max_length: 200
+        - name: delivery_status
+          type: enum
+          required: true
+          mutable: true
+          values: [pending, delivering, delivered, abandoned]
+        - name: created_at
+          type: timestamp
+          generated_by: application
+        - name: resolved_at
+          type: timestamp
+          required: false
+          generated_by: application
+
+    - name: terminal
+      belongs_to: worktree
+      persistence: process_memory
+      identifier:
+        name: id
+        type: uuid
+        generated_by: application
+      attributes:
+        - name: status
+          type: enum
+          required: true
+          mutable: true
+          values: [starting, running, exited, failed]
+        - name: shell
+          type: string
+          required: true
+          generated_by: process_configuration
+        - name: columns
+          type: integer
+          required: true
+          mutable: true
+        - name: rows
+          type: integer
+          required: true
+          mutable: true
+        - name: exit_code
+          type: integer
+          required: false
+          generated_by: process
+        - name: created_at
+          type: timestamp
+          generated_by: application
+        - name: updated_at
+          type: timestamp
+          generated_by: application
+
+    - name: terminal_event
+      belongs_to: terminal
+      persistence: bounded_process_memory
+      identifier:
+        name: seq
+        type: integer
+        generated_by: application
+        scope: terminal
+      attributes:
+        - name: kind
+          type: enum
+          required: true
+          values: [output, exited, failed, heartbeat]
+        - name: data
+          type: string
+          required: false
+          max_length: 65536
+        - name: exit_code
+          type: integer
+          required: false
+        - name: replay_truncated
+          type: boolean
+          required: true
+        - name: occurred_at
+          type: timestamp
+          generated_by: application
+
+    - name: chat_schedule
+      belongs_to: session
+      identifier:
+        name: id
+        type: uuid
+        generated_by: application
+      attributes:
+        - name: display_name
+          type: string
+          required: true
+          mutable: true
+          max_length: 200
+        - name: prompt
+          type: string
+          required: true
+          mutable: true
+          max_length: 65536
+        - name: cron_expression
+          type: string
+          required: true
+          mutable: true
+          max_length: 1024
+        - name: timezone
+          type: string
+          required: true
+          mutable: true
+          max_length: 200
+        - name: status
+          type: enum
+          required: true
+          mutable: true
+          values: [active, paused]
+        - name: next_run_at
+          type: timestamp
+          required: false
+          generated_by: cron
+        - name: last_run_at
+          type: timestamp
+          required: false
+          generated_by: cron
+        - name: last_run_status
+          type: enum
+          required: false
+          generated_by: cron
+          values: [running, succeeded, failed, canceled, skipped]
+        - name: last_error
+          type: string
+          required: false
+          generated_by: cron
+        - name: created_at
+          type: timestamp
+          generated_by: application
+        - name: updated_at
+          type: timestamp
+          generated_by: application
+
+    - name: subagent
+      belongs_to: session
+      read_only: true
+      source: copilot_sdk
+      identifier:
+        name: id
+        type: string
+        generated_by: external
+        scope: session
+      attributes:
+        - name: turn_id
+          type: uuid
+          required: false
+          mutable: false
+        - name: display_name
+          type: string
+          required: true
+          mutable: false
+        - name: status
+          type: enum
+          required: true
+          values: [active, completed, failed]
+        - name: summary
+          type: string
+          required: false
+          max_length: 65536
+        - name: activity_count
+          type: integer
+          required: true
+          generated_by: database
+        - name: started_at
+          type: timestamp
+          generated_by: external
+        - name: updated_at
+          type: timestamp
+          generated_by: external
+        - name: completed_at
+          type: timestamp
+          required: false
+          generated_by: external
+
+    - name: subagent_activity
+      belongs_to: subagent
+      read_only: true
+      source: copilot_sdk
+      identifier:
+        name: seq
+        type: integer
+        generated_by: database
+        scope: subagent
+      attributes:
+        - name: kind
+          type: enum
+          required: true
+          values: [started, progress, toolCall, toolResult, message, completed, failed]
+        - name: text
+          type: string
+          required: true
+          max_length: 1048576
+        - name: tool_name
+          type: string
+          required: false
+          max_length: 200
+        - name: tool_call_id
+          type: string
+          required: false
+          max_length: 200
+        - name: occurred_at
+          type: timestamp
+          generated_by: external
+
+    - name: model
+      read_only: true
+      source: copilot_cli
+      identifier:
+        name: id
+        type: string
+        generated_by: external
+      attributes:
+        - name: display_name
+          type: string
+          required: true
+        - name: capabilities
+          type: enum_set
+          required: true
+          values: [chat, tools, vision, reasoning]
+
+  capabilities:
+    - name: report_health
+      output: health
+    - name: list_models
+      output: model_collection
+      degraded: empty_list
+    - name: list_repositories
+      output: repository_collection
+    - name: create_session
+      input: [idempotencyKey, model, repositoryId, worktreeMode, worktreeId, baseRef, displayName, systemInstructions]
+      defaults:
+        worktreeMode: newWorktree
+        baseRef: repository.default_ref
+      output: session
+    - name: list_sessions
+      input: [limit, cursor, status]
+      output: session_page
+    - name: get_session
+      input: [sessionId]
+      output: session
+      absent: not_found
+    - name: update_session
+      input: [sessionId, model, displayName]
+      output: session
+      absent: not_found
+    - name: end_session
+      input: [sessionId]
+      output: session
+      absent: not_found
+    - name: submit_prompt
+      input: [sessionId, idempotencyKey, text, mode, author]
+      output: turn
+      absent: not_found
+    - name: abort_turn
+      input: [sessionId, turnId, idempotencyKey]
+      output: turn
+      absent: not_found
+    - name: get_active_turn
+      input: [sessionId]
+      output: turn
+      absent: not_found
+    - name: list_transcript
+      input: [sessionId, limit, afterSeq]
+      output: transcript_page
+      absent: not_found
+    - name: stream_session_events
+      input: [sessionId, lastEventId]
+      output: session_event_stream
+      absent: not_found
+    - name: list_session_requests
+      input: [sessionId]
+      output: session_request_collection
+      absent: not_found
+    - name: resolve_session_request
+      input: [sessionId, requestId, decision]
+      output: session_request
+      absent: not_found
+    - name: list_worktrees
+      output: worktree_collection
+    - name: get_worktree
+      input: [worktreeId]
+      output: worktree
+      absent: not_found
+    - name: get_worktree_changes
+      input: [worktreeId]
+      output: worktree_changes
+      absent: not_found
+    - name: list_terminals
+      input: [worktreeId]
+      output: terminal_collection
+      absent: not_found
+    - name: create_terminal
+      input: [worktreeId, columns, rows]
+      output: terminal
+      absent: not_found
+    - name: get_terminal
+      input: [worktreeId, terminalId]
+      output: terminal
+      absent: not_found
+    - name: resize_terminal
+      input: [worktreeId, terminalId, columns, rows]
+      output: terminal
+      absent: not_found
+    - name: write_terminal_input
+      input: [worktreeId, terminalId, data]
+      output: terminal
+      absent: not_found
+    - name: stop_terminal
+      input: [worktreeId, terminalId]
+      output: terminal
+      absent: not_found
+    - name: stream_terminal_events
+      input: [worktreeId, terminalId, afterSeq]
+      output: terminal_event_stream
+      absent: not_found
+    - name: list_chat_schedules
+      output: chat_schedule_collection
+    - name: create_chat_schedule
+      input: [idempotencyKey, sessionId, displayName, prompt, cronExpression, timezone]
+      output: chat_schedule
+      absent: not_found
+    - name: get_chat_schedule
+      input: [scheduleId]
+      output: chat_schedule
+      absent: not_found
+    - name: update_chat_schedule
+      input: [scheduleId, displayName, prompt, cronExpression, timezone, status]
+      output: chat_schedule
+      absent: not_found
+    - name: delete_chat_schedule
+      input: [scheduleId]
+      output: no_content
+      absent: not_found
+    - name: list_subagents
+      input: [sessionId]
+      output: subagent_collection
+      absent: not_found
+    - name: get_subagent
+      input: [sessionId, subagentId]
+      output: subagent
+      absent: not_found
+    - name: list_subagent_activity
+      input: [sessionId, subagentId, limit, afterSeq]
+      output: subagent_activity_page
+      absent: not_found
+
+  invariants:
+    additional_input_fields: reject
+    timestamps: utc
+    durable_persistence: postgresql_relational_columns_via_sqlc
+    persisted_generated_http_or_sse_payloads: forbidden
+    event_replay: relational_event_references_and_domain_versions_reconstructed_into_generated_types
+    identifiers: uuid_v4_except_scoped_sequences_external_subagent_ids_and_deterministic_permission_event_uuid_v5
+    list_session_cursor: opaque_created_at_and_uuid_keyset
+    transcript_seq: atomic_monotonic_gapless_per_session
+    session_event_seq: atomic_monotonic_gapless_per_session
+    subagent_activity_seq: monotonic_gapless_per_subagent
+    session_terminal_states: [ended, failed]
+    ended_session_retains_metadata: true
+    ending_session_terminalizes_active_turns_requests_subagents_and_schedules: true
+    terminal_session_bridge_events: ignored_after_session_row_serialization_except_targeted_abort_convergence
+    new_chat_worktree_mode_default: newWorktree
+    create_session_worktree_shape: generated_discriminated_union
+    create_session_http_idempotency: client_uuid_global_and_bound_to_exact_request
+    create_session_idempotency_retry: returns_original_session_without_worktree_or_sdk_reprovisioning
+    browser_supplied_repository_paths: forbidden
+    worktree_creation: configured_repository_and_validated_local_ref_only
+    reused_worktree_identity: unique_by_canonical_path
+    terminal_command: fixed_by_process_configuration
+    terminal_output: bounded_in_memory_replay_with_truncation_signal
+    terminal_process_cleanup: mounting_process
+    prompt_requires_live_session: true
+    prompt_http_idempotency: non_zero_client_uuid_scoped_to_session_and_bound_to_exact_request
+    prompt_idempotency_retry: returns_original_turn_without_a_second_sdk_handoff
+    prompt_persisted_before_cli_send: true
+    prompt_rejection_before_sdk_acceptance: durable_failed_turn
+    ambiguous_sdk_send_failure: durable_unknown_turn_blocks_later_delivery_until_sdk_event_reconciles
+    pending_turn_restart: atomically_failed_before_sdk_resume_without_redelivery
+    accepted_or_unknown_turn_restart: atomically_aborted_before_sdk_resume_without_redelivery
+    exact_turn_correlation: sdk_interaction_id_plus_iteration_turn_id_to_durable_prompt_with_fifo_private_boundaries_when_optional_interaction_ids_are_absent
+    sdk_turn_end: model_iteration_only_nonterminal
+    durable_turn_completion: steering_owner_handoff_or_next_distinct_processed_interaction_or_root_session_idle
+    sdk_user_message_delivery_correlation: steering_oldest_immediate_else_global_serialized_submission_order_including_interaction_id_absence
+    sdk_resume_pending_work: explicitly_disabled_after_atomic_interrupted_activity_reconciliation
+    sdk_event_id_deduplication: bounded_recent_window_plus_parent_id_chain_cursor_with_relational_source_receipts_across_process_restart
+    abort_targets_exact_active_turn: true
+    abort_http_idempotency: client_uuid_scoped_to_session_and_bound_to_exact_turn
+    abort_retry_after_success: returns_original_aborted_turn_without_targeting_a_successor
+    abort_target_discovery: durable_running_turn_read_before_mutation
+    ambiguous_abort_resolution: abort_event_aborts_else_ordinary_owner_handoff_or_root_idle_completes_and_releases_target
+    session_idle_requires_no_correlated_active_turns: true
+    request_decisions_by_kind:
+      permission: [approve, deny]
+    permission_request_identity: deterministic_from_session_id_and_sdk_permission_event_id_occurrence
+    permission_event_subscription: sdk_no_result_callback_advertises_capability_without_resolving
+    permission_request_provenance: exact_tool_call_then_exact_subagent_then_root_turn_only_when_no_exact_owner_is_supplied
+    permission_resolution_delivery: exact_sdk_request_id_synchronous_success_required_same_decision_retry_safe_and_acknowledged_after_database_commit
+    permission_denial_transcript: one_human_readable_system_notice_after_delivered_denial
+    permission_resolution_restart: pending_or_delivering_rows_atomically_abandoned_with_interrupted_turns_before_sdk_resume_because_interrupted_requests_are_not_rehydrated
+    permission_external_completion: exact_sdk_request_completion_reconciles_the_matching_pending_projection
+    permission_resolved_by_hook: observed_without_opening_an_operator_request
+    missing_sdk_session_restart: versioned_failed_session_with_terminal_children_and_paused_schedules_then_continue
+    unclassified_sdk_resume_failure: abort_restoration_without_failing_session
+    assistant_delta_live_preview: adjacent_same_turn_correlated_conforming_projector_input_coalesced_into_bounded_durable_chunks
+    assistant_delta_receipts: every_correlated_conforming_projector_input_claimed_atomically_with_its_durable_chunk
+    assistant_delta_flush_bound: liquid_proto_source_size_chunk_size_count_and_latency_configuration
+    assistant_delta_oversized_preview: rejected_before_persistence_completed_assistant_message_remains_authoritative
+    assistant_message_transcript: authoritative_completed_response_after_live_delta_flush
+    assistant_delta_crash_window: bounded_in_memory_preview_may_be_lost_but_completed_transcript_is_authoritative
+    event_seq_resumable_by_last_event_id: true
+    bridge_event_projection: source_event_receipt_in_same_transaction
+    schedule_product_metadata_owner: copilot_adapter_sqlc
+    schedule_create_http_idempotency: client_uuid_global_and_bound_to_normalized_exact_request
+    schedule_create_idempotency_retry: returns_original_schedule_without_a_replacement
+    schedule_runtime_owner: candace_pkg_cron
+    schedule_runtime_store: candace_pkg_cron_postgres
+    schedule_recurrence_catch_up_overlap_claim_and_completion: candace_pkg_cron_only
+    turn_delivery: durable_pending_then_unknown_before_sdk_then_accepted_or_failed
+    schedule_occurrence_to_turn: unique_turn_and_at_most_once_sdk_handoff_after_pending_to_unknown
+    subagents: actual_sdk_lifecycle_and_activity_only
+    errors: shared_error_schema

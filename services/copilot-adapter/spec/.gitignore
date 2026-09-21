@@ -1,0 +1,4 @@
+# Generated projection of the Copilot CLI JSON-RPC contract (48k lines); regenerate with
+#   python3 generate_sdk_openapi.py
+# instead of committing it.
+copilot-sdk.openapi.yaml

@@ -1,0 +1,55 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "gotth_lib",
+    srcs = [
+        "bench.go",
+        "bindings.go",
+        "chat.go",
+        "fixture.go",
+        "main.go",
+        "room.go",
+        "view_templ.go",
+    ],
+    embedsrcs = [
+        "bench/ready.js",
+        "chat.css",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/bench/apps/chat/gotth",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_binary(
+    name = "gotth",
+    embed = [":gotth_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "gotth_test",
+    srcs = [
+        "chat_suite_test.go",
+        "chat_test.go",
+        "env_test.go",
+    ],
+    # The benchmark asserts that the Go and Next.js apps serve byte-identical
+    # shared assets, so the Next app's stylesheet and the harness shim it
+    # resolves from its own directory are inputs to this test.
+    data = [
+        "//pkg/gotth/bench:apps/chat/next/src/app/chat.css",  # keep
+        "//pkg/gotth/bench:harness/shim.js",  # keep
+    ],
+    embed = [":gotth_lib"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

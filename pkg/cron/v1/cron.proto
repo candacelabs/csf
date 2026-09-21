@@ -1,0 +1,183 @@
+// Portable cron contracts for HTTP and messaging boundaries.
+//
+// These messages are not a PostgreSQL storage format. Cron persistence uses
+// service-owned relational migrations, queries, and generated SQLC bindings;
+// callers map explicitly between those rows, the Go domain model, and these
+// boundary messages.
+syntax = "proto3";
+
+package candace.cron.v1;
+
+import "liquidproto/v1/refinement.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/candacelabs/csf/pkg/cron/v1;cronv1";
+
+enum Weekday {
+  WEEKDAY_UNSPECIFIED = 0;
+  WEEKDAY_SUNDAY = 1;
+  WEEKDAY_MONDAY = 2;
+  WEEKDAY_TUESDAY = 3;
+  WEEKDAY_WEDNESDAY = 4;
+  WEEKDAY_THURSDAY = 5;
+  WEEKDAY_FRIDAY = 6;
+  WEEKDAY_SATURDAY = 7;
+}
+
+enum CronDialect {
+  CRON_DIALECT_UNSPECIFIED = 0;
+  // Robfig's standard five-field grammar, including descriptors such as
+  // @daily. Interval scheduling should use IntervalSchedule instead.
+  CRON_DIALECT_ROBFIG_STANDARD = 1;
+}
+
+enum CatchUpPolicy {
+  CATCH_UP_POLICY_UNSPECIFIED = 0;
+  CATCH_UP_POLICY_NONE = 1;
+  CATCH_UP_POLICY_LATEST = 2;
+  CATCH_UP_POLICY_ALL = 3;
+}
+
+enum OverlapPolicy {
+  OVERLAP_POLICY_UNSPECIFIED = 0;
+  OVERLAP_POLICY_SKIP = 1;
+  OVERLAP_POLICY_ALLOW = 2;
+}
+
+enum RunState {
+  RUN_STATE_UNSPECIFIED = 0;
+  RUN_STATE_PENDING = 1;
+  RUN_STATE_RUNNING = 2;
+  RUN_STATE_SUCCEEDED = 3;
+  RUN_STATE_FAILED = 4;
+  RUN_STATE_CANCELED = 5;
+  RUN_STATE_SKIPPED = 6;
+}
+
+// TimeOfDay is canonical 24-hour wall time. AM/PM exists only in the fluent
+// Go DSL and is normalized before crossing a boundary.
+message TimeOfDay {
+  uint32 hour = 1 [(candace.liquid.v1.field) = {
+    expr: "this <= 23"
+  }];
+  uint32 minute = 2 [(candace.liquid.v1.field) = {
+    expr: "this <= 59"
+  }];
+}
+
+message DailySchedule {
+  TimeOfDay at = 1;
+}
+
+message WeeklySchedule {
+  Weekday weekday = 1;
+  TimeOfDay at = 2;
+}
+
+message MonthlyDaySchedule {
+  uint32 day_of_month = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 31"
+  }];
+  TimeOfDay at = 2;
+}
+
+message MonthlyLastDaySchedule {
+  TimeOfDay at = 1;
+}
+
+// IntervalSchedule is elapsed-time scheduling. anchor is optional desired
+// configuration; when absent, the durable store establishes it exactly once
+// and exposes the resulting value on JobStatus.
+message IntervalSchedule {
+  int64 interval_nanoseconds = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1000"
+  }];
+  google.protobuf.Timestamp anchor = 2;
+}
+
+// RawCronSchedule is an explicit robfig-compatible escape hatch. The dialect
+// is required so a future parser cannot silently reinterpret an expression.
+message RawCronSchedule {
+  CronDialect dialect = 1;
+  string expression = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256"
+  }];
+}
+
+// ScheduleSpec is the versioned boundary representation produced by the
+// fluent Go schedule DSL. Exactly one rule must be set.
+message ScheduleSpec {
+  string timezone = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$`)"
+  }];
+
+  oneof rule {
+    DailySchedule daily = 2;
+    WeeklySchedule weekly = 3;
+    MonthlyDaySchedule monthly_day = 4;
+    MonthlyLastDaySchedule monthly_last_day = 5;
+    IntervalSchedule interval = 6;
+    RawCronSchedule raw_cron = 7;
+  }
+}
+
+// JobDefinition is the portable desired job configuration. The executable Go
+// handler is registered locally by name and is deliberately not serializable.
+message JobDefinition {
+  reserved 5;
+
+  string name = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)"
+  }];
+  ScheduleSpec schedule = 2;
+  CatchUpPolicy catch_up_policy = 3;
+  OverlapPolicy overlap_policy = 4;
+}
+
+// Invocation identifies one scheduled occurrence. occurrence_id is stable for
+// a given job name and scheduled time and is the handler's idempotency key.
+message Invocation {
+  string occurrence_id = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^occ_[0-9a-f]{64}$`)"
+  }];
+  string job_name = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)"
+  }];
+  google.protobuf.Timestamp scheduled_at = 3;
+  google.protobuf.Timestamp started_at = 4;
+  uint32 attempt = 5;
+}
+
+message RunSummary {
+  Invocation invocation = 1;
+  RunState state = 2;
+  google.protobuf.Timestamp finished_at = 3;
+  string worker_id = 4 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 128"
+  }];
+  string error_summary = 5 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 4096"
+  }];
+  string skip_reason = 6 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 4096"
+  }];
+}
+
+// JobStatus is a read-only status projection suitable for an authenticated
+// Gin route. PostgreSQL remains relational and is mapped explicitly.
+message JobStatus {
+  reserved 3;
+
+  JobDefinition definition = 1;
+  google.protobuf.Timestamp next_run_at = 2;
+  google.protobuf.Timestamp interval_anchor = 4;
+  uint32 active_runs = 5 [(candace.liquid.v1.field) = {
+    expr: "this <= 1000000"
+  }];
+  RunSummary last_run = 6;
+}
+
+message StatusSnapshot {
+  google.protobuf.Timestamp observed_at = 1;
+  repeated JobStatus jobs = 2;
+}

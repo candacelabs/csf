@@ -1,0 +1,155 @@
+# warden.example.yaml — annotated warden node configuration.
+#
+# Precedence (lowest to highest): built-in defaults -> this file -> environment
+# variables (WARDEN_*, SMTP_*). Any value here can be overridden by the
+# corresponding env var; the SMTP password is env-only and never read here.
+#
+# Copy to /etc/warden/warden.yaml and set node_id to this node's id. Every
+# fleet node ships the SAME file except for node_id (or leave node_id out and
+# set WARDEN_NODE_ID in the env file to keep this file byte-identical).
+
+# This node's id. MUST match one of the ids in `peers` below.
+# Env override: WARDEN_NODE_ID
+node_id: node-c
+
+# HTTP listen address for cluster RPCs + dashboard + /api/status + /metrics.
+# Default ":7717" (all interfaces). Env override: WARDEN_BIND
+bind: ":7717"
+
+# Directory for durable election state (<data_dir>/state.json holds the
+# persisted term + vote, which keeps the Raft term monotonic across restarts).
+# Default "/var/lib/warden". Env override: WARDEN_DATA_DIR
+data_dir: /var/lib/warden
+
+# Log verbosity: debug | info | warn | error. Default "info".
+# Env override: WARDEN_LOG_LEVEL
+# (Set WARDEN_LOG_FORMAT=console in the environment for human-readable logs;
+#  the default is structured JSON on stdout.)
+log_level: info
+
+# The static cluster member set — the whole fleet, including self. Every node
+# lists every member. Addresses are tailnet IP:port. REQUIRED: warden compiles
+# in no peer set, so this key (or WARDEN_PEERS) must be present.
+# Env override: WARDEN_PEERS="node-a=203.0.113.11:7717,node-b=..."
+peers:
+  - id: node-a
+    addr: 203.0.113.11:7717
+  - id: node-b
+    addr: 203.0.113.12:7717
+  - id: node-c
+    addr: 203.0.113.13:7717
+  - id: node-d
+    addr: 203.0.113.14:7717
+
+# This node's routable ip:port. Only used when this node is a discovery-mode
+# JOINER whose node_id is NOT yet in `peers` (a brand-new node ships the same
+# config as the fleet, with its own id not in the seed, and is admitted by the
+# leader). Empty => use `bind`. A joiner needs a real host here (not
+# 0.0.0.0/:port). Env override: WARDEN_ADVERTISE_ADDR.
+# advertise_addr: 203.0.113.12:7717
+
+# Membership autodiscovery. Discovery is ADVISORY: it never changes the quorum
+# denominator (quorum is always over the persisted voter set); the leader turns
+# stable, identify-verified candidates into one-at-a-time voting changes. The
+# `peers` list above is ALWAYS required as the membership seed, even in the
+# dynamic modes. The fail-safe default is mode "static" (peers only).
+discovery:
+  # mode: static | tailscale | file
+  #   static    - peers only; no dynamic discovery (the default).
+  #   tailscale - poll the local tailscaled LocalAPI; select peers by ACL tag
+  #               and/or a hostname pattern.
+  #   file      - poll a JSON roster file ({"nodes":[{"id","addr"}...]}). Doubles
+  #               as a manual dynamic mode: edit the file and warden picks it up.
+  # Env override: WARDEN_DISCOVERY_MODE
+  mode: static
+
+  # Cluster identity for the identify handshake. A discovered node is treated as
+  # an observer candidate only if it reports this same cluster_id.
+  # Env override: WARDEN_CLUSTER_ID
+  cluster_id: candacenet
+
+  # How long a discovered, identify-verified observer must be continuously
+  # present before the leader admits it as a voter. Env: WARDEN_JOIN_STABILITY
+  join_stability: 30s
+
+  # How long a voter may be absent from the roster before the leader commits its
+  # removal. 0 = never auto-remove (removal is then a manual config edit +
+  # rolling restart). Env: WARDEN_REMOVE_AFTER
+  remove_after: 0s
+
+  # --- mode: file ---
+  # Roster file path. Env: WARDEN_DISCOVERY_FILE
+  # file: /var/lib/warden/roster.json
+  # How often the roster file is re-read. Env: WARDEN_FILE_POLL_INTERVAL
+  file_poll_interval: 2s
+
+  # --- mode: tailscale ---
+  tailscale:
+    # tailscaled LocalAPI unix socket. Env: WARDEN_TS_SOCKET
+    socket: /var/run/tailscale/tailscaled.sock
+    # Select peers advertising this ACL tag. Env: WARDEN_TS_TAG
+    # tag: "tag:candacenet"
+    # Alternative/additional: RE2 pattern matched (anchored) against a peer's
+    # HostName. tag OR host_pattern selects when both are set.
+    # Env: WARDEN_TS_HOST_PATTERN
+    # host_pattern: "warden-.*"
+    # How often tailscaled status is polled. Env: WARDEN_TS_POLL_INTERVAL
+    poll_interval: 15s
+
+# Election + liveness timing. Values are Go duration strings ("1s", "1500ms").
+# Invariants (enforced at startup):
+#   heartbeat_interval < suspect_after < dead_after
+#   election_timeout_min < election_timeout_max
+#   all values > 0
+timing:
+  # Leader -> peer heartbeat cadence. Env: WARDEN_HEARTBEAT_INTERVAL
+  heartbeat_interval: 1s
+  # No contact for this long => peer marked "suspect". Env: WARDEN_SUSPECT_AFTER
+  suspect_after: 5s
+  # No contact for this long => peer marked "dead" (raises an incident).
+  # Env: WARDEN_DEAD_AFTER
+  dead_after: 15s
+  # Randomized election timeout range; a follower that hears no heartbeat
+  # within a value drawn from [min,max) starts an election. Randomization
+  # avoids split votes. Env: WARDEN_ELECTION_TIMEOUT_MIN / _MAX
+  election_timeout_min: 1500ms
+  election_timeout_max: 3s
+  # Per-RPC timeout for vote/heartbeat calls. Env: WARDEN_RPC_TIMEOUT
+  rpc_timeout: 500ms
+
+# Watchdog (leader-only incident engine) tuning.
+watchdog:
+  # Minimum time between repeat notifications for the same peer, so a flapping
+  # node cannot spam the operator. Env: WARDEN_COOLDOWN
+  cooldown: 10m
+  # Also notify when a previously-dead peer recovers. Default true.
+  # Env: WARDEN_NOTIFY_RECOVERY (true|false)
+  notify_recovery: true
+  # How many recent incidents the dashboard keeps in memory. Default 100.
+  max_incidents: 100
+
+# Operator notification delivery.
+notify:
+  # mode: smtp | log | file
+  #   smtp  - email the operator (production). Requires smtp_host/from/to.
+  #   log   - write incidents to the service log (default when smtp_host unset).
+  #   file  - append incidents as JSON lines to `file` (used by the e2e harness).
+  # If omitted, mode defaults to "smtp" when smtp_host is set, else "log".
+  # Env override: WARDEN_NOTIFY_MODE
+  mode: smtp
+
+  # Path for mode=file. Env override: WARDEN_NOTIFY_FILE
+  # file: /var/log/warden/incidents.jsonl
+
+  # --- SMTP settings (used when mode=smtp) ---
+  # For Gmail: host smtp.gmail.com, port 587, and a Gmail *app password* (not
+  # your account password) supplied via the SMTP_PASS environment variable.
+  smtp_host: smtp.gmail.com      # Env: SMTP_HOST
+  smtp_port: 587                 # Env: SMTP_PORT (default 587)
+  smtp_user: warden@example.invalid  # Env: SMTP_USER
+  smtp_from: warden@example.invalid  # Env: SMTP_FROM
+  smtp_to:                       # Env: SMTP_TO (comma-separated); required for mode=smtp
+    - ops@example.invalid
+  # NOTE: the SMTP password is NEVER placed in this file. Set it via the
+  # SMTP_PASS environment variable (e.g. in /etc/warden/warden.env). Some
+  # relays are IP-allowlisted and need no password at all.

@@ -1,0 +1,297 @@
+package main
+
+import (
+	"strconv"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// MetersRegion is the high-frequency fragment: the current reading of every
+// series, the sample number that produced it, and a sparkline of the recent
+// history.
+//
+// Two rules govern the markup and both are contracts rather than style. The
+// root element carries live.Region(FragmentMeters), which renders
+// data-gotth-region and is what the client morphs against — morph never touches
+// anything outside a region, and a patch names this ID. And every value here is
+// a pure function of state, because the same state must render byte-identical
+// HTML: that comparison is what suppresses a patch nobody needs.
+//
+// There is deliberately no hx-* attribute anywhere in this region. A live
+// region is server-owned by FR-32's precedence rule, so morph would overwrite
+// any HTMX swap into it — and, separately, an hx-* control the server starts
+// rendering MID-SESSION is inserted by the morph, which HTMX never processes,
+// so it is inert until the application calls htmx.process. That is D-16 —
+// ruled documented rather than fixed in docs/gates/checkpoint-2.md §8, measured
+// in the browser by the conformance suite's "does not activate an hx-* control
+// the morph inserted until htmx.process is called (D-16)", and written out for a
+// user of this library in README.md. The way this example obeys it is structural:
+// HTMX stays out of the regions the server owns, and goes inside live.Preserve
+// or outside the live regions entirely. wire_test.go's D-16 spec is the guard.
+templ MetersRegion(s State) {
+	<section { live.Region(FragmentMeters)... } class="card meters" data-dash-region="meters">
+		<h2>
+			Live metrics
+			<span class="seq" data-dash-id="seq">sample { strconv.FormatUint(s.SampleSeq(), 10) }</span>
+			<span class="at" data-dash-id="at">{ s.SampleClock() }</span>
+		</h2>
+		<ul class="gauges" data-dash-id="gauges">
+			for _, name := range Series {
+				<li class={ "gauge", s.Level(name) } data-dash-series={ name }>
+					<span class="name">{ name }</span>
+					<span class="value" data-dash-value={ name }>{ strconv.Itoa(s.Reading(name)) }</span>
+					<span class={ "bar", s.BarClass(name) }></span>
+				</li>
+			}
+		</ul>
+		<p class="spark" data-dash-id="spark" aria-hidden="true">{ s.Sparkline() }</p>
+	</section>
+}
+
+// AlertsRegion is the low-frequency fragment: the shared alert log.
+//
+// It is a separate fragment from the meters and that is the whole point of the
+// split. A sample arrives twenty times a second and moves the meters; it does
+// not move this, so this markup is not in the patch, so the browser is not
+// handed a re-render of a list nobody changed. The declaration that makes that
+// true is three lines in dashboard.go, and the property is asserted on the
+// frames in wire_test.go rather than on the declaration.
+templ AlertsRegion(s State) {
+	<section { live.Region(FragmentAlerts)... } class="card alerts" data-dash-region="alerts">
+		<h2>
+			Alerts
+			<span class="count" data-dash-id="alert-count">{ s.AlertCount() }</span>
+		</h2>
+		if len(s.AlertEntries()) == 0 {
+			<p class="empty" data-dash-id="alerts-empty">Nothing has crossed { strconv.Itoa(AlertAbove) } yet.</p>
+		} else {
+			<ol class="alert-list" data-dash-id="alert-list">
+				for _, a := range s.AlertEntries() {
+					<li class="alert" data-dash-alert={ strconv.FormatUint(a.Seq, 10) }>
+						<span class="at">{ a.Clock() }</span>
+						<span class="series">{ a.Series }</span>
+						<span class="value">{ strconv.Itoa(a.Value) }</span>
+					</li>
+				}
+			</ol>
+		}
+	</section>
+}
+
+// ControlsRegion is this session's own fragment: what this tab is doing, what
+// the transport thinks of this browser, and the buttons.
+//
+// Nothing in here is derived from the feed, down to the Dirty function in
+// dashboard.go that names exactly these fields. When a sample arrives this
+// region is not in the patch at all.
+//
+// The status line is FR-51's degradation as a person sees it. It is set by an
+// event the LIBRARY synthesizes into this session's mailbox when the outbound
+// window fills — the same path an application event takes, which is why the
+// reducer can handle it in the same switch and why it is replayable.
+//
+// live.On is the whole binding. There is no id, no handler registration and no
+// JavaScript: the attribute names a DOM event and a server event, and the
+// runtime's single delegated listener does the rest, which is why a morph can
+// replace this markup without destroying a binding.
+//
+// # The HTMX island, and why the explanation is here rather than in the markup
+//
+// The <div id="dash-notes"> below is HTMX-owned DOM INSIDE server-owned DOM,
+// which is the case FR-27's innermost-declaration-wins rule exists for: the
+// section is a live region, live.Preserve() marks that subtree as not the
+// server's, and morph leaves it and everything under it untouched (FR-32).
+//
+// Because morph never touches it, HTMX's swap into it survives every patch —
+// and, just as importantly, HTMX processed that node at page load and morph
+// never replaces it, so nothing in it is ever an hx-* element HTMX has not seen.
+// That is what keeps D-16 out of this example rather than merely documented in
+// it, and wire_test.go's D-16 spec is the guard on it.
+//
+// This paragraph used to be an HTML comment inside the region, which was a
+// mistake worth recording: templ renders HTML comments, so all 600 bytes of it
+// were in every controls patch — on a fragment this example re-renders whenever
+// somebody clicks anything, in an example about what a live connection costs.
+// A Go comment costs nothing at runtime and is where the rest of this file's
+// explanation already lives.
+templ ControlsRegion(s State) {
+	<section { live.Region(FragmentControls)... } class="card controls" data-dash-region="controls">
+		<h2>This tab</h2>
+		<p class="feed-state" data-dash-id="feed-state">
+			feed: <strong>{ s.FeedLabel() }</strong>
+		</p>
+		<p
+			class={ "health", templ.KV("degraded", s.Degraded) }
+			data-dash-id="health"
+			data-dash-degraded={ strconv.FormatBool(s.Degraded) }
+			role="status"
+		>
+			{ s.StatusLabel() }
+		</p>
+		if s.Notice != "" {
+			<p class="notice" data-dash-id="notice" role="status">{ s.Notice }</p>
+		}
+		<div class="buttons">
+			if s.Paused {
+				<button type="button" data-dash-id="resume" { live.On("click", EventResume)... }>Resume</button>
+			} else {
+				<button type="button" data-dash-id="pause" { live.On("click", EventPause)... }>Pause this tab</button>
+			}
+			<button type="button" data-dash-id="probe" { live.On("click", EventProbe)... }>Sample now</button>
+			<button type="button" data-dash-id="clear" { live.On("click", EventClear)... }>Clear alerts</button>
+		</div>
+		<div { live.Preserve()... } id="dash-notes" class="island" data-dash-id="notes-island">
+			<button
+				type="button"
+				id="dash-notes-load"
+				hx-get="/htmx/notes"
+				hx-target="#dash-notes-out"
+				hx-swap="innerHTML"
+			>
+				Load operator notes (plain HTMX)
+			</button>
+			<div id="dash-notes-out" data-dash-id="notes-out">—</div>
+		</div>
+	</section>
+}
+
+// DeploysRegion is a plain-HTMX region OUTSIDE every declared live region.
+//
+// FR-31's last sentence is about exactly this markup: regions outside a
+// declared live region must not be touched by morph. It is not a fragment, it
+// is not in Config.Fragments, no patch can name it, and gotth-live neither
+// intercepts nor rewrites the request its button makes — that request is an
+// ordinary GET to an ordinary http.Handler, which is what "plain HTMX" means.
+templ DeploysRegion() {
+	<section class="card deploys" id="deploys" data-dash-region="deploys-htmx">
+		<h2>Recent deploys (plain HTMX, outside every live region)</h2>
+		<button
+			type="button"
+			id="deploys-load"
+			hx-get="/htmx/deploys"
+			hx-target="#deploys-out"
+			hx-swap="innerHTML"
+		>
+			Load
+		</button>
+		<div id="deploys-out" data-dash-id="deploys-out">—</div>
+	</section>
+}
+
+// Notes is the fragment /htmx/notes serves. It is rendered by templ and served
+// by a plain handler: HTMX asks for HTML over HTTP and swaps it in, and nothing
+// on that path touches the live session.
+templ Notes(notes []string, at string) {
+	<ul class="notes" data-dash-id="notes-list">
+		for _, n := range notes {
+			<li>{ n }</li>
+		}
+		<li class="at">fetched { at }</li>
+	</ul>
+}
+
+// Deploys is the fragment /htmx/deploys serves.
+templ Deploys(deploys []string, at string) {
+	<ul class="deploy-list" data-dash-id="deploy-list">
+		for _, d := range deploys {
+			<li>{ d }</li>
+		}
+		<li class="at">fetched { at }</li>
+	</ul>
+}
+
+// Page is the whole document.
+//
+// It composes the same three components the fragments render, from the same
+// state, which is the point: the first paint is server-rendered HTML with no
+// data attributes missing and no placeholder, and the snapshot that arrives a
+// moment later over the WebSocket morphs it to bytes it already has. There is
+// no flash, and the page is meaningful with JavaScript disabled — it simply
+// stops updating.
+//
+// live.Script renders the one script tag for the gotth-live runtime, and it is
+// given MountPath — the same constant NewMux registers the handler under.
+// Passing a literal here instead would put the same string in two files and let
+// them drift, and the drift is silent: the page loads, the script 404s, and
+// nothing is live.
+//
+// The HTMX script tag is separate and conditional. It is served from this
+// application's own handler out of the artifact the conformance suite vendors,
+// so there is one copy of HTMX in this repository and one recorded digest; when
+// that file is not reachable the page says so in the markup rather than
+// rendering a script tag that 404s. FRICTION.md item F-3.
+templ Page(app *live.App[State, live.AnonymousIdentity], s State, htmxSrc string) {
+	@app.Document(MountPath, "gotth-live dashboard", templ.Attributes{"lang": "en"}, dashboardHead(htmxSrc)) {
+		<main>
+			<h1>gotth-live dashboard</h1>
+			<p class="lede">
+				Three live regions, one simulated metrics feed pushing from the
+				server, and two plain-HTMX regions on the same page. Nothing in
+				this browser polls anything.
+			</p>
+			if htmxSrc == "" {
+				<p class="warn" data-dash-id="htmx-missing">
+					HTMX was not found, so the two HTMX regions below will not
+					swap. Pass -htmx with the path to htmx.min.js; the README
+					says where this repository keeps one.
+				</p>
+			}
+			@MetersRegion(s)
+			@AlertsRegion(s)
+			@ControlsRegion(s)
+			@DeploysRegion()
+			<!--
+					The connection indicator is CSS and nothing else. The client
+					runtime writes data-gotth-status on <html> — connecting,
+					live, reconnecting, closed — and the stylesheet selects on
+					it. No script of ours runs on this page at all.
+				-->
+			<p class="status">connection: <span class="dot"></span></p>
+			<details class="try">
+				<summary>Things to try</summary>
+				<ul>
+					<li>
+						Watch the sample number climb with nothing clicked. That
+						is the server pushing; the alert log and this control
+						panel are not being re-rendered while it happens.
+					</li>
+					<li>
+						Press <em>Pause this tab</em>. The feed keeps running for
+						every other tab, and resuming shows the current reading
+						rather than replaying what you missed.
+					</li>
+					<li>
+						Press <em>Load</em> in the deploys card and
+						<em>Load operator notes</em> in this one. Both are plain
+						HTMX over ordinary HTTP; the live regions keep updating
+						underneath, and the swapped-in text survives every patch.
+					</li>
+					<li>
+						Open a second tab and press <em>Clear alerts</em> in one.
+						The other tab's alert log empties without it asking.
+					</li>
+				</ul>
+			</details>
+		</main>
+	}
+}
+
+// dashboardHead is this example's own head content, and it is the case a page
+// shell that could not extend its head would have failed on: this application
+// needs a THIRD-PARTY script tag up there, conditionally, beside the library's
+// own. live.Document takes it as the variadic argument after the <html>
+// attributes and renders it above the runtime, inspector and dev-reload tags —
+// which is where a stylesheet belongs, and which is also why nothing an
+// application puts here can land between the inspector and the runtime.
+//
+// The HTMX tag is served from this application's own handler out of the
+// artifact the conformance suite vendors, so there is one copy of HTMX in this
+// repository and one recorded digest; when that file is not reachable the page
+// says so in the markup rather than rendering a script tag that 404s.
+templ dashboardHead(htmxSrc string) {
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<link rel="stylesheet" href="/dashboard.css"/>
+	if htmxSrc != "" {
+		<script src={ htmxSrc } defer></script>
+	}
+}

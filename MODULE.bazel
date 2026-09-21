@@ -1,0 +1,222 @@
+# Bazel module for the candace monorepo.
+#
+# One Bazel module mirrors the one Go module (github.com/candacelabs/csf):
+# every Go package in this repository is built from this module's BUILD files,
+# which Gazelle maintains and CI gates on (tools/check-bazel-metadata.sh).
+#
+# Consumers depend on a published source archive of this module with a single
+# `bazel_dep(name = "candace", ...)` plus an `archive_override`.
+module(
+    name = "candace",
+    version = "0.0.0",
+)
+
+bazel_dep(name = "gazelle", version = "0.52.2")
+bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_go", version = "0.62.0")
+bazel_dep(name = "rules_rust", version = "0.73.0")
+
+# Standalone CSF compiler dependency closure. The compiler is available when
+# Candace is built from its release archive, but an embedding product does not
+# need to resolve its OCaml and Python toolchains just to link the Go runtime.
+bazel_dep(name = "rules_ocaml", version = "3.0.0.beta.1", dev_dependency = True)
+bazel_dep(name = "tools_opam", version = "1.0.0.beta.1", dev_dependency = True)
+bazel_dep(name = "rules_python", version = "1.7.0", dev_dependency = True)
+
+python = use_extension("@rules_python//python/extensions:python.bzl", "python", dev_dependency = True)
+python.defaults(python_version = "3.12.11")
+python.toolchain(python_version = "3.12.11")
+
+opam = use_extension("@tools_opam//extensions:opam.bzl", "opam", dev_dependency = True)
+opam.deps(
+    lockfile = "//csf/compiler:opam.lock.json",
+    ocaml_version = "5.3.0",
+    opam_version = "2.3.0",
+    pkgs = {
+        "cmdliner": "2.1.1",
+        "sha": "1.15.4",
+        "yojson": "3.0.0",
+        "ppxlib": "0.38.0",
+    },
+    toolchain = "xdg",
+)
+use_repo(opam, "opam.cmdliner", "opam.lock", "opam.ocamlsdk", "opam.ppxlib", "opam.sha", "opam.yojson")
+
+register_toolchains(
+    "@opam.ocamlsdk//toolchain/selectors/local:all",
+    dev_dependency = True,
+)
+
+register_toolchains(
+    "@opam.ocamlsdk//toolchain/profiles:all",
+    dev_dependency = True,
+)
+
+single_version_override(
+    module_name = "tools_opam",
+    patch_strip = 1,
+    patches = ["//csf/compiler/third_party/tools_opam:bazel9.patch"],
+    version = "1.0.0.beta.1",
+)
+
+single_version_override(
+    module_name = "rules_ocaml",
+    patch_strip = 1,
+    patches = ["//csf/compiler/third_party/rules_ocaml:bazel9.patch"],
+    version = "3.0.0.beta.1",
+)
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+http_archive(
+    name = "tree_sitter_ocaml_source",
+    build_file = "//csf/compiler/third_party/tree_sitter:runtime.BUILD.bazel",
+    sha256 = "9e4e90d17f9b2af1b07071fe425bc2c519c849c4f1d1ab73cde512be2d874849",
+    strip_prefix = "mosaic-0.1.0/tree-sitter",
+    type = "tar.bz2",
+    urls = ["https://github.com/tmattio/mosaic/releases/download/0.1.0/mosaic-0.1.0.tbz"],
+)
+
+http_archive(
+    name = "tree_sitter_go",
+    build_file = "//csf/compiler/third_party/tree_sitter:grammar.BUILD.bazel",
+    sha256 = "3b0b0a55c6c8cd6671d813989b1f53af687c3b8afde3fb986ef767acbde0a017",
+    strip_prefix = "tree-sitter-go-5a6af13a0a5b45bc76cac289c783b315b2b74e13",
+    type = "tar.gz",
+    urls = ["https://codeload.github.com/tree-sitter/tree-sitter-go/tar.gz/5a6af13a0a5b45bc76cac289c783b315b2b74e13"],
+)
+
+# The Go SDK is downloaded by rules_go rather than taken from the host, so a
+# machine with no Go installation builds this repository byte-for-byte the same
+# way CI does. Keep this version in step with the `go` directive in go.mod.
+#
+# The download is deliberately unnamed. rules_go rejects `name` on a non-root
+# module's go_sdk.download, and this module is not the root module in the case
+# that matters most — a consumer depending on it through bazel_dep. Nothing here
+# needs to reach into the SDK repository by label; the one test that used to
+# (pkg/cron/contract, for time zone data) embeds time/tzdata instead.
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.26.5")
+
+# go.mod and go.sum stay the single source of dependency truth: `go get` and
+# `go mod tidy` remain the way to change a dependency, and Gazelle mirrors the
+# result into the `use_repo` call below via `bazel mod tidy`.
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+use_repo(
+    go_deps,
+    "com_github_a_h_templ",
+    "com_github_aws_aws_sdk_go_v2",
+    "com_github_aws_aws_sdk_go_v2_config",
+    "com_github_aws_aws_sdk_go_v2_service_batch",
+    "com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs",
+    "com_github_coder_websocket",
+    "com_github_containerd_errdefs",
+    "com_github_creack_pty",
+    "com_github_evanw_esbuild",
+    "com_github_getkin_kin_openapi",
+    "com_github_gin_contrib_sse",
+    "com_github_gin_gonic_gin",
+    "com_github_github_copilot_sdk_go",
+    "com_github_go_chi_chi_v5",
+    "com_github_google_uuid",
+    "com_github_guregu_null_v5",
+    "com_github_jackc_pgx_v5",
+    "com_github_moby_moby_api",
+    "com_github_moby_moby_client",
+    "com_github_modelcontextprotocol_go_sdk",
+    "com_github_oapi_codegen_runtime",
+    "com_github_onsi_ginkgo_v2",
+    "com_github_onsi_gomega",
+    "com_github_opensearch_project_opensearch_go_v5",
+    "com_github_pganalyze_pg_query_go_v6",
+    "com_github_prometheus_client_golang",
+    "com_github_prometheus_client_model",
+    "com_github_prometheus_common",
+    "com_github_robfig_cron_v3",
+    "com_github_rs_zerolog",
+    "com_github_soheilhy_cmux",
+    "com_github_sst_opencode_sdk_go",
+    "in_gopkg_yaml_v3",
+    "io_opentelemetry_go_otel",
+    "io_opentelemetry_go_otel_exporters_otlp_otlptrace",
+    "io_opentelemetry_go_otel_exporters_otlp_otlptrace_otlptracehttp",
+    "io_opentelemetry_go_otel_metric",
+    "io_opentelemetry_go_otel_sdk",
+    "io_opentelemetry_go_otel_sdk_metric",
+    "io_opentelemetry_go_otel_trace",
+    "io_opentelemetry_go_proto_otlp",
+    "org_golang_google_grpc",
+    "org_golang_google_protobuf",
+    "org_golang_x_oauth2",
+    "org_golang_x_sync",
+    "org_golang_x_tools",
+    "org_modernc_sqlite",
+    "org_uber_go_mock",
+)
+
+# github.com/pganalyze/pg_query_go vendors the whole PostgreSQL parser as C
+# sources, and its cgo prologue reaches for headers under parser/include with
+# package-relative -I flags. Gazelle puts neither the headers nor working
+# include roots in the build files it generates, so this one dependency needs
+# hand-written Bazel packaging, applied as a patch over the fetched module.
+#
+# It is fetched here as a plain archive rather than through go_deps, and that is
+# a constraint rather than a preference: Gazelle forbids `go_deps.module_override`
+# and `go_deps.gazelle_override` in a *non-root* module, and this module is not
+# the root in the case that matters most — a consumer taking it through
+# `bazel_dep`. Either tag makes such a build fail before it compiles a line, so
+# neither can live here.
+#
+# The archive is the Go module proxy's own immutable zip for the version go.mod
+# requires, which stays the authority; //bazel:bazel_test fails if the two stop
+# agreeing. `# gazelle:resolve` in the root BUILD file points the import at this
+# repository, so Gazelle keeps generating the dependency edge on its own.
+http_archive(
+    name = "pg_query_go",
+    integrity = "sha256-dLswGWGwrquHW9ws1cmGdGCY2Epvtb8y/9LX6NDHIVk=",
+    patch_args = ["-p1"],
+    patches = ["//third_party/pg_query_go:pg_query_go.patch"],
+    strip_prefix = "github.com/pganalyze/pg_query_go/v6@v6.2.2",
+    urls = ["https://proxy.golang.org/github.com/pganalyze/pg_query_go/v6/@v/v6.2.2.zip"],
+)
+
+# xetcas/ is a Cargo workspace and stays one. `cargo build`, `cargo test`, and
+# `cargo xtask gen-proto` remain how that code is developed, and the xetcas CI
+# job still runs them; the demo and the published container image are still
+# cargo builds. Bazel is additive: it reads the same Cargo.toml and Cargo.lock
+# the cargo path reads, and it never writes them.
+rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
+
+# The compiler is pinned rather than left at the rules_rust default so that
+# both ways of building xetcas use one rustc: 1.91.1 is what the cargo CI job's
+# `rust:1.91-bookworm` image ships. The workspace's `rust-version = "1.85"` is
+# the floor it promises consumers, not the version anything here is built with.
+rust.toolchain(
+    edition = "2021",
+    versions = ["1.91.1"],
+)
+use_repo(rust, "rust_toolchains")
+
+register_toolchains("@rust_toolchains//:all")
+
+# Cargo.lock stays the single source of dependency truth for Rust, exactly as
+# go.mod is for Go: crate_universe resolves the third-party crates from the
+# workspace's own manifests rather than from a hand-maintained parallel list,
+# and the resolved result is recorded in MODULE.bazel.lock.
+crate = use_extension("@rules_rust//crate_universe:extensions.bzl", "crate")
+crate.from_cargo(
+    name = "crates",
+    cargo_lockfile = "//xetcas:Cargo.lock",
+    manifests = [
+        "//xetcas:Cargo.toml",
+        "//xetcas/crates/xetcas-contracts:Cargo.toml",
+        "//xetcas/crates/xetcasd:Cargo.toml",
+        "//xetcas/xtask:Cargo.toml",
+    ],
+    # A build leaves nothing behind in the checkout but the gitignored bazel-*
+    # symlinks. Cargo owns Cargo.lock; if a manifest edit makes it stale, the
+    # cargo job is where that shows up and gets fixed.
+    skip_cargo_lockfile_overwrite = True,
+)
+use_repo(crate, "crates")

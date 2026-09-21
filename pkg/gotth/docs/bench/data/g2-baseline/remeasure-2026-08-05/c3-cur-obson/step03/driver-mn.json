@@ -1,0 +1,14 @@
+{
+  "target": 1000,
+  "dialed": 1000,
+  "mounted": 1000,
+  "live": 1000,
+  "closed": 0,
+  "dial_errors": 0,
+  "read_errors": 0,
+  "acks": 1000,
+  "heartbeats": 15000,
+  "patches": 0,
+  "snapshots": 1000,
+  "error_frames": 0
+}

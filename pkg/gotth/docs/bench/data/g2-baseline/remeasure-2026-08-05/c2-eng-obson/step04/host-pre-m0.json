@@ -1,0 +1,13 @@
+{
+  "uptime": " 23:26:19 up 6 days, 19:04, 8 users, load average: 7.36, 8.11, 9.24",
+  "nproc": 32,
+  "loadavg": {
+    "one": 7.36,
+    "five": 8.11,
+    "fifteen": 9.24
+  },
+  "mem_total_mb": 39136,
+  "mem_available_mb": 32852,
+  "running_containers": 21,
+  "container_names": "nice_greider,tenant-a-docs-1,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+}

@@ -1,0 +1,70 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+exports_files(
+    [
+        "docs/errors.md",
+        "docs/examples/01-cluster-heartbeats.widget",
+        "docs/examples/02-node-status.widget",
+        "docs/examples/03-relay-pipeline.widget",
+        "docs/examples/04-wrong-on-purpose.widget",
+    ],
+    visibility = ["//pkg/widget:__subpackages__"],
+)
+
+go_library(
+    name = "widget",
+    srcs = [
+        "doc.go",
+        "generate.go",
+        "keyed.go",
+        "palette.go",
+        "registry.go",
+        "sdk.go",
+        "widget.go",
+        "wire.go",
+    ],
+    embedsrcs = ["widget.css"],
+    importpath = "github.com/candacelabs/csf/pkg/widget",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget/internal/diag",
+        "//pkg/widget/internal/ir",
+        "//pkg/widget/internal/validate",
+        "@com_github_a_h_templ//:templ",
+    ],
+)
+
+go_test(
+    name = "widget_test",
+    srcs = [
+        "erasure_test.go",
+        "keyed_test.go",
+        "palette_test.go",
+        "registry_test.go",
+        "sdk_test.go",
+        "widget_suite_test.go",
+        "widget_test.go",
+        "wire_test.go",
+    ],
+    data = [
+        "docs/examples/01-cluster-heartbeats.widget",  # keep
+        "docs/examples/02-node-status.widget",  # keep
+        "docs/examples/03-relay-pipeline.widget",  # keep
+        "docs/examples/04-wrong-on-purpose.widget",  # keep
+    ],
+    deps = [
+        ":widget",
+        "//examples/widget/clusterheartbeats",
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "//pkg/patience",
+        "//pkg/widget/internal/ir",
+        "//pkg/widget/internal/mocks",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

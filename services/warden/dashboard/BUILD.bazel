@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "dashboard",
+    srcs = [
+        "dashboard.go",
+        "helpers.go",
+    ],
+    embedsrcs = [
+        "assets/htmx.min.js",
+        "assets/warden.css",
+        "templates/cluster_partial.html",
+        "templates/index.html",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/dashboard",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_test(
+    name = "dashboard_test",
+    srcs = [
+        "dashboard_contract_test.go",
+        "dashboard_test.go",
+        "helpers_test.go",
+    ],
+    embed = [":dashboard"],
+    deps = [
+        "//services/warden",
+        "//services/warden/httpserver",
+        "//services/warden/internal/mocks",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

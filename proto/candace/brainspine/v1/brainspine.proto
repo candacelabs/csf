@@ -1,0 +1,640 @@
+// Research brain-spine ontology. Numeric semantics are fixed by profile v1.
+syntax = "proto3";
+
+package candace.brainspine.v1;
+
+import "liquidproto/v1/refinement.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/brainspine/v1;brainspinev1";
+
+// All expression values are dimensionless fixed-point scalars with scale 1000.
+// The simulator adapter owns physical-unit normalization; actuator conversion
+// is fixed by the spine, never supplied by a candidate. Every operation saturates
+// to [-1000000000, 1000000000]. SCALE divides by 1000 toward zero.
+enum Opcode {
+  OPCODE_UNSPECIFIED = 0;
+  OPCODE_CONSTANT = 1;
+  OPCODE_INPUT = 2;
+  OPCODE_ADD = 3;
+  OPCODE_SCALE = 4;
+  OPCODE_CLAMP = 5;
+}
+
+message Expression {
+  Opcode opcode = 1;
+  sint64 value = 2 [(candace.liquid.v1.field) = {expr: "this >= -1000000000 && this <= 1000000000"}];
+  uint32 input_index = 3 [(candace.liquid.v1.field) = {expr: "this < 4"}];
+  sint64 lower = 4 [(candace.liquid.v1.field) = {expr: "this >= -1000000000 && this <= 1000000000"}];
+  sint64 upper = 5 [(candace.liquid.v1.field) = {expr: "this >= -1000000000 && this <= 1000000000"}];
+  repeated Expression arguments = 6;
+}
+
+message Instruction {
+  Opcode opcode = 1;
+  sint64 value = 2;
+  uint32 input_index = 3;
+  sint64 lower = 4;
+  sint64 upper = 5;
+}
+
+message Controller {
+  uint32 schema_version = 1 [(candace.liquid.v1.field) = {expr: "this == 1"}];
+  string name = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+  Expression steering = 3;
+  Expression acceleration = 4;
+}
+
+message Program {
+  uint32 schema_version = 1;
+  string controller_hash = 2;
+  repeated Instruction steering = 3;
+  repeated Instruction acceleration = 4;
+}
+
+// Features are [lateral_error / half_lane_width, heading_error / 0.5 rad,
+// (target_speed - speed) / 10 m/s, road_curvature / 0.05 per metre], scaled
+// by 1000 and clipped to [-10000,10000]. Output conversion is steering/1000
+// * 0.5 rad and acceleration/1000 * 3 m/s^2, with each output clamped to
+// [-1000,1000]. These conventions are part of numeric profile v1.
+message Observation {
+  repeated sint64 features = 1;
+  uint64 sequence = 2;
+  uint64 epoch = 3;
+  uint64 tick = 4;
+}
+
+message Action {
+  sint64 steering = 1;
+  sint64 acceleration = 2;
+  uint64 epoch = 3;
+  uint64 sequence = 4;
+  bool fallback = 5;
+  string reason = 6;
+}
+
+enum RequestKind {
+  REQUEST_KIND_UNSPECIFIED = 0;
+  REQUEST_KIND_COMPILE = 1;
+  REQUEST_KIND_ACTIVATE = 2;
+  REQUEST_KIND_STEP = 3;
+  REQUEST_KIND_RESET = 4;
+  REQUEST_KIND_EVALUATE = 5;
+}
+
+// JSON Lines is only the disposable simulator/test boundary. Production Go
+// callers use direct typed calls. Unknown fields, kinds and opcodes fail closed.
+message RuntimeRequest {
+  RequestKind kind = 1;
+  Controller controller = 2;
+  Observation observation = 3;
+  uint64 epoch = 4;
+  uint64 tick = 5;
+  Program program = 6;
+}
+
+message RuntimeResponse {
+  Program program = 1;
+  Action action = 2;
+  string error = 3;
+  uint64 epoch = 4;
+}
+
+message Scenario {
+  uint32 schema_version = 1;
+  string name = 2;
+  uint64 seed = 3;
+  uint32 steps = 4;
+  uint32 tick_milliseconds = 5;
+  double target_speed_mps = 6;
+  double lane_half_width_metres = 7;
+  double initial_lateral_metres = 8;
+  double initial_heading_radians = 9;
+  double road_curvature_per_metre = 10;
+  repeated Fault faults = 11;
+}
+
+enum FaultKind {
+  FAULT_KIND_UNSPECIFIED = 0;
+  FAULT_KIND_FREEZE_BRAIN = 1;
+  FAULT_KIND_STALE_OBSERVATION = 2;
+  FAULT_KIND_WRONG_EPOCH = 3;
+}
+
+message Fault {
+  FaultKind kind = 1;
+  uint32 start_tick = 2;
+  uint32 duration_ticks = 3;
+}
+
+// Measurements are registered as data before their first observation. Metric
+// names and units stay stable across runs; hashes and IDs are receipt fields,
+// not unbounded Prometheus label dimensions. Missing data is never zero.
+message MetricDefinition {
+  string name = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-z][a-z0-9_]{0,95}$`)"}];
+  string unit = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 64"}];
+  string description = 3 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 2048"}];
+}
+
+message Measurement {
+  string metric = 1;
+  double value = 2;
+  uint64 step = 3;
+  string run_id = 4;
+  string candidate_id = 5;
+  string split = 6;
+}
+
+// Exactly one payload is present. Consumers validate the metric registry,
+// finite values and receipt references before displaying observations.
+message ResearchEvent {
+  uint32 schema_version = 1;
+  string recorded_at = 2;
+  oneof payload {
+    MetricDefinition definition = 3;
+    Measurement measurement = 4;
+    RunStatus status = 5;
+    CommandReceipt receipt = 6;
+  }
+}
+
+// Command execution evidence is generated into every consumer. Success means
+// the recorded command exited zero; it does not prove an arbitrary claim.
+message CommandReceipt {
+  uint32 schema_version = 1 [(candace.liquid.v1.field) = {expr: "this == 1"}];
+  string receipt_id = 2;
+  string claim = 3;
+  string revision = 4;
+  bool tracked_changes = 5;
+  repeated string command = 6;
+  string cwd = 7;
+  google.protobuf.Timestamp started_at = 8;
+  google.protobuf.Timestamp finished_at = 9;
+  double duration_seconds = 10;
+  optional int32 exit_code = 11;
+  repeated ArtifactEvidence evidence = 12;
+  string scope = 13;
+  string session_id = 14;
+  string turn_id = 15;
+  string task_id = 16;
+  string ticket_url = 17;
+  string dashboard_url = 18;
+  string branch = 19;
+}
+
+message ArtifactEvidence {
+  string path = 1;
+  string sha256 = 2;
+  uint64 bytes = 3;
+  bool missing = 4;
+}
+
+// Cached input is a subset of input; reasoning output is a subset of output.
+// An absent message is unknown usage, never a measured zero.
+message TokenUsage {
+  uint64 input_tokens = 1;
+  uint64 cached_input_tokens = 2;
+  uint64 output_tokens = 3;
+  uint64 reasoning_output_tokens = 4;
+  uint64 total_tokens = 5;
+  google.protobuf.Timestamp observed_at = 6;
+  string session_id = 7;
+  string task_id = 8;
+}
+
+message RunStatus {
+  string run_id = 1;
+  string phase = 2;
+  string message = 3;
+  string evidence_path = 4;
+}
+
+message SnapshotRequest {}
+
+message Snapshot {
+  repeated ResearchEvent events = 1;
+  repeated string issues = 2;
+  bool truncated = 3;
+  uint64 bytes_read = 4;
+}
+
+message GetSnapshotRequest {}
+message GetSnapshotResponse { Snapshot snapshot = 1; }
+message CompileRequest { Controller controller = 1; }
+message CompileResponse { Program program = 1; }
+
+// A source revision cites immutable UTF-8 content in the artifact store. The
+// source's license is metadata, never inferred from the software ingesting it.
+message SourceDocument {
+  string source_id = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  string revision = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  string content_hash = 3 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{64}$`)"}];
+  string source_uri = 4;
+  string title = 5;
+  string media_type = 6;
+  string license = 7;
+  string retrieved_at = 8;
+  string artifact_ref = 9;
+  uint64 size_bytes = 10;
+  string raw_source_content_hash = 11;
+}
+
+message IngestDocumentRequest {
+  SourceDocument document = 1;
+  string text = 2;
+}
+
+message IngestDocumentResult {
+  SourceDocument document = 1;
+  bool indexed = 2;
+  string projection_error = 3;
+  // Durable task accepted; indexing runs in the host's goroutine workers.
+  bool queued = 4;
+  ProjectionTask projection = 5;
+}
+message IngestDocumentResponse { IngestDocumentResult result = 1; }
+
+enum ProjectionState {
+  PROJECTION_STATE_UNSPECIFIED = 0;
+  PROJECTION_STATE_PENDING = 1;
+  PROJECTION_STATE_RUNNING = 2;
+  PROJECTION_STATE_SUCCEEDED = 3;
+  PROJECTION_STATE_FAILED = 4;
+}
+
+message ProjectionTask {
+  DocumentRequest document = 1;
+  ProjectionState state = 2;
+  int32 attempts = 3;
+  int64 lease_generation = 4;
+  string last_error = 5;
+}
+
+message ProjectionCount {
+  ProjectionState state = 1;
+  int64 count = 2;
+}
+
+message DocumentRequest {
+  string source_id = 1;
+  string revision = 2;
+}
+
+message DocumentResult {
+  SourceDocument document = 1;
+  string text = 2;
+  ProjectionTask projection = 3;
+}
+message GetDocumentRequest { DocumentRequest request = 1; }
+message GetDocumentResponse { DocumentResult result = 1; }
+
+message SearchRequest {
+  string query = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 4096"}];
+  uint32 limit = 2 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 50"}];
+}
+
+message SearchHit {
+  SourceDocument document = 1;
+  string excerpt = 2;
+  double score = 3;
+}
+
+message SearchResult {
+  repeated SearchHit hits = 1;
+  string mode = 2;
+  string embedding_model = 3;
+}
+message SearchResponse { SearchResult result = 1; }
+
+// Evidence status is explicit: a model claim is not a checked theorem.
+enum KnowledgeKind {
+  KNOWLEDGE_KIND_UNSPECIFIED = 0;
+  KNOWLEDGE_KIND_CONCEPT = 1;
+  KNOWLEDGE_KIND_CLAIM = 2;
+  KNOWLEDGE_KIND_REQUIREMENT = 3;
+  KNOWLEDGE_KIND_CAPABILITY = 4;
+  KNOWLEDGE_KIND_EVIDENCE = 5;
+}
+
+enum AuthorKind {
+  AUTHOR_KIND_UNSPECIFIED = 0;
+  AUTHOR_KIND_SOURCE = 1;
+  AUTHOR_KIND_MODEL = 2;
+  AUTHOR_KIND_OPERATOR = 3;
+  AUTHOR_KIND_CHECKER = 4;
+}
+
+message KnowledgeNode {
+  string node_id = 1;
+  KnowledgeKind kind = 2;
+  string symbol_key = 3;
+  string title = 4;
+  string statement = 5;
+  string parent_node_id = 6;
+  AuthorKind author_kind = 7;
+  string author_ref = 8;
+  string citation_content_hash = 9;
+  string citation_source_id = 10;
+  string citation_source_revision = 11;
+  string citation_chunk_id = 12;
+  optional uint64 citation_start_byte = 13;
+  optional uint64 citation_end_byte = 14;
+  string text_projection_ref = 15;
+  string vector_projection_ref = 16;
+}
+message PutNodeRequest { KnowledgeNode node = 1; }
+message PutNodeResponse { KnowledgeNode node = 1; }
+
+enum RelationKind {
+  RELATION_KIND_UNSPECIFIED = 0;
+  RELATION_KIND_SUPPORTS = 1;
+  RELATION_KIND_REFUTES = 2;
+  RELATION_KIND_DEPENDS_ON = 3;
+  RELATION_KIND_DERIVED_FROM = 4;
+  RELATION_KIND_SUPERSEDES = 5;
+}
+
+message KnowledgeEdge {
+  string from_node_id = 1;
+  string to_node_id = 2;
+  RelationKind relation = 3;
+  AuthorKind author_kind = 4;
+  string author_ref = 5;
+  string rationale = 6;
+}
+message PutEdgeRequest { KnowledgeEdge edge = 1; }
+message PutEdgeResponse { KnowledgeEdge edge = 1; }
+
+message GraphRequest {
+  string root_id = 1;
+  uint32 limit = 2;
+}
+
+message GraphSnapshot {
+  repeated KnowledgeNode nodes = 1;
+  repeated KnowledgeEdge edges = 2;
+  bool truncated = 3;
+}
+message GetGraphRequest { GraphRequest request = 1; }
+message GetGraphResponse { GraphSnapshot snapshot = 1; }
+
+// Simulator jobs share the host's durable queue. Vendor SDKs own cloud wire types.
+enum Simulator { SIMULATOR_UNSPECIFIED = 0; SIMULATOR_CARLA = 1; SIMULATOR_ISAAC = 2; }
+enum SimulationExecutor { SIMULATION_EXECUTOR_UNSPECIFIED = 0; SIMULATION_EXECUTOR_LOCAL = 1; SIMULATION_EXECUTOR_AWS_BATCH = 2; }
+enum SimulationState {
+  SIMULATION_STATE_UNSPECIFIED = 0;
+  SIMULATION_STATE_PENDING = 1;
+  SIMULATION_STATE_SUBMITTING = 2;
+  SIMULATION_STATE_QUEUED = 3;
+  SIMULATION_STATE_RUNNING = 4;
+  SIMULATION_STATE_SUCCEEDED = 5;
+  SIMULATION_STATE_FAILED = 6;
+  SIMULATION_STATE_CANCELLING = 7;
+  SIMULATION_STATE_CANCELLED = 8;
+  SIMULATION_STATE_SUBMISSION_UNKNOWN = 9;
+}
+message SimulationRun {
+  string run_id = 1;
+  Simulator simulator = 2;
+  SimulationExecutor executor = 3;
+  SimulationState state = 4;
+  uint32 steps = 5;
+  uint32 completed_steps = 6;
+  string job_id = 7;
+  string job_queue = 8;
+  string job_definition = 9;
+  string artifact_uri = 10;
+  string reason = 11;
+  string created_at = 12;
+  string updated_at = 13;
+  // Retained admission reservation, never represented as an AWS invoice.
+  int64 reservation_usd_micros = 14;
+  string log_stream = 15;
+  bool cancellation_requested = 16;
+  // True only after AWS reports a terminal job; not just TerminateJob acknowledgement.
+  bool cleanup_confirmed = 17;
+  repeated Measurement latest_measurements = 18;
+  string inspection_error = 19;
+  bool managed = 20;
+  uint32 capture_every = 21;
+  string trace_url = 22;
+  string trace_export_error = 23;
+  repeated SimulationArtifact artifacts = 24;
+  string log_document_id = 25;
+  string log_projection_error = 26;
+  string log_indexed_at = 27;
+}
+message SimulationArtifact {
+  string path = 1;
+  string url = 2;
+  string sha256 = 3;
+  uint64 size_bytes = 4;
+  string media_type = 5;
+}
+// Camera evidence preserves both the simulator clock and observed UTC time.
+message SimulationFrame {
+  uint32 step = 1;
+  double simulation_seconds = 2;
+  string wall_recorded_at = 3;
+  uint32 width = 4;
+  uint32 height = 5;
+  string path = 6;
+  string sha256 = 7;
+  uint64 vendor_frame = 8;
+  double vendor_timestamp_seconds = 9;
+}
+message SimulationFrameDimensions { uint32 width = 1; uint32 height = 2; }
+message SimulationFrameClocks { string simulation_seconds = 1; string wall_recorded_at = 2; }
+message SimulationFrames {
+  string format = 1;
+  string status = 2;
+  string simulator = 3;
+  uint32 capture_every_steps = 4;
+  SimulationFrameDimensions dimensions = 5;
+  SimulationFrameClocks clock_definition = 6;
+  repeated SimulationFrame frames = 7;
+  string error = 8;
+}
+message SimulationTraceSource {
+  SimulationRun run = 1;
+  string events_jsonl = 2;
+  string trajectory_jsonl = 3;
+  string manifest_json = 4;
+  SimulationFrames frames = 5;
+  repeated SimulationArtifact artifacts = 6;
+  string logs = 7;
+}
+message SimulationLogRecord {
+  string recorded_at = 1;
+  string run_id = 2;
+  string kind = 3;
+  string message = 4;
+  SimulationTraceSource simulation = 5;
+  string source_sha256 = 6;
+}
+message SubmitSimulationRequest {
+  string run_id = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 80"}];
+  Simulator simulator = 2;
+  SimulationExecutor executor = 3;
+  uint32 steps = 4 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 10000"}];
+  // Zero disables camera capture; otherwise one frame per N completed steps.
+  uint32 capture_every = 5 [(candace.liquid.v1.field) = {expr: "this <= 10000"}];
+}
+message SubmitSimulationResponse { SimulationRun run = 1; }
+message InspectSimulationRequest { string run_id = 1; }
+message InspectSimulationResponse { SimulationRun run = 1; }
+message ListSimulationsRequest { uint32 limit = 1 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 100"}]; }
+message ListSimulationsResponse { repeated SimulationRun runs = 1; }
+message RecordSimulationEventsRequest { string run_id = 1; repeated ResearchEvent events = 2; }
+message RecordSimulationEventsResponse { SimulationRun run = 1; }
+message CancelSimulationRequest { string run_id = 1; }
+message CancelSimulationResponse { SimulationRun run = 1; }
+message ReadSimulationLogsRequest {
+  string run_id = 1;
+  uint32 max_bytes = 2 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 262144"}];
+}
+message ReadSimulationLogsResponse { string content = 1; bool truncated = 2; string sha256 = 3; }
+message RebuildSimulationTraceRequest { string run_id = 1; }
+message RebuildSimulationTraceResponse { SimulationRun run = 1; string source_sha256 = 2; }
+
+// Operator-owned, immutable per admitted job; agents cannot supply cloud prices,
+// queues, images, commands, credentials or job definitions through submission.
+message SimulationProfile {
+  Simulator simulator = 1;
+  string job_definition = 2;
+  int64 reservation_usd_micros = 3 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 300000000"}];
+}
+message SimulationConfig {
+  string region = 1;
+  string aws_profile = 2;
+  string job_queue = 3;
+  string artifact_uri = 4;
+  string log_group = 5;
+  uint32 timeout_seconds = 6 [(candace.liquid.v1.field) = {expr: "this >= 60 && this <= 3600"}];
+  int64 budget_usd_micros = 7 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 300000000"}];
+  repeated SimulationProfile profiles = 8;
+}
+
+// Local jobs are reconciled by the shared Go host against the Docker Engine
+// SDK. Only the operator configures images, volumes, network and file roots.
+message LocalSimulationProfile {
+  Simulator simulator = 1;
+  string image = 2;
+  string artifact_volume = 3;
+  string artifact_directory = 4;
+  string artifact_url = 5;
+}
+message LocalSimulationConfig {
+  string docker_host = 1;
+  string network = 2;
+  string progress_url = 3;
+  uint32 timeout_seconds = 4 [(candace.liquid.v1.field) = {expr: "this >= 60 && this <= 3600"}];
+  repeated LocalSimulationProfile profiles = 5;
+  string trace_base_url = 6;
+  // Explicitly share only simulator traces, never Workbench sessions.
+  bool public_traces = 7;
+  string log_index = 8;
+}
+
+// Read-only projection of the host-owned workbench-theme.css file. CSS is
+// trusted configuration applied after the built-in theme; empty means default.
+message WorkbenchTheme {
+  string custom_css = 1 [(candace.liquid.v1.field) = {expr: "len(this) <= 65536"}];
+  // Host filesystem path selected by composition, never supplied by an agent call.
+  string file_path = 2;
+}
+message GetWorkbenchThemeRequest {}
+message GetWorkbenchThemeResponse { WorkbenchTheme theme = 1; }
+message ReloadWorkbenchThemeRequest {}
+message ReloadWorkbenchThemeResponse { WorkbenchTheme theme = 1; }
+
+// Reusable worker configuration. Instructions guide the backend; they do not
+// grant permissions. The host retains its existing tool approval policy.
+message AgentDefinition {
+  string id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-z][a-z0-9_-]{0,63}$`)"}];
+  uint32 revision = 2 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  string display_name = 3 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 100"}];
+  string instructions = 4 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 16384"}];
+}
+
+// Agent-owned references for Langfuse. Secret material remains in the
+// operator-owned secret store; agents can only inspect and select their own
+// opaque references.
+message AgentLangfuseConfiguration {
+  string endpoint_url = 1 [(candace.liquid.v1.field) = {expr: "len(this) <= 2048"}];
+  string public_key_secret_ref = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 256"}];
+  string secret_key_secret_ref = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 256"}];
+}
+
+// Agent-owned references for the rebuildable OpenSearch projection. The
+// evidence authority remains PostgreSQL and the artifact store.
+message AgentOpenSearchConfiguration {
+  string endpoint_url = 1 [(candace.liquid.v1.field) = {expr: "len(this) <= 2048"}];
+  string index = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 255"}];
+  string embedding_model = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 255"}];
+  string credentials_secret_ref = 4 [(candace.liquid.v1.field) = {expr: "len(this) <= 256"}];
+}
+
+// A complete replacement payload for one agent's external-tool configuration.
+// The authenticated transport selects the agent; callers cannot supply an ID.
+message AgentConfigurationInput {
+  AgentLangfuseConfiguration langfuse = 1 [(candace.liquid.v1.field) = {recurse: true}];
+  AgentOpenSearchConfiguration opensearch = 2 [(candace.liquid.v1.field) = {recurse: true}];
+}
+
+// Durable configuration receipt. It contains references only, never secret
+// values. revision implements compare-and-swap updates.
+message AgentConfiguration {
+  string agent_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-z][a-z0-9_-]{0,63}$`)"}];
+  uint32 revision = 2 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  AgentLangfuseConfiguration langfuse = 3 [(candace.liquid.v1.field) = {recurse: true}];
+  AgentOpenSearchConfiguration opensearch = 4 [(candace.liquid.v1.field) = {recurse: true}];
+  string updated_at = 5;
+}
+
+message GetOwnAgentConfigurationRequest {}
+message GetOwnAgentConfigurationResponse { AgentConfiguration configuration = 1; }
+
+// expected_revision is zero only for an initial create. Subsequent writes
+// require the revision returned by GetOwnAgentConfiguration or a prior update.
+message UpdateOwnAgentConfigurationRequest {
+  uint32 expected_revision = 1;
+  AgentConfigurationInput configuration = 2;
+}
+message UpdateOwnAgentConfigurationResponse { AgentConfiguration configuration = 1; }
+
+// One immutable assignment recipe. Retain this file to retry the assignment;
+// changing its contents requires a new assignment_id. Model and repository
+// identifiers come from the Workbench catalog. This slice creates a worktree.
+message AgentAssignmentRecipe {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  AgentDefinition agent = 2;
+  string ticket_url = 3 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 2048"}];
+  string task = 4 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 32000"}];
+  string model = 5 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 200"}];
+  string repository_id = 6 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+}
+
+// A prepared recipe is inspectable data, not a dispatched or completed task.
+// Fingerprints bind evidence to the exact definition and complete recipe.
+message AgentAssignmentPlan {
+  AgentAssignmentRecipe recipe = 1;
+  string definition_sha256 = 2;
+  string recipe_sha256 = 3;
+  string session_key = 4;
+  string prompt_key = 5;
+}
+
+message PrepareAgentAssignmentRequest { AgentAssignmentRecipe recipe = 1; }
+message PrepareAgentAssignmentResponse { AgentAssignmentPlan plan = 1; }
+
+// The consumer retains session links even if prompt acceptance is unconfirmed:
+// an empty turn_id identifies a partial receipt. A populated turn_id records
+// acknowledged acceptance, not successful completion of the turn or its task.
+message AgentAssignmentReceipt {
+  AgentAssignmentPlan plan = 1;
+  string session_id = 2;
+  string turn_id = 3;
+  string worktree_id = 4;
+  string session_url = 5;
+}

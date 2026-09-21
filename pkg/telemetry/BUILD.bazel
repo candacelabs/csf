@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "telemetry",
+    srcs = [
+        "doc.go",
+        "logger.go",
+        "trace.go",
+        "validate.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/telemetry",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//proto/candace/telemetry/v1:telemetry",
+        "@io_opentelemetry_go_otel_sdk//trace",
+        "@io_opentelemetry_go_otel_trace//:trace",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "telemetry_test",
+    srcs = ["telemetry_test.go"],
+    deps = [
+        ":telemetry",
+        "//proto/candace/telemetry/v1:telemetry",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

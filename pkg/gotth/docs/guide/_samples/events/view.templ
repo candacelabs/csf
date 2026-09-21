@@ -1,0 +1,55 @@
+package events
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// ComposerRegion is the whole vocabulary in one fragment.
+//
+// The form's submit binding sends every field the form contains. The input's
+// own binding sends that one control, debounced. The key binding clears the
+// draft and fires for no key but Escape. All three go through one client
+// listener and one server event path.
+//
+// The two bindings on the input are composed with live.OnAll and only one of
+// them is debounced. That is the whole of it now, and it is worth one sentence
+// because it was not always so: until 2026-08-05 Debounce was an attribute of
+// the element, so the Escape binding inherited the input's 150 ms and a
+// keystroke inside that window destroyed the pending clear outright. This
+// component is the page that defect was found on.
+//
+// aria-invalid and aria-describedby are written by hand, deliberately: they
+// are markup decisions belonging to this application's design system, and the
+// library ships no form vocabulary that would own them.
+templ ComposerRegion(s State) {
+	<section { live.Region("compose")... }>
+		<form { live.On("submit", EventSubmit)... } autocomplete="off">
+			<label for="body">Say something</label>
+			<input
+				id="body"
+				type="text"
+				name={ FieldBody }
+				value={ s.Draft }
+				aria-invalid?={ s.DraftError != "" }
+				aria-describedby="body-help"
+				{ live.OnAll(
+					live.OnWith("keydown", EventClear, live.Bind{Keys: []string{"Escape"}}),
+					live.OnWith("input", EventDraft, live.Bind{Debounce: 150 * time.Millisecond}),
+				)... }
+			/>
+			<label>
+				<input type="checkbox" name={ FieldUrgent } value="1"/>
+				urgent
+			</label>
+			<button type="submit">Post</button>
+		</form>
+		if s.DraftError != "" {
+			<p id="body-help" role="alert">{ s.DraftError }</p>
+		} else {
+			<p id="body-help">{ strconv.Itoa(s.Remaining()) } characters left</p>
+		}
+	</section>
+}

@@ -1,0 +1,62 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "dashboard_lib",
+    srcs = [
+        "dashboard.go",
+        "feed.go",
+        "main.go",
+        "metrics.go",
+        "resync.go",
+        "view_templ.go",
+        "wire.go",
+    ],
+    embedsrcs = ["dashboard.css"],
+    importpath = "github.com/candacelabs/csf/examples/gotth/dashboard",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+        "@com_github_coder_websocket//:websocket",
+        "@io_opentelemetry_go_otel//attribute",
+        "@io_opentelemetry_go_otel_metric//:metric",
+        "@io_opentelemetry_go_otel_metric//embedded",
+        "@io_opentelemetry_go_otel_metric//noop",
+        "@org_golang_google_protobuf//encoding/protowire",
+    ],
+)
+
+go_binary(
+    name = "dashboard",
+    embed = [":dashboard_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "dashboard_test",
+    srcs = [
+        "dashboard_suite_test.go",
+        "dashboard_test.go",
+        "wire_test.go",
+    ],
+    # README.md: the suite's ReportAfterSuite reads it to check the spec count
+    # it publishes. The HTMX bundle: the example serves the exact artifact the
+    # conformance suite recorded, and asserts it byte for byte.
+    data = [
+        "README.md",  # keep
+        "//pkg/gotth/test/internal/conformance:testdata/htmx-2.0.10.min.js",  # keep
+    ],
+    embed = [":dashboard_lib"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "//pkg/patience",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_ginkgo_v2//types",
+        "@com_github_onsi_gomega//:gomega",
+        "@io_opentelemetry_go_otel//attribute",
+        "@io_opentelemetry_go_otel_metric//:metric",
+    ],
+)

@@ -1,0 +1,27 @@
+{
+  "name": "@gotth-live-bench/chat-next",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Next.js side of bench app B — the chat room (equivalence-spec §2.3, F-CHT-1..9).",
+  "scripts": {
+    "build": "node ../../../scripts/sync-shim.mjs . && NEXT_TELEMETRY_DISABLED=1 next build",
+    "start": "node ../../../scripts/start-app.mjs .",
+    "analyze": "node ../../../scripts/sync-shim.mjs . && NEXT_TELEMETRY_DISABLED=1 ANALYZE=true next build",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "15.5.22",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "swr": "2.5.0",
+    "ws": "8.21.2"
+  },
+  "devDependencies": {
+    "@next/bundle-analyzer": "15.5.22",
+    "@types/node": "24.13.3",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.4",
+    "@types/ws": "8.18.1",
+    "typescript": "5.9.3"
+  }
+}

@@ -1,0 +1,234 @@
+%% ============================================================================
+%% 03 — Relay pipeline
+%%
+%% A second widget with a different shape, to show that the vocabulary is not
+%% raft-shaped. A three-stage chain rather than a star; one role for all three
+%% nodes rather than one distinguished node; one forward channel rather than a
+%% request/acknowledge pair; no controls at all.
+%%
+%% Three things appear here that example 01 does not have:
+%%
+%%   - a literal label carrying a template ("cursor {cursor}"), which is how a
+%%     value with no decision around it is rendered — a binding is for
+%%     decisions, and one with no `when` clause is not a binding
+%%   - a motion gate with `requires` and no `forbids`
+%%   - one role classifying several nodes
+%%
+%% v0 has no import mechanism, so this document declares its own roles,
+%% channels and placements rather than sharing example 01's. That is a real
+%% cost of v0 and it is deliberate: every reuse mechanism is a versioning
+%% problem, and the shape of the right one is decided by measuring the second
+%% and third real widget, not by guessing at the first.
+%% ============================================================================
+
+
+widget RelayPipeline
+dialect 0
+region "widget.relay-pipeline"
+palette fieldStation
+
+
+state
+  field cursor type counter
+  field ingressUp type flag
+  field relayUp type flag
+  field sinkUp type flag
+  field backlog type count
+  field slow type flag signal slowClient
+end
+
+
+predicates
+  %% No `forbids paused` here — this widget has no pause control, so its gate
+  %% is a pure conjunction of health with the runtime's own catch-up signal.
+  predicate flowing
+    requires ingressUp
+    requires relayUp
+    requires sinkUp
+    forbids slow
+  end
+
+  predicate backedUp
+    requires backlog atLeast 1
+  end
+end
+
+
+bindings
+  binding ingressCaptionText
+    when ingressUp then "accepting"
+    otherwise "closed"
+  end
+
+  binding relayCaptionText
+    when relayUp then "relaying"
+    otherwise "stalled"
+  end
+
+  binding sinkCaptionText
+    when sinkUp then "committing"
+    otherwise "closed"
+  end
+
+  binding pipelineDescriptionText
+    when flowing then "Three stages; records move from node-a through node-b to node-c."
+    whenNot ingressUp then "Three stages; the first stage is not accepting records."
+    otherwise "Three stages; records are not moving end to end."
+  end
+
+  binding backlogStatText
+    when backedUp then "{backlog} records waiting"
+    otherwise "no backlog"
+  end
+end
+
+
+labels
+  label titleLabel text "Relay pipeline"
+  label sourceLabel text "Read-only pipeline stream"
+  label sceneDescriptionLabel binds pipelineDescriptionText
+
+  label ingressLabel text "node-a"
+  label ingressCaptionLabel binds ingressCaptionText
+  label relayLabel text "node-b"
+  label relayCaptionLabel binds relayCaptionText
+  label sinkLabel text "node-c"
+  label sinkCaptionLabel binds sinkCaptionText
+
+  label recordLegendLabel text "record"
+
+  %% A literal label may carry a template. This is the whole mechanism for
+  %% "render a number with some words around it": there is no decision here, so
+  %% there is no binding.
+  label cursorStatLabel text "cursor {cursor}"
+  label backlogStatLabel binds backlogStatText
+end
+
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat cursorStatLabel
+  stat backlogStatLabel
+end
+
+
+%% One role, three nodes. Changing the pipeline's look is one edit, which is
+%% the point of nodes carrying no appearance of their own.
+
+roles
+  role stage
+    token accent
+    marker small
+    emphasis allowed
+  end
+end
+
+
+channels
+  channel record
+    direction forward
+    token accent
+    legend recordLegendLabel
+  end
+end
+
+
+placements
+  placement upstream left 12 top 50
+  placement middle left 50 top 50
+  placement downstream left 88 top 50
+end
+
+
+scene pipeline
+  description sceneDescriptionLabel
+
+  node ingress
+    role stage
+    at upstream
+    title ingressLabel
+    caption ingressCaptionLabel
+  end
+
+  node relay
+    role stage
+    at middle
+    title relayLabel
+    caption relayCaptionLabel
+  end
+
+  node sink
+    role stage
+    at downstream
+    title sinkLabel
+    caption sinkCaptionLabel
+  end
+
+  edge ingressToRelay
+    from ingress
+    to relay
+    carries record
+  end
+
+  edge relayToSink
+    from relay
+    to sink
+    carries record
+  end
+end
+
+
+%% The two pulses are staggered so a record visibly crosses the first hop
+%% before the second one starts. Both are re-armed by `cursor`, so the chain
+%% animates once per delivered record and not on a timer.
+
+motion
+  requires flowing
+  restartOn cursor
+
+  pulse recordIn
+    edge ingressToRelay
+    channel record
+    duration 640 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse recordOn
+    edge relayToSink
+    channel record
+    duration 640 milliseconds
+    delay 200 milliseconds
+  end
+
+  emphasis relayBeat
+    node relay
+    duration 560 milliseconds
+    delay 120 milliseconds
+  end
+end
+
+
+%% No `indicators` and no `controls` blocks: this widget is read-only and its
+%% health is carried by the three node captions and the scene description.
+
+
+events
+  event advance
+    wire "widget.relay.advance"
+    field cursor writes cursor
+    field ingress_up writes ingressUp
+    field relay_up writes relayUp
+    field sink_up writes sinkUp
+    field backlog writes backlog
+  end
+end
+
+
+data
+  stream pipelineWatch
+    source "widget.relay.watch"
+    delivers advance
+    ordering cursor
+  end
+end

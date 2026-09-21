@@ -1,0 +1,218 @@
+[
+  {
+    "label": "static/chunks/framework-fa7a0b6c92f19e3f.js",
+    "statSize": 574367,
+    "parsedSize": 189754,
+    "gzipSize": 59849,
+    "top": [
+      {
+        "path": "./../../node_modules/react-dom/cjs/react-dom-client.production.js",
+        "parsedSize": 174660
+      },
+      {
+        "path": "./../../node_modules/react/cjs/react.production.js",
+        "parsedSize": 7381
+      },
+      {
+        "path": "./../../node_modules/scheduler/cjs/scheduler.production.js",
+        "parsedSize": 3457
+      },
+      {
+        "path": "./../../node_modules/react-dom/cjs/react-dom.production.js",
+        "parsedSize": 3246
+      },
+      {
+        "path": "./../../node_modules/react/cjs/react-jsx-runtime.production.js",
+        "parsedSize": 326
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/89-9ed32d6006a2b0d7.js",
+    "statSize": 596159,
+    "parsedSize": 173485,
+    "gzipSize": 45996,
+    "top": [
+      {
+        "path": "./../../node_modules/next/dist/compiled/react-server-dom-webpack/cjs/react-server-dom-webpack-client.browser.production.js",
+        "parsedSize": 23067
+      },
+      {
+        "path": "./../../node_modules/next/dist/compiled/react/cjs/react.production.js",
+        "parsedSize": 7316
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/components/app-router.js",
+        "parsedSize": 6120
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/components/router-reducer/ppr-navigations.js",
+        "parsedSize": 5807
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/components/layout-router.js",
+        "parsedSize": 5180
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/0937d497-44abb0f9355ace92.js",
+    "statSize": 530233,
+    "parsedSize": 173019,
+    "gzipSize": 54241,
+    "top": [
+      {
+        "path": "./../../node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.production.js",
+        "parsedSize": 172934
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/main-dd0ef72d7c2b7692.js",
+    "statSize": 374392,
+    "parsedSize": 128153,
+    "gzipSize": 36878,
+    "top": [
+      {
+        "path": "./../../node_modules/next/dist/shared/lib/router/router.js",
+        "parsedSize": 23186
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/index.js",
+        "parsedSize": 9078
+      },
+      {
+        "path": "./../../node_modules/next/dist/lib/constants.js",
+        "parsedSize": 6215
+      },
+      {
+        "path": "./../../node_modules/next/dist/compiled/path-to-regexp/index.js",
+        "parsedSize": 6159
+      },
+      {
+        "path": "./../../node_modules/next/dist/shared/lib/constants.js",
+        "parsedSize": 5746
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/526-17ed0c9588bea8ba.js",
+    "statSize": 69764,
+    "parsedSize": 13215,
+    "gzipSize": 5705,
+    "top": [
+      {
+        "path": "./../../node_modules/swr/dist/subscription/index.mjs + 5 modules (concatenated)/../../node_modules/swr/dist/use-swr-mgpzvfmo.mjs",
+        "parsedSize": 5600
+      },
+      {
+        "path": "./../../node_modules/swr/dist/subscription/index.mjs + 5 modules (concatenated)/../../node_modules/swr/dist/config-context-ext53wcz.mjs",
+        "parsedSize": 4801
+      },
+      {
+        "path": "./../../node_modules/swr/dist/subscription/index.mjs + 5 modules (concatenated)/../../node_modules/swr/dist/_internal/index.mjs",
+        "parsedSize": 854
+      },
+      {
+        "path": "./../../node_modules/use-sync-external-store/cjs/use-sync-external-store-shim.production.js",
+        "parsedSize": 723
+      },
+      {
+        "path": "./../../node_modules/swr/dist/subscription/index.mjs + 5 modules (concatenated)/../../node_modules/swr/dist/subscription/index.mjs",
+        "parsedSize": 608
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/app/chat/[room]/page-1e483ad30ee19ed0.js",
+    "statSize": 20437,
+    "parsedSize": 5729,
+    "gzipSize": 2330,
+    "top": [
+      {
+        "path": "./src/components/ChatLive.tsx + 4 modules (concatenated)/src/components/ChatLive.tsx",
+        "parsedSize": 3696
+      },
+      {
+        "path": "./src/components/ChatLive.tsx + 4 modules (concatenated)/src/lib/core.ts",
+        "parsedSize": 1110
+      },
+      {
+        "path": "./src/components/ChatLive.tsx + 4 modules (concatenated)/src/lib/transport/sse.ts",
+        "parsedSize": 590
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/app/layout-c6ebe1adf771261d.js",
+    "statSize": 17151,
+    "parsedSize": 5332,
+    "gzipSize": 1958,
+    "top": [
+      {
+        "path": "./../../node_modules/next/dist/client/script.js",
+        "parsedSize": 3695
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/request-idle-callback.js",
+        "parsedSize": 828
+      },
+      {
+        "path": "./../../node_modules/next/dist/shared/lib/htmlescape.js",
+        "parsedSize": 553
+      },
+      {
+        "path": "./src/app/chat.css",
+        "parsedSize": 6
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/webpack-c9950f66f15e9ef6.js",
+    "statSize": 3331,
+    "parsedSize": 3331,
+    "gzipSize": 1670,
+    "top": []
+  },
+  {
+    "label": "static/chunks/app/_not-found/page-2e6336e6c54a23be.js",
+    "statSize": 5399,
+    "parsedSize": 2667,
+    "gzipSize": 986,
+    "top": [
+      {
+        "path": "./../../node_modules/next/dist/client/components/http-access-fallback/error-fallback.js",
+        "parsedSize": 1050
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/components/styles/access-error-styles.js",
+        "parsedSize": 820
+      },
+      {
+        "path": "./../../node_modules/next/dist/client/components/builtin/global-not-found.js",
+        "parsedSize": 555
+      }
+    ]
+  },
+  {
+    "label": "static/chunks/main-app-66a6a6edcf8a554d.js",
+    "statSize": 556,
+    "parsedSize": 556,
+    "gzipSize": 227,
+    "top": []
+  },
+  {
+    "label": "static/chunks/pages/_app-0f75d689c738a6fc.js",
+    "statSize": 236,
+    "parsedSize": 236,
+    "gzipSize": 192,
+    "top": []
+  },
+  {
+    "label": "static/chunks/pages/_error-d481f6d49fb4455d.js",
+    "statSize": 218,
+    "parsedSize": 218,
+    "gzipSize": 181,
+    "top": []
+  }
+]

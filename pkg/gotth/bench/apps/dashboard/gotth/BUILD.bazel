@@ -1,0 +1,58 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "gotth_lib",
+    srcs = [
+        "bench.go",
+        "bindings.go",
+        "dashboard.go",
+        "feed.go",
+        "fixture.go",
+        "main.go",
+        "view_templ.go",
+    ],
+    embedsrcs = [
+        "bench/ready.js",
+        "dashboard.css",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/bench/apps/dashboard/gotth",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_binary(
+    name = "gotth",
+    embed = [":gotth_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "gotth_test",
+    srcs = [
+        "dashboard_suite_test.go",
+        "dashboard_test.go",
+        "env_test.go",
+    ],
+    # The benchmark asserts that the Go and Next.js apps serve byte-identical
+    # shared assets, so the Next app's stylesheet and the harness shim it
+    # resolves from its own directory are inputs to this test.
+    data = [
+        # A spec feeds the stylesheet to the HTMX loader to prove a bundle whose
+        # digest is not the recorded one is refused rather than served.
+        "dashboard.css",  # keep
+        "//pkg/gotth/bench:apps/dashboard/next/src/app/dashboard.css",  # keep
+        "//pkg/gotth/bench:harness/shim.js",  # keep
+    ],
+    embed = [":gotth_lib"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

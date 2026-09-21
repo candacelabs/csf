@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "clientcodec",
+    srcs = [
+        "doc.go",
+        "emit.go",
+        "generate.go",
+        "golden.go",
+        "schema.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/clientcodec",
+    visibility = ["//pkg/gotth:__subpackages__"],
+    deps = [
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protodesc",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//types/descriptorpb",
+    ],
+)
+
+go_test(
+    name = "clientcodec_test",
+    srcs = [
+        "clientcodec_suite_test.go",
+        "generator_test.go",
+    ],
+    # The golden frames the browser runtime's own test suite reads, so both
+    # runtimes are held to one set of vectors.
+    data = ["//pkg/gotth:client/test/golden.json"],  # keep
+    deps = [
+        ":clientcodec",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protodesc",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//types/descriptorpb",
+    ],
+)

@@ -1,0 +1,46 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "agent",
+    srcs = [
+        "materialize.go",
+        "reconciler.go",
+        "runner.go",
+        "source_sync.go",
+        "store.go",
+        "types.go",
+    ],
+    importpath = "github.com/candacelabs/csf/app/candaceos-agent/internal/agent",
+    visibility = ["//app/candaceos-agent:__subpackages__"],
+    deps = [
+        "//pkg/boundedbuffer",
+        "//pkg/boundedbuffer/v1:boundedbuffer",
+        "//pkg/telemetry",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//proto/candace/telemetry/v1:telemetry",
+        "//services/candaceos",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "agent_test",
+    srcs = [
+        "agent_test.go",
+        "mock_executor_generate_test.go",
+        "mock_executor_test.go",
+        "mock_store_generate_test.go",
+        "mock_store_test.go",
+        "source_observability_test.go",
+    ],
+    deps = [
+        ":agent",
+        "//pkg/telemetry",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

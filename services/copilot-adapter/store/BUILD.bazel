@@ -1,0 +1,53 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "store",
+    srcs = [
+        "migrate.go",
+        "store.go",
+    ],
+    embedsrcs = [
+        "migrations/000001_copilot_adapter.up.sql",
+        "migrations/000002_transcript_tool_call_id.up.sql",
+        "migrations/000003_workbench.up.sql",
+        "migrations/000004_cron_ownership.up.sql",
+        "migrations/000005_event_versions.up.sql",
+        "migrations/000006_turn_delivery.up.sql",
+        "migrations/000007_bridge_event_receipts.up.sql",
+        "migrations/000008_prompt_idempotency.up.sql",
+        "migrations/000009_session_and_abort_idempotency.up.sql",
+        "migrations/000010_session_creation_state.up.sql",
+        "migrations/000011_schedule_creation_idempotency.up.sql",
+        "migrations/000012_usage_telemetry.up.sql",
+        "migrations/000013_session_tasks.up.sql",
+        "migrations/000014_agent_session_identity.up.sql",
+        "migrations/000015_nullable_optional_text.up.sql",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/store",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/sqlmigrate",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/storedb",
+    ],
+)
+
+go_test(
+    name = "store_test",
+    srcs = [
+        "migrate_test.go",
+        "queries_test.go",
+        "store_suite_test.go",
+    ],
+    embed = [":store"],
+    deps = [
+        "//pkg/pgmem",
+        "//pkg/sqlmigrate",
+        "//services/copilot-adapter/gen/api",
+        "//services/copilot-adapter/storedb",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_guregu_null_v5//:null",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

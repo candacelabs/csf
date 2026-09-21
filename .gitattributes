@@ -1,0 +1,19 @@
+# Generator-owned output is tracked but collapsed in reviews. Upstream filenames
+# stay unchanged; handwritten contracts and generator inputs remain visible.
+*.gen.go linguist-generated=true
+*_cgen.* linguist-generated=true
+*.pb.go linguist-generated=true
+*.sql.go linguist-generated=true
+*_templ.go linguist-generated=true
+csf/internal/brainspinedb/db.go linguist-generated=true
+csf/internal/brainspinedb/models.go linguist-generated=true
+csf/tools/codegen/generated/** linguist-generated=true
+pkg/workcontinuity/mock_source_test.go linguist-generated=true
+services/copilot-adapter/views_gen.go linguist-generated=true
+services/copilot-adapter/copilotbridge/usage_views_gen.go linguist-generated=true
+services/copilot-adapter/mock_trace_client_test.go linguist-generated=true
+services/copilot-adapter/mock_seams_test.go linguist-generated=true
+services/copilot-adapter/storedb/db.go linguist-generated=true
+services/copilot-adapter/storedb/models.go linguist-generated=true
+services/copilot-adapter/storedb/querier.go linguist-generated=true
+services/copilot-adapter/ui/src/api/*schema.d.ts linguist-generated=true

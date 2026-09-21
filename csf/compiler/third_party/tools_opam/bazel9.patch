@@ -1,0 +1,417 @@
+diff --git a/extensions/opam/opam_dep.bzl b/extensions/opam/opam_dep.bzl
+--- a/extensions/opam/opam_dep.bzl
++++ b/extensions/opam/opam_dep.bzl
+@@ -31,10 +31,11 @@
+     if verbosity > 1:
+         print("\n  Creating repo: '" + rctx.name + "'")
+ 
+-    opambin = rctx.path(rctx.attr.opam)
++    bootstrap = json.decode(rctx.read(rctx.attr.bootstrap)) if rctx.attr.bootstrap else {}
++    opambin = rctx.path(bootstrap.get("opam", rctx.attr.opam))
+     if debug > 1: print("OPAMBIN: %s" % opambin)
+ 
+-    opamroot = rctx.path(rctx.attr.root)
++    opamroot = rctx.path(bootstrap.get("root", rctx.attr.root))
+     # opamroot = None
+     # cmd = [opambin, "var", "root"]
+     # res = rctx.execute(cmd, quiet = (verbosity < 1))
+@@ -48,7 +49,7 @@
+     #     fail("cmd failure")
+ 
+     if debug > 1: print("OPAMROOT: %s" % opamroot)
+-    opamswitch = rctx.attr.switch
++    opamswitch = bootstrap.get("switch", rctx.attr.switch)
+     if debug > 1: print("OPAMSWITCH: %s" % opamswitch)
+ 
+     # config tool needs switch prefix
+@@ -91,7 +92,7 @@
+         repo_pkg,
+         switch_pfx)
+     )
+-    cmd = [rctx.attr.config_tool,
++    cmd = [bootstrap.get("config_tool", rctx.attr.config_tool),
+            "--pkg", repo_pkg,
+            "--pkg-pfx", rctx.attr.obazl_pfx,
+            "--switch-pfx", switch_pfx]
+@@ -100,7 +101,7 @@
+     rctx.report_progress("Configuring pkg %s" % repo_pkg)
+     res = rctx.execute(cmd,
+                        environment = {
+-                           "OBAZL_SDKLIB": rctx.attr.sdklib
++                           "OBAZL_SDKLIB": bootstrap.get("sdklib", rctx.attr.sdklib)
+                        },
+                        quiet = (verbosity < 1))
+ 
+@@ -119,6 +120,7 @@
+ opam_dep = repository_rule(
+     implementation = _opam_dep_repo_impl,
+     attrs = {
++        "bootstrap": attr.label(allow_single_file = True),
+         "install": attr.bool(default = True),
+         "opam": attr.string(),
+         "root": attr.string(),
+diff --git a/extensions/opam/opam_toolchain_xdg.bzl b/extensions/opam/opam_toolchain_xdg.bzl
+--- a/extensions/opam/opam_toolchain_xdg.bzl
++++ b/extensions/opam/opam_toolchain_xdg.bzl
+@@ -91,6 +91,7 @@
+            "init",
+            "--root={}".format(OPAMROOT),
+            "--bare",
++           "--disable-sandboxing", # already inside the Bazel runner container
+            "--no-setup", # don't update shell stuff
+            "--no-opamrc",
+            # "--no" # use OPAMNO instead
+@@ -151,19 +152,18 @@
+             print("stderr: %s" % res.stderr)
+             fail("cmd failure: %s" % cmd)
+ 
+-    ocaml_version = None
+-
+-    return switch_id, ocaml_version
++    return switch_id, switch_id
+ 
+ ################
+ def config_xdg_toolchain(mctx,
+                          opam_version,
+                          ocaml_version,
+                          pkgs,
++                         package_versions,
+                          debug,
+-                         opam_verbosity, verbosity):
+-
+-    XDG_OPAM_CTX = _get_xdg_ctx(mctx, debug, verbosity)
++                         opam_verbosity, verbosity, context_root = None):
++
++    XDG_OPAM_CTX = context_root or _get_xdg_ctx(mctx, debug, verbosity)
+     if verbosity > 0:
+         print("\n  Configuring XDG toolchain in %s" % XDG_OPAM_CTX)
+ 
+@@ -272,20 +272,15 @@
+ 
+     SDKBIN = switch_bin
+ 
+-    tot = len(pkgs)
+-    for i,pkg in enumerate(pkgs):
+-        if not is_pkg_installed(mctx, opambin, pkg,
+-                                OPAMROOT, ocaml_version):
+-            if verbosity > 1: print("\nInstalling pkg '{}'".format(pkg))
+-            opam_install_pkg(mctx,
+-                             opambin,
+-                             pkg,
+-                             switch_id,
+-                             switch_pfx,
+-                             SDKBIN,
+-                             OPAMROOT,
+-                             i+1, tot,
+-                             debug, opam_verbosity, verbosity)
++    # Resolve all requested constraints together. Checking only a library directory
++    # silently accepts a different installed version and drops the MODULE pins.
++    atoms = [pkg + "." + package_versions[pkg]
++             if package_versions.get(pkg) else pkg for pkg in package_versions]
++    cmd = [opambin, "install", "--root", OPAMROOT,
++           "--switch", switch_id, "--yes"] + atoms
++    res = mctx.execute(cmd, quiet = (opam_verbosity < 1))
++    if res.return_code != 0:
++        fail("opam dependency resolution failed: " + res.stderr)
+ 
+     # get all installed pkgs
+     cmd = [opambin,
+diff --git a/extensions/opam.bzl b/extensions/opam.bzl
+--- a/extensions/opam.bzl
++++ b/extensions/opam.bzl
+@@ -17,6 +17,18 @@
+ ## - set version ids of bazel_deps in _build_config_tool
+ ## - remove dev registry from bazel build cmd
+ 
++def _opam_lock_impl(rctx):
++    if rctx.attr.source:
++        rctx.symlink(rctx.path(rctx.attr.source), "opam.lock.json")
++    else:
++        rctx.file("opam.lock.json", rctx.attr.content)
++    rctx.file("BUILD.bazel", 'exports_files(["opam.lock.json"])\n')
++
++opam_lock = repository_rule(
++    implementation = _opam_lock_impl,
++    attrs = {"content": attr.string(), "source": attr.label(allow_single_file = True)},
++)
++
+ ################################################################
+ def _build_config_tool(mctx, toolchain, debug, verbosity):
+     if debug > 1: print("_build_config_tool")
+@@ -56,6 +68,7 @@
+     # only for opam install
+     if toolchain == "opam":
+         cmd = [bazel,
++               "--output_user_root=../.cache/config-bazel-output",
+                "--ignore_all_rc_files",
+                # WARNING: a different output base than the
+                # one set by the opam build cmd will cause
+@@ -63,6 +76,7 @@
+                # "--output_base=../.config_base",
+                # "--output_user_root=../.config_user",
+                "build",
++               "--incompatible_autoload_externally=+@rules_cc",
+                "--symlink_prefix=config-",
+                "--lockfile_mode=off",
+                "--ignore_dev_dependency",
+@@ -75,9 +89,11 @@
+                "@tools_opam//extensions/config"]
+     else:
+         cmd = ["bazel",
++               "--output_user_root=../.cache/config-bazel-output",
+                # "--output_base=../.config_base",
+                # "--output_user_root=../.config_user",
+                "build",
++               "--incompatible_autoload_externally=+@rules_cc",
+                # "--symlink_prefix=config-",
+                # testing:
+                # "--registry=file://{}/obazl/registry".format(HOME),
+@@ -87,6 +103,7 @@
+                "--ignore_dev_dependency",
+                "--compilation_mode", "fastbuild",
+                "@tools_opam//extensions/config"]
++    cmd.append("--override_module=tools_opam=" + str(mctx.path(Label("//extensions/config:BUILD.bazel")).dirname.dirname.dirname))
+     if verbosity > 1:
+         cmd.append("--subcommands=pretty_print")
+ 
+@@ -128,6 +145,99 @@
+ 
+     return config_pkg_tool
+ 
++# A repository dependency owns executable/toolchain installation. Extension
++# lockfile replay only declares this repository; fetching any package still
++# materializes its complete bootstrap dependency first.
++def _opam_bootstrap_impl(rctx):
++    config_tool = _build_config_tool(rctx, "xdg", rctx.attr.debug, rctx.attr.verbosity)
++    copied = rctx.execute(["cp", str(config_tool), "config-tool"])
++    if copied.return_code != 0:
++        fail("Cannot retain opam configuration tool: " + copied.stderr)
++    runfiles = rctx.execute(["cp", "-RL", str(config_tool) + ".runfiles", "config-tool.runfiles"])
++    if runfiles.return_code != 0:
++        fail("Cannot retain opam configuration templates: " + runfiles.stderr)
++    (opam, root, sdklib, switch, ocaml_version, libraries) = config_xdg_toolchain(
++        rctx, rctx.attr.opam_version, rctx.attr.ocaml_version,
++        rctx.attr.packages.keys(), rctx.attr.packages,
++        rctx.attr.debug, rctx.attr.opam_verbosity, rctx.attr.verbosity,
++        context_root = str(rctx.path("opam")),
++    )
++    listed = rctx.execute([str(opam), "list", "--root", str(root),
++                           "--switch", switch, "--installed",
++                           "--columns=name,version", "--short"])
++    if listed.return_code != 0:
++        fail("Cannot read resolved opam dependencies: " + listed.stderr)
++    resolved = {}
++    for line in listed.stdout.splitlines():
++        fields = [field for field in line.replace("\t", " ").split(" ") if field]
++        if len(fields) == 2:
++            resolved[fields[0]] = fields[1]
++    libraries = sorted(libraries)
++    if not rctx.attr.update_lock and (
++        resolved != rctx.attr.locked_versions or libraries != rctx.attr.locked_libraries
++    ):
++        fail("Resolved opam packages or findlib libraries differ from lock; run the explicit lock update command")
++    graph = {"schema_version": 1, "packages": resolved, "libraries": libraries}
++    rctx.file("opam.lock.json", json.encode_indent(graph) + "\n")
++    rctx.file("bootstrap.json", json.encode({
++        "opam": str(opam), "root": str(root), "sdklib": str(sdklib),
++        "switch": switch, "config_tool": str(rctx.path("config-tool")),
++        "graph": graph,
++    }))
++    rctx.file("BUILD.bazel", 'exports_files(["bootstrap.json", "opam.lock.json"])\n')
++
++opam_bootstrap = repository_rule(
++    implementation = _opam_bootstrap_impl,
++    attrs = {
++        "opam_version": attr.string(mandatory = True),
++        "ocaml_version": attr.string(mandatory = True),
++        "packages": attr.string_dict(mandatory = True),
++        "locked_versions": attr.string_dict(mandatory = True),
++        "locked_libraries": attr.string_list(mandatory = True),
++        "update_lock": attr.bool(),
++        "debug": attr.int(),
++        "opam_verbosity": attr.int(),
++        "verbosity": attr.int(),
++    },
++)
++
++def _declare_locked_xdg(mctx, opam_version, ocaml_version, package_versions,
++                        locked_versions, locked_libraries, update_lock, direct_deps, dev_deps,
++                        obazl_pfx, debug, opam_verbosity, verbosity):
++    opam_bootstrap(
++        name = "opam.bootstrap", opam_version = opam_version,
++        ocaml_version = ocaml_version, packages = package_versions,
++        locked_versions = locked_versions, locked_libraries = locked_libraries,
++        update_lock = update_lock,
++        debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++    )
++    opam_lock(name = "opam.lock", source = "@opam.bootstrap//:opam.lock.json")
++    packages = {library: locked_versions.get(library, "") for library in locked_libraries
++                if library not in OBAZL_PKGS}
++    packages.update({"ocamlsdk": ocaml_version, "stublibs": ocaml_version})
++    for pkg, version in packages.items():
++        opam_dep(
++            name = obazl_pfx + pkg, pkg_version = version,
++            bootstrap = "@opam.bootstrap//:bootstrap.json",
++            ocaml_version = ocaml_version, obazl_pfx = obazl_pfx,
++            debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++        )
++    root_deps = ["opam.ocamlsdk", "opam.lock"] + [
++        obazl_pfx + pkg for pkg in direct_deps if pkg not in OBAZL_PKGS
++    ]
++    root_dev_deps = [
++        obazl_pfx + pkg for pkg in dev_deps if pkg not in OBAZL_PKGS
++    ]
++    if mctx.root_module_has_non_dev_dependency:
++        return mctx.extension_metadata(
++            root_module_direct_deps = root_deps,
++            root_module_direct_dev_deps = root_dev_deps,
++        )
++    return mctx.extension_metadata(
++        root_module_direct_deps = [],
++        root_module_direct_dev_deps = root_deps + root_dev_deps,
++    )
++
+ ##################################
+ def _throw_cmd_error(cmd, r):
+     print("cmd: %s" % cmd)
+@@ -193,6 +303,10 @@
+     verbosity     = 0
+     root_module   = None
+     config_file   = "obazl.opamrc"
++    package_versions = {}
++    locked_versions = {}
++    locked_libraries = []
++    update_lock = mctx.getenv("OBAZL_UPDATE_LOCK") == "1"
+     direct_deps   = []
+     dev_deps      = []
+     opamtgt       = None
+@@ -232,6 +346,18 @@
+                     dev_deps.extend(
+                         {"utop": utop})
+             for cfg in m.tags.deps:
++                if cfg.lockfile:
++                    graph = json.decode(mctx.read(cfg.lockfile))
++                    if graph.get("schema_version") != 1:
++                        fail("Unsupported opam lock schema version")
++                    locked_versions = graph["packages"]
++                    locked_libraries = graph["libraries"]
++                    if not update_lock:
++                        for pkg, version in cfg.pkgs.items():
++                            if locked_versions.get(pkg) != version:
++                                fail("Direct dependency differs from opam lock: " + pkg)
++                        package_versions.update(locked_versions)
++                package_versions.update(cfg.pkgs)
+                 config_file = cfg._opam_config_file
+                 if mctx.is_dev_dependency(cfg):
+                     dev_deps.extend(cfg.pkgs)
+@@ -268,6 +394,18 @@
+         else:
+             # non-root modules
+             for cfg in m.tags.deps:
++                if cfg.lockfile:
++                    graph = json.decode(mctx.read(cfg.lockfile))
++                    if graph.get("schema_version") != 1:
++                        fail("Unsupported opam lock schema version")
++                    locked_versions = graph["packages"]
++                    locked_libraries = graph["libraries"]
++                    if not update_lock:
++                        for pkg, version in cfg.pkgs.items():
++                            if locked_versions.get(pkg) != version:
++                                fail("Direct dependency differs from opam lock: " + pkg)
++                        package_versions.update(locked_versions)
++                package_versions.update(cfg.pkgs)
+                 if mctx.is_dev_dependency(cfg):
+                     dev_deps.extend(cfg.pkgs)
+                 else:
+@@ -291,6 +429,15 @@
+     ## detect whether or not we are in an opam install env.
+     if mctx.getenv("OBAZL_OPAM_ENV"):
+         toolchain = "opam"
++
++    if locked_versions and toolchain == "xdg":
++        if opamtgt or dbg or ocaml or utop:
++            fail("Locked xdg toolchains support package dependencies only")
++        return _declare_locked_xdg(
++            mctx, opam_version, ocaml_version, package_versions, locked_versions,
++            locked_libraries, update_lock, direct_deps, dev_deps, obazl_pfx,
++            debug, opam_verbosity, verbosity,
++        )
+ 
+     config_pkg_tool = _build_config_tool(mctx, toolchain,
+                                          debug, verbosity)
+@@ -377,6 +524,7 @@
+              opam_version,
+              ocaml_version,
+              direct_deps + dev_deps,
++             package_versions,
+              debug,
+              opam_verbosity,
+              verbosity)
+@@ -390,6 +538,22 @@
+     else:
+         fail("unrecognized toolchain: %s" % toolchain)
+     # if debug > 0: print(print_cwd(mctx))
++
++    # Materialize the resolved graph as a Bazel output. Normal builds reject
++    # transitive drift; only the explicit lock update mode may refresh it.
++    listed = mctx.execute([str(opam), "list", "--root", str(opamroot),
++                           "--switch", switch, "--installed",
++                           "--columns=name,version", "--short"])
++    if listed.return_code != 0:
++        fail("Cannot read resolved opam dependencies: " + listed.stderr)
++    resolved_versions = {}
++    for line in listed.stdout.splitlines():
++        fields = [field for field in line.replace("\t", " ").split(" ") if field]
++        if len(fields) == 2:
++            resolved_versions[fields[0]] = fields[1]
++    if locked_versions and not update_lock and resolved_versions != locked_versions:
++        fail("Resolved opam graph differs from lock; run the explicit lock update command")
++    opam_lock(name = "opam.lock", content = json.encode_indent(resolved_versions) + "\n")
+ 
+     opampath = str(opam)
+     rootpath = str(opamroot)
+@@ -483,7 +647,7 @@
+                   debug         = debug,
+                   verbosity     = verbosity)
+     ## configure all deps
+-    # for now, ignore versions
++    # Version attributes invalidate generated imports when a pin changes.
+     # if verbosity > 0: print("\n\tRegistering repos for opam pkgs")
+ 
+     tot = len(deps)
+@@ -501,6 +665,7 @@
+             "\n  Registering repo {n} of {tot}: {p}".format(
+                 n=i+1, tot=tot, p=pkg))
+         opam_dep(name=pkg,
++                 pkg_version = resolved_versions.get(pkg.removeprefix(obazl_pfx), ""),
+                  install = False,
+                  opam = opampath,
+                  switch = switch,
+@@ -514,7 +679,7 @@
+                  )
+         # if debug > 1: print("done")
+ 
+-    rmdirects = ["opam.ocamlsdk"]
++    rmdirects = ["opam.ocamlsdk", "opam.lock"]
+     # if stublibs_direct:
+     #     rmdirects.append("opam.stublibs")
+     for dep in direct_deps:
+@@ -633,6 +798,7 @@
+                     mandatory = False,
+                     default = "5.3.0"
+                 ),
++                "lockfile": attr.label(),
+                 "pkgs": attr.string_dict(
+                     doc = "List of opam pkg Ids",
+                     # mandatory = True,
+diff --git a/lib/emit_build_bazel.c b/lib/emit_build_bazel.c
+--- a/lib/emit_build_bazel.c
++++ b/lib/emit_build_bazel.c
+@@ -2183,6 +2183,6 @@
+       the dune-package file.
+     */
+     fprintf(ostream, "package(default_visibility=[\"//visibility:public\"])\n");
+-    fprintf(ostream, "exports_files(glob([\"**\"]))\n\n");
++    fprintf(ostream, "exports_files(glob([\"**\"], exclude=[\"%s\"]))\n\n", pkg_name);
+ 
+     emit_bazel_hdr(ostream); //, 1, ocaml_ws, "lib", _pkg);

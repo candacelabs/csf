@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "warden",
+    srcs = [
+        "clock.go",
+        "doc.go",
+        "generate.go",
+        "interfaces.go",
+        "types.go",
+        "wire.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "warden_test",
+    srcs = [
+        "clock_contract_test.go",
+        "types_contract_test.go",
+        "warden_suite_test.go",
+        "wire_contract_test.go",
+    ],
+    deps = [
+        ":warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

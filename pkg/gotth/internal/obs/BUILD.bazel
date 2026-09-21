@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "obs",
+    srcs = [
+        "doc.go",
+        "log.go",
+        "metrics.go",
+        "trace.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/obs",
+    visibility = ["//pkg/gotth:__subpackages__"],
+    deps = [
+        "@io_opentelemetry_go_otel//attribute",
+        "@io_opentelemetry_go_otel_metric//:metric",
+        "@io_opentelemetry_go_otel_trace//:trace",
+    ],
+)
+
+go_test(
+    name = "obs_test",
+    srcs = ["obs_test.go"],
+    deps = [
+        ":obs",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@io_opentelemetry_go_otel_metric//noop",
+        "@io_opentelemetry_go_otel_trace//noop",
+    ],
+)

@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "csf-consumer_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/examples/csf-consumer",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//csf",
+        "//pkg/httpserver",
+        "//proto/candace/brainspine/v1:brainspine",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_binary(
+    name = "csf-consumer",
+    embed = [":csf-consumer_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "csf-consumer_test",
+    srcs = ["consumer_test.go"],
+    embed = [":csf-consumer_lib"],
+    deps = [
+        "//csf",
+        "//proto/candace/brainspine/v1:brainspine",
+        "@com_github_modelcontextprotocol_go_sdk//mcp",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)

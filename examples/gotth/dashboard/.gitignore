@@ -1,0 +1,3 @@
+# The built example binary. Committing it would put a 16 MB artifact in
+# the tree to save one `go build`.
+/dashboard

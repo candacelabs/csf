@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "candaceos",
+    srcs = [
+        "app_revision.go",
+        "approval.go",
+        "deployment.go",
+        "doc.go",
+        "errors.go",
+        "placement.go",
+        "receipt.go",
+        "run.go",
+        "source_digest.go",
+        "source_materialization.go",
+        "validate.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/candaceos",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/boundedbuffer",
+        "//pkg/boundedbuffer/v1:boundedbuffer",
+        "//proto/candace/candaceos/v1:candaceos",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "candaceos_test",
+    srcs = [
+        "candaceos_test.go",
+        "source_digest_test.go",
+        "source_materialization_test.go",
+    ],
+    deps = [
+        ":candaceos",
+        "//proto/candace/candaceos/v1:candaceos",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -1,0 +1,58 @@
+// Portable telemetry contracts shared by Candace services.
+syntax = "proto3";
+
+package candace.telemetry.v1;
+
+import "liquidproto/v1/refinement.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/telemetry/v1;telemetryv1";
+
+// Severity is the importance of a LogRecord. The non-zero values occupy the
+// first number in each four-value OpenTelemetry severity range, leaving room
+// for compatible finer-grained levels without depending on OpenTelemetry.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_TRACE = 1;
+  SEVERITY_DEBUG = 5;
+  SEVERITY_INFO = 9;
+  SEVERITY_WARN = 13;
+  SEVERITY_ERROR = 17;
+  SEVERITY_FATAL = 21;
+}
+
+// TraceContext is the portable part of a distributed span. Identifiers and
+// flags follow W3C Trace Context representation rules.
+message TraceContext {
+  string trace_id = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[0-9a-f]{32}$`) && this != `00000000000000000000000000000000`"
+  }];
+  string span_id = 2 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[0-9a-f]{16}$`) && this != `0000000000000000`"
+  }];
+  uint32 trace_flags = 3 [(candace.liquid.v1.field) = {
+    expr: "this <= 255"
+  }];
+}
+
+// LogRecord is a single structured JSONL event. The telemetry runtime applies
+// the generated scalar refinements and additionally validates the timestamp,
+// severity, nested TraceContext, and bounded attributes at the write boundary.
+message LogRecord {
+  google.protobuf.Timestamp timestamp = 1;
+  Severity severity = 2;
+  string service = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128"
+  }];
+  string component = 4 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 128"
+  }];
+  string event = 5 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128"
+  }];
+  string message = 6 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 4096"
+  }];
+  TraceContext trace_context = 7;
+  map<string, string> attributes = 8;
+}

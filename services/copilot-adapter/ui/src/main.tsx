@@ -1,0 +1,13 @@
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import { App } from "./App";
+import "@mantine/core/styles.css";
+import "./styles.css";
+
+const host = document.getElementById("root");
+if (host === null) throw new Error("index.html is missing #root");
+createRoot(host).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);

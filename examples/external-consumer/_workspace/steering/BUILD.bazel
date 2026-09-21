@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "steering",
+    srcs = ["steering.go"],
+    importpath = "example.com/candace-external-consumer/steering",
+    visibility = ["//visibility:public"],
+    deps = ["@candace//services/candaceos/component"],
+)

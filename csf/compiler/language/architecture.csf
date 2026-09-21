@@ -1,0 +1,171 @@
+# Named terms are shared by the human reference and all generated diagrams.
+# This describes the documented architecture; it does not execute a controller.
+term observe "Observe" "Read the available measurements, logs and outputs from an execution.";
+term retrieve "Retrieve" "Find relevant saved sources, earlier results and relationships.";
+term choose "Choose" "Select a proposed action or candidate controller from the allowed choices.";
+term check "Check" "Apply the configured contract, bounds and admission rules before execution. Passing these checks does not establish physical safety.";
+term execute "Execute" "Run an admitted action in its configured environment.";
+term evaluate "Evaluate" "Compare the result with criteria chosen independently of the candidate being evaluated.";
+term save_evidence "Save evidence" "Keep the candidate, observed result and source references so the result can be inspected and reused. This was previously called retain; it does not mean retrain.";
+term improve "Improve" "Use evaluated results to select a better controller or revise an allowed workflow. The complete autonomous learning loop is planned.";
+term select_controller "Select a controller between episodes" "The existing bounded CPU search compares candidate results and keeps or rejects controllers between episodes. Connecting this selection to an autonomous agent's next decision remains planned.";
+term retrain "Retrain" "Update a model's learned parameters using training data. This is one possible improvement method, not a required step of every iteration.";
+term human "Human or agent client" "The caller that supplies a task and policy and uses CSF's exposed operations.";
+term brain "Models and agents" "The consumer's reasoning and training components that propose actions. A language model's proposal is not permission to execute it.";
+term agent "Agent" "A named worker definition with versioned instructions, assigned tasks and linked execution records. The current example prepares this definition; there is no shared registry yet.";
+term assignment "Assignment" "One task given to an agent definition, with its own identifier and ticket reference.";
+term checkpoint "Task checkpoint" "A saved typed task record containing its owner, status, next action, evidence and preceding checkpoint identifier, so another agent can resume the work.";
+term work_continuity "Work continuity" "The task checkpoint library at candace/pkg/workcontinuity. It reads, validates and records checkpoints against a caller-supplied issue source. It owns no background workers or service lifetime; the Workbench calls it within the existing CSF runtime.";
+term session "Workbench conversation session" "A conversation and its execution records under a stable identifier. CSF stores Workbench sessions; the current Copilot backend still manages its working context. This is distinct from a gotth-live UI connection.";
+term ui_session "Live UI session" "One accepted gotth-live WebSocket connection and the server-side state maintained for that connection. Each connection initializes its own widget state values; a reconnect creates a new session. Separate values can still refer to shared mutable objects. This is not a stored agent conversation or a memory-isolation boundary.";
+term context "Context" "The information supplied to a model for a particular decision. CSF-owned snapshots and compression remain planned.";
+term contracts "Shared typed contracts" "Protobuf messages, Liquid Proto predicates and OpenAPI operations that define data shapes and allowed calls. Their generators produce bindings and transport code.";
+term application "Application" "Reserved for a runnable composition whose execution owns a process and runtime. A widget, service, page or web layer mounted inside that process is not another application.";
+term runtime "Runtime" "For CSF deployment and runtime counts, the application execution hosted by one process. Mounting a service or widget does not add a runtime; goroutines and OS threads are separate units.";
+term widget "Widget" "A component of gotth-live that presents typed state and accepts events. Widgets exist within gotth-live; they are not independent components mounted directly into an application. A widget does not own a process or runtime.";
+term gotth_live "gotth-live" "The required owner of widgets and their web interaction. It belongs to CSF's web layer and runs within the application's existing process/runtime.";
+term app "App" "A runnable composition of services. Launching an app instance creates an application process; a Go app has its own Go runtime. Mounting another service inside that app does not create another process or runtime. The app owns the root lifetime.";
+term process "CSF: one Go application process" "One running application with a shared address space. Its host owns listeners, startup, shutdown and any configured worker goroutines.";
+term service "Service" "The required lifecycle contract for an SDK capability mounted into the caller's process. A service may share its host's lifetime without another scope, goroutine or process, or declare a shorter child lifetime. Each service performs its own cleanup: release its resources, stop and join its goroutines, and report failures. Its host triggers shutdown and waits for it; the host does not reimplement the child's cleanup. Borrowed resources keep their declared owner. Common enforcement and migration are pending.";
+term http_service "HTTP service" "In the proposed recursive lifecycle contract, a service that manages an HTTP server and mounted child services. It participates in its parent's startup and shutdown, performs its own server cleanup, and asks its children to perform theirs. The application main function owns the root service's lifetime. Registering routes alone does not implement this contract.";
+term live_ui_service "gotth-live service" "The in-process capability that manages live UI connections and their goroutines for a host app. Its lifetime can span many shorter connections. The current Go type is live.App; it does not require another application process. Its bounded effect drain does not yet guarantee every effect has stopped at teardown.";
+term database_io "Database I/O capability" "Planned optional database access for a service. Construction, configuration and mounting do not create a pool, acquire a connection or ping the database. The first operation that needs storage initializes a service-owned pool or uses a borrowed pool. The service closes only pools it created, after dependent work has completed; borrowed pools retain their caller's owner. A pool can manage many connections and is not itself a connection.";
+term mount "Mount" "In the proposed ginService.Mount(child) API, attach a child service to the parent's lifecycle: startup, shutdown signaling and waiting for the child to finish its own cleanup. Existing Register(router) only registers HTTP routes and does not supply these guarantees.";
+term manager "Manager" "Policy that selects or coordinates services when that decision is dynamic. The name does not create a process or a separate lifetime.";
+term scope "Scope" "An explicit lifetime with one owner, cancellation and completion. Cancellation requests shutdown; joining waits until children have exited.";
+term ownership_transfer "Ownership transfer" "An explicit API agreement that hands responsibility for a specified mutable payload from sender to receiver. After a successful handoff, the sender stops accessing it through retained aliases until ownership is returned. Go channel sends copy values and do not invalidate pointers or deep-copy referenced data. Borrowed dependencies keep their owners; cancellation and submission acknowledgement do not establish completion or return of ownership.";
+term process_boundary "Process boundary" "A crossing into another address space. The target is one audited subprocess gateway owning launch, input/output, cancellation, waiting and cleanup; consolidation is pending. Remote protocols retain their own named adapters.";
+term goroutine "Goroutine" "A Go function executing concurrently inside its application's process. It shares memory with other goroutines; its owner must arrange cancellation and completion.";
+term thread "OS thread" "An execution context scheduled by the operating system. Go schedules runnable goroutines onto OS threads; a package name does not assign either one to a CPU core.";
+term core "CPU core" "A hardware execution resource on which the operating system schedules threads. Placement and latency require observation or explicit configuration.";
+term bench "Workbench" "The user entry point for sessions, tools and inspection. Chat, inspection and keyed Kanban widgets exist; further widget composition remains planned.";
+term api "Generated HTTP, CLI and MCP operations" "The generated ways to invoke the same CSF operation contracts. Go callers can also compose libraries directly.";
+term transport_adapter "HTTP/MCP adapter" "The CSF Service registers generated HTTP routes with the caller's Gin router and exposes MCP handlers. It owns no listener, process or independent service lifetime.";
+term mcp "MCP" "Model Context Protocol: the tool-discovery and invocation protocol used by agent clients. Registration does not start another service inside an already running CSF host.";
+term knowledge "Knowledge and retrieval" "Saved documents, source references and explicit relationships exposed through search and graph operations. Coverage depends on what was actually ingested.";
+term symbolic "Symbolic relationship" "An explicit named connection between identified records, such as a source and an artifact derived from it. It is distinct from similarity in an embedding search.";
+term compiler "Bounded controller compiler" "The implemented translation of a restricted controller expression into instructions. The Lean theorem covers its mathematical model; native implementations have separate checks.";
+term compile "Compile" "Translate a source representation into another representation while checking its declared rules. Each compiler names its input, output and guarantees; translating documentation does not prove a robot controller.";
+term workers "Configured worker goroutines" "Concurrent workers in the shared Go process that submit, inspect and cancel configured simulation jobs. Current durable job dispatch uses PostgreSQL; memory-first dispatch remains planned.";
+term inspect "Inspection" "Operations that expose available usage, duration, job state and saved receipts. Missing data is reported as missing, not measured zero.";
+term stores "PostgreSQL and artifact storage" "Configured persistence for records and original artifact bytes. OpenSearch provides searchable document and log views of those sources.";
+term opensearch "OpenSearch" "The configured search and aggregated-log system. Saved source records can also be used to reconstruct trace observations.";
+term jobs "Simulator and AWS Batch adapters" "Code for configured external CARLA, Isaac Sim or AWS Batch execution. Local simulator examples have evidence; real AWS execution still needs configuration and acceptance.";
+term views "Prometheus, Grafana and Langfuse" "Configured systems for measurements, dashboards and agent traces. They display available observations; their existence does not imply every operation was traced.";
+term experiments "Training results and optional MLflow" "Saved experiment artifacts and evaluation results, optionally associated with an MLflow run. Bounded CPU controller search exists; autonomous neural training is not demonstrated.";
+term vendor "Consumer Copilot backend" "The existing model access and file/tool execution loop supplied by Copilot. Future CSF context ownership must use supported backend capabilities.";
+term web "Web layer" "HTTP routing, typed APIs, browser connections, event delivery, server rendering and browser updates in the shared host. Workbench uses this layer; widget interaction belongs to gotth-live within it.";
+term widgets "Widget SDK and gotth-live" "The SDK defines typed widgets within gotth-live. The Workbench Kanban uses gotth-live-owned card instances in the shared host; live WDL installation remains planned. Widgets share host memory, without private heaps or a required goroutine per widget. Shared mutable state needs explicit ownership and synchronization. Bounded effect draining does not guarantee complete joining before teardown.";
+term spine "Consumer C++ control loop" "The proposed fast controller outside slow model reasoning. Integration needs consumer-specific timing, switching and cleanup rules and has not been demonstrated here.";
+term hardware "Consumer sensors and actuators" "Physical devices, potentially reached through CAN or other adapters. Simulator success does not establish safe physical operation.";
+term engine "Engine" "Not a CSF lifecycle category. Gin Engine and Docker Engine keep their upstream meanings. Curiosity Engine is a tentative product name for the planned improvement loop, not an implemented runtime component.";
+term source_recipe "Agent definition and assignment file" "The typed agent.json input to the example, naming the worker, task, ticket, model and repository.";
+term prepare "PrepareAgentAssignment" "The generated HTTP/MCP operation and pure Go preparation function that validate a recipe and calculate stable assignment identities without submitting work.";
+term plan "Prepared assignment" "An immutable recipe snapshot with content hashes and retry identities. Preparation does not create a session or establish task success.";
+term requests "Generated Workbench requests" "Existing generated session and prompt request types populated from the prepared assignment.";
+term worktree "Session and worktree records" "The existing Workbench conversation and isolated repository checkout associated with the submitted assignment.";
+term receipt "Assignment receipt" "The returned links among agent, ticket, session, turn and worktree. A turn identifier acknowledges prompt acceptance; it does not prove completion.";
+term local_job "Simulator container" "A configured local CARLA or Isaac container outside the CSF process. Its output bytes stay in the configured artifact volume.";
+term submit "SubmitSimulation" "Admit a bounded request and record a simulation job for a configured worker.";
+term admitted "Recorded simulation job" "The persisted identity, requested configuration and current state of an admitted job.";
+term start_job "Start configured local profile" "The worker asks the external container platform to start the selected simulator configuration.";
+term poll_job "Read simulator status, progress and logs" "The existing worker observes its configured job and records available simulation steps and output references.";
+term observations "Saved simulation observations" "Persisted job state, measurements, log records and references to original output artifacts.";
+term inspect_job "InspectSimulation" "Read a simulation job's retained state, measurements and artifact references through the generated operation.";
+
+diagram architecture TB {
+  group host : process;
+  node human : human existing;
+  node brain : brain existing;
+  node contracts : contracts existing;
+  node bench : bench existing in host;
+  node api : api existing in host;
+  node knowledge : knowledge existing in host;
+  node compiler : compiler existing in host;
+  node workers : workers existing in host;
+  node inspect : inspect existing in host;
+  node stores : stores existing;
+  node jobs : jobs existing;
+  node views : views existing;
+  node experiments : experiments existing;
+  node vendor : vendor existing;
+  node widgets : widgets existing in host;
+  node spine : spine planned;
+  node hardware : hardware planned;
+  edge human existing bench;
+  edge brain existing api;
+  edge contracts existing api;
+  edge bench existing api;
+  edge bench existing vendor;
+  edge api existing knowledge;
+  edge api existing compiler;
+  edge api existing workers;
+  edge api existing inspect;
+  edge knowledge existing stores;
+  edge workers existing jobs;
+  edge jobs existing stores;
+  edge inspect existing views;
+  edge brain existing experiments;
+  edge widgets existing bench label "keyed Kanban cards";
+  edge compiler planned spine label "planned external adapter";
+  edge spine planned hardware;
+}
+
+diagram improvement LR {
+  node observe : observe existing;
+  node retrieve : retrieve existing;
+  node choose : choose planned;
+  node check : check existing;
+  node execute : execute existing;
+  node evaluate : evaluate existing;
+  node save_evidence : save_evidence existing;
+  node improve : improve planned;
+  node select_controller : select_controller existing;
+  edge observe planned retrieve;
+  edge retrieve planned choose;
+  edge choose planned check;
+  edge check existing execute;
+  edge execute existing evaluate;
+  edge evaluate existing save_evidence;
+  edge evaluate existing select_controller;
+  edge select_controller planned choose label "next agent iteration";
+  edge save_evidence planned improve;
+  edge improve planned observe label "next iteration";
+}
+
+diagram simulation LR {
+  node submit : submit existing;
+  node admitted : admitted existing;
+  node start_job : start_job existing;
+  node local_job : local_job existing;
+  node poll_job : poll_job existing;
+  node observations : observations existing;
+  node inspect_job : inspect_job existing;
+  edge submit existing admitted;
+  edge admitted existing start_job;
+  edge start_job existing local_job;
+  edge local_job existing poll_job label "simulation steps and outputs";
+  edge poll_job existing observations;
+  edge poll_job existing local_job label "continue while running";
+  edge inspect_job existing observations label "read state and artifact references";
+}
+
+diagram agent_assignment LR {
+  node recipe : source_recipe existing;
+  node prepare : prepare existing;
+  node plan : plan existing;
+  node requests : requests existing;
+  node session : worktree existing;
+  node copilot : vendor existing;
+  node receipt : receipt existing;
+  edge recipe existing prepare;
+  edge prepare existing plan;
+  edge plan existing requests;
+  edge requests existing session;
+  edge session existing copilot;
+  edge session existing receipt;
+}
+
+document "examples/csf-agent/README.md" { agent_assignment; }
+
+document "csf/README.md" { architecture; improvement; simulation; }

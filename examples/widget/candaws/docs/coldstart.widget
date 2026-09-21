@@ -1,0 +1,365 @@
+%% ============================================================================
+%% CandaWS — Coldstart
+%%
+%% Category parodied: a function-as-a-service runtime.
+%%
+%% Build order 4. Request/response: an invocation is a value carrying its own
+%% reply channel, and an instance is a goroutine that exists only while someone
+%% is calling it. It is built fourth on purpose — it is the shape twin of the
+%% reserved benchmark service, so both bench conditions inherit exactly one
+%% worked precedent for a round trip and neither inherits two.
+%%
+%% What it demonstrates that the raft card does not: a single edge carrying
+%% three channels, a control whose event changes no state and has no
+%% `pressedWhen`, two indicators reading two different predicates, and a node
+%% with no caption at all.
+%% ============================================================================
+
+
+widget Coldstart
+dialect 0
+region "widget.candaws.coldstart"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% An instance at runtime is a goroutine with a temperature: cold, warming or
+%% warm. The reaper closes an idle instance's channel and the goroutine
+%% returns, which is what "scales to zero" cashes out to.
+
+state
+  field invocationSequence type counter
+  field runtimeName type text
+  field warmInstances type count
+  field queuedInvocations type count
+  field coldStartMillis type count
+  field dispatcherUp type flag
+  field draining type flag
+  field throttled type flag signal slowClient
+end
+
+
+predicates
+  predicate warm
+    requires warmInstances atLeast 1
+  end
+
+  predicate idle
+    requires queuedInvocations atMost 0
+  end
+
+  predicate serving
+    requires dispatcherUp
+    requires warm
+    forbids throttled
+  end
+end
+
+
+bindings
+  binding poolDescriptionText
+    when serving then "A caller, a dispatcher and two function instances; invocations are routed to a warm instance and the result returns along the same path."
+    whenNot dispatcherUp then "A caller, a dispatcher and two function instances; the dispatcher is not accepting invocations."
+    whenNot warm then "A caller, a dispatcher and two function instances; every instance is cold and the next invocation pays the start-up cost."
+    otherwise "A caller, a dispatcher and two function instances; invocations are queued behind the pool."
+  end
+
+  binding dispatcherCaptionText
+    when draining then "draining"
+    when dispatcherUp then "routing"
+    otherwise "closed"
+  end
+
+  binding warmCaptionText
+    when warm then "warm"
+    otherwise "frozen"
+  end
+
+  binding coldCaptionText
+    when warm then "spare"
+    otherwise "thawing"
+  end
+
+  binding capacityStatusText
+    when warm then "{warmInstances} instances warm"
+    otherwise "scaled to zero"
+  end
+
+  binding backlogStatusText
+    when idle then "no invocations queued"
+    otherwise "{queuedInvocations} invocations waiting on a start-up"
+  end
+
+  binding latencyStatText
+    when warm then "{coldStartMillis} ms start-up, not being paid"
+    otherwise "{coldStartMillis} ms start-up, being paid"
+  end
+
+  binding queueStatText
+    when idle then "pool idle"
+    otherwise "{queuedInvocations} queued"
+  end
+end
+
+
+labels
+  label titleLabel text "Coldstart"
+  label sourceLabel text "Read-only dispatcher stream"
+  label sceneDescriptionLabel binds poolDescriptionText
+
+  %% The caller has no caption. `caption` is the one optional clause in a
+  %% `node` block, and nothing in the three shipped exemplars omits it.
+  label callerLabel text "caller"
+  label dispatcherLabel text "dispatcher"
+  label dispatcherCaptionLabel binds dispatcherCaptionText
+  label warmLabel text "instance-a"
+  label warmCaptionLabel binds warmCaptionText
+  label coldLabel text "instance-b"
+  label coldCaptionLabel binds coldCaptionText
+
+  label requestLegendLabel text "invoke"
+  label responseLegendLabel text "result"
+  label thawLegendLabel text "start-up"
+
+  label runtimeStatLabel text "runtime {runtimeName}"
+  label latencyStatLabel binds latencyStatText
+  label queueStatLabel binds queueStatText
+
+  label capacityStatusLabel binds capacityStatusText
+  label backlogStatusLabel binds backlogStatusText
+  label prewarmCaptionLabel text "Keep one instance warm"
+end
+
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat runtimeStatLabel
+  stat latencyStatLabel
+  stat queueStatLabel
+end
+
+
+roles
+  role origin
+    token ink
+    marker small
+    emphasis forbidden
+  end
+
+  role router
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role sandbox
+    token positive
+    marker small
+    emphasis forbidden
+  end
+end
+
+
+channels
+  channel request
+    direction forward
+    token accent
+    legend requestLegendLabel
+  end
+
+  channel response
+    direction reverse
+    token positive
+    legend responseLegendLabel
+  end
+
+  channel thaw
+    direction forward
+    token warning
+    legend thawLegendLabel
+  end
+end
+
+
+placements
+  placement callerSpot left 8 top 50
+  placement routerSpot left 40 top 50
+  placement warmSpot left 86 top 20
+  placement coldSpot left 86 top 80
+end
+
+
+scene pool
+  description sceneDescriptionLabel
+
+  orbit poolRing token rule
+
+  node caller
+    role origin
+    at callerSpot
+    title callerLabel
+  end
+
+  node dispatcher
+    role router
+    at routerSpot
+    title dispatcherLabel
+    caption dispatcherCaptionLabel
+  end
+
+  node warmInstance
+    role sandbox
+    at warmSpot
+    title warmLabel
+    caption warmCaptionLabel
+  end
+
+  node coldInstance
+    role sandbox
+    at coldSpot
+    title coldLabel
+    caption coldCaptionLabel
+  end
+
+  edge callPath
+    from caller
+    to dispatcher
+    carries request
+    carries response
+  end
+
+  edge warmPath
+    from dispatcher
+    to warmInstance
+    carries request
+    carries response
+  end
+
+  %% Three channels on one edge. The cold instance is reached by the same
+  %% request path as the warm one and additionally pays the start-up, which is
+  %% the whole product in one line.
+  edge coldPath
+    from dispatcher
+    to coldInstance
+    carries request
+    carries response
+    carries thaw
+  end
+end
+
+
+motion
+  requires serving
+  forbids draining
+  restartOn invocationSequence
+
+  pulse invokeIn
+    edge callPath
+    channel request
+    duration 480 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse dispatchWarm
+    edge warmPath
+    channel request
+    duration 480 milliseconds
+    delay 160 milliseconds
+  end
+
+  pulse startUp
+    edge coldPath
+    channel thaw
+    duration 820 milliseconds
+    delay 160 milliseconds
+  end
+
+  pulse returnWarm
+    edge warmPath
+    channel response
+    duration 480 milliseconds
+    delay 480 milliseconds
+  end
+
+  pulse returnCold
+    edge coldPath
+    channel response
+    duration 480 milliseconds
+    delay 1040 milliseconds
+  end
+
+  pulse resultOut
+    edge callPath
+    channel response
+    duration 480 milliseconds
+    delay 660 milliseconds
+  end
+
+  emphasis dispatcherBeat
+    node dispatcher
+    duration 440 milliseconds
+    delay 0 milliseconds
+  end
+end
+
+
+indicators
+  indicator capacityIndicator
+    label capacityStatusLabel
+    positiveWhen warm
+  end
+
+  indicator backlogIndicator
+    label backlogStatusLabel
+    positiveWhen idle
+  end
+end
+
+
+%% GAP (dialect v1): the control this card actually wants is a number — how
+%% many instances to keep warm — and a number needs an `input` or a `change`
+%% trigger. `uigen.Refusals()` refuses both, because a control declares a
+%% caption, a trigger and an event and nothing that says what kind of element
+%% it is. So the card ships a button that asks the host for one warm instance,
+%% and the number lives in the host. Roundabout wants a `select` for its
+%% routing policy and Blobfish a `select` for its storage class; three
+%% witnesses in one fleet.
+
+controls
+  control prewarmButton
+    caption prewarmCaptionLabel
+    trigger click
+    emits prewarm
+  end
+end
+
+
+events
+  %% A command with no state effect and no `pressedWhen` on the control that
+  %% sends it. The widget declares that the event can be sent; what warming an
+  %% instance means is the host's.
+  event prewarm
+    wire "widget.candaws.coldstart.prewarm"
+  end
+
+  event poolReport
+    wire "widget.candaws.coldstart.report"
+    field invocation_sequence writes invocationSequence
+    field runtime_name writes runtimeName
+    field warm_instances writes warmInstances
+    field queued_invocations writes queuedInvocations
+    field cold_start_millis writes coldStartMillis
+    field dispatcher_up writes dispatcherUp
+    field draining writes draining
+  end
+end
+
+
+data
+  stream poolWatch
+    source "widget.candaws.coldstart.watch"
+    delivers poolReport
+    ordering invocationSequence
+  end
+end

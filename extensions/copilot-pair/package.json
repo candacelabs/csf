@@ -1,0 +1,14 @@
+{
+  "name": "@candace/copilot-pair",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "A no-accounts shared browser for a foreground Copilot CLI session",
+  "scripts": {
+    "check": "node --check extension.mjs && node --check runtime.mjs && node --check pair-server.mjs && node --check public/app.js && node --check public/renderer.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

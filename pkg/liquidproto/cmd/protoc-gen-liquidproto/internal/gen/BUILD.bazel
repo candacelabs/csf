@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# The bounded CSF observer checks the generator's source, not its Go package API.
+exports_files(
+    ["gen.go"],
+    visibility = ["//csf:__pkg__"],
+)
+
+go_library(
+    name = "gen",
+    srcs = ["gen.go"],
+    importpath = "github.com/candacelabs/csf/pkg/liquidproto/cmd/protoc-gen-liquidproto/internal/gen",
+    visibility = ["//pkg/liquidproto/cmd/protoc-gen-liquidproto:__subpackages__"],
+    deps = [
+        "//pkg/liquidproto/cmd/protoc-gen-liquidproto/internal/expr",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//compiler/protogen",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//types/descriptorpb",
+        "@org_golang_google_protobuf//types/gofeaturespb",
+    ],
+)
+
+go_test(
+    name = "gen_test",
+    srcs = ["gen_test.go"],
+    embed = [":gen"],
+    deps = [
+        "//pkg/liquidproto/v1:liquidproto",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//compiler/protogen",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protodesc",
+        "@org_golang_google_protobuf//types/descriptorpb",
+        "@org_golang_google_protobuf//types/pluginpb",
+    ],
+)

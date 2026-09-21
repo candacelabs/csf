@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package candace.boundedbuffer.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/pkg/boundedbuffer/v1;boundedbufferv1";
+
+// Retention defines the prefix of a byte stream retained by a Buffer.
+message Retention {
+  // max_bytes stays within Go's portable int range.
+  int64 max_bytes = 1 [(candace.liquid.v1.field) = {
+    expr: "this > 0 && this <= 2147483647"
+  }];
+}

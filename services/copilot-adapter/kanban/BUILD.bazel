@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "kanban",
+    srcs = [
+        "actions.go",
+        "board.go",
+        "generate.go",
+        "render.go",
+        "snapshot.go",
+    ],
+    embedsrcs = [
+        "templates/board_cgen.html",
+        "templates/card_cgen.html",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/kanban",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "//proto/candace/work/v1:work",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/gen/api",
+        "//services/copilot-adapter/kanban/card",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_google_uuid//:uuid",
+    ],
+)

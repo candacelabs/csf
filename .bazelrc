@@ -1,0 +1,21 @@
+# Defaults every candace build and test gets, so that a developer, CI, and a
+# downstream consumer all run the same command. The Bazel release itself is
+# pinned in .bazelversion and the module graph in MODULE.bazel.
+
+# bzlmod is the only dependency mechanism here: there is no WORKSPACE file and
+# nothing may reintroduce one silently.
+common --enable_bzlmod
+common --registry=https://raw.githubusercontent.com/obazl/registry/main/
+common --registry=https://bcr.bazel.build
+common --incompatible_autoload_externally=+@rules_cc
+
+# A failing build should print the command that failed, and a failing test
+# should print its log rather than a path to it.
+build --verbose_failures
+test --test_output=errors
+
+# Tests that need a Docker daemon, a real PostgreSQL, a browser, or the network
+# are tagged `manual` and stay out of `bazel test //...`; the plain `go test`
+# battery remains their authority. `--build_tests_only` keeps a bare
+# `bazel test //...` from also building every binary target twice over.
+test --build_tests_only

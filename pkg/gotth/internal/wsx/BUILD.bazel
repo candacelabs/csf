@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "wsx",
+    srcs = [
+        "conn.go",
+        "doc.go",
+        "handler.go",
+        "hijack.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/wsx",
+    visibility = ["//pkg/gotth:__subpackages__"],
+    deps = [
+        "//pkg/gotth/internal/obs",
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/session",
+        "@com_github_coder_websocket//:websocket",
+        "@io_opentelemetry_go_otel//attribute",
+    ],
+)
+
+go_test(
+    name = "wsx_test",
+    srcs = [
+        "close_race_test.go",
+        "hijack_internal_test.go",
+        "wsx_test.go",
+    ],
+    embed = [":wsx"],
+    deps = [
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/internal/render",
+        "//pkg/gotth/internal/session",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

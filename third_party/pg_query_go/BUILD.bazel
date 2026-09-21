@@ -1,0 +1,6 @@
+# The patch below supplies hand-written Bazel packaging for
+# github.com/pganalyze/pg_query_go/v6. It is applied to the archive that
+# //:MODULE.bazel fetches for that module; the comment there explains why the
+# dependency is fetched by hand instead of through Gazelle's go_deps extension.
+# Exported so MODULE.bazel can reference it.
+exports_files(["pg_query_go.patch"])

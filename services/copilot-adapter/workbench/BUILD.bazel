@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "workbench",
+    srcs = [
+        "ui.go",
+        "workbench.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/workbench",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/boundedbuffer",
+        "//pkg/boundedbuffer/v1:boundedbuffer",
+        "//pkg/cron/postgres",
+        "//pkg/sqlmigrate",
+        "//pkg/workcontinuity",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/gen/api",
+        "//services/copilot-adapter/kanban",
+        "//services/copilot-adapter/store",
+        "//services/copilot-adapter/terminaladapter",
+        "//services/copilot-adapter/worktreeadapter",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_test(
+    name = "workbench_test",
+    srcs = [
+        "suite_test.go",
+        "ui_test.go",
+    ],
+    embed = [":workbench"],
+    deps = [
+        "//pkg/httpserver",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

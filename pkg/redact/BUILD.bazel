@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "redact",
+    srcs = ["redact.go"],
+    importpath = "github.com/candacelabs/csf/pkg/redact",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "redact_test",
+    srcs = [
+        "redact_suite_test.go",
+        "redact_test.go",
+    ],
+    deps = [
+        ":redact",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

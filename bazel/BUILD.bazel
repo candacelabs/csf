@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+# The legacy WORKSPACE shim. Nothing in this module depends on it: deps.bzl is
+# loaded from a *consuming* repository's WORKSPACE file, out of the published
+# source archive. See bazel/README.md.
+
+exports_files(
+    [
+        "deps.bzl",
+        "versions.bzl",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+# `data` is hand-written and Gazelle leaves it alone: the test reads the two
+# files that own the pins versions.bzl copies, so they are inputs even though no
+# Go source names them.
+go_test(
+    name = "bazel_test",
+    size = "small",
+    srcs = ["pins_test.go"],
+    data = [
+        "versions.bzl",
+        "//:.bazelversion",
+        "//:MODULE.bazel",
+        "//:go.mod",
+    ],
+)

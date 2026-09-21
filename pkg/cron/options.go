@@ -1,0 +1,216 @@
+package cron
+
+import (
+	"fmt"
+	"strings"
+	"time"
+)
+
+const (
+	defaultLeaseDuration = 30 * time.Second
+	defaultCatchUpLimit  = 1_000
+	maxCatchUpLimit      = 1<<31 - 1
+)
+
+// CatchUpPolicy controls which occurrences missed while the service was not
+// running are considered when it starts again.
+type CatchUpPolicy string
+
+const (
+	// CatchUpNone advances past every startup occurrence without invoking it.
+	// This is the conservative default and matches traditional cron behavior.
+	CatchUpNone CatchUpPolicy = "none"
+	// CatchUpLatest invokes only the latest startup occurrence.
+	CatchUpLatest CatchUpPolicy = "latest"
+	// CatchUpAll invokes every startup occurrence, up to the service catch-up
+	// limit. Overlap policy is still enforced while those invocations run.
+	CatchUpAll CatchUpPolicy = "all"
+)
+
+// OverlapPolicy controls whether two occurrences of one job may execute at the
+// same time. It is enforced by IStore, so it also covers multiple processes
+// sharing a durable store.
+type OverlapPolicy string
+
+const (
+	// OverlapSkip records a skipped occurrence when another occurrence of the
+	// same job owns a live lease. This is the default.
+	OverlapSkip OverlapPolicy = "skip"
+	// OverlapAllow permits concurrent occurrences of the same job.
+	OverlapAllow OverlapPolicy = "allow"
+)
+
+// Option configures a Service. New validates the complete option set before
+// reconciling or starting any work.
+type Option func(config *serviceConfig) error
+
+// JobOption configures one job registered with WithJob.
+type JobOption func(config *jobConfig) error
+
+type serviceConfig struct {
+	store         IStore
+	jobs          []registeredJob
+	leaseDuration time.Duration
+	catchUpLimit  int
+	leaseOwner    string
+	now           func() time.Time
+}
+
+type jobConfig struct {
+	catchUp CatchUpPolicy
+	overlap OverlapPolicy
+}
+
+type registeredJob struct {
+	name     string
+	schedule Schedule
+	handler  JobFunc
+	config   jobConfig
+}
+
+// WithStore selects the required durable state store. Use NewMemoryStore
+// explicitly when process-local state is sufficient.
+func WithStore(store IStore) Option {
+	return func(config *serviceConfig) error {
+		if store == nil {
+			return fmt.Errorf("%w: nil store", ErrInvalidConfiguration)
+		}
+		config.store = store
+		return nil
+	}
+}
+
+// WithJob registers a statically declared named job.
+func WithJob(name string, schedule Schedule, handler JobFunc, options ...JobOption) Option {
+	return func(config *serviceConfig) error {
+		if err := validateJobName(name); err != nil {
+			return err
+		}
+		if err := schedule.Validate(); err != nil {
+			return fmt.Errorf("%w: job %q schedule: %w", ErrInvalidConfiguration, name, err)
+		}
+		if handler == nil {
+			return fmt.Errorf("%w: job %q has a nil handler", ErrInvalidConfiguration, name)
+		}
+		jobConfig := jobConfig{catchUp: CatchUpNone, overlap: OverlapSkip}
+		for _, option := range options {
+			if option == nil {
+				return fmt.Errorf("%w: job %q has a nil option", ErrInvalidConfiguration, name)
+			}
+			if err := option(&jobConfig); err != nil {
+				return fmt.Errorf("job %q: %w", name, err)
+			}
+		}
+		config.jobs = append(config.jobs, registeredJob{
+			name:     name,
+			schedule: schedule,
+			handler:  handler,
+			config:   jobConfig,
+		})
+		return nil
+	}
+}
+
+// WithCatchUp sets a job's missed-occurrence policy.
+func WithCatchUp(policy CatchUpPolicy) JobOption {
+	return func(config *jobConfig) error {
+		if !policy.valid() {
+			return fmt.Errorf("%w: unknown catch-up policy %q", ErrInvalidConfiguration, policy)
+		}
+		config.catchUp = policy
+		return nil
+	}
+}
+
+// WithOverlap sets a job's concurrent-occurrence policy.
+func WithOverlap(policy OverlapPolicy) JobOption {
+	return func(config *jobConfig) error {
+		if !policy.valid() {
+			return fmt.Errorf("%w: unknown overlap policy %q", ErrInvalidConfiguration, policy)
+		}
+		config.overlap = policy
+		return nil
+	}
+}
+
+// WithLeaseDuration sets how long an invocation lease remains valid without a
+// renewal. Active jobs renew their lease three times per duration.
+func WithLeaseDuration(duration time.Duration) Option {
+	return func(config *serviceConfig) error {
+		if duration < time.Microsecond || duration%time.Microsecond != 0 {
+			return fmt.Errorf("%w: lease duration must be a positive whole number of microseconds", ErrInvalidConfiguration)
+		}
+		config.leaseDuration = duration
+		return nil
+	}
+}
+
+// WithCatchUpLimit bounds the number of due occurrences one job may process in
+// a single scheduling cycle.
+func WithCatchUpLimit(limit int) Option {
+	return func(config *serviceConfig) error {
+		if limit <= 0 || limit > maxCatchUpLimit {
+			return fmt.Errorf("%w: catch-up limit must be between 1 and %d", ErrInvalidConfiguration, maxCatchUpLimit)
+		}
+		config.catchUpLimit = limit
+		return nil
+	}
+}
+
+// WithLeaseOwner sets the process identity recorded on leases. Most callers
+// should use the random identity generated by New; this option is useful when
+// an operator already has a stable, unique replica identity.
+func WithLeaseOwner(owner string) Option {
+	return func(config *serviceConfig) error {
+		owner = strings.TrimSpace(owner)
+		if owner == "" || len(owner) > 128 {
+			return fmt.Errorf("%w: lease owner must contain 1 to 128 bytes", ErrInvalidConfiguration)
+		}
+		config.leaseOwner = owner
+		return nil
+	}
+}
+
+// withNow is an internal deterministic-test seam. Wall-clock waiting remains
+// in Run; scheduling decisions are factored into cycle for direct tests.
+func withNow(now func() time.Time) Option {
+	return func(config *serviceConfig) error {
+		if now == nil {
+			return fmt.Errorf("%w: nil clock", ErrInvalidConfiguration)
+		}
+		config.now = now
+		return nil
+	}
+}
+
+func validateJobName(name string) error {
+	if len(name) == 0 || len(name) > 128 || name[0] < 'a' || name[0] > 'z' {
+		return fmt.Errorf("%w: job name must match ^[a-z][a-z0-9._/-]*$ and contain 1 to 128 bytes", ErrInvalidConfiguration)
+	}
+	for index := 1; index < len(name); index++ {
+		value := name[index]
+		if (value < 'a' || value > 'z') && (value < '0' || value > '9') &&
+			value != '.' && value != '_' && value != '/' && value != '-' {
+			return fmt.Errorf("%w: job name must match ^[a-z][a-z0-9._/-]*$ and contain 1 to 128 bytes", ErrInvalidConfiguration)
+		}
+	}
+	return nil
+}
+
+func (policy CatchUpPolicy) valid() bool {
+	switch policy {
+	case CatchUpNone, CatchUpLatest, CatchUpAll:
+		return true
+	default:
+		return false
+	}
+}
+
+func (policy OverlapPolicy) valid() bool {
+	switch policy {
+	case OverlapSkip, OverlapAllow:
+		return true
+	default:
+		return false
+	}
+}

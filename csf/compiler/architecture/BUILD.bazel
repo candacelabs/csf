@@ -1,0 +1,400 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+ocaml_module(
+    name = "Model",
+    struct = "model.ml",
+)
+
+ocaml_module(
+    name = "Codegen_header",
+    sig = "codegen_header.mli",
+    struct = "codegen_header.ml",
+)
+
+ocaml_module(
+    name = "Frontend_lexer",
+    struct = "frontend_lexer.ml",
+    deps = [":Model"],
+)
+
+ocaml_module(
+    name = "Frontend_grammar",
+    struct = "frontend_grammar.ml",
+    deps = [
+        ":Frontend_lexer",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Frontend",
+    sig = "frontend.mli",
+    struct = "frontend.ml",
+    deps = [
+        ":Frontend_grammar",
+        ":Frontend_lexer",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Symbol_codegen",
+    struct = "symbol_codegen.ml",
+    deps = [
+        ":Codegen_header",
+        ":Frontend_grammar",
+        ":Frontend_lexer",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Symbol_codegen_main",
+    struct = "symbol_codegen_main.ml",
+    deps = [
+        ":Frontend_lexer",
+        ":Model",
+        ":Symbol_codegen",
+    ],
+)
+
+ocaml_binary(
+    name = "symbol_codegen",
+    main = ":Symbol_codegen_main",
+)
+
+genrule(
+    name = "syntax_source",
+    srcs = ["language.ebnf"],
+    outs = ["syntax_cgen.ml"],
+    cmd = "$(location :symbol_codegen) $(location language.ebnf) $@",
+    tools = [":symbol_codegen"],
+)
+
+ocaml_module(
+    name = "Syntax_cgen",
+    struct = ":syntax_cgen.ml",
+    deps = [":Model"],
+)
+
+ocaml_module(
+    name = "Typed_tree",
+    struct = "typed_tree.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+        ":Syntax_cgen",
+    ],
+)
+
+ocaml_module(
+    name = "Decode",
+    struct = "decode.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+        ":Syntax_cgen",
+        ":Typed_tree",
+    ],
+)
+
+ocaml_module(
+    name = "Validate",
+    sig = "validate.mli",
+    struct = "validate.ml",
+    deps = [":Model"],
+)
+
+ocaml_module(
+    name = "Emit",
+    sig = "emit.mli",
+    struct = "emit.ml",
+    deps = [
+        ":Codegen_header",
+        ":Model",
+        ":Syntax_cgen",
+    ],
+)
+
+ocaml_module(
+    name = "Generated_policy",
+    struct = "generated_policy.ml",
+    deps = [
+        ":Codegen_header",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Go_syntax",
+    struct = "go_syntax.ml",
+    deps = [
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Go_policy",
+    sig = "go_policy.mli",
+    struct = "go_policy.ml",
+    deps = [
+        ":Go_syntax",
+        ":Model",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Source_check",
+    sig = "source_check.mli",
+    struct = "source_check.ml",
+    deps = [
+        ":Generated_policy",
+        ":Go_policy",
+        ":Model",
+        "//tools/gorilla_mux_lint:Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Compiler",
+    sig = "compiler.mli",
+    struct = "compiler.ml",
+    deps = [
+        ":Decode",
+        ":Emit",
+        ":Frontend",
+        ":Model",
+        ":Source_check",
+        ":Validate",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Cli",
+    struct = "cli.ml",
+    deps = [
+        ":Compiler",
+        ":Model",
+        "@opam.cmdliner//lib",
+    ],
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [
+        ":Cli",
+        "@opam.cmdliner//lib",
+    ],
+)
+
+ocaml_binary(
+    name = "csfc_native",
+    main = ":Main",
+)
+
+# OCaml transitions select a configuration-specific output directory. Publish
+# the executable at one stable path for the source-check CI consumer.
+genrule(
+    name = "csfc",
+    srcs = [":csfc_native"],
+    outs = ["csfc.exe"],
+    cmd = "cp $(location :csfc_native) $@",
+    executable = True,
+)
+
+# A consumer of both the real CLI executable and the compiled projection.
+ocaml_module(
+    name = "Example",
+    struct = "example.ml",
+    deps = [
+        ":Cli",
+        ":Codegen_header",
+        ":Compiler",
+        ":Model",
+        ":Validate",
+        "//csf/architecture/generated:typed_projection",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Example_main",
+    struct = "example_main.ml",
+    deps = [
+        ":Example",
+        "@opam.cmdliner//lib",
+    ],
+)
+
+ocaml_binary(
+    name = "example_native",
+    main = ":Example_main",
+)
+
+genrule(
+    name = "example",
+    srcs = [":example_native"],
+    outs = ["example.exe"],
+    cmd = "cp $(location :example_native) $@",
+    executable = True,
+)
+
+ocaml_module(
+    name = "Frontend_test",
+    struct = "frontend_test.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+    ],
+)
+
+ocaml_test(
+    name = "frontend_test",
+    size = "small",
+    data = ["language.ebnf"],
+    main = ":Frontend_test",
+)
+
+ocaml_module(
+    name = "Validate_test",
+    struct = "validate_test.ml",
+    deps = [
+        ":Model",
+        ":Validate",
+    ],
+)
+
+ocaml_test(
+    name = "validate_test",
+    size = "small",
+    main = ":Validate_test",
+)
+
+ocaml_module(
+    name = "Emit_test",
+    struct = "emit_test.ml",
+    deps = [
+        ":Codegen_header",
+        ":Emit",
+        ":Model",
+    ],
+)
+
+ocaml_test(
+    name = "emit_test",
+    size = "small",
+    main = ":Emit_test",
+)
+
+ocaml_module(
+    name = "Compiler_test",
+    struct = "compiler_test.ml",
+    deps = [
+        ":Compiler",
+        ":Decode",
+        ":Frontend",
+        ":Go_policy",
+        ":Model",
+        ":Source_check",
+        ":Validate",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_test(
+    name = "compiler_test",
+    size = "small",
+    data = ["language.ebnf"],
+    main = ":Compiler_test",
+)
+
+ocaml_module(
+    name = "Generated_policy_test",
+    struct = "generated_policy_test.ml",
+    deps = [
+        ":Codegen_header",
+        ":Generated_policy",
+        ":Model",
+    ],
+)
+
+ocaml_test(
+    name = "generated_policy_test",
+    size = "small",
+    main = ":Generated_policy_test",
+)
+
+ocaml_module(
+    name = "Decode_test",
+    struct = "decode_test.ml",
+    deps = [
+        ":Decode",
+        ":Frontend",
+        ":Model",
+    ],
+)
+
+ocaml_test(
+    name = "decode_test",
+    size = "small",
+    data = ["language.ebnf"],
+    main = ":Decode_test",
+)
+
+ocaml_module(
+    name = "Go_syntax_test",
+    struct = "go_syntax_test.ml",
+    deps = [
+        ":Go_syntax",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_test(
+    name = "go_syntax_test",
+    size = "small",
+    main = ":Go_syntax_test",
+)
+
+ocaml_module(
+    name = "Cli_test",
+    struct = "cli_test.ml",
+    deps = [
+        ":Cli",
+        ":Compiler",
+        ":Model",
+        "@opam.cmdliner//lib",
+    ],
+)
+
+ocaml_test(
+    name = "cli_test",
+    size = "small",
+    main = ":Cli_test",
+)
+
+ocaml_module(
+    name = "Symbol_codegen_test",
+    struct = "symbol_codegen_test.ml",
+    deps = [
+        ":Codegen_header",
+        ":Model",
+        ":Symbol_codegen",
+    ],
+)
+
+ocaml_test(
+    name = "symbol_codegen_test",
+    size = "small",
+    data = ["language.ebnf"],
+    main = ":Symbol_codegen_test",
+)

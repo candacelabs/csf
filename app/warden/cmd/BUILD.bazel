@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "cmd_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/app/warden/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "//services/warden/config",
+        "//services/warden/dashboard",
+        "//services/warden/discovery",
+        "//services/warden/election",
+        "//services/warden/grpcmux",
+        "//services/warden/grpctransport",
+        "//services/warden/httpserver",
+        "//services/warden/metrics",
+        "//services/warden/notify",
+        "//services/warden/store",
+        "//services/warden/watchdog",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_rs_zerolog//:zerolog",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)

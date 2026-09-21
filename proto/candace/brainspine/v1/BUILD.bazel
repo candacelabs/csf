@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+# The bounded CSF observer includes the owning contract in its source snapshot.
+exports_files(
+    ["brainspine.proto"],
+    visibility = ["//csf:__pkg__"],
+)
+
+go_library(
+    name = "brainspine",
+    srcs = [
+        "brainspine.pb.go",
+        "brainspine_liquid.pb.go",
+    ],
+    importpath = "github.com/candacelabs/csf/proto/candace/brainspine/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/liquidproto",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

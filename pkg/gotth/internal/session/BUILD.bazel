@@ -1,0 +1,51 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "session",
+    srcs = [
+        "actor.go",
+        "doc.go",
+        "effects.go",
+        "ingress.go",
+        "limits.go",
+        "mailbox.go",
+        "resync.go",
+        "types.go",
+        "window.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/session",
+    visibility = ["//pkg/gotth:__subpackages__"],
+    deps = [
+        "//pkg/gotth/internal/obs",
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/internal/render",
+        "@io_opentelemetry_go_otel//attribute",
+    ],
+)
+
+go_test(
+    name = "session_test",
+    srcs = [
+        "actor_test.go",
+        "backpressure_test.go",
+        "collection_test.go",
+        "emission_internal_test.go",
+        "harness_test.go",
+        "provenance_test.go",
+        "resync_test.go",
+        "union_internal_test.go",
+    ],
+    embed = [":session"],
+    deps = [
+        "//pkg/gotth/internal/obs",
+        "//pkg/gotth/internal/obstest",
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/internal/render",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@io_opentelemetry_go_otel_trace//noop",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

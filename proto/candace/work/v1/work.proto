@@ -1,0 +1,98 @@
+// Durable handoff records and read-only projections for the interim issue authority.
+syntax = "proto3";
+
+package candace.work.v1;
+
+import "liquidproto/v1/refinement.proto";
+import "google/protobuf/timestamp.proto";
+import "candace/telemetry/v1/telemetry.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/work/v1;workv1";
+
+enum WorkStatus {
+  WORK_STATUS_UNSPECIFIED = 0;
+  WORK_STATUS_QUEUED = 1;
+  WORK_STATUS_ACTIVE = 2;
+  WORK_STATUS_BLOCKED = 3;
+  WORK_STATUS_OPERATOR = 4;
+  WORK_STATUS_DONE = 5;
+}
+
+enum ResumeCondition {
+  RESUME_CONDITION_UNSPECIFIED = 0;
+  RESUME_CONDITION_READY = 1;
+  RESUME_CONDITION_MISSING = 2;
+  RESUME_CONDITION_STALE = 3;
+  RESUME_CONDITION_CONFLICT = 4;
+  RESUME_CONDITION_INVALID = 5;
+  RESUME_CONDITION_SOURCE_ERROR = 6;
+}
+
+message Evidence {
+  string description = 1 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 4096"}];
+  string url = 2 [(candace.liquid.v1.field) = {expr: "matches(this, `^https?://[^ ]+$`)"}];
+  string result = 3 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 4096"}];
+}
+
+message Checkpoint {
+  uint32 schema_version = 1 [(candace.liquid.v1.field) = {expr: "this == 1"}];
+  string id = 2 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)"}];
+  string task_url = 3 [(candace.liquid.v1.field) = {expr: "matches(this, `^https://github.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$`)"}];
+  string revision = 4 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-f0-9]{40}$`)"}];
+  string owner = 5 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 128"}];
+  WorkStatus status = 6;
+  string next_action = 7 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 8192"}];
+  repeated string decisions = 8;
+  repeated string blockers = 9;
+  repeated Evidence evidence = 10;
+  string predecessor_id = 11;
+  google.protobuf.Timestamp recorded_at = 12;
+  string task_fingerprint = 13 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-f0-9]{64}$`)"}];
+  candace.telemetry.v1.TraceContext trace_context = 14;
+}
+
+// Adapter-owned projections of the GitHub REST fields we consume. Unknown
+// upstream fields are discarded; these are not a replacement GitHub contract.
+message SourceIssue {
+  int64 number = 1;
+  string title = 2;
+  string html_url = 3;
+  string state = 4;
+  string body = 5;
+  google.protobuf.Timestamp updated_at = 6;
+}
+
+message SourceComment {
+  int64 id = 1;
+  string html_url = 2;
+  string body = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+  SourceUser user = 6;
+  // GitHub-supplied metadata, never a field read from the checkpoint body.
+  string author_association = 7;
+}
+
+message SourceUser {
+  string login = 1;
+}
+
+message SourceSnapshot {
+  SourceIssue issue = 1;
+  repeated SourceComment comments = 2;
+}
+
+message ResumeRecord {
+  SourceIssue issue = 1;
+  Checkpoint checkpoint = 2;
+  ResumeCondition condition = 3;
+  repeated string findings = 4;
+  string checkpoint_url = 5;
+  google.protobuf.Timestamp checked_at = 6;
+  string expected_revision = 7;
+}
+
+message ProgramSnapshot {
+  repeated ResumeRecord tasks = 1;
+  google.protobuf.Timestamp checked_at = 2;
+}

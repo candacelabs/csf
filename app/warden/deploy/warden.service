@@ -1,0 +1,50 @@
+[Unit]
+Description=fleet watchdog (warden)
+Documentation=https://github.com/candacelabs/csf/tree/main/app/warden
+# warden dials peers over the tailnet, so it must start after the network is
+# up and after tailscaled has (best-effort) established connectivity.
+After=network-online.target tailscaled.service
+Wants=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+# This unit requires /etc/warden/warden.yaml to exist (the -config flag makes
+# a missing file a startup error). Environment overrides from the optional
+# EnvironmentFile (the "-" prefix) are applied on top — put secrets like
+# SMTP_PASS there, never in the world-readable YAML. To run a node purely from
+# environment variables instead, drop the -config flag from ExecStart.
+ExecStart=/usr/local/bin/warden -config /etc/warden/warden.yaml
+EnvironmentFile=-/etc/warden/warden.env
+
+Restart=on-failure
+RestartSec=2
+
+# --- hardening ------------------------------------------------------------
+# Run under a transient, unprivileged system user with no on-disk account.
+DynamicUser=yes
+# Managed state dir: systemd creates and chowns /var/lib/warden to the dynamic
+# user on every start, so the default data_dir works out of the box.
+StateDirectory=warden
+StateDirectoryMode=0700
+
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+# Only local/inet sockets are needed for HTTP over the tailnet.
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallFilter=@system-service
+SystemCallErrorNumber=EPERM
+# /etc/warden holds the read-only config; StateDirectory already grants
+# write access to /var/lib/warden under ProtectSystem=strict.
+ReadOnlyPaths=/etc/warden
+
+[Install]
+WantedBy=multi-user.target

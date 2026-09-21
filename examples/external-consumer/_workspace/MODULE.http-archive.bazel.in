@@ -1,0 +1,52 @@
+# Consuming candace as a plain source archive — the fallback shape.
+#
+# `http_archive` fetches the same tarball without treating it as a Bazel module.
+# That is occasionally what a consumer wants (an unregistered fork, a build that
+# predates the module, a vendored drop), and it costs the repository mapping: a
+# repository fetched this way is not a module, so the labels in candace's BUILD
+# files resolve through *this* module's mapping rather than candace's own.
+#
+# Both shapes end up carrying candace's whole `use_repo(go_deps, ...)` list,
+# because both read candace's go.mod. The difference is what the list does. In
+# MODULE.archive-override.bazel.in the entries this repository's own BUILD files
+# name are the ones that resolve anything and `bazel mod tidy` writes the rest;
+# here every entry is load-bearing, and a missing one is a build error inside
+# candace rather than a warning about this file.
+#
+# The repositories candace declares for *itself* cannot be supplied from that
+# block at all, which is the part that bites: `@candace//pkg/pgmem` names
+# `@pg_query_go`, a patched archive candace's own MODULE.bazel fetches, and in
+# this shape it does not resolve. A consumer whose targets reach such a package
+# copies that declaration too, or uses the module shape.
+#
+# The placeholders are filled in by tools/test_candace_external_consumer.sh in
+# the monorepo; @CANDACE_GO_REPOS@ is spliced from the archive's own
+# MODULE.bazel so this file cannot carry a stale copy of that list. A real
+# consumer pastes candace's `use_repo(go_deps, ...)` block in its place and
+# refreshes it when it bumps the archive.
+module(name = "candace_http_archive_consumer")
+
+bazel_dep(name = "gazelle", version = "0.52.2")
+bazel_dep(name = "rules_go", version = "0.62.0")
+
+# candace is not a module in this shape, so it registers no Go SDK: this build
+# has to download the one candace's committed BUILD files were generated
+# against itself.
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(version = "1.26.5")
+
+http_archive = use_repo_rule(
+    "@bazel_tools//tools/build_defs/repo:http.bzl",
+    "http_archive",
+)
+
+http_archive(
+    name = "candace",
+    sha256 = "@CANDACE_ARCHIVE_SHA256@",
+    strip_prefix = "@CANDACE_ARCHIVE_PREFIX@",
+    urls = ["@CANDACE_ARCHIVE_URL@"],
+)
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "@candace//:go.mod")
+@CANDACE_GO_REPOS@

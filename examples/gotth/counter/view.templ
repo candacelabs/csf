@@ -1,0 +1,134 @@
+package main
+
+import "github.com/candacelabs/csf/pkg/gotth/live"
+
+// templ itself is not imported here: the generator adds
+// "github.com/a-h/templ" to every file it writes, so naming it again is a
+// redeclaration in the generated output rather than a missing import.
+
+// ValueRegion is the first live fragment: the number and everything derived
+// from it.
+//
+// Two rules govern the markup and both are contracts rather than style. The
+// root element carries live.Region(FragmentValue), which renders
+// data-gotth-region and is what the client morphs against — morph never
+// touches anything outside a region, and a patch names this ID. And every
+// value here is a pure function of state, because the same state must render
+// byte-identical HTML: that comparison is what suppresses a patch nobody
+// needs.
+//
+// data-bench-* attributes are the benchmark harness's handles, specified in
+// docs/bench/equivalence-spec.md §2.0. They are in the markup on both sides of
+// that comparison, so their bytes are counted on both sides.
+templ ValueRegion(s State) {
+	<section { live.Region(FragmentValue)... } class="card value" data-bench-region="A">
+		<p class="number" data-bench-id="value" data-bench-value>{ s.ValueText() }</p>
+		<p class="derived">
+			<span class="parity">{ s.Parity() }</span>
+			<span class={ "badge", "badge-" + s.Band() }>{ s.Band() }</span>
+		</p>
+		<p class="age">changed { s.AgeLabel() } by { s.Author() }</p>
+	</section>
+}
+
+// ControlsRegion is the second live fragment: the buttons, and the shared-tab
+// count that makes the push channel visible.
+//
+// The buttons must be inside a region. The client runtime resolves an event's
+// fragment by walking up from the clicked element to the nearest
+// data-gotth-region ancestor, so a control outside every region raises nothing
+// at all — which is a silent no-op in the browser rather than an error
+// anywhere, and is worth knowing before it happens to you.
+//
+// live.On is the whole binding. There is no id, no handler registration and no
+// JavaScript: the attribute names a DOM event and a server event, and the
+// runtime's single delegated listener does the rest, which is why a morph can
+// replace this markup without destroying a binding.
+templ ControlsRegion(s State) {
+	<section { live.Region(FragmentControls)... } class="card controls" data-bench-region="B">
+		<div class="buttons">
+			<button type="button" data-bench-id="dec" { live.On("click", EventDecrement)... }>&minus;1</button>
+			<button type="button" data-bench-id="inc" { live.On("click", EventIncrement)... }>+1</button>
+			<button type="button" data-bench-id="inc10" { live.On("click", EventIncrement10)... }>+10</button>
+			<button type="button" data-bench-id="reset" { live.On("click", EventReset)... }>Reset</button>
+		</div>
+		<p class="tabs" data-bench-id="tabs">
+			{ s.TabLabel() } sharing this counter
+		</p>
+	</section>
+}
+
+// Page is the whole document.
+//
+// It composes the same two components the fragments render, from the same
+// state, which is the point: the first paint is server-rendered HTML with no
+// data attributes missing and no placeholder, and the snapshot that arrives a
+// moment later over the WebSocket morphs it to bytes it already has. There is
+// no flash, and the page is meaningful with JavaScript disabled — it simply
+// stops updating.
+//
+// app.Document writes the document around it: the doctype, the <html> element
+// with the attributes passed to it and none of its own, a <head> with the
+// character encoding, the title and the script tags, and a <body> holding
+// everything between its braces. The runtime is compiled into the binary and
+// served by the same handler that serves the connection: no CDN, no build
+// step, no npm.
+//
+// It is given MountPath — the same constant NewMux registers the handler
+// under — because the tag has to address whatever prefix this application
+// chose. Passing a literal here instead would put the same string in two files
+// and let them drift, and the drift is silent: the page loads, the script
+// 404s, and nothing is live.
+//
+// app is the first parameter because Document is a METHOD, and it is a method
+// because what it puts in the head depends on Config.Dev: this example sets
+// Dev, so the same call that renders the runtime tag also renders the session
+// inspector's and dev reload's — and renders the inspector ABOVE the runtime,
+// which is the ordering the inspector needs and which this page therefore
+// cannot get wrong. It used to take a `dev templ.Component` for exactly the
+// same reason and got one tag of the three; now it takes the app and gets all
+// three placed for it. NewMux passes the app because that is where the app is;
+// a test passes the app it built.
+//
+// The head content this page does need — the viewport meta and the
+// stylesheet — is the variadic fourth argument, in headExtras below, and a
+// page with none of its own pays nothing for it.
+templ Page(app *live.App[State, live.AnonymousIdentity], s State) {
+	@app.Document(MountPath, "gotth-live counter", templ.Attributes{"lang": "en"}, headExtras()) {
+		<main>
+			<h1>gotth-live counter</h1>
+			<p class="lede">
+				The value lives in Go. Clicking sends an event, the reducer
+				returns an effect, the store applies it, and every open tab
+				is pushed the result.
+			</p>
+			@ValueRegion(s)
+			@ControlsRegion(s)
+			<!--
+					The connection indicator is CSS and nothing else. The
+					client runtime writes data-gotth-status on <html> —
+					connecting, live, reconnecting, closed — and the
+					stylesheet selects on it. No script of ours runs on this
+					page at all.
+				-->
+			<p class="status">connection: <span class="dot"></span></p>
+			<p class="hint">
+				Open this page in a second tab. Both show the same number,
+				both repaint when either changes, and a reload keeps the
+				value &mdash; none of it is in the browser.
+			</p>
+		</main>
+	}
+}
+
+// headExtras is this example's own head content, which live.Document knows
+// nothing about and is not entitled to: a viewport meta and a stylesheet are
+// decisions about how this page looks, not about how it is connected.
+//
+// It renders above the runtime, inspector and dev-reload tags, which is where
+// a stylesheet belongs and is also why an application that wanted to add its
+// own inspector tag here could not get the ordering wrong by doing so.
+templ headExtras() {
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<link rel="stylesheet" href="/counter.css"/>
+}

@@ -1,0 +1,125 @@
+// Package subject is the ifacereturn fixture: one declaration per shape the
+// analyzer must report or stay silent about.
+//
+// It is held as .go.txt and materialized into a temporary GOPATH by the test,
+// for the reason the house-code-style evals hold their fixtures the same way:
+// a fixture full of deliberate violations must not join the tracked Go corpus,
+// where the blocking CS-1/CS-2/CS-8 gate, the dupl reuse gate and the census
+// would all read it as real code.
+package subject
+
+import (
+	"io"
+
+	"thirdparty"
+)
+
+// IStore is a repository-owned interface, in the shape CS-1 names.
+type IStore interface {
+	Get(key string) string
+}
+
+type memoryStore struct{}
+
+// Get implements IStore.
+func (memoryStore) Get(key string) string { return key }
+
+// NewStore returns a repository-owned interface: the founding CS-8 shape.
+func NewStore() IStore { return memoryStore{} } // want "NewStore returns the interface subject.IStore"
+
+// OpenReader returns a standard-library interface, which the lexical lane
+// cannot see because the corpus declares no interface named Reader.
+func OpenReader(name string) io.Reader { return nil } // want "OpenReader returns the interface io.Reader"
+
+// OpenSink returns a third-party interface, invisible to the lexical lane for
+// the same reason.
+func OpenSink(name string) thirdparty.Sink { return nil } // want "OpenSink returns the interface thirdparty.Sink"
+
+// Validate returns only error, the rule's single structural exemption.
+func Validate(value string) error { return nil }
+
+// Load returns an interface and an error: exactly one finding, and it says
+// which result it means.
+func Load(key string) (IStore, error) { return memoryStore{}, nil } // want "Load returns the interface subject.IStore .result 1 of 2."
+
+// Decode returns any, which is an interface however it is spelled.
+func Decode(raw []byte) any { return nil } // want "Decode returns the interface any"
+
+// NewMemoryStore returns a concrete value: silent.
+func NewMemoryStore() memoryStore { return memoryStore{} }
+
+// NewMemoryStorePointer returns a concrete pointer: silent.
+func NewMemoryStorePointer() *memoryStore { return nil }
+
+// AllStores returns a slice of interfaces. A caller that receives the slice
+// receives the interfaces, so the container is not a boundary.
+func AllStores() []IStore { return nil } // want "AllStores returns the interface subject.IStore"
+
+// View is a struct that carries an interface. A caller that receives one
+// receives the IStore inside it, which is the 2026-09-03 amendment.
+type View struct {
+	Store IStore
+	Name  string
+}
+
+// Inner nests a View, so the reported path has to name both hops.
+type Inner struct {
+	View View
+}
+
+// Recursive is the cycle guard's fixture: a type that reaches itself. Without
+// the visited set the walk would not terminate; with it, the interface below
+// is reported exactly once.
+type Recursive struct {
+	Next  *Recursive
+	Store IStore
+}
+
+// NewView returns a struct carrying an interface: one finding, naming the way
+// through.
+func NewView() View { return View{} } // want "NewView returns View.Store, which is the interface subject.IStore"
+
+// NewViews returns a slice of them, which is the same handover in a container.
+func NewViews() []View { return nil } // want "NewViews returns View.Store, which is the interface subject.IStore"
+
+// NewInner is two hops, and the path says so.
+func NewInner() *Inner { return nil } // want "NewInner returns Inner.View.Store, which is the interface subject.IStore"
+
+// NewRecursive terminates, and reports the one interface once.
+func NewRecursive() *Recursive { return nil } // want "NewRecursive returns Recursive.Store, which is the interface subject.IStore"
+
+// Options carries a callback rather than an implementation. A func-typed field
+// is not followed: a callback is a contract the caller supplies or invokes,
+// not an implementation handed over.
+type Options struct {
+	Authenticate func() IStore
+}
+
+// NewOptions is silent for that reason.
+func NewOptions() Options { return Options{} }
+
+// Plain carries no interface at all: silent.
+type Plain struct{ Name string }
+
+// NewPlain returns it.
+func NewPlain() Plain { return Plain{} }
+
+// Zero returns the caller's own type parameter. types.IsInterface reports true
+// for a type parameter — its underlying type is its constraint — so silence
+// here is the analyzer's TypeParam guard doing its job.
+func Zero[Value any]() Value {
+	var zero Value
+	return zero
+}
+
+// Registry exercises method position, which the lexical lane declines by scope.
+type Registry struct{}
+
+// Store returns a repository-owned interface from a value receiver.
+func (Registry) Store() IStore { return memoryStore{} } // want ".Registry..Store returns the interface subject.IStore"
+
+// Reader returns a standard-library interface from a pointer receiver.
+func (registry *Registry) Reader() io.Reader { return nil } // want ".\\*Registry..Reader returns the interface io.Reader"
+
+// Close returns error from method position: still exempt.
+func (registry *Registry) Close() error { return nil }

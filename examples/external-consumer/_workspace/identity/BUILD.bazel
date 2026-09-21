@@ -1,0 +1,10 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "identity",
+    srcs = ["identity.go"],
+    embedsrcs = ["overlay/templates/status_pill.html"],
+    importpath = "example.com/candace-external-consumer/identity",
+    visibility = ["//visibility:public"],
+    deps = ["@candace//services/candaceos/webui"],
+)

@@ -1,0 +1,151 @@
+load("@crates//:defs.bzl", "aliases", "all_crate_deps", "crate_edition")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+
+# Read by crate_universe from //:MODULE.bazel; see //xetcas:BUILD.bazel.
+exports_files(["Cargo.toml"])
+
+# Cargo names the library and the binary alike ("xetcasd"), which two targets
+# in one Bazel package cannot do. The binary keeps the plain name so the file
+# it produces is still called `xetcasd`; the library takes the `_lib` suffix
+# and sets `crate_name` back, because `xetcasd` is what main.rs and the
+# integration tests import.
+rust_library(
+    name = "xetcasd_lib",
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/main.rs"],
+    ),
+    aliases = aliases(),
+    crate_name = "xetcasd",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    version = "0.1.0",
+    visibility = ["//visibility:public"],
+    deps = all_crate_deps(normal = True) + [
+        "//xetcas/crates/xetcas-contracts:xetcas_contracts",
+    ],
+)
+
+rust_binary(
+    name = "xetcasd",
+    srcs = ["src/main.rs"],
+    aliases = aliases(),
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    version = "0.1.0",
+    visibility = ["//visibility:public"],
+    deps = all_crate_deps(normal = True) + [":xetcasd_lib"],
+)
+
+rust_test(
+    name = "xetcasd_test",
+    aliases = aliases(
+        normal_dev = True,
+        proc_macro_dev = True,
+    ),
+    crate = ":xetcasd_lib",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)
+
+# The integration tests. Each one starts a xetcasd on an OS-assigned loopback
+# port inside its own temporary directory and drives it with the real xet-core
+# client, so it needs nothing from the machine it runs on — except
+# `git_hosting`, which shells out to `git`.
+[
+    rust_test(
+        name = "{}_test".format(name),
+        srcs = [
+            "tests/common/mod.rs",
+            "tests/{}.rs".format(name),
+        ],
+        aliases = aliases(
+            normal = True,
+            normal_dev = True,
+            proc_macro = True,
+            proc_macro_dev = True,
+        ),
+        crate_root = "tests/{}.rs".format(name),
+        edition = crate_edition(),
+        proc_macro_deps = all_crate_deps(
+            proc_macro = True,
+            proc_macro_dev = True,
+        ),
+        deps = all_crate_deps(
+            normal = True,
+            normal_dev = True,
+        ) + [
+            ":xetcasd_lib",
+            "//xetcas/crates/xetcas-contracts:xetcas_contracts",
+        ],
+    )
+    for name in [
+        "download",
+        "health",
+        "lfs",
+        "protocol",
+        "roundtrip",
+        "shard_identity",
+        "upload",
+    ]
+]
+
+# Reopens a data directory rather than driving a server, so it needs neither
+# the shared harness nor anything outside its own temporary directory.
+rust_test(
+    name = "durability_test",
+    srcs = ["tests/durability.rs"],
+    aliases = aliases(
+        normal = True,
+        normal_dev = True,
+        proc_macro = True,
+        proc_macro_dev = True,
+    ),
+    crate_root = "tests/durability.rs",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(
+        proc_macro = True,
+        proc_macro_dev = True,
+    ),
+    deps = all_crate_deps(
+        normal = True,
+        normal_dev = True,
+    ) + [
+        ":xetcasd_lib",
+        "//xetcas/crates/xetcas-contracts:xetcas_contracts",
+    ],
+)
+
+# Needs a `git` binary on PATH: it clones and pushes over the server's own
+# smart-HTTP routes, which is the whole point of the test. The pinned Bazel
+# image has no git, so this stays out of `bazel test //...` and the cargo job
+# is its authority. tools/bazel-manual-tests.txt names it so CI keeps it
+# compiling.
+rust_test(
+    name = "git_hosting_test",
+    srcs = [
+        "tests/common/mod.rs",
+        "tests/git_hosting.rs",
+    ],
+    aliases = aliases(
+        normal = True,
+        normal_dev = True,
+        proc_macro = True,
+        proc_macro_dev = True,
+    ),
+    crate_root = "tests/git_hosting.rs",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(
+        proc_macro = True,
+        proc_macro_dev = True,
+    ),
+    tags = ["manual"],
+    deps = all_crate_deps(
+        normal = True,
+        normal_dev = True,
+    ) + [
+        ":xetcasd_lib",
+        "//xetcas/crates/xetcas-contracts:xetcas_contracts",
+    ],
+)

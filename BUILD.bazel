@@ -1,0 +1,42 @@
+load("@gazelle//:def.bzl", "gazelle")
+
+# Gazelle owns every BUILD file under this root. Regenerate with
+#   bazel run //:gazelle
+# and check for drift with
+#   bazel run //:gazelle -- -mode=diff
+# which is what tools/check-bazel-metadata.sh runs in CI.
+# gazelle:prefix github.com/candacelabs/csf
+# gazelle:go_naming_convention import
+
+# The committed *.pb.go files are the source of truth for generated protobuf
+# code: proto/generate.sh regenerates them and CI diffs the result. Bazel
+# compiles those checked-in files as ordinary Go sources rather than running
+# protoc again, so proto rule generation stays off everywhere.
+# gazelle:proto disable_global
+
+# docs/guide/_samples is a tree of standalone documentation snippets. Go
+# tooling cannot see it (a leading underscore hides a directory from the `go`
+# command), and neither should Bazel: the samples are compiled by the guide's
+# own checker, not by this module.
+# gazelle:exclude pkg/gotth/docs/guide/_samples
+
+# github.com/pganalyze/pg_query_go/v6 is fetched by //:MODULE.bazel as a plain
+# archive with hand-written build files patched in, not through the go_deps
+# extension, so Gazelle's default repository name for it does not exist here.
+# gazelle:resolve go github.com/pganalyze/pg_query_go/v6 @pg_query_go//:pg_query_go
+
+# go.mod and go.sum are exported because a consumer's own module file reads them
+# (`go_deps.from_file(go_mod = "@candace//:go.mod")`). MODULE.bazel and
+# .bazelversion are exported for //bazel:version_pins_test, which compares them
+# with the Starlark copy the legacy WORKSPACE shim publishes.
+exports_files(
+    [
+        ".bazelversion",
+        "MODULE.bazel",
+        "go.mod",
+        "go.sum",
+    ],
+    visibility = ["//visibility:public"],
+)
+
+gazelle(name = "gazelle")

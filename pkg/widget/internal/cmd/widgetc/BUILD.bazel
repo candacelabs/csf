@@ -1,0 +1,36 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "widgetc_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/cmd/widgetc",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/widget",
+        "//pkg/widget/internal/uigen",
+    ],
+)
+
+go_binary(
+    name = "widgetc",
+    embed = [":widgetc_lib"],
+    visibility = ["//pkg/widget:__subpackages__"],
+)
+
+go_test(
+    name = "widgetc_test",
+    srcs = [
+        "main_suite_test.go",
+        "main_test.go",
+    ],
+    data = [
+        "//pkg/widget:docs/examples/01-cluster-heartbeats.widget",  # keep
+        "//pkg/widget:docs/examples/02-node-status.widget",  # keep
+        "//pkg/widget:docs/examples/04-wrong-on-purpose.widget",  # keep
+    ],
+    embed = [":widgetc_lib"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

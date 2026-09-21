@@ -1,0 +1,80 @@
+diff --git a/BUILD.bazel b/BUILD.bazel
+new file mode 100644
+--- /dev/null
++++ b/BUILD.bazel
+@@ -0,0 +1,27 @@
++# Hand-written Bazel packaging for github.com/pganalyze/pg_query_go/v6.
++#
++# This module is fetched as a plain archive rather than through Gazelle's
++# go_deps extension (see the candace MODULE.bazel) because it vendors the
++# PostgreSQL parser as C sources whose headers live in parser/include/**, a
++# tree Gazelle never puts in srcs. These files are applied as a patch after the
++# archive is extracted.
++
++load("@rules_go//go:def.bzl", "go_library")
++
++go_library(
++    name = "pg_query_go",
++    srcs = [
++        "makefuncs.go",
++        "pg_query.go",
++        "pg_query.pb.go",
++    ],
++    importpath = "github.com/pganalyze/pg_query_go/v6",
++    importpath_aliases = ["github.com/pganalyze/pg_query_go"],
++    visibility = ["//visibility:public"],
++    deps = [
++        "//parser",
++        "@org_golang_google_protobuf//proto",
++        "@org_golang_google_protobuf//reflect/protoreflect",
++        "@org_golang_google_protobuf//runtime/protoimpl",
++    ],
++)
+diff --git a/parser/BUILD.bazel b/parser/BUILD.bazel
+new file mode 100644
+--- /dev/null
++++ b/parser/BUILD.bazel
+@@ -0,0 +1,43 @@
++# Hand-written Bazel packaging for the vendored PostgreSQL parser.
++#
++# parser.go's cgo prologue asks for `-Iinclude -Iinclude/postgres`, paths
++# relative to the package directory that mean nothing from Bazel's execroot,
++# and the 424 headers and 12 textually-included C fragments under include/ are
++# not Go sources, so Gazelle leaves them out of srcs entirely. Both problems
++# are answered the Bazel way: a cc_library that owns the vendored headers and
++# declares their include roots, consumed through the go_library's cdeps.
++
++load("@rules_cc//cc:defs.bzl", "cc_library")
++load("@rules_go//go:def.bzl", "go_library")
++
++cc_library(
++    name = "postgres_headers",
++    hdrs = glob(["include/**/*.h"]),
++    # include/*.c are #included by the .c files in this directory rather than
++    # compiled on their own, which is exactly what textual_hdrs means.
++    textual_hdrs = glob(["include/**/*.c"]),
++    includes = [
++        "include",
++        "include/postgres",
++    ],
++    visibility = ["//visibility:private"],
++)
++
++go_library(
++    name = "parser",
++    srcs = glob([
++        "*.c",
++        "*.go",
++        "*.h",
++    ]),
++    cdeps = [":postgres_headers"],
++    cgo = True,
++    copts = [
++        "-std=gnu99",
++        "-Wno-unknown-warning-option",
++        "-Wno-typedef-redefinition",
++        "-DXXH_NAMESPACE=PG_QUERY_",
++    ],
++    importpath = "github.com/pganalyze/pg_query_go/v6/parser",
++    visibility = ["//visibility:public"],
++)

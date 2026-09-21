@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "apisurface_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/tools/apisurface",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "apisurface",
+    embed = [":apisurface_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "apisurface_test",
+    srcs = ["ledger_test.go"],
+    # TestReadLedgerReadsTheCommittedLedger parses the ledger CI actually reads.
+    data = ["//pkg/gotth:docs/api-surface.md"],  # keep
+    embed = [":apisurface_lib"],
+)

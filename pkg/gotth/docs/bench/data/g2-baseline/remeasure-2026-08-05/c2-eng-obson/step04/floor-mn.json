@@ -1,0 +1,33 @@
+{
+  "forced_gc": true,
+  "observability": "on",
+  "tls_listeners": 0,
+  "goroutines": 2007,
+  "memory_classes_total_bytes": 61466904,
+  "gc_heap_live_bytes": 12359784,
+  "gc_cycles_total": 14,
+  "memory_classes_heap_objects_bytes": 11751240,
+  "memory_classes_heap_stacks_bytes": 13664256,
+  "memory_classes_heap_free_bytes": 294912,
+  "memory_classes_heap_unused_bytes": 6975672,
+  "memory_classes_os_stacks_bytes": 0,
+  "gogc": "100",
+  "gomemlimit": "2GiB",
+  "gomaxprocs": 4,
+  "num_cpu": 4,
+  "go_version": "go1.26.5",
+  "unix_ms": 1785886597351,
+  "limits_in_use": {
+    "coalesce_flush_at": 512,
+    "min_resync_interval": "1s",
+    "resync_burst": 3,
+    "mailbox_depth": 64,
+    "ack_channel_depth": 32,
+    "ack_window": 16,
+    "heartbeat_interval": "20s",
+    "heartbeat_timeout": "50s",
+    "idle_timeout": "30m0s",
+    "max_inbound_frame_bytes": 65536,
+    "max_sessions_per_identity": 20
+  }
+}

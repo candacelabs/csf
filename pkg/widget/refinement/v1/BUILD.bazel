@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "refinement",
+    srcs = [
+        "refinement.pb.go",
+        "refinement_liquid.pb.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/widget/refinement/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/liquidproto",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+    ],
+)

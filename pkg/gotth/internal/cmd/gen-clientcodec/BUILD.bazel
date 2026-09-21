@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "gen-clientcodec_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/cmd/gen-clientcodec",
+    visibility = ["//visibility:private"],
+    deps = ["//pkg/gotth/internal/clientcodec"],
+)
+
+go_binary(
+    name = "gen-clientcodec",
+    embed = [":gen-clientcodec_lib"],
+    visibility = ["//pkg/gotth:__subpackages__"],
+)

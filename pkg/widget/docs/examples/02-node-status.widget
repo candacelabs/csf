@@ -1,0 +1,121 @@
+%% ============================================================================
+%% 02 — Node status
+%%
+%% The smallest legal document. One node, one flag, one stream, no motion.
+%%
+%% What it demonstrates is mostly what it OMITS. Nine of the fourteen blocks
+%% appear; five — predicates, channels, motion, indicators, controls — are
+%% absent because this widget has none of those things. An empty block is an
+%% error rather than a no-op, so "no motion" has exactly one spelling: no
+%% motion block.
+%%
+%% Absence is never default-on. This widget does not animate, and there is no
+%% way to read it as one that animates by default.
+%% ============================================================================
+
+
+widget NodeStatus
+dialect 0
+region "widget.node-status"
+palette fieldStation
+
+
+%% One field. It has a writer — the `health` event below — because a field
+%% written by nothing is state that renders one value forever.
+
+state
+  field reachable type flag
+end
+
+
+%% No `predicates` block: a `flag` field is already a predicate under its own
+%% name, so `when reachable` resolves with nothing further declared. The block
+%% exists only for compositions, and this widget has none.
+
+
+bindings
+  binding statusText
+    when reachable then "reachable"
+    otherwise "unreachable"
+  end
+
+  %% The scene description is bound rather than literal because this widget has
+  %% a predicate. A one-node picture still changes.
+  binding sceneDescriptionText
+    when reachable then "One node; its health check is passing."
+    otherwise "One node; its health check is failing."
+  end
+end
+
+
+labels
+  label titleLabel text "Node status"
+  label sceneDescriptionLabel binds sceneDescriptionText
+  label nodeALabel text "node-a"
+  label statusLabel binds statusText
+end
+
+
+%% `title` is the only required slot. No `source` line, no `stat` lines.
+
+chrome
+  title titleLabel
+end
+
+
+%% One role, classifying one node. A role that classified no node would be an
+%% error: unreferenced vocabulary is the shape drift arrives in.
+
+roles
+  role node
+    token accent
+    marker large
+    emphasis forbidden
+  end
+end
+
+
+placements
+  placement centre left 50 top 50
+end
+
+
+%% A scene with one node and no edges is legal. A scene with an edge and fewer
+%% than two nodes is not.
+%%
+%% No `channels` block, because channels exist to be carried by edges and there
+%% are no edges.
+
+scene solo
+  description sceneDescriptionLabel
+
+  node nodeA
+    role node
+    at centre
+    title nodeALabel
+    caption statusLabel
+  end
+end
+
+
+%% No `motion` block, so nothing animates and no tick is needed. A widget with
+%% any pulse or emphasis must declare `restartOn`; this one has neither.
+
+
+events
+  event health
+    wire "widget.node-status.health"
+    field reachable writes reachable
+  end
+end
+
+
+%% No `ordering` clause: this stream delivers no counter, so there is nothing
+%% for a tick to name and nothing for motion to be re-armed by.
+
+data
+  stream healthWatch
+    source "widget.node-status.watch"
+    delivers health
+  end
+end

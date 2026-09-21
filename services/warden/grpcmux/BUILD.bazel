@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "grpcmux",
+    srcs = ["server.go"],
+    importpath = "github.com/candacelabs/csf/services/warden/grpcmux",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "//services/warden/grpcserver",
+        "@com_github_rs_zerolog//:zerolog",
+        "@com_github_soheilhy_cmux//:cmux",
+        "@org_golang_google_grpc//:grpc",
+    ],
+)
+
+go_test(
+    name = "grpcmux_test",
+    srcs = [
+        "fakes_test.go",
+        "grpcmux_contract_test.go",
+    ],
+    deps = [
+        ":grpcmux",
+        "//services/warden",
+        "//services/warden/httpserver",
+        "//services/warden/proto/warden/v1:warden",
+        "//services/warden/wireconv",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//status",
+    ],
+)

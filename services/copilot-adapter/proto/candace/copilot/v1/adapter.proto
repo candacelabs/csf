@@ -1,0 +1,88 @@
+// Liquid Proto contract for the Copilot CLI adapter's tunables.
+//
+// Every number the adapter reads at runtime is DECLARED here and its bounds
+// are compiled into a generated Validate function; the Go struct, its
+// defaults and its validation are projections of this file. Nothing in the
+// adapter's Go source declares a tunable literal (operator ruling of
+// 2026-09-04, PR #165: configs are derived from a declaration, not defined in
+// source).
+syntax = "proto3";
+
+package candace.copilot.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1;copilotv1";
+
+// AdapterConfig is the whole tunable surface of the adapter. It is supplied
+// through the WithConfig functional option; the option's zero argument means
+// "the declared defaults", which DefaultAdapterConfig builds.
+message AdapterConfig {
+  // Milliseconds the session-event stream waits between store polls. Small
+  // enough that a browser sees a lifecycle event promptly, large enough that
+  // one open EventSource is not a busy loop against PostgreSQL.
+  int64 event_stream_poll_millis = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 10 && this <= 60000"
+  }];
+  // Rows one stream poll may drain from session_events at a time. Bounds the
+  // memory of a replay after a long disconnect.
+  uint32 event_stream_page_size = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 5000"
+  }];
+  // Page size a list endpoint uses when the caller names none. The contract's
+  // own maximum bounds the upper end.
+  uint32 default_page_limit = 3 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 200"
+  }];
+  // Milliseconds allowed for a process-owned durability transition after an
+  // external SDK call has returned. It is independent of the HTTP request,
+  // which may already have been canceled by a disconnected browser.
+  int64 durable_transition_timeout_millis = 4 [(candace.liquid.v1.field) = {
+    expr: "this >= 100 && this <= 120000"
+  }];
+  // Number of exited terminal snapshots/output buffers retained for reconnect
+  // and inspection. Running terminals are never evicted.
+  uint32 terminal_history_limit = 5 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 1000"
+  }];
+  // Maximum UTF-8 bytes written into one durable assistantDelta event from
+  // correlated, conforming projector input. The OpenAPI text limit is also
+  // 65536 code points, so this byte bound is stricter for non-ASCII text.
+  uint32 assistant_delta_max_bytes = 6 [(candace.liquid.v1.field) = {
+    expr: "this >= 1024 && this <= 65536"
+  }];
+  // Milliseconds a correlated, conforming in-memory same-turn projector batch
+  // may wait for a boundary before atomic projection. A hard crash can lose
+  // this live-preview window; the completed transcript remains canonical.
+  int64 assistant_delta_flush_millis = 7 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 1000"
+  }];
+  // Correlated, conforming source receipts retained in one projector batch.
+  // This bounds projector memory even when a source emits empty deltas.
+  uint32 assistant_delta_max_events = 8 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 1024"
+  }];
+  // Maximum UTF-8 bytes accepted from one correlated, conforming projector
+  // source delta. Larger preview input is rejected; the completed assistant
+  // message remains authoritative. With assistant_delta_max_bytes this bounds
+  // one accepted source to at most 64 inserts.
+  uint32 assistant_delta_source_max_bytes = 9 [(candace.liquid.v1.field) = {
+    expr: "this >= 1024 && this <= 65536"
+  }];
+}
+
+// TraceExportConfig configures one bounded OTLP delivery goroutine in the caller's
+// process. Credentials are private deployment inputs, never observation data.
+message TraceExportConfig {
+  string endpoint_url = 1 [(candace.liquid.v1.field) = {expr: "this != \"\""}];
+  string public_key = 2 [(candace.liquid.v1.field) = {expr: "this != \"\""}];
+  string secret_key = 3 [(candace.liquid.v1.field) = {expr: "this != \"\""}];
+  int64 poll_millis = 4 [(candace.liquid.v1.field) = {expr: "this >= 100 && this <= 60000"}];
+  int64 request_timeout_millis = 5 [(candace.liquid.v1.field) = {expr: "this >= 100 && this <= 30000"}];
+  int32 lease_seconds = 6 [(candace.liquid.v1.field) = {expr: "this >= 35 && this <= 300"}];
+  int32 max_attempts = 7 [(candace.liquid.v1.field) = {expr: "this >= 1 && this <= 20"}];
+  int64 max_request_bytes = 8 [(candace.liquid.v1.field) = {expr: "this >= 4096 && this <= 4194304"}];
+  string workbench_url = 9;
+  int32 retry_base_seconds = 10 [(candace.liquid.v1.field) = {expr: "this >= 1 && this <= 60"}];
+  int32 retry_max_seconds = 11 [(candace.liquid.v1.field) = {expr: "this >= 60 && this <= 3600"}];
+}

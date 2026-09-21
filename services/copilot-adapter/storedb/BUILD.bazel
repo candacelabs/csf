@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "storedb",
+    srcs = [
+        "db.go",
+        "models.go",
+        "querier.go",
+        "queries.sql.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/storedb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_google_uuid//:uuid",
+        "@com_github_guregu_null_v5//:null",
+    ],
+)

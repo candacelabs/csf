@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "fleet",
+    srcs = [
+        "crew.go",
+        "doc.go",
+        "feed.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/widget/candaws/fleet",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "fleet_test",
+    srcs = [
+        "feed_test.go",
+        "fleet_suite_test.go",
+    ],
+    embed = [":fleet"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

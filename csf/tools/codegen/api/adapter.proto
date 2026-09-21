@@ -1,0 +1,91 @@
+syntax = "proto3";
+
+package candace.brainspine.adapter.v1;
+option go_package = "github.com/candacelabs/csf/csf/gen;brainspineapi";
+
+import "google/api/annotations.proto";
+import "candace/brainspine/v1/brainspine.proto";
+
+// Candace's owned adapter API, not a reverse-engineered LITHE vendor protocol.
+service Research {
+  // Read the signed caller's durable Langfuse and OpenSearch references. The response contains opaque secret references, never secret values.
+  rpc GetOwnAgentConfiguration(candace.brainspine.v1.GetOwnAgentConfigurationRequest) returns (candace.brainspine.v1.GetOwnAgentConfigurationResponse) {
+    option (google.api.http) = {post: "/api/agents/configuration/get" body: "*"};
+  }
+  // Replace the signed caller's Langfuse and OpenSearch references. expected_revision prevents an older agent session from overwriting a newer configuration.
+  rpc UpdateOwnAgentConfiguration(candace.brainspine.v1.UpdateOwnAgentConfigurationRequest) returns (candace.brainspine.v1.UpdateOwnAgentConfigurationResponse) {
+    option (google.api.http) = {post: "/api/agents/configuration/update" body: "*"};
+  }
+  // Validate an agent recipe and prepare stable retry identities without starting a session. Execute the plan with the generated Workbench session and prompt operations; retain the recipe and receipt. This scaffold leaves Copilot context behavior unchanged.
+  rpc PrepareAgentAssignment(candace.brainspine.v1.PrepareAgentAssignmentRequest) returns (candace.brainspine.v1.PrepareAgentAssignmentResponse) {
+    option (google.api.http) = {post: "/api/agents/prepare" body: "*"};
+  }
+  // Read the active Workbench CSS and its host-owned file path. Edit workbench-theme.css at that path, then call ReloadWorkbenchTheme.
+  rpc GetWorkbenchTheme(candace.brainspine.v1.GetWorkbenchThemeRequest) returns (candace.brainspine.v1.GetWorkbenchThemeResponse) {
+    option (google.api.http) = {post: "/api/workbench/theme/get" body: "*"};
+  }
+  // Reload the host-owned workbench-theme.css file after editing it. Missing or empty CSS restores the default; invalid UTF-8 or over 65536 bytes preserves the active theme. Browsers refresh within five seconds while visible. Use /ui/?theme=default to bypass broken CSS in one tab. No path or CSS input is accepted.
+  rpc ReloadWorkbenchTheme(candace.brainspine.v1.ReloadWorkbenchThemeRequest) returns (candace.brainspine.v1.ReloadWorkbenchThemeResponse) {
+    option (google.api.http) = {post: "/api/workbench/theme/reload" body: "*"};
+  }
+  // Rebuild a simulator trace from its retained OpenSearch source document.
+  rpc RebuildSimulationTrace(candace.brainspine.v1.RebuildSimulationTraceRequest) returns (candace.brainspine.v1.RebuildSimulationTraceResponse) {
+    option (google.api.http) = {post: "/api/simulation/trace/rebuild" body: "*"};
+  }
+  // Read bounded local job logs, including retained output after container cleanup.
+  rpc ReadSimulationLogs(candace.brainspine.v1.ReadSimulationLogsRequest) returns (candace.brainspine.v1.ReadSimulationLogsResponse) {
+    option (google.api.http) = {post: "/api/simulation/logs" body: "*"};
+  }
+  // Queue a bounded simulator example using the operator's configured execution profile.
+  rpc SubmitSimulation(candace.brainspine.v1.SubmitSimulationRequest) returns (candace.brainspine.v1.SubmitSimulationResponse) {
+    option (google.api.http) = {post: "/api/simulation/submit" body: "*"};
+  }
+  // Inspect your simulator's progress, provider status, metrics and artifact location.
+  rpc InspectSimulation(candace.brainspine.v1.InspectSimulationRequest) returns (candace.brainspine.v1.InspectSimulationResponse) {
+    option (google.api.http) = {post: "/api/simulation/inspect" body: "*"};
+  }
+  // List recent simulator examples and their actual execution states.
+  rpc ListSimulations(candace.brainspine.v1.ListSimulationsRequest) returns (candace.brainspine.v1.ListSimulationsResponse) {
+    option (google.api.http) = {post: "/api/simulation/list" body: "*"};
+  }
+  // Record bounded progress from an explicitly registered local simulator worker.
+  rpc RecordSimulationEvents(candace.brainspine.v1.RecordSimulationEventsRequest) returns (candace.brainspine.v1.RecordSimulationEventsResponse) {
+    option (google.api.http) = {post: "/api/simulation/events" body: "*"};
+  }
+  // Request termination; inspect again to see whether provider cleanup is confirmed.
+  rpc CancelSimulation(candace.brainspine.v1.CancelSimulationRequest) returns (candace.brainspine.v1.CancelSimulationResponse) {
+    option (google.api.http) = {post: "/api/simulation/cancel" body: "*"};
+  }
+  // Show the latest measured work and health report.
+  rpc GetSnapshot(candace.brainspine.v1.GetSnapshotRequest) returns (candace.brainspine.v1.GetSnapshotResponse) {
+    option (google.api.http) = {get: "/api/snapshot"};
+  }
+  // Prepare a driving recipe: check the recipe and turn it into steps the controller can run.
+  rpc Compile(candace.brainspine.v1.CompileRequest) returns (candace.brainspine.v1.CompileResponse) {
+    option (google.api.http) = {post: "/api/compile" body: "*"};
+  }
+  // Add a source document so people can find and cite it later.
+  rpc IngestDocument(candace.brainspine.v1.IngestDocumentRequest) returns (candace.brainspine.v1.IngestDocumentResponse) {
+    option (google.api.http) = {post: "/api/knowledge/documents" body: "*"};
+  }
+  // Open one saved source document and read its words.
+  rpc GetDocument(candace.brainspine.v1.GetDocumentRequest) returns (candace.brainspine.v1.GetDocumentResponse) {
+    option (google.api.http) = {post: "/api/knowledge/document" body: "*"};
+  }
+  // Find saved knowledge that matches a question.
+  rpc Search(candace.brainspine.v1.SearchRequest) returns (candace.brainspine.v1.SearchResponse) {
+    option (google.api.http) = {post: "/api/knowledge/search" body: "*"};
+  }
+  // Add one idea to the shared knowledge map.
+  rpc PutNode(candace.brainspine.v1.PutNodeRequest) returns (candace.brainspine.v1.PutNodeResponse) {
+    option (google.api.http) = {post: "/api/knowledge/nodes" body: "*"};
+  }
+  // Connect two ideas and record why they belong together.
+  rpc PutEdge(candace.brainspine.v1.PutEdgeRequest) returns (candace.brainspine.v1.PutEdgeResponse) {
+    option (google.api.http) = {post: "/api/knowledge/edges" body: "*"};
+  }
+  // Browse the ideas connected to a starting point.
+  rpc GetGraph(candace.brainspine.v1.GetGraphRequest) returns (candace.brainspine.v1.GetGraphResponse) {
+    option (google.api.http) = {post: "/api/knowledge/graph" body: "*"};
+  }
+}

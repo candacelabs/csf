@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "bootstrap_test_test",
+    srcs = ["bootstrap_integration_test.go"],
+    deps = [
+        "//app/candaceos-core/bootstrap",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/browserroutes",
+        "//services/candaceos/webui",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+    ],
+)

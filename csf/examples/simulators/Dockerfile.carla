@@ -1,0 +1,15 @@
+FROM python:3.11.13-slim-bullseye@sha256:9e25f400253a5fa3191813d6a67eb801ca1e6f012b3bd2588fa6920b59e3eba6 AS python
+FROM carlasim/carla:0.9.16@sha256:aaf1df22702780ece072069e23d03c4879b002ae028c79744b09c4c7ddbae953
+
+USER root
+COPY --from=python /usr/local /usr/local
+COPY --chown=carla:carla csf/tools/codegen/generated/python /opt/brain-spine/generated/python
+COPY --chown=carla:carla csf/examples/simulators /opt/brain-spine/simulators
+RUN set -eu; wheel="$(find /workspace/PythonAPI/carla/dist -type f -name 'carla-0.9.16*cp311*.whl' -print -quit)"; \
+    test -n "$wheel"; \
+    python3.11 -m pip install --no-cache-dir "$wheel" -r /opt/brain-spine/simulators/requirements.txt; \
+    install -d -o carla -g carla /artifacts
+ENV PYTHONPATH=/opt/brain-spine/generated/python
+USER carla
+WORKDIR /workspace
+ENTRYPOINT ["python3.11", "/opt/brain-spine/simulators/container_entrypoint.py", "carla"]

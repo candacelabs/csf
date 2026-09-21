@@ -1,0 +1,70 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "cmd_lib",
+    srcs = [
+        "links.go",
+        "main.go",
+        "workbench_mcp.go",
+        "workbench_tasks.go",
+    ],
+    importpath = "github.com/candacelabs/csf/app/csf/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//csf",
+        "//pkg/httpserver",
+        "//pkg/telemetry",
+        "//pkg/workcontinuity",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/copilotbridge",
+        "//services/copilot-adapter/gen/api",
+        "//services/copilot-adapter/proto/candace/copilot/v1:copilot",
+        "//services/copilot-adapter/storedb",
+        "//services/copilot-adapter/workbench",
+        "@com_github_aws_aws_sdk_go_v2_config//:config",
+        "@com_github_aws_aws_sdk_go_v2_service_batch//:batch",
+        "@com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs//:cloudwatchlogs",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_github_copilot_sdk_go//:go",
+        "@com_github_guregu_null_v5//:null",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_jackc_pgx_v5//stdlib",
+        "@com_github_moby_moby_client//:client",
+        "@io_opentelemetry_go_otel_exporters_otlp_otlptrace_otlptracehttp//:otlptracehttp",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_x_oauth2//:oauth2",
+        "@org_golang_x_sync//errgroup",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "cmd_test",
+    srcs = [
+        "links_test.go",
+        "main_runtime_test.go",
+        "workbench_mcp_test.go",
+    ],
+    # The MCP configuration test reads the owned trace defaults through os.ReadFile.
+    data = ["//services/copilot-adapter:config/traces.defaults.json"],  # keep
+    embed = [":cmd_lib"],
+    deps = [
+        "//csf",
+        "//pkg/httpserver",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/proto/candace/copilot/v1:copilot",
+        "@com_github_github_copilot_sdk_go//:go",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

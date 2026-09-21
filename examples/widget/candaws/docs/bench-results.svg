@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="880" height="704" viewBox="0 0 880 704" font-family="system-ui,-apple-system,sans-serif">
+<rect width="880" height="704" fill="#fcfcfb"/>
+<text x="64" y="36" font-size="18" font-weight="700" fill="#0b0b0b">Roundabout A/B: dialect-first vs hand-written</text>
+<text x="64" y="56" font-size="12" fill="#52514e">candaws-roundabout-v1 · six runs, all graded all-PASS under -race · identical briefs except one line</text>
+<text x="64" y="92" font-size="20" font-weight="700" fill="#0b0b0b" font-variant-numeric="tabular-nums">−36%</text>
+<text x="64" y="108" font-size="10.5" fill="#52514e">output tokens (mean 41.2k vs 64.7k)</text>
+<text x="269" y="92" font-size="20" font-weight="700" fill="#0b0b0b" font-variant-numeric="tabular-nums">−35%</text>
+<text x="269" y="108" font-size="10.5" fill="#52514e">wall clock (mean 582s vs 897s)</text>
+<text x="474" y="92" font-size="20" font-weight="700" fill="#0b0b0b" font-variant-numeric="tabular-nums">100% vs 0%</text>
+<text x="474" y="108" font-size="10.5" fill="#52514e">of diff in canonical source</text>
+<text x="679" y="92" font-size="20" font-weight="700" fill="#0b0b0b" font-variant-numeric="tabular-nums">6/6</text>
+<text x="679" y="108" font-size="10.5" fill="#52514e">correct in both arms</text>
+<text x="64" y="146" font-size="13" font-weight="600" fill="#0b0b0b">Output tokens per run</text>
+<line x1="204" y1="158" x2="204" y2="344" stroke="#e6e5e1" stroke-width="1"/>
+<text x="204" y="358" font-size="10" fill="#52514e" text-anchor="middle">18k</text>
+<line x1="344" y1="158" x2="344" y2="344" stroke="#e6e5e1" stroke-width="1"/>
+<text x="344" y="358" font-size="10" fill="#52514e" text-anchor="middle">35k</text>
+<line x1="484" y1="158" x2="484" y2="344" stroke="#e6e5e1" stroke-width="1"/>
+<text x="484" y="358" font-size="10" fill="#52514e" text-anchor="middle">52k</text>
+<line x1="624" y1="158" x2="624" y2="344" stroke="#e6e5e1" stroke-width="1"/>
+<text x="624" y="358" font-size="10" fill="#52514e" text-anchor="middle">70k</text>
+<text x="56" y="176" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">B1</text>
+<path d="M64,162 h322 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-322 z" fill="#2a78d6"/>
+<text x="398" y="176" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">41k</text>
+<text x="56" y="208" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">B2</text>
+<path d="M64,194 h309 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-309 z" fill="#2a78d6"/>
+<text x="385" y="208" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">39k</text>
+<text x="56" y="240" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">B3</text>
+<path d="M64,226 h345 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-345 z" fill="#2a78d6"/>
+<text x="421" y="240" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">44k</text>
+<text x="56" y="272" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">A1†</text>
+<path d="M64,258 h451 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-451 z" fill="#e8710a" stroke-dasharray="4 3" stroke="#b45309" stroke-width="1.5" fill-opacity="0.55"/>
+<text x="527" y="272" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">57k</text>
+<text x="56" y="304" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">A2</text>
+<path d="M64,290 h536 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-536 z" fill="#e8710a"/>
+<text x="612" y="304" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">67k</text>
+<text x="56" y="336" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">A3</text>
+<path d="M64,322 h491 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-491 z" fill="#e8710a"/>
+<text x="567" y="336" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">62k</text>
+<text x="64" y="402" font-size="13" font-weight="600" fill="#0b0b0b">Wall clock per run (seconds)</text>
+<line x1="204" y1="414" x2="204" y2="600" stroke="#e6e5e1" stroke-width="1"/>
+<text x="204" y="614" font-size="10" fill="#52514e" text-anchor="middle">250</text>
+<line x1="344" y1="414" x2="344" y2="600" stroke="#e6e5e1" stroke-width="1"/>
+<text x="344" y="614" font-size="10" fill="#52514e" text-anchor="middle">500</text>
+<line x1="484" y1="414" x2="484" y2="600" stroke="#e6e5e1" stroke-width="1"/>
+<text x="484" y="614" font-size="10" fill="#52514e" text-anchor="middle">750</text>
+<line x1="624" y1="414" x2="624" y2="600" stroke="#e6e5e1" stroke-width="1"/>
+<text x="624" y="614" font-size="10" fill="#52514e" text-anchor="middle">1000</text>
+<text x="56" y="432" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">B1</text>
+<path d="M64,418 h289 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-289 z" fill="#2a78d6"/>
+<text x="365" y="432" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">523</text>
+<text x="56" y="464" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">B2</text>
+<path d="M64,450 h333 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-333 z" fill="#2a78d6"/>
+<text x="409" y="464" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">601</text>
+<text x="56" y="496" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">B3</text>
+<path d="M64,482 h344 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-344 z" fill="#2a78d6"/>
+<text x="420" y="496" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">622</text>
+<text x="56" y="528" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">A1†</text>
+<path d="M64,514 h373 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-373 z" fill="#e8710a" stroke-dasharray="4 3" stroke="#b45309" stroke-width="1.5" fill-opacity="0.55"/>
+<text x="449" y="528" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">673</text>
+<text x="56" y="560" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">A2</text>
+<path d="M64,546 h513 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-513 z" fill="#e8710a"/>
+<text x="589" y="560" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">924</text>
+<text x="56" y="592" font-size="12" fill="#0b0b0b" text-anchor="end" font-family="monospace">A3</text>
+<path d="M64,578 h483 a4,4 0 0 1 4,4 v10 a4,4 0 0 1 -4,4 h-483 z" fill="#e8710a"/>
+<text x="559" y="592" font-size="12" fill="#0b0b0b" font-variant-numeric="tabular-nums">870</text>
+<rect x="64" y="636" width="12" height="12" rx="3" fill="#2a78d6"/><text x="82" y="646" font-size="11.5" fill="#0b0b0b">with dialect (B)</text>
+<rect x="204" y="636" width="12" height="12" rx="3" fill="#e8710a"/><text x="222" y="646" font-size="11.5" fill="#0b0b0b">hand-written (A)</text>
+<text x="364" y="646" font-size="11" fill="#52514e">† A1: control dissolved — the run found the generator unaided and used it (harness rev 1)</text>
+<text x="64" y="668" font-size="10" fill="#52514e">Axes start at 0. Tokens and wall clock measured externally from transcripts; grades by grade.sh. Ledger: metrics/ledger.jsonl, task candaws-roundabout-v1 —</text>
+<text x="64" y="682" font-size="10" fill="#52514e">a pointer into the private monorepo this repository is exported from, so it names the source of every number here without being a link a reader can follow.</text>
+</svg>

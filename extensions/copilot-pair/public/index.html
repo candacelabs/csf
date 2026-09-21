@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Copilot Pair</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Shared group session</p>
+        <h1>Copilot Pair</h1>
+      </div>
+      <div class="connection">
+        <span id="connection-dot" class="dot"></span>
+        <span id="connection-label">Connecting</span>
+      </div>
+    </header>
+
+    <main>
+      <section class="session-strip" aria-label="Session information">
+        <span>Session <code id="session-id">—</code></span>
+        <span><strong id="peer-count">0</strong> connected</span>
+        <span><strong id="event-count">0</strong> synced events</span>
+      </section>
+
+      <section id="pending" class="pending" aria-live="polite"></section>
+
+      <section class="transcript-shell">
+        <div id="transcript" class="transcript" aria-live="polite"></div>
+        <article id="streaming" class="message assistant streaming" hidden>
+          <p class="message-label">
+            <span class="chip copilot">✦</span>
+            <span class="actor-name">Copilot</span>
+            <span class="typing">responding…</span>
+          </p>
+          <div class="md stream-body"></div>
+        </article>
+      </section>
+
+      <section class="composer" aria-label="Control the shared session">
+        <div class="composer-meta">
+          <label>
+            Your name
+            <input id="actor" maxlength="64" value="Guest">
+          </label>
+          <label class="model-label">
+            Model
+            <span class="model-control">
+              <select id="model">
+                <option value="">Loading models…</option>
+              </select>
+              <button id="change-model" class="quiet" type="button">Change</button>
+            </span>
+          </label>
+        </div>
+
+        <label class="prompt-label" for="prompt">Message the group's shared Copilot session</label>
+        <textarea id="prompt" rows="3" autofocus
+          placeholder="Write to the group — Markdown, ``` code ``` and $math$ render for everyone…"></textarea>
+        <div class="composer-actions">
+          <p id="action-status" role="status">Enter to send · Shift+Enter for a new line · Ctrl+Enter to steer mid-turn</p>
+          <button id="abort" class="danger" type="button">Stop current work</button>
+          <button id="steer" class="secondary" type="button">Steer now</button>
+          <button id="send" class="primary" type="button">Send</button>
+        </div>
+      </section>
+    </main>
+
+    <template id="empty-template">
+      <div class="empty-state">
+        <p class="eyebrow">Group chat</p>
+        <h2>Nothing here yet</h2>
+        <p>Everyone at this URL shares one Copilot session. Say something below — prompts, replies, code, and math show up here for the whole group.</p>
+      </div>
+    </template>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>

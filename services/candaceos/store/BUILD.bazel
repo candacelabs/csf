@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "store",
+    srcs = ["store.go"],
+    embedsrcs = [
+        "migrations/000_registry.sql",
+        "migrations/001_initial.sql",
+        "migrations/002_deployment_rollouts.sql",
+        "migrations/003_legacy_deployment_run_inserts.sql",
+        "migrations/004_conservative_rollouts.sql",
+    ],
+    importpath = "github.com/candacelabs/csf/services/candaceos/store",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/candaceos/internal/storedb",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgtype",
+        "@com_github_jackc_pgx_v5//pgxpool",
+    ],
+)
+
+go_test(
+    name = "store_test",
+    srcs = ["store_integration_test.go"],
+    embed = [":store"],
+    deps = [
+        "//services/candaceos/internal/storedb",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgtype",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

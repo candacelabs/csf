@@ -1,0 +1,205 @@
+package main
+
+import (
+	"strconv"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// The markup is bench/apps/chat/next/src/components/ChatLive.tsx element for
+// element and class for class, because E1 ("same product surface") and E5
+// ("bounded DOM") are checked against the rendered document.
+//
+// Two structural differences, both declared rather than chosen:
+//
+//   - the composer is wrapped in a <form>. The runtime serialises an event's
+//     fields from the bound element's FORM when it has one and from the
+//     element's own name/value when it does not, so a Send BUTTON outside a
+//     form would carry no body at all. That is one extra element in region B.
+//   - the message list carries no pending entries. CHT-2b (optimistic send) is
+//     a Next.js-only row by specification (AS-2), so every message this stack
+//     renders is data-bench-state="confirmed" and there is nothing else it
+//     could be.
+
+// RoomsRegion is region D: the switcher, the per-room unread badges (F-CHT-7),
+// and the room title CHT-4's predicate reads.
+//
+// The switch is a server round trip, not a navigation: §2 forbids client-side
+// routing on both sides, and §3.2 requires t_input and t_paint from the same
+// page's performance.now() timeline — a document navigation puts them in two
+// timelines and makes CHT-4 unmeasurable under the spec's own definition.
+// BENCH-1 recorded the same reading as R-1, and this is the other half of it.
+templ RoomsRegion(s State) {
+	<section { live.Region(FragmentRooms)... } class="card rooms" data-bench-region="D">
+		<ul class="room-list" data-bench-id="rooms">
+			for _, room := range RoomIDs {
+				<li>
+					<button
+						type="button"
+						class={ "room", templ.KV("current", room == s.Room) }
+						data-bench-id={ "room-" + room }
+						aria-current?={ room == s.Room }
+						{ SwitchBinding(room)... }
+					>
+						{ room }
+						<span class="badge" data-bench-id={ "unread-" + room }>
+							{ strconv.Itoa(s.UnreadIn(room)) }
+						</span>
+					</button>
+				</li>
+			}
+		</ul>
+		<h2 class="room-title" data-bench-id="room-title" data-bench-value={ s.Room }>
+			#{ s.Room }
+		</h2>
+	</section>
+}
+
+// RosterRegion is region C: F-CHT-5's presence list and F-CHT-6's typing
+// indicator, both already decayed and already sorted by the server so every
+// viewer agrees and no render sorts.
+templ RosterRegion(s State) {
+	<section { live.Region(FragmentRoster)... } class="card roster" data-bench-region="C">
+		<h2>In the room</h2>
+		<ul class="members" data-bench-id="presence">
+			for _, name := range s.Presence() {
+				<li class={ "member", templ.KV("you", name == s.Me) }>{ name }</li>
+			}
+		</ul>
+		<p class="typing" data-bench-id="typing" data-bench-value={ s.TypingCount() } role="status">
+			{ s.TypingLabel() }
+		</p>
+	</section>
+}
+
+// LogRegion is region A: F-CHT-1's capped message list.
+//
+// The cap is applied on the server, so this loop cannot render more than 200
+// entries and neither can the other stack. No virtualization on either side —
+// §2.3 forbids it, so both are scrolling the same real nodes (CHT-6).
+templ LogRegion(s State) {
+	<section { live.Region(FragmentLog)... } class="card log" data-bench-region="A">
+		<h2>
+			Room log <span class="count" data-bench-id="count">{ s.MessageCount() }</span>
+		</h2>
+		<ol class="messages" data-bench-id="messages">
+			for _, m := range s.Messages() {
+				@MessageRow(s, m)
+			}
+		</ol>
+	</section>
+}
+
+// MessageRow is F-CHT-2: author name, avatar initial (a CSS circle, no image),
+// body, absolute timestamp, relative timestamp. Six elements including the
+// <li>, so 200 messages is 1200 nodes and §2.3's "≤ 200 message nodes × ≤ 8
+// elements" holds with room to spare.
+//
+// data-bench-value carries the BODY on the <li>, because CHT-2's predicate is
+// "last message node's data-bench-value === sent body" (§2.3) rather than
+// §2.0's textContent form — and the body span's textContent is the same string,
+// so both readings of the ambiguity BENCH-1 filed as Q-A are true here too.
+templ MessageRow(s State, m Message) {
+	<li
+		class={ "message", templ.KV("mine", s.Mine(m.Author)) }
+		data-bench-id="message"
+		data-bench-value={ m.Body }
+		data-bench-state="confirmed"
+		data-bench-seq={ strconv.Itoa(m.Seq) }
+	>
+		<span class="avatar" aria-hidden="true">{ Initial(m.Author) }</span>
+		<span class="author">{ m.Author }</span>
+		<span class="body">{ m.Body }</span>
+		<span class="at">{ ClockLabel(m.AtMs) }</span>
+		<span class="ago">{ s.Age(m.AtMs) }</span>
+	</li>
+}
+
+// ComposerRegion is region B: F-CHT-3's textarea and Send button, F-CHT-4's
+// inline error, and the character counter.
+//
+// F-CHT-3's KEYBOARD half — "Enter sends, Shift+Enter newlines" — is the
+// textarea's binding set and is ComposerBinding(). It was absent until
+// 2026-08-05 because the library could not express it, which bench/README.md
+// recorded and now records as closed; the reasons and what each component of
+// the rendered spec does are on ComposerBinding itself.
+//
+// THE TEXTAREA IS RENDERED WITH NO TEXT CONTENT, ON PURPOSE. The runtime's
+// controlled/uncontrolled rule reads a textarea's declared value as its text
+// content: non-empty means the server is controlling it and the live value is
+// overwritten; empty means the value is the user's and is left alone. Rendering
+// it empty is therefore what makes F-CHT-8 true — "composer input is preserved
+// when other participants' messages arrive" — and what makes CHT-7's "zero
+// dropped keystrokes, caret position stable" true even while the log repaints
+// twice a second. A server-controlled textarea would pass CHT-7 at 2 keystrokes
+// a second and lose characters at ten.
+//
+// The consequence is that the server cannot CLEAR the box either, and the id is
+// how it does: ComposerID changes only on a confirmed send, morph's id match
+// then fails, the node is replaced rather than reconciled, and the replacement
+// is empty. See State.ComposerGen.
+templ ComposerRegion(s State) {
+	<section { live.Region(FragmentComposer)... } class="card composer" data-bench-region="B">
+		<form data-bench-id="composer-form" autocomplete="off">
+			<label for={ s.ComposerID() }>
+				Say something as { s.Me }
+				if s.Readonly {
+					{ " (read-only)" }
+				}
+			</label>
+			<textarea
+				id={ s.ComposerID() }
+				name={ fieldBody }
+				data-bench-id="composer"
+				rows="3"
+				placeholder="type here — Send posts it"
+				autocomplete="off"
+				aria-invalid?={ s.DraftError != "" }
+				aria-describedby="chat-body-help"
+				{ ComposerBinding()... }
+			></textarea>
+			<div class="composer-actions">
+				<button type="button" data-bench-id="send" { live.On("click", EventSend)... }>Send</button>
+				<span class="hint" id="chat-body-help">{ s.Remaining() } characters left</span>
+			</div>
+		</form>
+		if s.DraftError != "" {
+			<p class="error" data-bench-id="error" data-bench-value={ s.DraftError } role="alert">
+				{ s.DraftError }
+			</p>
+		}
+	</section>
+}
+
+// Page is the whole document. The script order is §3.2's requirement and not a
+// preference: the shim registers the t_input listener before any application
+// script, so its tag is first and is not deferred while the runtime's is.
+templ Page(s State) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>gotth-live chat — gotth-live bench</title>
+			<link rel="stylesheet" href="/chat.css"/>
+			<script src={ ShimRoute }></script>
+			@live.Script(MountPath)
+			<script src={ ReadyRoute } defer></script>
+		</head>
+		<body>
+			<main>
+				<h1>gotth-live chat</h1>
+				<p class="lede">
+					The rooms live in Go. Peers are replayed from the committed
+					fixture, sends are events, and every open tab is pushed the
+					result over one connection.
+				</p>
+				@RoomsRegion(s)
+				@RosterRegion(s)
+				@LogRegion(s)
+				@ComposerRegion(s)
+				<p class="status">connection: <span class="dot"></span></p>
+			</main>
+		</body>
+	</html>
+}

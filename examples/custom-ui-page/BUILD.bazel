@@ -1,0 +1,37 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "custom-ui-page_lib",
+    srcs = [
+        "main.go",
+        "runbooks.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/custom-ui-page",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//app/candaceos-core/bootstrap",
+        "//services/candaceos/browserroutes",
+        "//services/candaceos/webui",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_binary(
+    name = "custom-ui-page",
+    embed = [":custom-ui-page_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "custom-ui-page_test",
+    srcs = ["custom_ui_page_test.go"],
+    embed = [":custom-ui-page_lib"],
+    deps = [
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/browserroutes",
+        "//services/candaceos/httpserver",
+        "//services/candaceos/webui",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

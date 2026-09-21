@@ -1,0 +1,9 @@
+# The consumer's own defaults. candace's .bazelrc is not inherited: a Bazel
+# module's rc file applies to its own workspace only, so anything this build
+# needs is stated here.
+common --enable_bzlmod
+common --registry=https://raw.githubusercontent.com/obazl/registry/main/
+common --registry=https://bcr.bazel.build
+
+build --verbose_failures
+test --test_output=errors

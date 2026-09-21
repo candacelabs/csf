@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>candacenet warden</title>
+  <!-- JS-disabled fallback: reload the whole SSR page every 5s. When JS is
+       available, the HTMX poll below refreshes just the cluster partial. -->
+  <noscript><meta http-equiv="refresh" content="5"></noscript>
+  <!-- All assets are embedded in the warden binary and served from /assets/
+       so the dashboard renders fully offline (no CDN dependency): if you are
+       looking at this page, the WAN may well be down. -->
+  <link rel="stylesheet" href="/assets/warden.css">
+  <script src="/assets/htmx.min.js" defer></script>
+</head>
+<body>
+  <div class="wrap stack">
+
+    <header class="page-header">
+      <div>
+        <h1 class="brand">candacenet <span class="brand-accent">warden</span></h1>
+        <p class="subtitle">
+          node <span class="mono">{{ .View.Self }}</span>
+          <span class="ghost">·</span> fleet leader election &amp; watchdog
+        </p>
+      </div>
+      <div class="live-note">live · auto-refresh every 2s</div>
+    </header>
+
+    <!-- HTMX polls the partial every 2s and swaps this wrapper's innerHTML.
+         On first paint the partial is rendered server-side inline, so the
+         page is complete with or without JavaScript. -->
+    <div id="cluster"
+         hx-get="/partials/cluster"
+         hx-trigger="every 2s"
+         hx-swap="innerHTML">
+      {{ template "cluster_partial.html" . }}
+    </div>
+
+    <footer class="page-footer">
+      candacenet warden <span class="ghost">·</span>
+      version <span class="mono">{{ .Version }}</span>
+    </footer>
+
+  </div>
+</body>
+</html>

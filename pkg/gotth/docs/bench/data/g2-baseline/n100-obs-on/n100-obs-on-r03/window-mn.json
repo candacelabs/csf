@@ -1,0 +1,119 @@
+{
+  "cgroup": "/sys/fs/cgroup/system.slice/docker-7d9b457d75fc8c3a350d0bacd86bccbbe22c06be84dc34af8b61494635beb830.scope",
+  "sut_container": "7d9b457d75fc8c3a350d0bacd86bccbbe22c06be84dc34af8b61494635beb830",
+  "sessions": 100,
+  "tls": {
+    "boundary": "outside",
+    "listeners": 0,
+    "plaintext_ok": true,
+    "tls_handshake_refused": true,
+    "proxy": "none — see docs/bench/g2-baseline.md"
+  },
+  "introspect": {
+    "forced_gc": false,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 207,
+    "memory_classes_total_bytes": 18012424,
+    "gc_heap_live_bytes": 2815952,
+    "gc_cycles_total": 5,
+    "memory_classes_heap_objects_bytes": 3371680,
+    "memory_classes_heap_stacks_bytes": 3407872,
+    "memory_classes_heap_free_bytes": 1916928,
+    "memory_classes_heap_unused_bytes": 1756512,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785863110697,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "forced_gc_floor": {
+    "forced_gc": true,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 207,
+    "memory_classes_total_bytes": 18012424,
+    "gc_heap_live_bytes": 2737440,
+    "gc_cycles_total": 6,
+    "memory_classes_heap_objects_bytes": 2676080,
+    "memory_classes_heap_stacks_bytes": 2785280,
+    "memory_classes_heap_free_bytes": 40960,
+    "memory_classes_heap_unused_bytes": 1772176,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785863110706,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "driver": {
+    "target": 100,
+    "dialed": 100,
+    "mounted": 100,
+    "live": 100,
+    "closed": 0,
+    "dial_errors": 0,
+    "read_errors": 0,
+    "acks": 100,
+    "heartbeats": 1500,
+    "patches": 0,
+    "snapshots": 100,
+    "error_frames": 0
+  },
+  "host_pre": {
+    "uptime": " 17:00:08 up 6 days, 12:38, 7 users, load average: 3.57, 2.93, 3.70",
+    "nproc": 32,
+    "loadavg": {
+      "one": 3.57,
+      "five": 2.93,
+      "fifteen": 3.7
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 33868,
+    "running_containers": 19,
+    "container_names": "dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "host_post": {
+    "uptime": " 17:05:25 up 6 days, 12:43, 7 users, load average: 2.51, 2.98, 3.53",
+    "nproc": 32,
+    "loadavg": {
+      "one": 2.51,
+      "five": 2.98,
+      "fifteen": 3.53
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 33865,
+    "running_containers": 21,
+    "container_names": "g2-drv-n100-obs-on-r03-mn,g2-sut-n100-obs-on-r03-mn,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "contended": false
+}

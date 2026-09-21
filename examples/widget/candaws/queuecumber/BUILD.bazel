@@ -1,0 +1,42 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "queuecumber",
+    srcs = [
+        "broker.go",
+        "config.go",
+        "message.go",
+        "seam.go",
+        "view.go",
+        "view_templ.go",
+        "widget.gen.go",
+        "worker.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/widget/candaws/queuecumber",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//examples/widget/candaws/fleet",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_test(
+    name = "queuecumber_test",
+    srcs = [
+        "broker_test.go",
+        "card_test.go",
+        "lease_test.go",
+        "queuecumber_suite_test.go",
+    ],
+    embed = [":queuecumber"],
+    deps = [
+        "//examples/widget/candaws/fleet",
+        "//pkg/gotth/live",
+        "//pkg/widget/widgettest",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

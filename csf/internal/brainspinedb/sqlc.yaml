@@ -1,0 +1,20 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema:
+      - "schema.sql"
+      - "migrations/003_projection_tasks.up.sql"
+      - "migrations/004_simulations.up.sql"
+      - "migrations/005_local_simulations.up.sql"
+      - "migrations/006_simulation_logs.up.sql"
+      - "migrations/007_simulation_trace_deliveries.up.sql"
+      - "migrations/008_agent_configurations.up.sql"
+    queries: ["agent_configurations.sql", "queries.sql", "simulations.sql"]
+    gen:
+      go:
+        package: "brainspinedb"
+        out: "."
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true

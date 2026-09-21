@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "contract",
+    srcs = [
+        "runtime.go",
+        "schedule.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/cron/contract",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/cron",
+        "//pkg/cron/v1:cron",
+        "//pkg/liquidproto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "contract_test",
+    srcs = [
+        "contract_suite_test.go",
+        "runtime_test.go",
+        "schedule_test.go",
+    ],
+    deps = [
+        ":contract",
+        "//pkg/cron",
+        "//pkg/cron/v1:cron",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

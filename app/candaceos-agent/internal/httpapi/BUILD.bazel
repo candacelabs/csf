@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "httpapi",
+    srcs = [
+        "api.go",
+        "wire.go",
+    ],
+    importpath = "github.com/candacelabs/csf/app/candaceos-agent/internal/httpapi",
+    visibility = ["//app/candaceos-agent:__subpackages__"],
+    deps = [
+        "//app/candaceos-agent/internal/agent",
+        "//proto/candace/candaceos/v1:candaceos",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "httpapi_test",
+    srcs = ["api_test.go"],
+    deps = [
+        ":httpapi",
+        "//app/candaceos-agent/internal/agent",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)

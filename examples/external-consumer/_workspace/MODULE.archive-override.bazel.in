@@ -1,0 +1,49 @@
+# Consuming candace as a Bazel module — the recommended shape.
+#
+# `bazel_dep` names the module, and `archive_override` says where this build
+# gets it from and pins the exact bytes with Subresource Integrity. Because
+# candace is a real module here, its own MODULE.bazel is read: it supplies the
+# versions of its whole dependency closure, registers the Go SDK its committed
+# BUILD files were generated against, and declares the repositories it packages
+# for itself. A label inside candace therefore resolves through candace's own
+# repository mapping rather than through this file.
+#
+# The placeholders are filled in by tools/test_candace_external_consumer.sh in
+# the monorepo. A real consumer writes this file as MODULE.bazel and
+# substitutes the `integrity`, `strip_prefix`, and release URL that
+# tools/package_candace_archive.sh printed for the export it is pinning.
+module(name = "candace_archive_override_consumer")
+
+bazel_dep(name = "candace", version = "0.0.0")
+bazel_dep(name = "gazelle", version = "0.52.2")
+bazel_dep(name = "rules_go", version = "0.62.0")
+
+archive_override(
+    module_name = "candace",
+    integrity = "@CANDACE_ARCHIVE_INTEGRITY@",
+    strip_prefix = "@CANDACE_ARCHIVE_PREFIX@",
+    urls = ["@CANDACE_ARCHIVE_URL@"],
+)
+
+# This repository has no go.mod of its own, and cannot have one: it lives inside
+# candace's export root, and the published archive is exactly one Go module. So
+# its Go dependencies are read out of candace's go.mod, which already pins every
+# one of them at a version candace itself is tested with.
+#
+# That has a consequence worth stating rather than discovering. `from_file`
+# makes the direct dependencies of the go.mod it reads the direct dependencies
+# of *this* module, so `bazel mod tidy` writes candace's entire use_repo list
+# here, and a shorter hand-written list — even a correct one naming only the
+# repositories this workspace's BUILD files use — makes every build print a
+# warning telling the consumer to run `bazel mod tidy`. The list below is that
+# tidy output, spliced from the archive's own MODULE.bazel by the monorepo's
+# test so it cannot go stale. Five of its entries are named by a BUILD file
+# here: gin because this repository mounts its own page on Core's engine,
+# ginkgo, gomega and mock by its suites, protobuf by its harness.
+#
+# A consumer repository that has a go.mod of its own points `from_file` at that
+# one instead, and then this list is its own direct dependencies — the short
+# list you would expect.
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "@candace//:go.mod")
+@CANDACE_GO_REPOS@

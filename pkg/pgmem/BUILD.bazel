@@ -1,0 +1,56 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pgmem",
+    srcs = [
+        "backup.go",
+        "database.go",
+        "doc.go",
+        "driver.go",
+        "errors.go",
+        "function.go",
+        "intercept.go",
+        "options.go",
+        "schema.go",
+        "table.go",
+        "translator.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/pgmem",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_modernc_sqlite//:sqlite",
+        "@org_modernc_sqlite//lib",
+        "@pg_query_go",
+    ],
+)
+
+go_test(
+    name = "pgmem_test",
+    srcs = [
+        "backup_test.go",
+        "compatibility_test.go",
+        "database_test.go",
+        "driver_test.go",
+        "function_test.go",
+        "intercept_test.go",
+        "mock_translator_generate_test.go",
+        "mock_translator_test.go",
+        "null_scan_test.go",
+        "pgmem_suite_test.go",
+        "table_test.go",
+        "translator_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    embedsrcs = [
+        "testdata/indexes.sql",
+        "testdata/indexes_explicit.sql",
+        "testdata/indexes_unsupported.sql",
+    ],
+    deps = [
+        ":pgmem",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

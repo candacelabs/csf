@@ -1,0 +1,385 @@
+%% ============================================================================
+%% CandaWS — Roundabout
+%%
+%% Category parodied: a managed load balancer.
+%%
+%% RESERVED. This service is NOT built in P4's build stage: it is the task of
+%% the BEN probe designed in `bench.md`, and an implementation shipped here
+%% would leave nothing to measure.
+%%
+%% This document exists anyway, and deliberately. `csp-fanin-v1`'s own rule is
+%% that a spec nothing has ever passed is not a spec, so a bench condition that
+%% asks for a `.widget` document has to be known satisfiable before the task
+%% ships. Validating this document IS that proof. It is therefore the answer
+%% key for condition B, and `bench.md` § "Isolation" states the void rule that
+%% keeps it out of a probe run's reach.
+%%
+%% Shape: request/response, the twin of Coldstart, which IS built. Both bench
+%% conditions therefore inherit exactly one worked round-trip precedent, so the
+%% measurement is about the language rather than about novelty.
+%% ============================================================================
+
+
+widget Roundabout
+dialect 0
+region "widget.candaws.roundabout"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% A backend at runtime is a goroutine owning its own latency profile and
+%% in-flight count; the balancer owns the rotation cursor and the health
+%% bitmask as locals, and one health-checker goroutine per backend reports into
+%% one shared channel.
+
+state
+  field dispatchSequence type counter
+  field policyName type text
+  field healthyBackends type count
+  field ejectedBackends type count
+  field inflight type count
+  field balancerUp type flag
+  field draining type flag
+  field clientBehind type flag signal slowClient
+end
+
+
+predicates
+  predicate rotationFull
+    requires ejectedBackends atMost 0
+  end
+
+  predicate capacity
+    requires healthyBackends atLeast 2
+  end
+
+  predicate routing
+    requires balancerUp
+    requires capacity
+    forbids clientBehind
+  end
+end
+
+
+bindings
+  binding poolDescriptionText
+    when routing then "A client, a balancer and three backends; requests are distributed across the rotation and answered back along the same path."
+    whenNot balancerUp then "A client, a balancer and three backends; the balancer is not accepting requests."
+    whenNot capacity then "A client, a balancer and three backends; too few backends are passing their health checks."
+    otherwise "A client, a balancer and three backends; the browser is behind the request stream."
+  end
+
+  binding balancerCaptionText
+    when draining then "draining"
+    when routing then "rotating"
+    otherwise "closed"
+  end
+
+  binding backendCaptionText
+    when rotationFull then "in rotation"
+    otherwise "partly ejected"
+  end
+
+  binding rotationStatusText
+    whenNot balancerUp then "balancer down"
+    when draining then "draining by operator"
+    when clientBehind then "browser catching up"
+    when rotationFull then "every backend in rotation"
+    otherwise "{ejectedBackends} backends ejected"
+  end
+
+  binding inflightStatText
+    when routing then "{inflight} requests in flight"
+    otherwise "no requests in flight"
+  end
+
+  binding healthStatText
+    when capacity then "{healthyBackends} of 3 backends healthy"
+    otherwise "{healthyBackends} of 3 backends healthy · below the floor"
+  end
+
+  binding drainCaptionText
+    when draining then "Return the pool to the rotation"
+    otherwise "Drain the pool"
+  end
+end
+
+
+labels
+  label titleLabel text "Roundabout"
+  label sourceLabel text "Read-only balancer stream"
+  label sceneDescriptionLabel binds poolDescriptionText
+
+  label clientLabel text "client"
+  label balancerLabel text "balancer"
+  label balancerCaptionLabel binds balancerCaptionText
+  label backendOneLabel text "backend-a"
+  label backendTwoLabel text "backend-b"
+  label backendThreeLabel text "backend-c"
+  label backendCaptionLabel binds backendCaptionText
+
+  label requestLegendLabel text "request"
+  label responseLegendLabel text "response"
+
+  label policyStatLabel text "policy {policyName}"
+  label inflightStatLabel binds inflightStatText
+  label healthStatLabel binds healthStatText
+
+  label rotationStatusLabel binds rotationStatusText
+  label drainCaptionLabel binds drainCaptionText
+end
+
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat policyStatLabel
+  stat inflightStatLabel
+  stat healthStatLabel
+end
+
+
+%% GAP (dialect v1): an ejected backend cannot be drawn as ejected. A role is a
+%% static classification and the only state-dependent appearance in v0 is an
+%% indicator's binary tone, so all three backends look identical whichever ones
+%% the health checker has taken out of the rotation. Blobfish wants the same
+%% thing for a lagging zone and Queuecumber for a worker that stopped leasing.
+
+roles
+  role consumer
+    token ink
+    marker small
+    emphasis forbidden
+  end
+
+  role distributor
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role member
+    token positive
+    marker small
+    emphasis forbidden
+  end
+end
+
+
+channels
+  channel request
+    direction forward
+    token accent
+    legend requestLegendLabel
+  end
+
+  channel response
+    direction reverse
+    token positive
+    legend responseLegendLabel
+  end
+end
+
+
+placements
+  placement clientSpot left 8 top 50
+  placement balancerSpot left 40 top 50
+  placement poolTopSpot left 86 top 14
+  placement poolMiddleSpot left 92 top 50
+  placement poolBottomSpot left 86 top 86
+end
+
+
+scene rotation
+  description sceneDescriptionLabel
+
+  orbit rotationRing token rule
+
+  node client
+    role consumer
+    at clientSpot
+    title clientLabel
+  end
+
+  node balancer
+    role distributor
+    at balancerSpot
+    title balancerLabel
+    caption balancerCaptionLabel
+  end
+
+  node backendOne
+    role member
+    at poolTopSpot
+    title backendOneLabel
+    caption backendCaptionLabel
+  end
+
+  node backendTwo
+    role member
+    at poolMiddleSpot
+    title backendTwoLabel
+    caption backendCaptionLabel
+  end
+
+  node backendThree
+    role member
+    at poolBottomSpot
+    title backendThreeLabel
+    caption backendCaptionLabel
+  end
+
+  edge clientPath
+    from client
+    to balancer
+    carries request
+    carries response
+  end
+
+  edge laneOne
+    from balancer
+    to backendOne
+    carries request
+    carries response
+  end
+
+  edge laneTwo
+    from balancer
+    to backendTwo
+    carries request
+    carries response
+  end
+
+  edge laneThree
+    from balancer
+    to backendThree
+    carries request
+    carries response
+  end
+end
+
+
+%% GAP (dialect v1): the health checker's real invariant is
+%% `healthyBackends + ejectedBackends atMost 3` — a bound between two fields.
+%% A numeric bound compares against an integer literal only, so the sum lives
+%% in the engine and the card takes the two numbers on trust. Blobfish wants
+%% `writeAcks atMost 3` against a replica count it also cannot name.
+
+motion
+  requires routing
+  forbids draining
+  restartOn dispatchSequence
+
+  pulse requestIn
+    edge clientPath
+    channel request
+    duration 520 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse requestTop
+    edge laneOne
+    channel request
+    duration 520 milliseconds
+    delay 160 milliseconds
+  end
+
+  pulse requestMiddle
+    edge laneTwo
+    channel request
+    duration 520 milliseconds
+    delay 220 milliseconds
+  end
+
+  pulse requestBottom
+    edge laneThree
+    channel request
+    duration 520 milliseconds
+    delay 280 milliseconds
+  end
+
+  pulse responseTop
+    edge laneOne
+    channel response
+    duration 520 milliseconds
+    delay 440 milliseconds
+  end
+
+  pulse responseMiddle
+    edge laneTwo
+    channel response
+    duration 520 milliseconds
+    delay 500 milliseconds
+  end
+
+  pulse responseBottom
+    edge laneThree
+    channel response
+    duration 520 milliseconds
+    delay 560 milliseconds
+  end
+
+  pulse responseOut
+    edge clientPath
+    channel response
+    duration 520 milliseconds
+    delay 720 milliseconds
+  end
+
+  emphasis balancerBeat
+    node balancer
+    duration 480 milliseconds
+    delay 0 milliseconds
+  end
+end
+
+
+indicators
+  indicator rotationIndicator
+    label rotationStatusLabel
+    positiveWhen rotationFull
+  end
+end
+
+
+%% GAP (dialect v1): the control the console wants beside this one is a
+%% routing-policy `select` — round robin, least connections, random — and a
+%% `select` needs a `change` trigger, which `uigen.Refusals()` refuses because
+%% a control declares no element kind. The policy is therefore a `text` field
+%% the host writes and the card only reports.
+
+controls
+  control drainControl
+    caption drainCaptionLabel
+    trigger click
+    emits toggleDrain
+    pressedWhen draining
+  end
+end
+
+
+events
+  event toggleDrain
+    wire "widget.candaws.roundabout.drain"
+    toggles draining
+  end
+
+  event rotationReport
+    wire "widget.candaws.roundabout.report"
+    field dispatch_sequence writes dispatchSequence
+    field policy_name writes policyName
+    field healthy_backends writes healthyBackends
+    field ejected_backends writes ejectedBackends
+    field inflight writes inflight
+    field balancer_up writes balancerUp
+  end
+end
+
+
+data
+  stream rotationWatch
+    source "widget.candaws.roundabout.watch"
+    delivers rotationReport
+    ordering dispatchSequence
+  end
+end

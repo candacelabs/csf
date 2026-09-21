@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "discovery",
+    srcs = [
+        "discovery.go",
+        "doc.go",
+        "file.go",
+        "static.go",
+        "tailscale.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/discovery",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+    ],
+)
+
+go_test(
+    name = "discovery_test",
+    srcs = [
+        "discovery_suite_test.go",
+        "file_test.go",
+        "helpers_test.go",
+        "static_test.go",
+        "tailscale_test.go",
+    ],
+    embed = [":discovery"],
+    deps = [
+        "//services/warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -1,0 +1,130 @@
+# The measured topology (equivalence-spec §3.6, §5.2, §5.3).
+#
+# STANDALONE, AND IT STAYS THAT WAY. §5.3: "The bench Compose file is
+# standalone: it is never `include:`d from the repo root Compose, uses its own
+# project name, and binds only 127.0.0.1 ephemeral ports." Nothing in the repo
+# root's docker-compose.yaml refers to this file and nothing here refers to it.
+# This project is `gotth-live-bench`; the host's other Compose projects are not
+# touched, started, stopped or reconfigured by anything in this tree.
+#
+# TWO CONTAINERS, ONE OF WHICH IS MEASURED.
+#
+#   proxy  terminates TLS, compresses at gzip 6, and is the ONLY container that
+#          publishes a port. It is excluded from every M(x) and from the paired
+#          server-CPU figure, and its own cpu.stat delta is published as its own
+#          line (§3.4, §3.6).
+#   app    the server under test. Plaintext HTTP/WebSocket on its container
+#          port, no published port, no TLS listener — which is what makes
+#          §3.6's boundary checkable by inspection and what
+#          harness/assert-no-tls.mjs proves before any D3 cell is recorded.
+#
+# The load generator, the synthetic session driver and the browser harness are
+# NOT services here. They are started per measurement by the harness with their
+# own cpusets (BENCH_CPUSET_DRIVER, BENCH_CPUSET_BROWSER), because they run for
+# the length of a measurement and not the length of a stack. All four cpusets
+# are named in .env.example so §5.2's "four disjoint cpusets" is one file to
+# read rather than four places to look.
+#
+# EITHER STACK, SAME FILE. BENCH_SUT_IMAGE is the gotth-live image on one run
+# and the Next.js image on the next; everything else — proxy image by digest,
+# proxy config, container constraints, cpuset — is byte-identical between them.
+# §5.2: "A run in which the two sides' proxy image digests differ is void, not
+# corrected after the fact."
+
+name: gotth-live-bench
+
+services:
+  proxy:
+    # Pinned BY DIGEST, not tag (§5.2, §5.3). Q-6 takes the official upstream
+    # Caddy image: it is the same reverse proxy the deployment this library came
+    # out of already fronts its services with, so its behaviour is the one the
+    # operator already reasons about, and using the same family removes a "you
+    # picked a proxy that flatters your stack" question. The digest is recorded
+    # in bench/versions.lock.md.
+    image: ${BENCH_PROXY_IMAGE:-caddy@sha256:5f5c8640aae01df9654968d946d8f1a56c497f1dd5c5cda4cf95ab7c14d58648}
+    container_name: bench-proxy
+    restart: "no"
+    environment:
+      # The only thing that differs between an A run and a B run.
+      BENCH_UPSTREAM_HTTP: ${BENCH_UPSTREAM_HTTP:-app:3000}
+      BENCH_UPSTREAM_WS: ${BENCH_UPSTREAM_WS:-app:3101}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./tls:/etc/caddy/tls:ro
+    ports:
+      # 127.0.0.1 only (§5.3). Nothing here is reachable from the tailnet or
+      # from the internet, and no firewall or network-policy change is involved.
+      - "127.0.0.1:${BENCH_PROXY_PORT:-18443}:8443"
+      - "127.0.0.1:${BENCH_PROXY_CEILING_PORT:-18444}:8444"
+    cpuset: ${BENCH_CPUSET_PROXY:?set BENCH_CPUSET_PROXY, see .env.example}
+    mem_limit: ${BENCH_PROXY_MEM:-512m}
+    memswap_limit: ${BENCH_PROXY_MEM:-512m}
+    pids_limit: ${BENCH_PIDS_LIMIT:-4096}
+    ulimits:
+      nofile:
+        soft: ${BENCH_NOFILE:-1048576}
+        hard: ${BENCH_NOFILE:-1048576}
+    networks: [bench]
+    depends_on: [app]
+
+  app:
+    # The server under test. gotth-live on one run, Next.js on the next.
+    image: ${BENCH_SUT_IMAGE:?set BENCH_SUT_IMAGE to the stack under test}
+    container_name: bench-app
+    restart: "no"
+    environment:
+      PORT: "3000"
+      BENCH_HOST: "0.0.0.0"
+      BENCH_VARIANT: ${BENCH_VARIANT:-sse}
+      BENCH_WS_PORT: "3101"
+      BENCH_FIXTURE_DIR: /bench/fixtures
+      BENCH_POLL_INTERVAL_MS: ${BENCH_POLL_INTERVAL_MS:-1000}
+      BENCH_TICK_MS: ${BENCH_TICK_MS:-100}
+      # The origin the BROWSER sends, which is the proxy's and not the app's.
+      # The gotth-live image derives its WebSocket Origin allowlist from its
+      # listen address (deny by default is the library's rule), so without this
+      # every upgrade through the proxy is a 403 that looks like a server which
+      # is simply down. Ignored by the Next.js image, exactly as GOGC and
+      # GOMEMLIMIT below are — one environment, read by whichever stack is under
+      # test, and no per-stack branch in this file.
+      #
+      # The literal default is BENCH_PROXY_PORT's literal default. Compose does
+      # not nest interpolation reliably, so the two are kept in step by
+      # .env.example setting both together and by the app printing the allowlist
+      # it ended up with at startup.
+      BENCH_ORIGIN: ${BENCH_ORIGIN:-https://127.0.0.1:18443}
+      # §3.6: "GC configuration is pinned and disclosed ... --max-old-space-size
+      # on the Node side, set equal to the container memory limit." The value is
+      # derived from BENCH_SUT_MEM by the harness and recorded in the manifest;
+      # neither side is tuned beyond its framework's documented production
+      # default.
+      NODE_OPTIONS: ${BENCH_NODE_OPTIONS:-}
+      # §5.6 / Appendix B — recorded in the manifest, ignored by the Next.js
+      # image, honoured by the gotth-live image.
+      GOGC: ${BENCH_GOGC:-}
+      GOMEMLIMIT: ${BENCH_GOMEMLIMIT:-}
+    volumes:
+      # §2.5's committed fixture, read-only. BOTH images mount the same path, so
+      # "both servers read the same bytes" is a property of the topology rather
+      # than of two Dockerfiles agreeing.
+      - ../fixtures:/bench/fixtures:ro
+    # NO `ports:`. Deliberate and load-bearing: with the §3.6 topology the proxy
+    # is the only container that publishes a port, "which also makes 'no TLS
+    # listener in the measured container' checkable by inspection" (§5.3).
+    expose:
+      - "3000"
+      - "3101"
+    cpuset: ${BENCH_CPUSET_SUT:?set BENCH_CPUSET_SUT, see .env.example}
+    mem_limit: ${BENCH_SUT_MEM:-4g}
+    memswap_limit: ${BENCH_SUT_MEM:-4g} # swap disabled: equal to mem_limit (§5.2)
+    pids_limit: ${BENCH_PIDS_LIMIT:-4096}
+    ulimits:
+      nofile:
+        soft: ${BENCH_NOFILE:-1048576}
+        hard: ${BENCH_NOFILE:-1048576}
+    networks: [bench]
+
+networks:
+  bench:
+    name: gotth-live-bench
+    driver: bridge

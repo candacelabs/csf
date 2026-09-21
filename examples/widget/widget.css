@@ -1,0 +1,65 @@
+/* This host's page chrome, and nothing about a widget.
+ *
+ * The widgets' own CSS — the seven token values, the token classes, the scene's
+ * structure and the motion gate — is widget.Stylesheet's, served in front of
+ * this file by main.go. A host that wrote its own copy of that mapping would be
+ * hand-maintaining exactly the projection the SDK derives.
+ *
+ * What is left here is the page: the type, the background behind the card, and
+ * the connection dot in the corner. Every colour reads one of the palette's own
+ * custom properties, which is what a host gets for free by serving the palette
+ * first. */
+body {
+  margin: 0;
+  padding: 2.5rem 1.25rem;
+  background: #0b0e13;
+  color: var(--widget-ink);
+  font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  margin: 0 auto;
+  max-width: 34rem;
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.4rem;
+  letter-spacing: -0.01em;
+}
+
+.lede,
+.hint {
+  color: var(--widget-muted);
+  font-size: 0.92rem;
+}
+
+/* The connection indicator is CSS and nothing else: the client runtime writes
+ * data-gotth-status on <html>, and this selects on it. No script of ours runs
+ * on the page at all. */
+.status {
+  color: var(--widget-muted);
+  font-size: 0.85rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--widget-muted);
+  vertical-align: -0.05rem;
+}
+
+html[data-gotth-status="live"] .dot {
+  background: var(--widget-positive);
+}
+
+html[data-gotth-status="connecting"] .dot,
+html[data-gotth-status="reconnecting"] .dot {
+  background: var(--widget-warning);
+}
+
+html[data-gotth-status="closed"] .dot {
+  background: var(--widget-rule);
+}

@@ -1,0 +1,106 @@
+{
+  "cgroup": "/sys/fs/cgroup/system.slice/docker-f96c2410aeac4a1489d52bbd4e6e324169b5893825e9a2c138caab8b9ab048fa.scope",
+  "sut_container": "f96c2410aeac4a1489d52bbd4e6e324169b5893825e9a2c138caab8b9ab048fa",
+  "sessions": 0,
+  "tls": {
+    "boundary": "outside",
+    "listeners": 0,
+    "plaintext_ok": true,
+    "tls_handshake_refused": true,
+    "proxy": "none — see docs/bench/g2-baseline.md"
+  },
+  "introspect": {
+    "forced_gc": false,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 7,
+    "memory_classes_total_bytes": 12540168,
+    "gc_heap_live_bytes": 0,
+    "gc_cycles_total": 0,
+    "memory_classes_heap_objects_bytes": 807584,
+    "memory_classes_heap_stacks_bytes": 655360,
+    "memory_classes_heap_free_bytes": 0,
+    "memory_classes_heap_unused_bytes": 1846624,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785862477303,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "forced_gc_floor": {
+    "forced_gc": true,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 7,
+    "memory_classes_total_bytes": 13138184,
+    "gc_heap_live_bytes": 483944,
+    "gc_cycles_total": 1,
+    "memory_classes_heap_objects_bytes": 483400,
+    "memory_classes_heap_stacks_bytes": 589824,
+    "memory_classes_heap_free_bytes": 0,
+    "memory_classes_heap_unused_bytes": 1359800,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785862477308,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "driver": null,
+  "host_pre": {
+    "uptime": " 16:49:36 up 6 days, 12:27, 7 users, load average: 2.15, 3.81, 4.40",
+    "nproc": 32,
+    "loadavg": {
+      "one": 2.15,
+      "five": 3.81,
+      "fifteen": 4.4
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 33836,
+    "running_containers": 19,
+    "container_names": "dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "host_post": {
+    "uptime": " 16:54:52 up 6 days, 12:33, 7 users, load average: 2.39, 3.63, 4.25",
+    "nproc": 32,
+    "loadavg": {
+      "one": 2.39,
+      "five": 3.63,
+      "fifteen": 4.25
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 33865,
+    "running_containers": 20,
+    "container_names": "g2-sut-n100-obs-on-r02-m0,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "contended": false
+}

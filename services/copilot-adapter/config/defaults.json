@@ -1,0 +1,11 @@
+{
+  "eventStreamPollMillis": 250,
+  "eventStreamPageSize": 200,
+  "defaultPageLimit": 50,
+  "durableTransitionTimeoutMillis": 10000,
+  "terminalHistoryLimit": 32,
+  "assistantDeltaMaxBytes": 16384,
+  "assistantDeltaFlushMillis": 25,
+  "assistantDeltaMaxEvents": 128,
+  "assistantDeltaSourceMaxBytes": 65536
+}

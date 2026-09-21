@@ -1,0 +1,81 @@
+widget KanbanCard
+dialect 0
+region "kanban.card"
+palette fieldStation
+
+state
+  field name type text
+  field sessionID type text
+  field status type text
+  field model type text
+  field worktree type text
+  field taskURL type text
+  field checkpointID type text
+  field checkpointURL type text
+  field taskStatus type text
+  field owner type text
+  field nextAction type text
+  field condition type text
+  field evidenceURL type text
+  field linkGeneration type counter
+end
+
+labels
+  label titleLabel text "{name}"
+  label detailLabel text "{sessionID} · {status} · {model} · {worktree} · {taskURL} · {checkpointID} · {checkpointURL} · {taskStatus} · {owner} · {nextAction} · {condition} · {evidenceURL} · {linkGeneration}"
+  label descriptionLabel text "Session and authoritative task checkpoint"
+end
+
+chrome
+  title titleLabel
+  source detailLabel
+end
+
+roles
+  role card
+    token accent
+    marker large
+    emphasis forbidden
+  end
+end
+
+placements
+  placement centre left 50 top 50
+end
+
+scene task
+  description descriptionLabel
+  node taskCard
+    role card
+    at centre
+    title titleLabel
+    caption detailLabel
+  end
+end
+
+events
+  event snapshot
+    wire "kanban.card.snapshot"
+    field name writes name
+    field session_id writes sessionID
+    field status writes status
+    field model writes model
+    field worktree writes worktree
+    field task_url writes taskURL
+    field checkpoint_id writes checkpointID
+    field checkpoint_url writes checkpointURL
+    field task_status writes taskStatus
+    field owner writes owner
+    field next_action writes nextAction
+    field condition writes condition
+    field evidence_url writes evidenceURL
+    field link_generation writes linkGeneration
+  end
+end
+
+data
+  stream changes
+    source "workspace.committed"
+    delivers snapshot
+  end
+end

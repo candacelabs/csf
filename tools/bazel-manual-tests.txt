@@ -1,0 +1,34 @@
+# Test targets tagged `manual`, and the prerequisite each one needs that Bazel
+# does not supply. They are excluded from `bazel test //...` by that tag, and
+# from `bazel build //...` with it, so CI names them here to keep them
+# compiling. Compiling is not running, so the authority for whether they PASS
+# is named per target below, and every one of them has one:
+#
+#   * the four Go targets are run by the `Go build and test` job in
+#     .github/workflows/ci.yml, which is the `go test ./...` battery the README
+#     documents, in the pinned golang container;
+#   * the Rust one is run by the monorepo's own cargo job, which has git. This
+#     repository builds it and does not run it — see the note on that target.
+#
+# The reason is repeated as a comment on the target itself; this file is the
+# list CI reads.
+#
+# Needs a Go toolchain on PATH: shells out to `go build` for the binary it runs.
+//app/warden/e2e:e2e_test
+# Needs a Go toolchain on PATH and the module source tree: shells out to
+# `go list` to assert the import graph.
+//pkg/gotth/internal/arch:arch_test
+# Needs the source tree as directories: walks pkg/gotth/ and examples/gotth/
+# looking for Go packages, which Bazel's per-package inputs cannot present.
+//pkg/gotth/tools/doccheck:doccheck_test
+# Needs /etc/localtime: one spec asserts that time.Local is refused as a
+# schedule location, and Go names the local zone "UTC" rather than "Local" when
+# it cannot read that file. The pinned Bazel image has no time zone data at all.
+//pkg/cron:cron_test
+# Needs a `git` binary on PATH: it clones from and pushes to xetcasd's own
+# smart-HTTP routes. The pinned Bazel image has no git. The monorepo's cargo
+# job runs it; nothing in THIS repository does, because the only way to would be
+# a second full compile of the xet-core graph to add one suite to the ones the
+# `rust` job already runs. `cd xetcas && cargo test --workspace` on a machine
+# with git is the command that runs it here.
+//xetcas/crates/xetcasd:git_hosting_test

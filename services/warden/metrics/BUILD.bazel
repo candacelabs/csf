@@ -1,0 +1,36 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "metrics",
+    srcs = [
+        "metrics.go",
+        "names.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/metrics",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/collectors",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
+    ],
+)
+
+go_test(
+    name = "metrics_test",
+    srcs = [
+        "metrics_contract_test.go",
+        "metrics_test.go",
+    ],
+    embed = [":metrics"],
+    deps = [
+        "//services/warden",
+        "//services/warden/httpserver",
+        "//services/warden/internal/mocks",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "composition",
+    srcs = ["composition.go"],
+    importpath = "example.com/candace-external-consumer/composition",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//customharness",
+        "//identity",
+        "//noteboard",
+        "//steering",
+        "@candace//app/candaceos-core/bootstrap",
+        "@candace//services/candaceos/component",
+    ],
+)

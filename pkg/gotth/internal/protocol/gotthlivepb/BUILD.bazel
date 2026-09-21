@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "gotthlivepb",
+    srcs = [
+        "frame.pb.go",
+        "frame_liquid.pb.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb",
+    visibility = ["//pkg/gotth:__subpackages__"],
+    deps = [
+        "//pkg/liquidproto",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+    ],
+)

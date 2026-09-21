@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "memsrv_lib",
+    srcs = [
+        "main.go",
+        "probe.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/test/memory/cmd/memsrv",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@io_opentelemetry_go_otel_sdk//trace",
+        "@io_opentelemetry_go_otel_sdk_metric//:metric",
+        "@io_opentelemetry_go_otel_trace//:trace",
+    ],
+)
+
+go_binary(
+    name = "memsrv",
+    embed = [":memsrv_lib"],
+    visibility = ["//visibility:public"],
+)

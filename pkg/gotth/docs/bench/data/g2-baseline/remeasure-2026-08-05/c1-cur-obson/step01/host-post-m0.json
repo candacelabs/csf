@@ -1,0 +1,13 @@
+{
+  "uptime": " 21:55:02 up 6 days, 17:33, 7 users, load average: 2.57, 5.10, 6.28",
+  "nproc": 32,
+  "loadavg": {
+    "one": 2.57,
+    "five": 5.1,
+    "fifteen": 6.28
+  },
+  "mem_total_mb": 39136,
+  "mem_available_mb": 33025,
+  "running_containers": 20,
+  "container_names": "g2-sut-n1000-obs-on-r01-m0,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+}

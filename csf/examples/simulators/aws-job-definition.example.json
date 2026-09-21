@@ -1,0 +1,18 @@
+{
+  "jobDefinitionName": "csf-carla",
+  "type": "container",
+  "platformCapabilities": ["EC2"],
+  "containerProperties": {
+    "image": "123456789012.dkr.ecr.us-east-1.amazonaws.com/csf-carla@sha256:REPLACE_WITH_PUSHED_IMAGE_DIGEST",
+    "jobRoleArn": "arn:aws:iam::123456789012:role/csf-simulator-artifacts",
+    "resourceRequirements": [
+      {"type": "VCPU", "value": "4"},
+      {"type": "MEMORY", "value": "24576"},
+      {"type": "GPU", "value": "1"}
+    ],
+    "logConfiguration": {"logDriver": "awslogs", "options": {"awslogs-group": "/aws/batch/job", "awslogs-region": "us-east-1"}},
+    "linuxParameters": {"sharedMemorySize": 2048}
+  },
+  "retryStrategy": {"attempts": 1},
+  "timeout": {"attemptDurationSeconds": 900}
+}

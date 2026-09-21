@@ -1,0 +1,152 @@
+diff --git a/build/_rules/ocaml_module.bzl b/build/_rules/ocaml_module.bzl
+--- a/build/_rules/ocaml_module.bzl
++++ b/build/_rules/ocaml_module.bzl
+@@ -1,1 +1,3 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
++load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
+ load("@rules_cc//cc:find_cc_toolchain.bzl",
+
+diff --git a/build/_rules/ocaml_import.bzl b/build/_rules/ocaml_import.bzl
+--- a/build/_rules/ocaml_import.bzl
++++ b/build/_rules/ocaml_import.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@bazel_skylib//lib:paths.bzl", "paths")
+
+diff --git a/platform/BUILD.bazel b/platform/BUILD.bazel
+--- a/platform/BUILD.bazel
++++ b/platform/BUILD.bazel
+@@ -5,2 +5,2 @@
+ platform(name = "ocamlopt.opt",
+-         parents = ["@local_config_platform//:host"],
++         parents = ["@platforms//host"],
+@@ -13,2 +13,2 @@
+ platform(name = "ocamlc.byte",
+-         parents = ["@local_config_platform//:host"],
++         parents = ["@platforms//host"],
+@@ -22,2 +22,2 @@
+ platform(name = "ocamlc.opt",
+-         parents = ["@local_config_platform//:host"],
++         parents = ["@platforms//host"],
+@@ -30,2 +30,2 @@
+ platform(name = "sys>any",
+-         parents = ["@local_config_platform//:host"],
++         parents = ["@platforms//host"],
+@@ -44,2 +44,2 @@
+ platform(name = "vm>any",
+-         parents = ["@local_config_platform//:host"],
++         parents = ["@platforms//host"],
+diff --git a/aspects/depsets.bzl b/aspects/depsets.bzl
+--- a/aspects/depsets.bzl
++++ b/aspects/depsets.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ # load("@rules_ocaml//build:providers.bzl",
+
+diff --git a/aspects/providers.bzl b/aspects/providers.bzl
+--- a/aspects/providers.bzl
++++ b/aspects/providers.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@rules_ocaml//build/_lib:ccdeps.bzl",
+
+diff --git a/build/_lib/apis.bzl b/build/_lib/apis.bzl
+--- a/build/_lib/apis.bzl
++++ b/build/_lib/apis.bzl
+@@ -1,1 +1,3 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
++load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
+ load("@rules_ocaml//build:providers.bzl", "OCamlDepsProvider")
+
+diff --git a/build/_lib/ccdeps.bzl b/build/_lib/ccdeps.bzl
+--- a/build/_lib/ccdeps.bzl
++++ b/build/_lib/ccdeps.bzl
+@@ -1,1 +1,3 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
++load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
+ load("@bazel_tools//tools/cpp:toolchain_utils.bzl", "find_cpp_toolchain")
+
+diff --git a/build/_providers/OCamlCcInfo.bzl b/build/_providers/OCamlCcInfo.bzl
+--- a/build/_providers/OCamlCcInfo.bzl
++++ b/build/_providers/OCamlCcInfo.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ def _OCamlCcInfo_init(*,
+
+diff --git a/build/_providers/OCamlCodepsProvider.bzl b/build/_providers/OCamlCodepsProvider.bzl
+--- a/build/_providers/OCamlCodepsProvider.bzl
++++ b/build/_providers/OCamlCodepsProvider.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ ###############################
+
+diff --git a/build/_providers/OpamInstallProvider.bzl b/build/_providers/OpamInstallProvider.bzl
+--- a/build/_providers/OpamInstallProvider.bzl
++++ b/build/_providers/OpamInstallProvider.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ def _OpamInstallProvider_init(*,
+
+diff --git a/build/_rules/ocaml_binary/impl_binary.bzl b/build/_rules/ocaml_binary/impl_binary.bzl
+--- a/build/_rules/ocaml_binary/impl_binary.bzl
++++ b/build/_rules/ocaml_binary/impl_binary.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
+diff --git a/build/_rules/ocaml_library/impl_archive.bzl b/build/_rules/ocaml_library/impl_archive.bzl
+--- a/build/_rules/ocaml_library/impl_archive.bzl
++++ b/build/_rules/ocaml_library/impl_archive.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
+diff --git a/build/_rules/ocaml_library/impl_library.bzl b/build/_rules/ocaml_library/impl_library.bzl
+--- a/build/_rules/ocaml_library/impl_library.bzl
++++ b/build/_rules/ocaml_library/impl_library.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
+diff --git a/build/_rules/ocaml_module/impl_module.bzl b/build/_rules/ocaml_module/impl_module.bzl
+--- a/build/_rules/ocaml_module/impl_module.bzl
++++ b/build/_rules/ocaml_module/impl_module.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@bazel_skylib//rules:common_settings.bzl", "BuildSettingInfo")
+
+diff --git a/build/_rules/ocaml_runtime.bzl b/build/_rules/ocaml_runtime.bzl
+--- a/build/_rules/ocaml_runtime.bzl
++++ b/build/_rules/ocaml_runtime.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ # load(":apis.bzl", "options") # , "options_ns_resolver")
+
+diff --git a/build/providers.bzl b/build/providers.bzl
+--- a/build/providers.bzl
++++ b/build/providers.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ """Public definitions for rules_ocaml providers.
+
+diff --git a/lib/merge.bzl b/lib/merge.bzl
+--- a/lib/merge.bzl
++++ b/lib/merge.bzl
+@@ -1,1 +1,3 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
++load("@rules_cc//cc/common:cc_shared_library_info.bzl", "CcSharedLibraryInfo")
+ load("@rules_ocaml//build:providers.bzl",
+
+diff --git a/ocaml/_aspects/ocaml.bzl b/ocaml/_aspects/ocaml.bzl
+--- a/ocaml/_aspects/ocaml.bzl
++++ b/ocaml/_aspects/ocaml.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ ####################################
+
+diff --git a/ocaml/_rules/selection_proxy.bzl b/ocaml/_rules/selection_proxy.bzl
+--- a/ocaml/_rules/selection_proxy.bzl
++++ b/ocaml/_rules/selection_proxy.bzl
+@@ -1,1 +1,2 @@
++load("@rules_cc//cc/common:cc_info.bzl", "CcInfo")
+ load("@rules_ocaml//build:providers.bzl",

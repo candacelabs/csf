@@ -1,0 +1,45 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "bootstrap",
+    srcs = [
+        "bootstrap.go",
+        "components.go",
+        "core.go",
+        "reporter.go",
+    ],
+    importpath = "github.com/candacelabs/csf/app/candaceos-core/bootstrap",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/redact",
+        "//pkg/telemetry",
+        "//proto/candace/candaceos/v1:candaceos",
+        "//proto/candace/telemetry/v1:telemetry",
+        "//services/candaceos/agentclient",
+        "//services/candaceos/component",
+        "//services/candaceos/config",
+        "//services/candaceos/control",
+        "//services/candaceos/fleet",
+        "//services/candaceos/harness",
+        "//services/candaceos/httpapi",
+        "//services/candaceos/httpserver",
+        "//services/candaceos/operator",
+        "//services/candaceos/reconcile",
+        "//services/candaceos/store",
+        "//services/candaceos/webui",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_test(
+    name = "bootstrap_test",
+    srcs = ["components_test.go"],
+    embed = [":bootstrap"],
+    deps = [
+        "//pkg/redact",
+        "//pkg/telemetry",
+        "//services/candaceos/component",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

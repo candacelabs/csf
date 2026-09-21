@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ir",
+    srcs = ["ir.go"],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/ir",
+    visibility = ["//pkg/widget:__subpackages__"],
+    deps = ["//pkg/widget/internal/diag"],
+)

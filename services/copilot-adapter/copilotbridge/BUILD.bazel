@@ -1,0 +1,47 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "copilotbridge",
+    srcs = [
+        "bridge.go",
+        "events.go",
+        "resolutions.go",
+        "turns.go",
+        "usage_views.go",
+        "usage_views_gen.go",
+        "usage_views_seam.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/copilotbridge",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/gen/api",
+        "@com_github_github_copilot_sdk_go//:go",
+        "@com_github_github_copilot_sdk_go//rpc",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "copilotbridge_test",
+    srcs = [
+        "bridge_test.go",
+        "copilotbridge_suite_test.go",
+        "events_test.go",
+        "resolutions_test.go",
+        "turns_test.go",
+        "usage_test.go",
+    ],
+    embed = [":copilotbridge"],
+    deps = [
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/gen/api",
+        "@com_github_github_copilot_sdk_go//:go",
+        "@com_github_github_copilot_sdk_go//rpc",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_onsi_gomega//gstruct",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

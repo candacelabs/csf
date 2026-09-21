@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "arch",
+    srcs = ["doc.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/arch",
+    visibility = ["//pkg/gotth:__subpackages__"],
+)
+
+go_test(
+    name = "arch_test",
+    srcs = [
+        "arch_suite_test.go",
+        "errors_test.go",
+        "imports_test.go",
+    ],
+    # manual: the suite shells out to `go list` over the whole module to assert
+    # the import graph, so it needs a Go toolchain on PATH and the module's
+    # source tree. `go test ./pkg/gotth/internal/arch` is its authority.
+    tags = ["manual"],  # keep
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

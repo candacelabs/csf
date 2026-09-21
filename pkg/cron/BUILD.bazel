@@ -1,0 +1,43 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cron",
+    srcs = [
+        "options.go",
+        "schedule.go",
+        "service.go",
+        "status.go",
+        "store.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/cron",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_robfig_cron_v3//:cron",
+    ],
+)
+
+go_test(
+    name = "cron_test",
+    srcs = [
+        "cron_suite_test.go",
+        "mock_store_generate_test.go",
+        "mock_store_test.go",
+        "runtime_test.go",
+        "schedule_test.go",
+        "service_store_mock_test.go",
+    ],
+    # manual: one spec asserts that time.Local is refused as a schedule
+    # location, which only holds where /etc/localtime exists — Go names the
+    # local zone "UTC" rather than "Local" when it cannot read that file, and
+    # the pinned Bazel container image has neither it nor /usr/share/zoneinfo.
+    # `go test ./pkg/cron` in the golang container is this suite's authority.
+    tags = ["manual"],  # keep
+    deps = [
+        ":cron",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

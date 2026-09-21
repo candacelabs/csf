@@ -1,0 +1,550 @@
+[
+  {
+    "name": "snapshot_first",
+    "note": "the first frame on every connection: session parameters plus every fragment",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf4a900108011001180120012a09080522056d6f756e7430a09c013880800440104a430a07636f756e74657210011a363c64697620646174612d676f7474682d726567696f6e3d22636f756e746572223e3c622069643d226e223e303c2f623e3c2f6469763e4a2c0a046c69737410011a223c756c20646174612d676f7474682d726567696f6e3d226c697374223e3c2f756c3e",
+    "frame": {
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ],
+      "snapshot": {
+        "ack_window": 16,
+        "heartbeat_interval_ms": 20000,
+        "max_inbound_frame_bytes": 65536,
+        "origin": {
+          "kind": 5,
+          "source": "mount"
+        },
+        "patch_id": 1,
+        "server_seq": 1,
+        "state_version": 1,
+        "transition_id": 1,
+        "updates": [
+          {
+            "fragment_id": "counter",
+            "html": "\u003cdiv data-gotth-region=\"counter\"\u003e\u003cb id=\"n\"\u003e0\u003c/b\u003e\u003c/div\u003e",
+            "op": 1
+          },
+          {
+            "fragment_id": "list",
+            "html": "\u003cul data-gotth-region=\"list\"\u003e\u003c/ul\u003e",
+            "op": 1
+          }
+        ]
+      }
+    },
+    "reencode": true
+  },
+  {
+    "name": "snapshot_resync",
+    "note": "a resync snapshot: RESYNC origin carrying the request's causal ids, plus the supersession edge (H-13)",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf4a6b08291028182720162a0e0806101118092206726573796e6330a09c013880800440104a430a07636f756e74657210011a363c64697620646174612d676f7474682d726567696f6e3d22636f756e746572223e3c622069643d226e223e373c2f623e3c2f6469763e50215828",
+    "frame": {
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ],
+      "snapshot": {
+        "ack_window": 16,
+        "heartbeat_interval_ms": 20000,
+        "max_inbound_frame_bytes": 65536,
+        "origin": {
+          "client_ref": 9,
+          "event_id": 17,
+          "kind": 6,
+          "source": "resync"
+        },
+        "patch_id": 40,
+        "server_seq": 41,
+        "state_version": 22,
+        "superseded_from_seq": 33,
+        "superseded_through_seq": 40,
+        "transition_id": 39,
+        "updates": [
+          {
+            "fragment_id": "counter",
+            "html": "\u003cdiv data-gotth-region=\"counter\"\u003e\u003cb id=\"n\"\u003e7\u003c/b\u003e\u003c/div\u003e",
+            "op": 1
+          }
+        ]
+      }
+    },
+    "reencode": true
+  },
+  {
+    "name": "patch_client_event",
+    "note": "the ordinary case: one fragment, CLIENT_EVENT origin with both causal ids",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf426608021002180220022a17080110011801220f6576656e743a696e6372656d656e7432430a07636f756e74657210011a363c64697620646174612d676f7474682d726567696f6e3d22636f756e746572223e3c622069643d226e223e313c2f623e3c2f6469763e",
+    "frame": {
+      "patch": {
+        "origin": {
+          "client_ref": 1,
+          "event_id": 1,
+          "kind": 1,
+          "source": "event:increment"
+        },
+        "patch_id": 2,
+        "server_seq": 2,
+        "state_version": 2,
+        "transition_id": 2,
+        "updates": [
+          {
+            "fragment_id": "counter",
+            "html": "\u003cdiv data-gotth-region=\"counter\"\u003e\u003cb id=\"n\"\u003e1\u003c/b\u003e\u003c/div\u003e",
+            "op": 1
+          }
+        ]
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "patch_effect_coalesced",
+    "note": "a server-initiated patch: event_id 0 by design, provenance carried by contributing_event_ids (packed repeated uint64)",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf42e30208031003180420032a26080222156566666563743a636861742e62726f6164636173742a0b020305080d15808080801032230a046c69737410021a193c6c693e636166c3a920e2809420e4b896e7958c3c2f6c693e328b020a07636f756e74657210011afd013c64697620646174612d676f7474682d726567696f6e3d22636f756e746572223e3c622069643d226e223e39393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393939393c2f623e3c2f6469763e",
+    "frame": {
+      "patch": {
+        "origin": {
+          "contributing_event_ids": [
+            2,
+            3,
+            5,
+            8,
+            13,
+            21,
+            4294967296
+          ],
+          "kind": 2,
+          "source": "effect:chat.broadcast"
+        },
+        "patch_id": 3,
+        "server_seq": 3,
+        "state_version": 3,
+        "transition_id": 4,
+        "updates": [
+          {
+            "fragment_id": "list",
+            "html": "\u003cli\u003ecafé — 世界\u003c/li\u003e",
+            "op": 2
+          },
+          {
+            "fragment_id": "counter",
+            "html": "\u003cdiv data-gotth-region=\"counter\"\u003e\u003cb id=\"n\"\u003e99999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999\u003c/b\u003e\u003c/div\u003e",
+            "op": 1
+          }
+        ]
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "patch_remove",
+    "note": "the REMOVE op, and a fragment update with no html at all",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf422e08041004180520042a180803221474696d65723a64617368626f6172642e7469636b320a0a0662616e6e65721004",
+    "frame": {
+      "patch": {
+        "origin": {
+          "kind": 3,
+          "source": "timer:dashboard.tick"
+        },
+        "patch_id": 4,
+        "server_seq": 4,
+        "state_version": 4,
+        "transition_id": 5,
+        "updates": [
+          {
+            "fragment_id": "banner",
+            "op": 4
+          }
+        ]
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "error_fatal",
+    "note": "a fatal error frame, event-scoped (H-12)",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf521c08041212756e72656769737465726564206576656e74180c20072801",
+    "frame": {
+      "error": {
+        "client_ref": 7,
+        "code": 4,
+        "event_id": 12,
+        "fatal": true,
+        "message": "unregistered event"
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "error_not_event_scoped",
+    "note": "the same frame without causal ids and without fatal: proto3 omits all three, so the decoder must leave them unset",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf520d08061209736c6f7720646f776e",
+    "frame": {
+      "error": {
+        "code": 6,
+        "message": "slow down"
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "heartbeat",
+    "note": "server to client, and byte-identical to the echo the client sends back (docs/protocol.md §3.4)",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf2a0b08cb89ec8ff72310a09c01",
+    "frame": {
+      "heartbeat": {
+        "interval_ms": 20000,
+        "nonce": 1234567890123
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "event_form",
+    "note": "a form submission: repeated EventField, and a client_ref past 2^32 to exercise multi-byte varints",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf1a53088180808010120e7375626d69742e6d6573736167651a08636f6d706f73657220292a180a04626f6479121068656c6c6f20e2809420e4b896e7958c2a0c0a07746167735b305d1201612a070a05656d707479",
+    "frame": {
+      "event": {
+        "client_ref": 4294967297,
+        "fields": [
+          {
+            "key": "body",
+            "value": "hello — 世界"
+          },
+          {
+            "key": "tags[0]",
+            "value": "a"
+          },
+          {
+            "key": "empty"
+          }
+        ],
+        "fragment_id": "composer",
+        "name": "submit.message",
+        "seen_server_seq": 41
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "event_bare",
+    "note": "a click with no form around it: no fields at all",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf1a1808011209696e6372656d656e741a07636f756e7465722001",
+    "frame": {
+      "event": {
+        "client_ref": 1,
+        "fragment_id": "counter",
+        "name": "increment",
+        "seen_server_seq": 1
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "ack",
+    "note": "the cumulative high-water mark (RFC-0001 §7.1)",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf22020829",
+    "frame": {
+      "ack": {
+        "server_seq": 41
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "resync_request",
+    "note": "sequence-gap detection, the one client frame that triggers a full re-render",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf3a0408201001",
+    "frame": {
+      "protocol_version": 1,
+      "resync_request": {
+        "last_applied_seq": 32,
+        "reason": 1
+      },
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "client_telemetry",
+    "note": "FR-29 morph timing, correlated by patch_id",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf3208080210af0318b409",
+    "frame": {
+      "client_telemetry": {
+        "apply_micros": 1204,
+        "morph_micros": 431,
+        "patch_id": 2
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": true
+  },
+  {
+    "name": "unknown_tags",
+    "note": "FR-10: a newer server adds fields. The decoder must skip every wire type and never throw.",
+    "hex": "08011210a0a1a2a3a4a5a6a7a8a9aaabacadaeaf22020807f8039601f203036e6577ed0301020304e1030102030405060708",
+    "frame": {
+      "ack": {
+        "server_seq": 7
+      },
+      "protocol_version": 1,
+      "session_id": [
+        160,
+        161,
+        162,
+        163,
+        164,
+        165,
+        166,
+        167,
+        168,
+        169,
+        170,
+        171,
+        172,
+        173,
+        174,
+        175
+      ]
+    },
+    "reencode": false
+  }
+]

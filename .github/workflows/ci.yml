@@ -1,0 +1,279 @@
+name: CI
+
+# Everything this repository can prove about itself, without the monorepo it is
+# exported from. A snapshot lands here as a single commit on main; these jobs
+# are what says that commit is coherent — the Bazel graph builds and its tests
+# pass, the plain `go` battery the README documents passes too (and it is the
+# only thing anywhere that runs the Go targets Bazel tags `manual`), the
+# deployment kit's hermetic suites pass, and no operator identifier came along
+# for the ride.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# A new pull-request head cancels the older run, which would otherwise spend a
+# runner producing a verdict on code that no longer exists. Main commits have
+# commit-scoped groups and never cancel: "was this snapshot green" is a question
+# a bisect asks, and a cancelled run answers it with "unknown".
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  identifiers:
+    name: Operator identifiers
+    # Cheapest job in the file and the one whose failure matters most, so it
+    # runs on its own runner rather than behind a build.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Every tracked byte here is public. The scanner reads nothing but the
+      # tracked tree — no network, no history, no dependency outside the
+      # standard library — and its pattern list is append-only: when it fires,
+      # the repair is in the content, never in the pattern.
+      - name: Scan the tracked tree
+        run: python3 tools/check_operator_identifiers.py
+
+  csf_operator:
+    name: Standalone CSF operator
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Format, lint, and test the Rust operator
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env CARGO_HOME=/tmp/cargo \
+            --volume "${PWD}:/src" \
+            --workdir /src/tools/csf-operator \
+            rust:1.91-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 \
+            sh -eu -c '
+              rustup component add rustfmt clippy
+              cargo fmt --all --check
+              cargo clippy --locked --all-targets -- -D warnings
+              cargo test --locked
+            '
+
+  go:
+    name: Bazel build and test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # tools/bazel.sh keeps Bazel's output base outside the checkout. Naming
+      # it explicitly puts it on the runner's work volume rather than /tmp.
+      # The runner context is unavailable in job-level env (GitHub rejects the
+      # whole workflow at validation time), so this must be a step.
+      - name: Point Bazel's output base at the runner work volume
+        run: echo "CANDACE_BAZEL_CACHE=${{ runner.temp }}/bazel" >>"$GITHUB_ENV"
+
+      # There is no host Bazel and no host Go in this module's toolchain story:
+      # tools/bazel.sh runs the Bazel release pinned by digest, and rules_go
+      # downloads the Go SDK named in MODULE.bazel. That is deliberately the
+      # same command a developer runs, so a runner-provided Bazel cannot skew
+      # the answer. Docker is the only thing the job needs from the runner.
+      #
+      # Bazel's caches are not carried between runs. The output base for this
+      # module runs to several gigabytes and the repository cache alone is
+      # larger than a repository's entire Actions cache budget, so restoring it
+      # would cost more wall clock than the build it saves. This repository
+      # receives a push per published snapshot, not per keystroke.
+      #
+      # The Rust workspace is excluded here and owned by the `rust` job, so the
+      # two halves fail independently and neither waits on the other.
+      - name: Build every target outside the Rust workspace
+        run: ./tools/bazel.sh build -- //... -//xetcas/...
+
+      # `manual` keeps these out of wildcard patterns for building as well as
+      # for testing, so naming them here is what keeps them compiling. Each one
+      # needs a prerequisite Bazel does not supply; tools/bazel-manual-tests.txt
+      # records which, and `go test ./...` is their authority.
+      - name: Build the manual test targets
+        run: |
+          set -euo pipefail
+          targets="$(grep -v '^[[:space:]]*#' tools/bazel-manual-tests.txt |
+            grep -v '^[[:space:]]*$' | grep -v '^//xetcas/')"
+          # shellcheck disable=SC2086
+          ./tools/bazel.sh build ${targets}
+
+      - name: Run every test outside the Rust workspace
+        run: ./tools/bazel.sh test -- //... -//xetcas/...
+
+      # Last, because it is the only step that rewrites a file: `bazel mod tidy`
+      # reports by editing, so the check has to let it write and then ask git.
+      # BUILD files here are generated by Gazelle, and a generated file that has
+      # drifted from its source is a consumer's breakage, not ours to discover
+      # later.
+      - name: Check the generated Bazel metadata for drift
+        run: ./tools/check-bazel-metadata.sh
+
+  go_toolchain:
+    name: Go build and test
+    # README.md and AGENTS.md both present `go build ./... && go test ./...` as
+    # a first-class path on this tree, and until this job existed nothing here
+    # ran it. That is not only an unexercised claim: the targets in
+    # tools/bazel-manual-tests.txt carry `manual` because Bazel cannot supply
+    # what they need (a Go toolchain on PATH, the source tree as directories,
+    # /etc/localtime), so `bazel test //...` skips them and this battery is the
+    # only thing that runs them. //app/warden/e2e:e2e_test — the three-node
+    # election, leader-death and rejoin simulation — has no other runner at all.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # The pinned container rather than a runner-provided Go, for the same
+      # reason tools/bazel.sh runs Bazel in one: the toolchain a gate ran with
+      # should be a property of this tree, not of whichever image the runner
+      # happens to boot. GOTOOLCHAIN=local makes a go.mod bump that outruns the
+      # image fail here instead of silently downloading a different compiler.
+      # go test compiles the API inventory tool but does not run its ledger
+      # comparison. Run that command too so stale public API counts fail here.
+      - name: Build, vet, test, and check the exported API
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env GOCACHE=/tmp/gocache \
+            --env GOMODCACHE=/tmp/gomod \
+            --env GOPATH=/tmp/gopath \
+            --env GOTOOLCHAIN=local \
+            --env GOFLAGS=-mod=readonly \
+            --volume "${PWD}:/src" \
+            --workdir /src \
+            golang:1.26.5-bookworm@sha256:6c5605ab3a9a9fb3c4eafe5b3d63cdbf3881caf113262b67862547b54a9db599 \
+            sh -eu -c '
+              go build ./...
+              go vet ./...
+              go test ./...
+              (cd pkg/gotth/tools && go run ./apisurface)
+            '
+
+  rust:
+    name: Bazel build and test (xetcas)
+    runs-on: ubuntu-24.04
+    # Compiling the xet-core dependency graph from source is the long pole in
+    # this repository and there is no warm cache to lean on; see the note in the
+    # `go` job for why.
+    timeout-minutes: 180
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # See the note in the go job: runner.temp is only reachable from a step.
+      - name: Point Bazel's output base at the runner work volume
+        run: echo "CANDACE_BAZEL_CACHE=${{ runner.temp }}/bazel" >>"$GITHUB_ENV"
+
+      - name: Build the Rust workspace and its Go bindings
+        run: ./tools/bazel.sh build //xetcas/...
+
+      # The git-hosting suite is tagged `manual`: it clones from and pushes to
+      # xetcasd's own smart-HTTP routes, and the pinned Bazel image has no git.
+      # Building it is what keeps it compiling.
+      - name: Build the manual test targets
+        run: |
+          set -euo pipefail
+          targets="$(grep -v '^[[:space:]]*#' tools/bazel-manual-tests.txt |
+            grep -v '^[[:space:]]*$' | grep '^//xetcas/')"
+          # shellcheck disable=SC2086
+          ./tools/bazel.sh build ${targets}
+
+      - name: Run the hermetic Rust and binding tests
+        run: ./tools/bazel.sh test //xetcas/...
+
+  candaceos:
+    name: Deployment-kit suites
+    # candaceos/ is shell, not Bazel: an installer, a fleet driver, and a
+    # self-updating deployment agent. These three suites are the ones that need
+    # nothing but the runner — bash, python3, docker, and the tree itself — so
+    # they say the same thing here that they say in the monorepo. The suites
+    # that need a live stack or a model provider stay in the monorepo, where the
+    # credentials and the GPU are.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Asserts the installer rejects malformed quotas before it creates state
+      # or reaches for Docker. Runs against a stub `docker` that fails loudly if
+      # it is called at all.
+      - name: Installer validation
+        run: ./candaceos/test-install-validation.sh
+
+      # Drives the updater's deployment ledger, retry backoff, and rollback
+      # bookkeeping in-process, then builds the updater image and exercises its
+      # read-only health and credential-askpass entrypoints.
+      - name: Updater
+        run: ./candaceos/test-updater.sh
+
+      # Plans every fleet topology against stub transports that fail if they are
+      # ever invoked, and renders each Compose overlay with `docker compose
+      # config`. Nothing is deployed and no credential is read. The suite
+      # self-skips its one operator-side bundle check when it is not running
+      # inside a Git worktree.
+      - name: Fleet
+        run: ./candaceos/test-fleet.sh
+
+  csf_workbench:
+    name: CSF contracts and Workbench UI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare protobuf projection dependencies
+        run: |
+          python3 -m venv /tmp/csf-codegen
+          /tmp/csf-codegen/bin/pip install protobuf==7.35.1
+          echo '/tmp/csf-codegen/bin' >> "$GITHUB_PATH"
+      - name: Check public contract generation
+        run: |
+          bash proto/generate.sh check
+          bash csf/tools/codegen/generate.sh check
+          bash services/copilot-adapter/generate.sh check
+          bash services/copilot-adapter/store/generate.sh check
+          bash services/copilot-adapter/proto/generate.sh check
+      - name: Test and build the Workbench from public source only
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp -e npm_config_cache=/tmp/npm \
+            -v "$PWD:/src" -w /src/services/copilot-adapter/ui \
+            node:22-bookworm@sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d \
+            bash -euo pipefail -c 'npm ci && npm run gen:check && npm test -- --run && npm run build'

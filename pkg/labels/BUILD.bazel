@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "labels",
+    srcs = ["labels.go"],
+    importpath = "github.com/candacelabs/csf/pkg/labels",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "labels_test",
+    srcs = [
+        "labels_suite_test.go",
+        "labels_test.go",
+    ],
+    deps = [
+        ":labels",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

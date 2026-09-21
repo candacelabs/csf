@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "routers",
+    srcs = ["doc.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/test/routers",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "routers_test",
+    srcs = [
+        "harness_test.go",
+        "mount_test.go",
+        "wire_test.go",
+    ],
+    embed = [":routers"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_go_chi_chi_v5//:chi",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protowire",
+    ],
+)

@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "grpcserver",
+    srcs = [
+        "errors.go",
+        "server.go",
+        "watch.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/grpcserver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "//services/warden/proto/warden/v1:warden",
+        "//services/warden/wireconv",
+        "@com_github_rs_zerolog//:zerolog",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)

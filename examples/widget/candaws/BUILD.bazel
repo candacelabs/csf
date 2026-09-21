@@ -1,0 +1,51 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "candaws_lib",
+    srcs = [
+        "fleet.go",
+        "main.go",
+        "page_templ.go",
+    ],
+    embedsrcs = ["widget.css"],
+    importpath = "github.com/candacelabs/csf/examples/widget/candaws",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//examples/widget/candaws/blobfish",
+        "//examples/widget/candaws/coldstart",
+        "//examples/widget/candaws/dashbored",
+        "//examples/widget/candaws/queuecumber",
+        "//examples/widget/candaws/yakshave",
+        "//examples/widget/hosting",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_binary(
+    name = "candaws",
+    embed = [":candaws_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "candaws_test",
+    srcs = [
+        "candaws_suite_test.go",
+        "flags_test.go",
+        "live_test.go",
+    ],
+    embed = [":candaws_lib"],
+    deps = [
+        "//examples/widget/candaws/dashbored",
+        "//examples/widget/candaws/queuecumber",
+        "//examples/widget/candaws/yakshave",
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "//pkg/widget",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

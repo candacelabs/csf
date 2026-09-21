@@ -1,0 +1,10 @@
+# The harness binaries. measure.sh builds them into a mktemp directory OUTSIDE
+# the checkout on purpose — building inside the measured container would charge
+# the Go compiler's memory to the cgroup M(x) reads — but a bare
+# `go build ./cmd/memsrv` run by hand while diagnosing writes an 18 MB artifact
+# here, and one did. The repository-root list names the three example binaries
+# and nothing under test/.
+/memsrv
+/memdrv
+/memstat
+/memdiag

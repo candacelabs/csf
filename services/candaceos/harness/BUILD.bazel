@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "harness",
+    srcs = [
+        "harness.go",
+        "instructions.go",
+        "runner.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/candaceos/harness",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/mailbox",
+        "//proto/candace/candaceos/v1:candaceos",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "harness_test",
+    srcs = [
+        "harness_test.go",
+        "runner_test.go",
+    ],
+    deps = [
+        ":harness",
+        "//proto/candace/candaceos/v1:candaceos",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

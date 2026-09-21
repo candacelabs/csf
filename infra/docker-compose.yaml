@@ -1,0 +1,295 @@
+# Adapted from Langfuse's official compose recipe at 5c528311125d0cfe629b1bcf7b6ca8ef4ba57148.
+# Every image is pinned to the observed linux/amd64 manifest. This deployment
+# is an isolated local CSF instance; it never joins an existing stack.
+# The existing database account and tables are retained for Go schema compatibility.
+name: csf
+
+x-common: &common
+  restart: unless-stopped
+  platform: linux/amd64
+  logging:
+    driver: json-file
+    options: {max-size: 10m, max-file: '3'}
+
+x-langfuse-environment: &langfuse-environment
+  NEXTAUTH_URL: http://${CSF_LANGFUSE_ADDRESS:-127.0.0.1}:${CSF_LANGFUSE_PORT:-14300}
+  DATABASE_URL: postgresql://langfuse:${POSTGRES_PASSWORD:?Run candace csf}@postgres:5432/langfuse
+  SALT: ${SALT:?Run candace csf}
+  ENCRYPTION_KEY: ${ENCRYPTION_KEY:?Run candace csf}
+  TELEMETRY_ENABLED: 'false'
+  CLICKHOUSE_MIGRATION_URL: clickhouse://clickhouse:9000
+  CLICKHOUSE_URL: http://clickhouse:8123
+  CLICKHOUSE_USER: langfuse
+  CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run candace csf}
+  CLICKHOUSE_CLUSTER_ENABLED: 'false'
+  LANGFUSE_S3_EVENT_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_EVENT_UPLOAD_REGION: auto
+  LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID: minio
+  LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Run candace csf}
+  LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT: http://minio:9000
+  LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE: 'true'
+  LANGFUSE_S3_EVENT_UPLOAD_PREFIX: events/
+  LANGFUSE_S3_MEDIA_UPLOAD_BUCKET: langfuse
+  LANGFUSE_S3_MEDIA_UPLOAD_REGION: auto
+  LANGFUSE_S3_MEDIA_UPLOAD_ACCESS_KEY_ID: minio
+  LANGFUSE_S3_MEDIA_UPLOAD_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?Run candace csf}
+  LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://minio:9000
+  LANGFUSE_S3_MEDIA_UPLOAD_FORCE_PATH_STYLE: 'true'
+  LANGFUSE_S3_MEDIA_UPLOAD_PREFIX: media/
+  REDIS_HOST: redis
+  REDIS_PORT: '6379'
+  REDIS_AUTH: ${REDIS_AUTH:?Run candace csf}
+  LANGFUSE_MCP_BASE_URL: http://langfuse-web:3000
+
+services:
+  opensearch:
+    <<: *common
+    image: opensearchproject/opensearch:3.8.0@sha256:68a688de28fb9bb66601552650b91a52a9fd5e7eac5481dd2b225ecb66fd09b0
+    mem_limit: 6g
+    environment:
+      discovery.type: single-node
+      cluster.name: csf
+      node.name: csf-search
+      OPENSEARCH_JAVA_OPTS: -Xms2g -Xmx2g -XX:ActiveProcessorCount=4
+      DISABLE_INSTALL_DEMO_CONFIG: 'true'
+      DISABLE_SECURITY_PLUGIN: 'true'
+      plugins.ml_commons.only_run_on_ml_node: 'false'
+      plugins.ml_commons.mcp_server_enabled: 'true'
+      cluster.routing.allocation.disk.watermark.low: 20gb
+      cluster.routing.allocation.disk.watermark.high: 15gb
+      cluster.routing.allocation.disk.watermark.flood_stage: 10gb
+    ports: ['127.0.0.1:${CSF_OPENSEARCH_PORT:-19200}:9200']
+    volumes: [opensearch-data:/usr/share/opensearch/data]
+    healthcheck:
+      test: [CMD-SHELL, 'curl --fail --silent http://localhost:9200/_cluster/health?wait_for_status=yellow >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+  dashboards:
+    <<: *common
+    image: opensearchproject/opensearch-dashboards:3.8.0@sha256:647672283fbb49907bb67743b1995ba6da663327d5181760d7e622ecccada1ce
+    mem_limit: 1g
+    depends_on:
+      opensearch: {condition: service_healthy}
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+      DISABLE_SECURITY_DASHBOARDS_PLUGIN: 'true'
+      NODE_OPTIONS: --max-old-space-size=768
+    ports: ['127.0.0.1:${CSF_DASHBOARDS_PORT:-15601}:5601']
+    healthcheck:
+      test: [CMD-SHELL, 'curl --fail --silent http://localhost:5601/api/status >/dev/null']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 20s
+  langfuse-web:
+    <<: *common
+    image: docker.langfuse.com/langfuse/langfuse:4.36.1@sha256:00f68f31b74ccdbde8e21703f8507174eafa43a510acd6cf092833f51ad4b164
+    mem_limit: 2g
+    depends_on: &langfuse-dependencies
+      postgres: {condition: service_healthy}
+      minio: {condition: service_healthy}
+      redis: {condition: service_healthy}
+      clickhouse: {condition: service_healthy}
+    ports: ['${CSF_LANGFUSE_ADDRESS:-127.0.0.1}:${CSF_LANGFUSE_PORT:-14300}:3000']
+    environment:
+      <<: *langfuse-environment
+      HOSTNAME: 0.0.0.0
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?Run candace csf}
+      LANGFUSE_MCP_ALLOWED_HOSTS: langfuse-web:3000,127.0.0.1:${CSF_LANGFUSE_PORT:-14300},localhost:${CSF_LANGFUSE_PORT:-14300},${CSF_LANGFUSE_ADDRESS:-127.0.0.1}:${CSF_LANGFUSE_PORT:-14300}
+      LANGFUSE_S3_MEDIA_UPLOAD_ENDPOINT: http://localhost:${CSF_MINIO_PORT:-14390}
+      LANGFUSE_S3_MEDIA_UPLOAD_INTERNAL_ENDPOINT: http://minio:9000
+      LANGFUSE_INIT_ORG_ID: candacelabs
+      LANGFUSE_INIT_ORG_NAME: Candace Labs
+      LANGFUSE_INIT_PROJECT_ID: csf
+      LANGFUSE_INIT_PROJECT_NAME: CSF
+      LANGFUSE_INIT_PROJECT_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:?Run candace csf}
+      LANGFUSE_INIT_PROJECT_SECRET_KEY: ${LANGFUSE_SECRET_KEY:?Run candace csf}
+      LANGFUSE_INIT_USER_EMAIL: operator@example.invalid
+      LANGFUSE_INIT_USER_NAME: Local operator
+      LANGFUSE_INIT_USER_PASSWORD: ${LANGFUSE_USER_PASSWORD:?Run candace csf}
+    healthcheck:
+      test: [CMD, node, -e, 'fetch("http://127.0.0.1:3000/api/public/health").then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+  langfuse-worker:
+    <<: *common
+    image: docker.langfuse.com/langfuse/langfuse-worker:4.36.1@sha256:1404edca11a7e15bef26462582c46551a01626c29a7cfda1dbc3e1fc853505b0
+    mem_limit: 2g
+    depends_on: *langfuse-dependencies
+    environment: *langfuse-environment
+  postgres:
+    <<: *common
+    image: postgres:17@sha256:d13db94ae661d517c5ed57c509a578d5ea64aae639871ba25294f4f42d83de28
+    mem_limit: 768m
+    environment:
+      POSTGRES_USER: langfuse
+      POSTGRES_DB: langfuse
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run candace csf}
+      CSF_DB_PASSWORD: ${CSF_DB_PASSWORD:?Run candace csf}
+    ports: ['127.0.0.1:${CSF_POSTGRES_PORT:-15432}:5432']
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres-init.sh:/docker-entrypoint-initdb.d/brain.sh:ro
+    healthcheck:
+      test: [CMD, pg_isready, -U, langfuse]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  clickhouse:
+    <<: *common
+    image: clickhouse/clickhouse-server:25.12@sha256:8ecb92fa564142a2bad5fef7b39f89af7265ddbfd782693b15f002ca0f70be14
+    mem_limit: 3g
+    user: '101:101'
+    environment:
+      CLICKHOUSE_DB: default
+      CLICKHOUSE_USER: langfuse
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run candace csf}
+    volumes: [clickhouse-data:/var/lib/clickhouse, clickhouse-logs:/var/log/clickhouse-server]
+    healthcheck:
+      test: [CMD-SHELL, 'wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+  minio:
+    <<: *common
+    image: cgr.dev/chainguard/minio@sha256:6b0c9ed2d0d4b14639e6d533586e8bddc1555d5ad73863d124d4338ddd452812
+    mem_limit: 1g
+    entrypoint: sh
+    command: [-c, 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data']
+    environment:
+      MINIO_ROOT_USER: minio
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Run candace csf}
+    ports: ['127.0.0.1:${CSF_MINIO_PORT:-14390}:9000']
+    volumes: [minio-data:/data]
+    healthcheck:
+      test: [CMD, mc, ready, local]
+      interval: 3s
+      timeout: 5s
+      retries: 30
+  redis:
+    <<: *common
+    image: redis:7@sha256:e2debfb7956fa12c7ddc79d7e645c8cf26b30c99a6e9161ea9bf4171e1668a5f
+    mem_limit: 512m
+    command: [redis-server, --requirepass, '${REDIS_AUTH:?Run candace csf}', --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    environment:
+      REDISCLI_AUTH: ${REDIS_AUTH:?Run candace csf}
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  mlflow:
+    <<: *common
+    image: ghcr.io/mlflow/mlflow:v3.16.0-full@sha256:d1be9fa0ca2e29ee24eefede9fe05d37fd03c7495734e7472e365136fabc8ab4
+    mem_limit: 2g
+    depends_on:
+      postgres: {condition: service_healthy}
+    environment:
+      MLFLOW_BACKEND_STORE_URI: postgresql://mlflow:${MLFLOW_DB_PASSWORD:?Run candace csf}@postgres:5432/mlflow
+      MLFLOW_ENABLE_TELEMETRY: 'false'
+    command: [mlflow, server, --host, 0.0.0.0, --port, '5000', --serve-artifacts, --artifacts-destination, /mlartifacts, --allowed-hosts, '127.0.0.1:5000,localhost:5000,127.0.0.1:${CSF_MLFLOW_PORT:-14500},localhost:${CSF_MLFLOW_PORT:-14500},mlflow:5000']
+    ports: ['127.0.0.1:${CSF_MLFLOW_PORT:-14500}:5000']
+    volumes: [mlflow-artifacts:/mlartifacts]
+    healthcheck:
+      test: [CMD, python, -c, 'import urllib.request; urllib.request.urlopen("http://127.0.0.1:5000/health", timeout=3).read()']
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 30s
+  runtime:
+    <<: *common
+    image: csf-runtime:local
+    build:
+      context: ${CSF_SOURCE_ROOT:?Run candace csf}
+      dockerfile: ${CSF_DOCKERFILE:?Run candace csf}
+    mem_limit: 512m
+    user: '${CSF_UID:-1000}:${CSF_GID:-1000}'
+    labels:
+      csf.component: csf
+      csf.runtime: standalone
+    environment:
+      COPILOT_CLI_PATH: /usr/local/bin/copilot
+      HOME: /work/copilot-home
+    depends_on:
+      opensearch: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+    command:
+      - serve
+      - --listen
+      - 0.0.0.0:14111
+      - --origin
+      - http://127.0.0.1:${CSF_RUNTIME_PORT:-14111}
+      - --work-state
+      - /state/work.json
+      - --receipts
+      - /state/receipts
+      - --artifacts
+      - /state/cas
+      - --database-config
+      - /config/csf-database.json
+      - --agent-mcp-key-file
+      - /config/agent-mcp-key
+      - --workbench-database-config
+      - ${CSF_WORKBENCH_DATABASE_CONFIG:-}
+      - --workbench-repository
+      - /work/repository
+      - --workbench-worktrees
+      - /work/worktrees
+      - --workbench-token-file
+      - /config/copilot-token
+      - --search-url
+      - http://opensearch:9200
+      - --search-index
+      - brain-knowledge
+      - --embedding-model
+      - ${CSF_EMBEDDING_MODEL:?CSF search model not provisioned; run candace csf}
+    ports: ['127.0.0.1:${CSF_RUNTIME_PORT:-14111}:14111']
+    volumes:
+      - type: bind
+        source: ${CSF_EVIDENCE_DIR:?Run candace csf}
+        target: /state
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${CSF_DATABASE_CONFIG:?Run candace csf}
+        target: /config/csf-database.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${CSF_AGENT_MCP_KEY_FILE:?Run candace csf}
+        target: /config/agent-mcp-key
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${CSF_COPILOT_TOKEN_FILE:?Run candace csf}
+        target: /config/copilot-token
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${CSF_WORKBENCH_DATABASE_CONFIG_FILE:?Run candace csf}
+        target: /config/csf-workbench-database.json
+        read_only: true
+        bind: {create_host_path: false}
+      - type: bind
+        source: ${CSF_WORKBENCH_DIR:?Run candace csf}
+        target: /work
+        bind: {create_host_path: false}
+
+volumes:
+  opensearch-data:
+  postgres-data:
+  clickhouse-data:
+  clickhouse-logs:
+  minio-data:
+  redis-data:
+  mlflow-artifacts:
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: ${CSF_SUBNET:-10.231.75.0/24}

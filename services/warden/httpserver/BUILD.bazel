@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "httpserver",
+    srcs = ["engine.go"],
+    importpath = "github.com/candacelabs/csf/services/warden/httpserver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)

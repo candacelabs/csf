@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "memory",
+    srcs = [
+        "cell.go",
+        "doc.go",
+        "samples.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/test/memory",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "memory_test",
+    srcs = [
+        "cell_test.go",
+        "samples_test.go",
+    ],
+    deps = [
+        ":memory",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

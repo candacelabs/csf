@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "customharness",
+    srcs = ["harness.go"],
+    importpath = "example.com/candace-external-consumer/customharness",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//steering",
+        "@candace//services/candaceos/harness",
+        "@candace//proto/candace/candaceos/v1:candaceos",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

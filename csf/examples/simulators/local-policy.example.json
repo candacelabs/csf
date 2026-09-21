@@ -1,0 +1,18 @@
+{
+  "dockerHost": "unix:///var/run/docker.sock",
+  "network": "candace-brain-infra_default",
+  "progressUrl": "http://runtime:14111/api/simulation/events",
+  "timeoutSeconds": 900,
+  "profiles": [
+    {
+      "simulator": "SIMULATOR_CARLA",
+      "image": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "artifactVolume": "example-simulator-carla",
+      "artifactDirectory": "/app/workbench-ui/simulation-runs/carla",
+      "artifactUrl": "http://example.invalid:14111/ui/simulation-runs/carla"
+    }
+  ],
+  "traceBaseUrl": "http://example.invalid:14300/project/brain-spine/traces",
+  "publicTraces": false,
+  "logIndex": "brain-logs"
+}

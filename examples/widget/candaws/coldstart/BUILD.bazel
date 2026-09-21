@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "coldstart",
+    srcs = [
+        "config.go",
+        "instance.go",
+        "runtime.go",
+        "seam.go",
+        "view.go",
+        "view_templ.go",
+        "widget.gen.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/widget/candaws/coldstart",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//examples/widget/candaws/fleet",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_test(
+    name = "coldstart_test",
+    srcs = [
+        "card_test.go",
+        "coldstart_suite_test.go",
+        "instance_test.go",
+        "runtime_test.go",
+    ],
+    embed = [":coldstart"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget/widgettest",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

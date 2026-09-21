@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "httpserver",
+    srcs = [
+        "engine.go",
+        "eventstream.go",
+        "lifecycle.go",
+        "openapi.go",
+        "security.go",
+        "server.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/httpserver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "@com_github_getkin_kin_openapi//openapi3",
+        "@com_github_getkin_kin_openapi//openapi3filter",
+        "@com_github_getkin_kin_openapi//routers",
+        "@com_github_getkin_kin_openapi//routers/legacy",
+        "@com_github_gin_contrib_sse//:sse",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "httpserver_test",
+    srcs = [
+        "engine_test.go",
+        "eventstream_test.go",
+        "httpserver_suite_test.go",
+        "lifecycle_test.go",
+        "openapi_test.go",
+    ],
+    deps = [
+        ":httpserver",
+        "@com_github_getkin_kin_openapi//openapi3",
+        "@com_github_getkin_kin_openapi//openapi3filter",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

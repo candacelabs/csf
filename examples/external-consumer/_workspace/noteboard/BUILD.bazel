@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "noteboard",
+    srcs = [
+        "noteboard.go",
+        "page.go",
+    ],
+    importpath = "example.com/candace-external-consumer/noteboard",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@candace//services/candaceos/browserroutes",
+        "@candace//services/candaceos/component",
+        "@candace//services/candaceos/webui",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_test(
+    name = "noteboard_test",
+    srcs = ["noteboard_test.go"],
+    deps = [
+        ":noteboard",
+        "@candace//services/candaceos/component",
+        "@candace//services/candaceos/webui",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

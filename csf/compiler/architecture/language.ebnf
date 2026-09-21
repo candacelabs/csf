@@ -1,0 +1,21 @@
+(* Lexical built-ins: identifier, integer, string. Whitespace and // comments
+   separate tokens. Strings are double quoted with JSON escapes. Keywords
+   cannot be identifiers. This grammar is consumed by the compiler itself. *)
+architecture = "architecture", identifier, "version", integer, "{", { declaration }, "}" ;
+declaration = process | scope | component | dependency | connection | scan | generated ;
+process = "process", identifier, "kind", process_kind, [ "entrypoint", string ], ";" ;
+process_kind = "go" | "external" ;
+scope = "scope", identifier, "under", identifier, ";" ;
+component = role, identifier, "in", identifier, "scope", identifier,
+            [ "source", string ], "state", state, "lifecycle", lifecycle,
+            "verification", verification, ";" ;
+role = "service" | "manager" | "library" | "adapter" | "gateway" | "resource" ;
+state = "existing" | "planned" ;
+lifecycle = "scoped" | "borrowed" ;
+verification = "pending" | "test", string ;
+dependency = "requires", identifier, "->", identifier, ";" ;
+connection = "connect", identifier, "->", identifier, "via", transport,
+             [ "boundary", identifier ], "state", state, ";" ;
+transport = "call" | "channel" | "subprocess" | "remote" | "device" ;
+scan = "scan", string, ";" ;
+generated = "generated", string, ";" ;

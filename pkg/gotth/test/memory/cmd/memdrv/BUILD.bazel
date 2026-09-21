@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "memdrv_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/test/memory/cmd/memdrv",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "@com_github_coder_websocket//:websocket",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_binary(
+    name = "memdrv",
+    embed = [":memdrv_lib"],
+    visibility = ["//visibility:public"],
+)

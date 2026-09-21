@@ -1,0 +1,125 @@
+{{- define "chat.html" -}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Steer the current {{ .Brand.ProductName }} {{ .Brand.AgentName }} session in real time.">
+  <title>{{ if .Snapshot.Run.Title }}{{ .Snapshot.Run.Title }} · {{ end }}{{ .Brand.AgentName }} chat · {{ .Brand.ProductName }}</title>
+  <link rel="stylesheet" href="{{ .Routes.AppCSS }}">
+  <link rel="stylesheet" href="{{ .Routes.BrandCSS }}">
+  <script src="{{ .Routes.AppJS }}" defer></script>
+</head>
+<body class="chat-page" {{ template "browserRoutes" .Routes }} {{ template "browserEnums" .Enums }}>
+  <a class="skip-link" href="#chat-main">Skip to chat</a>
+
+  <header class="chat-topbar">
+    <a class="chat-brand" href="{{ .Routes.Index }}">
+      {{ .Brand.Wordmark }}
+    </a>
+    <a class="chat-back" href="{{ .Routes.Index }}"><span aria-hidden="true">←</span> Dashboard</a>
+    <div class="live-state" role="status" aria-live="polite">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span data-live-label>Connected</span>
+    </div>
+  </header>
+
+  <main id="chat-main" class="chat-main" data-chat-session="{{ .ChatSessionID }}">
+    <section class="chat-header" aria-labelledby="chat-title">
+      <div>
+        <p class="kicker">Live {{ .Brand.AgentName }} session</p>
+        <h1 id="chat-title" data-chat-title>{{ if .Snapshot.Run.Title }}{{ .Snapshot.Run.Title }}{{ else }}Untitled run{{ end }}</h1>
+        <p>Watch the exact run and steer it without leaving this session.</p>
+      </div>
+      <div data-chat-status>{{ template "statusPill" .Snapshot.Run.Status }}</div>
+    </section>
+
+    <dl class="chat-meta" aria-label="{{ .Brand.AgentName }} runtime">
+      <div><dt>Backend</dt><dd data-chat-backend>{{ harnessBackend .Snapshot.System.HarnessBackend }}</dd></div>
+      <div><dt>Model</dt><dd class="mono" data-chat-model>{{ if .Snapshot.System.HarnessModel }}{{ .Snapshot.System.HarnessModel }}{{ else }}default{{ end }}</dd></div>
+      <div><dt>Session</dt><dd class="mono">{{ .ChatSessionID }}</dd></div>
+      <div><dt>Run</dt><dd class="mono" data-chat-run-id>{{ .Snapshot.Run.Id }}</dd></div>
+    </dl>
+
+    <section class="chat-card" aria-label="{{ .Brand.AgentName }} transcript">
+      <div class="chat-card-head">
+        <div><p class="section-label">Transcript</p><p data-chat-update-count>{{ len .Snapshot.Run.Entries }} updates</p></div>
+        <button class="text-button danger" type="button" data-abort-run data-chat-stop
+          data-chat-abort-url="{{ clawAbortPath .ChatSessionID .Snapshot.Run.Id }}"{{ if not .Snapshot.Run.CanAbort }} hidden{{ end }}>Stop this run</button>
+      </div>
+      <div class="chat-session-unavailable" data-chat-unavailable role="status" hidden>
+        This {{ .Brand.AgentName }} session is no longer the current session. Return to the dashboard to open the latest run.
+      </div>
+      <ol class="transcript chat-transcript" data-chat-transcript aria-live="polite">
+        {{ range .Snapshot.Run.Entries }}
+        <li class="transcript-entry entry-{{ .Kind }}">
+          {{ if eq .Kind "tool" }}
+          <div class="tool-card">
+            <div class="tool-card-head">
+              <span class="tool-symbol" aria-hidden="true">›_</span>
+              <strong>{{ if .Name }}{{ .Name }}{{ else }}Tool{{ end }}</strong>
+              {{ template "statusPill" .Status }}
+            </div>
+            {{ if .Text }}<p>{{ .Text }}</p>{{ end }}
+            {{ if .Detail }}<pre>{{ .Detail }}</pre>{{ end }}
+          </div>
+          {{ else if eq .Kind "notice" }}
+          <div class="tool-card notice-card">
+            <div class="tool-card-head">
+              <span class="tool-symbol" aria-hidden="true">i</span>
+              <strong>{{ if .Name }}{{ .Name }}{{ else }}{{ $.Brand.AgentName }}{{ end }}</strong>
+              {{ template "statusPill" .Status }}
+            </div>
+            {{ if .Text }}<p>{{ .Text }}</p>{{ end }}
+          </div>
+          {{ else if eq .Kind "error" }}
+          <div class="tool-card error-card">
+            <div class="tool-card-head">
+              <span class="tool-symbol" aria-hidden="true">!</span>
+              <strong>{{ if .Name }}{{ .Name }}{{ else }}{{ $.Brand.AgentName }}{{ end }}</strong>
+              {{ template "statusPill" .Status }}
+            </div>
+            {{ if .Text }}<p>{{ .Text }}</p>{{ end }}
+          </div>
+          {{ else }}
+          <div class="message-role">{{ if .Name }}{{ .Name }}{{ else if eq .Role "user" }}You{{ else }}{{ $.Brand.AgentName }}{{ end }}{{ if .Status }}{{ template "statusPill" .Status }}{{ end }}</div>
+          <p>{{ .Text }}</p>
+          {{ end }}
+        </li>
+        {{ else }}
+        <li class="transcript-waiting">{{ $.Brand.AgentName }} is preparing the first step…</li>
+        {{ end }}
+      </ol>
+    </section>
+
+    <div class="chat-composer-wrap">
+      <form class="chat-composer" action="{{ clawMessagePath .ChatSessionID }}" method="post" data-chat-form
+        data-expected-run-id="{{ .Snapshot.Run.Id }}">
+        <label for="chat-prompt">Steer {{ .Brand.AgentName }}</label>
+        <textarea id="chat-prompt" name="prompt" rows="3" required maxlength="12000"
+          placeholder="Add context, change direction, or ask {{ .Brand.AgentName }} to check something…"{{ if and (runBusy .Snapshot.Run) (not (canSteerActiveTurn .Snapshot.System)) }} disabled{{ end }}></textarea>
+        <div class="chat-composer-foot">
+          <span class="prompt-hint">Ctrl Enter to send</span>
+          <div class="chat-actions" data-chat-busy-actions{{ if or (not (runBusy .Snapshot.Run)) (not (canSteerActiveTurn .Snapshot.System)) }} hidden{{ end }}>
+            <button class="button secondary" type="submit" data-chat-enqueue data-delivery="{{ .Enums.HarnessDeliveryEnqueue }}">Send after current</button>
+            <button class="button primary" type="submit" data-chat-immediate data-delivery="{{ .Enums.HarnessDeliveryImmediate }}">Steer now</button>
+          </div>
+          <div class="chat-actions" data-chat-idle-actions{{ if runBusy .Snapshot.Run }} hidden{{ end }}>
+            <button class="button primary" type="submit" data-chat-enqueue data-delivery="{{ .Enums.HarnessDeliveryEnqueue }}">Send follow-up</button>
+          </div>
+        </div>
+        <p class="chat-steer-note" data-chat-steer-note{{ if or (not (runBusy .Snapshot.Run)) (not (canSteerActiveTurn .Snapshot.System)) }} hidden{{ end }}>
+          Steer now applies this guidance to active work. Depending on the provider, it may interject or restart its work.
+        </p>
+        <p class="form-message" data-chat-message role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </main>
+
+  <noscript><div class="notice chat-noscript">Live updates and steering require JavaScript. The current transcript remains available above.</div></noscript>
+  <div class="toast" data-toast role="status" aria-live="polite" hidden></div>
+  <script id="initial-snapshot" type="application/json">{{ .InitialJSON }}</script>
+</body>
+</html>
+{{- end -}}

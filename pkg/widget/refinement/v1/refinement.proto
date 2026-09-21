@@ -1,0 +1,205 @@
+// The widget IR's local field invariants, as machine-checked Liquid Proto
+// refinements — the proving layer under docs/ontology.md.
+//
+// This contract is NOT the IR. dialect.md § 10.3 ruled that the IR itself
+// stays hand-written Go under internal/ir — the handle graph, the SourceSpan on
+// every record, and the fact the IR never crosses a process are all reasons a
+// full proto IR would be the wrong shape, and that ruling stands. What this file
+// adds is a separate, minimal surface carrying ONLY the invariants a per-message
+// refinement can express: a bounded count, a required range, a pattern, a closed
+// enum. Each message here mirrors one local field invariant of internal/ir, so
+// that the invariant is proven by a generated validator rather than asserted in
+// prose, and internal/validate/refinement_agreement_test.go proves that this
+// contract and the hand-written W-class validator reject exactly the same values.
+//
+// Whole-graph invariants — a scene with an edge has two nodes, the predicate
+// graph is acyclic, a channel is carried by some edge — a per-message refinement
+// cannot express. Those stay validator-enforced and are proven by their own spec
+// (internal/validate/validate_test.go). ontology.md says, per invariant, which
+// layer holds it.
+syntax = "proto3";
+
+package candace.widget.refinement.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/pkg/widget/refinement/v1;widgetrefinementv1";
+
+// RegionIdentity is a Widget's region identity. It is named on the wire by every
+// patch, so the pattern is a stability contract, not a cosmetic one.
+// Ontology: Widget invariant "region matches ^[A-Za-z0-9_:.-]{1,64}$".
+// Validator: W108 (internal/validate/text.go).
+message RegionIdentity {
+  string value = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[A-Za-z0-9_:.-]{1,64}$`)"
+  }];
+}
+
+// Placement is a named point in the scene's normalized box, read as percentages.
+// Ontology: Placement invariant "left and top are integers in [0, 100]".
+// Validator: W104 (internal/validate/clause.go), range from spec.go's
+// placementDeclaration.
+message Placement {
+  int32 left = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 0 && this <= 100"
+  }];
+  int32 top = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 0 && this <= 100"
+  }];
+}
+
+// PulseTiming is a Pulse's finite duration and its non-negative delay, in
+// milliseconds.
+// Ontology: Pulse invariant "duration > 0 and delay >= 0".
+// Validator: the millisecondsClause minima in spec.go (duration 1, delay 0),
+// reported as W104/W506 in clause.go.
+message PulseTiming {
+  int32 duration_milliseconds = 1 [(candace.liquid.v1.field) = {
+    expr: "this > 0"
+  }];
+  int32 delay_milliseconds = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 0"
+  }];
+}
+
+// EmphasisTiming is an Emphasis's finite duration and non-negative delay. It is
+// a distinct message from PulseTiming because the two are distinct ontology
+// entries whose timings could diverge; sharing one message would couple them.
+// Ontology: Emphasis invariant "duration > 0 and delay >= 0".
+message EmphasisTiming {
+  int32 duration_milliseconds = 1 [(candace.liquid.v1.field) = {
+    expr: "this > 0"
+  }];
+  int32 delay_milliseconds = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 0"
+  }];
+}
+
+// WireName is the identifier a host registers for an inbound event. The runtime
+// binding grammar treats `:` and `;` as structural, and an empty name silences
+// every binding behind it, so both are refused here.
+// Ontology: EventDeclaration invariant "wire name matches the runtime's shape";
+// Control invariant "neither trigger nor event name may contain : or ;".
+// Validator: W109 (internal/validate/text.go). The runtime-minted set (W413) is
+// a closed-set membership check, not a local refinement, and stays validator-only.
+message WireName {
+  string value = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[^:;]+$`)"
+  }];
+}
+
+// EventFieldWireName is one event payload field's wire name: lower_snake_case,
+// matching the shipped snapshot vocabulary.
+// Ontology: EventField invariant "wire field names are lower_snake_case".
+// Validator: W101 (internal/validate/text.go, caseLowerSnake in spec.go).
+message EventFieldWireName {
+  string value = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)"
+  }];
+}
+
+// Identifier is a document identifier written in lowerCamelCase — a state field,
+// a predicate, a binding, a label, and every other construct but the widget
+// itself and its scene.
+// Ontology: StateField invariant "field names are lowerCamelCase"; the shared
+// flag/predicate namespace.
+// Validator: W101 (internal/validate/text.go, caseLowerCamel in spec.go).
+message Identifier {
+  string value = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[a-z][A-Za-z0-9]*$`)"
+  }];
+}
+
+// Token is the closed namespace of the seven semantic token names. The enum is
+// the closed set; a value of 1..7 is the required, resolved name.
+// Ontology: Token invariant "the token namespace is closed at seven semantic
+// names"; the Role -> Token, Channel -> Token, Orbit -> Token cardinalities.
+// Validator: W204 (internal/validate) for an unknown name; W203 for the wrong
+// kind.
+enum Token {
+  TOKEN_UNSPECIFIED = 0;
+  TOKEN_SURFACE = 1;
+  TOKEN_INK = 2;
+  TOKEN_MUTED = 3;
+  TOKEN_RULE = 4;
+  TOKEN_ACCENT = 5;
+  TOKEN_POSITIVE = 6;
+  TOKEN_WARNING = 7;
+}
+
+// TokenValue carries a resolved Token. The refinement proves the value is one of
+// the seven, never the unspecified zero: a token that does not resolve is an
+// error, never a fallback.
+message TokenValue {
+  Token value = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 7"
+  }];
+}
+
+// Marker is a role's marker size. The set is closed at two.
+// Ontology: Role invariant "a role fixes exactly one marker size".
+enum Marker {
+  MARKER_UNSPECIFIED = 0;
+  MARKER_LARGE = 1;
+  MARKER_SMALL = 2;
+}
+
+// MarkerValue carries a resolved Marker, required and closed.
+message MarkerValue {
+  Marker value = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 2"
+  }];
+}
+
+// Direction is a channel's travel direction. A channel is never bidirectional:
+// two directions are two channels.
+// Ontology: Channel invariant "a channel has exactly one direction".
+enum Direction {
+  DIRECTION_UNSPECIFIED = 0;
+  DIRECTION_FORWARD = 1;
+  DIRECTION_REVERSE = 2;
+}
+
+// DirectionValue carries a resolved Direction, required and closed.
+message DirectionValue {
+  Direction value = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 2"
+  }];
+}
+
+// Trigger is a control's DOM interaction, from the closed set click, change,
+// input, submit.
+// Ontology: Control cardinality "Control -> DOM trigger, exactly 1, from the
+// closed set".
+enum Trigger {
+  TRIGGER_UNSPECIFIED = 0;
+  TRIGGER_CLICK = 1;
+  TRIGGER_CHANGE = 2;
+  TRIGGER_INPUT = 3;
+  TRIGGER_SUBMIT = 4;
+}
+
+// TriggerValue carries a resolved Trigger, required and closed.
+message TriggerValue {
+  Trigger value = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 4"
+  }];
+}
+
+// FieldType is a state field's declared type, from the closed set flag, counter,
+// count, text.
+// Ontology: StateField declared type "one of flag, counter, count, text".
+enum FieldType {
+  FIELD_TYPE_UNSPECIFIED = 0;
+  FIELD_TYPE_FLAG = 1;
+  FIELD_TYPE_COUNTER = 2;
+  FIELD_TYPE_COUNT = 3;
+  FIELD_TYPE_TEXT = 4;
+}
+
+// FieldTypeValue carries a resolved FieldType, required and closed.
+message FieldTypeValue {
+  FieldType value = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 4"
+  }];
+}

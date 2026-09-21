@@ -1,0 +1,16 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_module")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "runtime.BUILD.bazel",
+    "grammar.BUILD.bazel",
+    "python_grammar.BUILD.bazel",
+])
+
+ocaml_module(
+    name = "Tree_sitter",
+    cc_deps = ["@tree_sitter_ocaml_source//:stubs"],
+    sig = "@tree_sitter_ocaml_source//:lib/tree_sitter.mli",
+    struct = "@tree_sitter_ocaml_source//:lib/tree_sitter.ml",
+)

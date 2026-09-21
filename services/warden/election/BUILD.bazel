@@ -1,0 +1,52 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "election",
+    srcs = [
+        "config.go",
+        "election.go",
+        "heartbeat.go",
+        "inflight.go",
+        "manager.go",
+        "membership.go",
+        "view.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/election",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "@com_github_rs_zerolog//:zerolog",
+    ],
+)
+
+go_test(
+    name = "election_test",
+    srcs = [
+        "cluster_test.go",
+        "election_contract_test.go",
+        "election_test.go",
+        "harness_test.go",
+        "ledger_test.go",
+        "lifecycle_test.go",
+        "liveness_test.go",
+        "membership_test.go",
+        "persist_fail_test.go",
+        "seam_test.go",
+        "subscribe_test.go",
+        "view_test.go",
+    ],
+    embed = [":election"],
+    deps = [
+        "//services/warden",
+        "//services/warden/internal/mocks",
+        "//services/warden/notify",
+        "//services/warden/store",
+        "//services/warden/testclock",
+        "//services/warden/watchdog",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_rs_zerolog//:zerolog",
+        "@org_uber_go_mock//gomock",
+    ],
+)

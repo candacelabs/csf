@@ -1,0 +1,10 @@
+load("@rules_go//go:def.bzl", "go_binary")
+
+go_binary(
+    name = "custom-candaceos",
+    srcs = ["main.go"],
+    deps = [
+        "//composition",
+        "@candace//app/candaceos-core/bootstrap",
+    ],
+)

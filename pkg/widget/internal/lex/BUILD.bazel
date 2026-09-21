@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "lex",
+    srcs = ["lex.go"],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/lex",
+    visibility = ["//pkg/widget:__subpackages__"],
+    deps = ["//pkg/widget/internal/diag"],
+)
+
+go_test(
+    name = "lex_test",
+    srcs = [
+        "lex_suite_test.go",
+        "lex_test.go",
+    ],
+    deps = [
+        ":lex",
+        "//pkg/widget/internal/diag",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

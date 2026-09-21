@@ -1,0 +1,53 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "grammar_stubs",
+    srcs = ["grammar_stubs.c"],
+    linkstatic = True,
+    deps = [
+        "@opam.ocamlsdk//ffi/lib",
+        "@tree_sitter_go//:parser",
+    ],
+)
+
+ocaml_module(
+    name = "Checker",
+    cc_deps = [":grammar_stubs"],
+    struct = "checker.ml",
+    deps = [
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [
+        ":Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_binary(
+    name = "check",
+    main = ":Main",
+)
+
+ocaml_module(
+    name = "Checker_test",
+    struct = "checker_test.ml",
+    deps = [
+        ":Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_test(
+    name = "checker_test",
+    size = "small",
+    main = ":Checker_test",
+)
