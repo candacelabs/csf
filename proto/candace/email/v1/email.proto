@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package candace.email.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+import "candace/provenance/v1/receipt.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/email/v1;emailv1";
+
+// The host owns sender, operator recipients, provenance and transport settings.
+// An agent supplies message content, not a forged footer or runtime identity.
+message EmailMessage {
+  string subject = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  string text = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 65536"}];
+}
+
+// Content only: recipients and provenance come from the trusted runtime.
+message SendEmailRequest { EmailMessage message = 1; }
+message SendEmailResponse { EmailReceipt receipt = 1; }
+
+// Private, operator-owned startup configuration; never accepted from an agent.
+message EmailHostConfiguration {
+  string smtp_host = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 253"}];
+  uint32 smtp_port = 2 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 65535"}];
+  string smtp_username = 3;
+  string smtp_password_file = 4;
+  string sender = 5;
+  repeated string recipients = 6;
+  string receipt_directory = 7 [(candace.liquid.v1.field) = {expr: "len(this) > 0"}];
+  candace.provenance.v1.NodeIdentity reporting_node = 8;
+  string csf_version = 9;
+  string source_revision = 10;
+  repeated candace.provenance.v1.EvidenceLink links = 11;
+  // Optional trusted observer output (ReceiptMetadata JSON). Only containers
+  // are consumed; the file cannot override sender identity or agent sessions.
+  string container_observations_file = 12;
+  // Host-known provider of authenticated MCP sessions; empty means unknown.
+  string session_provider = 13;
+}
+
+enum DeliveryOutcome {
+  DELIVERY_OUTCOME_UNSPECIFIED = 0;
+  // SMTP accepted the message. This is not evidence of inbox delivery or reading.
+  DELIVERY_OUTCOME_ACCEPTED = 1;
+  DELIVERY_OUTCOME_FAILED = 2;
+  // A transport interruption left acceptance uncertain; blind retry can duplicate.
+  DELIVERY_OUTCOME_UNKNOWN = 3;
+}
+
+message EmailReceipt {
+  candace.provenance.v1.ReceiptMetadata provenance = 1;
+  string message_sha256 = 2 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{64}$`)"}];
+  DeliveryOutcome outcome = 3;
+  google.protobuf.Timestamp completed_at = 4;
+  // Bounded classification only; never raw SMTP errors, recipients or message text.
+  string error_code = 5 [(candace.liquid.v1.field) = {expr: "len(this) <= 64"}];
+}

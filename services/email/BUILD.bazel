@@ -1,0 +1,55 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "email",
+    srcs = [
+        "contracts.go",
+        "doc.go",
+        "file_receipt_sink.go",
+        "mailer.go",
+        "metrics.go",
+        "options.go",
+        "render.go",
+        "smtp.go",
+        "validate.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/email",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//proto/candace/email/v1:email",
+        "//proto/candace/provenance/v1:provenance",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@io_opentelemetry_go_otel//:otel",
+        "@io_opentelemetry_go_otel//attribute",
+        "@io_opentelemetry_go_otel//codes",
+        "@io_opentelemetry_go_otel_trace//:trace",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "email_test",
+    srcs = [
+        "email_suite_test.go",
+        "file_receipt_sink_test.go",
+        "mailer_test.go",
+        "mock_contracts_test.go",
+        "mock_generate_test.go",
+        "mock_smtp_client_test.go",
+        "mock_write_closer_test.go",
+        "smtp_test.go",
+    ],
+    embed = [":email"],
+    deps = [
+        "//proto/candace/email/v1:email",
+        "//proto/candace/provenance/v1:provenance",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_uber_go_mock//gomock",
+    ],
+)

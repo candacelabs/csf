@@ -1,0 +1,367 @@
+%% ============================================================================
+%% CandaWS — Dashbored
+%%
+%% Category parodied: a managed metrics and dashboard service.
+%%
+%% Build order 5, and last of the four built in P4. Fan-in: three collector
+%% goroutines feed one aggregator over one shared channel, which is the exact
+%% shape of the `csp-fanin-v1` bench task, so the fleet's meta service is also
+%% the one that ties the two workstreams together. It is built last because its
+%% stream watches the other four services, and building it earlier would mean
+%% writing a host seam against engines that do not exist yet.
+%%
+%% What it demonstrates that the raft card does not: five stats, a scene with
+%% no reverse channel anywhere, a five-node fan-in, three roles, and a
+%% `forbids`-only predicate with no `requires` clause at all.
+%% ============================================================================
+
+
+widget Dashbored
+dialect 0
+region "widget.candaws.dashbored"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% A collector at runtime is a goroutine owning its own reservoir sample; the
+%% aggregator owns the histogram buckets and answers queries on a reply
+%% channel. Nothing in this engine is shared, so nothing in it is locked.
+
+state
+  field scrapeSequence type counter
+  field firingAlert type text
+  field collectorsUp type count
+  field samplesPerSecond type count
+  field retentionDays type count
+  field queryWindowHours type count
+  field aggregatorUp type flag
+  field breaching type flag
+  field silenced type flag
+  field queryLag type flag signal slowClient
+end
+
+
+predicates
+  predicate collecting
+    requires collectorsUp atLeast 3
+  end
+
+  %% A predicate with `forbids` and no `requires`. Nothing in the shipped
+  %% exemplars is shaped this way, and it is the natural spelling for "nothing
+  %% is wrong" — which is the only thing a metrics service ever wants to say.
+  predicate quiet
+    forbids breaching
+  end
+
+  predicate observing
+    requires aggregatorUp
+    requires collecting
+    forbids queryLag
+  end
+end
+
+
+bindings
+  binding metricsDescriptionText
+    when observing then "Three collectors feeding one aggregator, which feeds one alerter; samples are arriving from every collector."
+    whenNot aggregatorUp then "Three collectors feeding one aggregator, which feeds one alerter; the aggregator is not accepting samples."
+    whenNot collecting then "Three collectors feeding one aggregator, which feeds one alerter; at least one collector has stopped reporting."
+    otherwise "Three collectors feeding one aggregator, which feeds one alerter; the query path is behind."
+  end
+
+  binding collectorCaptionText
+    when collecting then "scraping"
+    otherwise "stalled"
+  end
+
+  binding aggregatorCaptionText
+    when observing then "rolling up"
+    otherwise "stalled"
+  end
+
+  binding alerterCaptionText
+    when silenced then "silenced"
+    when quiet then "quiet"
+    otherwise "firing"
+  end
+
+  binding alertStatusText
+    when silenced then "alerts silenced by operator"
+    when queryLag then "browser catching up"
+    when quiet then "no alert firing"
+    otherwise "firing: {firingAlert}"
+  end
+
+  binding throughputStatText
+    when collecting then "{samplesPerSecond} samples per second ingested"
+    otherwise "ingest stalled"
+  end
+
+  binding collectorStatText
+    when collecting then "{collectorsUp} collectors reporting"
+    otherwise "{collectorsUp} collectors reporting · below the floor"
+  end
+
+  binding silenceCaptionText
+    when silenced then "Unsilence the alerter"
+    otherwise "Silence the alerter"
+  end
+end
+
+
+labels
+  label titleLabel text "Dashbored"
+  label sourceLabel text "Read-only aggregator stream"
+  label sceneDescriptionLabel binds metricsDescriptionText
+
+  label collectorOneLabel text "collector-a"
+  label collectorTwoLabel text "collector-b"
+  label collectorThreeLabel text "collector-c"
+  label collectorCaptionLabel binds collectorCaptionText
+  label aggregatorLabel text "aggregator"
+  label aggregatorCaptionLabel binds aggregatorCaptionText
+  label alerterLabel text "alerter"
+  label alerterCaptionLabel binds alerterCaptionText
+
+  label sampleLegendLabel text "sample"
+  label breachLegendLabel text "breach"
+
+  label throughputStatLabel binds throughputStatText
+  label collectorStatLabel binds collectorStatText
+  label retentionStatLabel text "{retentionDays} days retained"
+  label windowStatLabel text "{queryWindowHours} hours queryable"
+  label alertStatLabel binds alertStatusText
+
+  label alertStatusLabel binds alertStatusText
+  label silenceCaptionLabel binds silenceCaptionText
+end
+
+
+%% Five stats, the most in the fleet. The retention and query-window lines are
+%% two literal templates side by side, which is the whole joke rendered as data
+%% rather than written as a sentence.
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat throughputStatLabel
+  stat collectorStatLabel
+  stat retentionStatLabel
+  stat windowStatLabel
+  stat alertStatLabel
+end
+
+
+roles
+  role probe
+    token positive
+    marker small
+    emphasis forbidden
+  end
+
+  role rollup
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role siren
+    token warning
+    marker small
+    emphasis allowed
+  end
+end
+
+
+%% Two channels, both `forward`. Every other document in the fleet and both
+%% shipped exemplars with edges carry a reverse channel somewhere; a metrics
+%% pipeline answers nobody, so this one does not.
+
+channels
+  channel sample
+    direction forward
+    token accent
+    legend sampleLegendLabel
+  end
+
+  channel breach
+    direction forward
+    token warning
+    legend breachLegendLabel
+  end
+end
+
+
+placements
+  placement probeTopSpot left 10 top 12
+  placement probeMiddleSpot left 6 top 50
+  placement probeBottomSpot left 10 top 88
+  placement rollupSpot left 52 top 50
+  placement sirenSpot left 92 top 50
+end
+
+
+scene metrics
+  description sceneDescriptionLabel
+
+  node collectorOne
+    role probe
+    at probeTopSpot
+    title collectorOneLabel
+    caption collectorCaptionLabel
+  end
+
+  node collectorTwo
+    role probe
+    at probeMiddleSpot
+    title collectorTwoLabel
+    caption collectorCaptionLabel
+  end
+
+  node collectorThree
+    role probe
+    at probeBottomSpot
+    title collectorThreeLabel
+    caption collectorCaptionLabel
+  end
+
+  node aggregator
+    role rollup
+    at rollupSpot
+    title aggregatorLabel
+    caption aggregatorCaptionLabel
+  end
+
+  node alerter
+    role siren
+    at sirenSpot
+    title alerterLabel
+    caption alerterCaptionLabel
+  end
+
+  edge topFeed
+    from collectorOne
+    to aggregator
+    carries sample
+  end
+
+  edge middleFeed
+    from collectorTwo
+    to aggregator
+    carries sample
+  end
+
+  edge bottomFeed
+    from collectorThree
+    to aggregator
+    carries sample
+  end
+
+  edge alertPath
+    from aggregator
+    to alerter
+    carries breach
+  end
+end
+
+
+%% GAP (dialect v1): `forbids silenced` on this gate says that silencing the
+%% alerter stops the sample pulses too, which is not what silencing means. The
+%% gate the card wants is per-pulse — samples animate while `observing`, the
+%% breach animates while `observing` and not `quiet` — and there is no spelling
+%% for one. Yakshave hits the identical wall from the other direction, where
+%% the rollback pulse can only fire in the states where a rollback cannot
+%% happen. Ranked first in `dialect-v1-asks.md` on the strength of those two.
+
+motion
+  requires observing
+  forbids silenced
+  restartOn scrapeSequence
+
+  pulse topSample
+    edge topFeed
+    channel sample
+    duration 600 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse middleSample
+    edge middleFeed
+    channel sample
+    duration 600 milliseconds
+    delay 80 milliseconds
+  end
+
+  pulse bottomSample
+    edge bottomFeed
+    channel sample
+    duration 600 milliseconds
+    delay 160 milliseconds
+  end
+
+  pulse breachOut
+    edge alertPath
+    channel breach
+    duration 600 milliseconds
+    delay 420 milliseconds
+  end
+
+  emphasis rollupBeat
+    node aggregator
+    duration 500 milliseconds
+    delay 300 milliseconds
+  end
+end
+
+
+indicators
+  indicator alertIndicator
+    label alertStatusLabel
+    positiveWhen quiet
+  end
+end
+
+
+controls
+  control silenceControl
+    caption silenceCaptionLabel
+    trigger click
+    emits toggleSilence
+    pressedWhen silenced
+  end
+end
+
+
+%% GAP (dialect v1): the alert this service wants to fire on is "the p99
+%% breached OR the error rate breached". A composed predicate is a conjunction
+%% only, so the disjunction lives in the engine and arrives as one `breaching`
+%% flag — which is the correct v0 answer and also the reason the card cannot
+%% say which of the two fired without a `text` field carrying the name.
+
+events
+  event toggleSilence
+    wire "widget.candaws.dashbored.silence"
+    toggles silenced
+  end
+
+  event scrapeReport
+    wire "widget.candaws.dashbored.report"
+    field scrape_sequence writes scrapeSequence
+    field firing_alert writes firingAlert
+    field collectors_up writes collectorsUp
+    field samples_per_second writes samplesPerSecond
+    field retention_days writes retentionDays
+    field query_window_hours writes queryWindowHours
+    field aggregator_up writes aggregatorUp
+    field breaching writes breaching
+  end
+end
+
+
+data
+  stream scrapeWatch
+    source "widget.candaws.dashbored.watch"
+    delivers scrapeReport
+    ordering scrapeSequence
+  end
+end

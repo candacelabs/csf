@@ -1,0 +1,301 @@
+/* The CSS every generated widget's markup depends on.
+ *
+ * It is served through widget.Stylesheet, which puts one palette's seven token
+ * values in front of it. Nothing here writes a colour: every paint reads one of
+ * the seven custom properties through a token class, which is the same rule the
+ * language holds an author to.
+ *
+ * Two of these rules are invariants rather than decoration. Nothing animates
+ * outside the motion gate, and a viewer's reduced-motion preference is honoured
+ * unconditionally. Both live here, with the SDK, because a host stylesheet is a
+ * place they could be forgotten. */
+
+/* ---------------------------------------------------------------------------
+ * Token classes. The generator writes one per element from the declared token;
+ * nothing here knows which widget it is styling.
+ *
+ * Each sets `color` as well as `fill`, so one class paints an SVG shape, an
+ * HTML text run, and — through `currentColor` — a stroke or a swatch.
+ * ------------------------------------------------------------------------- */
+.widget-token-surface {
+  color: var(--widget-surface);
+  fill: var(--widget-surface);
+}
+
+.widget-token-ink {
+  color: var(--widget-ink);
+  fill: var(--widget-ink);
+}
+
+.widget-token-muted {
+  color: var(--widget-muted);
+  fill: var(--widget-muted);
+}
+
+.widget-token-rule {
+  color: var(--widget-rule);
+  fill: var(--widget-rule);
+}
+
+.widget-token-accent {
+  color: var(--widget-accent);
+  fill: var(--widget-accent);
+}
+
+.widget-token-positive {
+  color: var(--widget-positive);
+  fill: var(--widget-positive);
+}
+
+.widget-token-warning {
+  color: var(--widget-warning);
+  fill: var(--widget-warning);
+}
+
+/* ---------------------------------------------------------------------------
+ * The card, and its chrome.
+ * ------------------------------------------------------------------------- */
+.widget {
+  display: block;
+  margin: 1.5rem 0;
+  padding: 1rem 1.25rem 1.25rem;
+  border: 1px solid var(--widget-rule);
+  border-radius: 0.75rem;
+  background: var(--widget-surface);
+}
+
+/* The source line is an eyebrow above the title, in the DOM and on the screen.
+ * The markup emits the source first and this stacks it first, so nothing here
+ * reverses a reading order — a rule that did would be a rule a screen reader,
+ * a reader mode and a failed stylesheet all disagree with. */
+.widget-chrome {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--widget-rule);
+  padding-bottom: 0.6rem;
+}
+
+.widget-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.widget-source {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+/* ---------------------------------------------------------------------------
+ * The scene: one image, one text alternative, everything in it decorative to
+ * the accessibility tree.
+ * ------------------------------------------------------------------------- */
+.widget-scene {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  max-height: 18rem;
+}
+
+.widget-orbit {
+  fill: none;
+  stroke: currentColor;
+  stroke-dasharray: 1.5 2;
+  stroke-width: 0.4;
+}
+
+.widget-edge-line {
+  stroke: currentColor;
+  stroke-width: 0.5;
+}
+
+.widget-marker {
+  transition: fill 240ms ease;
+}
+
+.widget-node-title {
+  font-size: 5px;
+  font-weight: 600;
+}
+
+.widget-node-caption {
+  font-size: 4.5px;
+}
+
+/* A pulse and an emphasis are invisible until the gate lets them animate. Both
+ * animations end on an invisible frame and are declared `both`, so a finished
+ * one leaves the picture exactly as it found it. */
+.widget-pulse {
+  opacity: 0;
+}
+
+.widget-emphasis {
+  fill: none;
+  opacity: 0;
+  stroke: currentColor;
+  stroke-width: 0.6;
+}
+
+/* ---------------------------------------------------------------------------
+ * The footer: the legend projected from the declared channels, and the stats.
+ * ------------------------------------------------------------------------- */
+.widget-legend,
+.widget-stats,
+.widget-indicators {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.25rem;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.72rem;
+}
+
+.widget-legend-entry,
+.widget-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.widget-swatch,
+.widget-indicator-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* An indicator's tone is binary and unauthored: the predicate holding selects
+ * the positive token, not holding selects the warning one. */
+.widget-indicator[data-tone="positive"] .widget-indicator-dot {
+  background: var(--widget-positive);
+}
+
+.widget-indicator[data-tone="warning"] .widget-indicator-dot {
+  background: var(--widget-warning);
+}
+
+.widget-controls {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.widget-control {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--widget-rule);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--widget-ink);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.widget-control[aria-pressed="true"] {
+  border-color: var(--widget-accent);
+  color: var(--widget-accent);
+}
+
+/* ---------------------------------------------------------------------------
+ * Motion.
+ *
+ * The gate is three conditions and every one of them is structural: the host's
+ * connection is live, the widget's own compiled gate holds, and the viewer has
+ * not asked for less motion. There is no per-pulse override and no animation
+ * declared anywhere else.
+ *
+ * Each animation's duration and delay arrive as custom properties on the
+ * element, because they are the document's values rather than this file's. So
+ * is an edge's length: it is derived from the two endpoints' placements, which
+ * is why no rule here contains a number that describes a picture.
+ * ------------------------------------------------------------------------- */
+html[data-gotth-status="live"] .widget[data-motion="true"] .widget-pulse-forward {
+  animation: widget-pulse-forward var(--widget-pulse-duration)
+    var(--widget-pulse-delay) ease-in-out both;
+}
+
+html[data-gotth-status="live"] .widget[data-motion="true"] .widget-pulse-reverse {
+  animation: widget-pulse-reverse var(--widget-pulse-duration)
+    var(--widget-pulse-delay) ease-in-out both;
+}
+
+html[data-gotth-status="live"] .widget[data-motion="true"] .widget-emphasis {
+  animation: widget-emphasis var(--widget-emphasis-duration)
+    var(--widget-emphasis-delay) ease-out both;
+}
+
+@keyframes widget-pulse-forward {
+  0%,
+  10% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  48% {
+    opacity: 1;
+    transform: translateX(var(--widget-edge-length));
+  }
+
+  58%,
+  100% {
+    opacity: 0;
+    transform: translateX(var(--widget-edge-length));
+  }
+}
+
+@keyframes widget-pulse-reverse {
+  0%,
+  10% {
+    opacity: 0;
+    transform: translateX(var(--widget-edge-length));
+  }
+
+  18% {
+    opacity: 1;
+  }
+
+  48% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  58%,
+  100% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+}
+
+@keyframes widget-emphasis {
+  0% {
+    opacity: 0.72;
+    transform: scale(0.72);
+  }
+
+  65%,
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+/* Unconditional, and last, so nothing overrides it. There is no spelling in the
+ * widget language that turns this off. */
+@media (prefers-reduced-motion: reduce) {
+  .widget-pulse,
+  .widget-emphasis,
+  .widget-marker {
+    animation: none !important;
+    transition: none !important;
+  }
+}

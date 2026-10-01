@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+# Both consumer suites validate the recipe that users actually receive.
+exports_files(
+    ["agent.json"],
+    visibility = [
+        "//csf:__pkg__",
+        "//services/copilot-adapter/integration:__pkg__",
+    ],
+)
+
+go_library(
+    name = "csf-agent_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/examples/csf-agent",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//csf",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//services/copilot-adapter/gen/api",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_binary(
+    name = "csf-agent",
+    embed = [":csf-agent_lib"],
+    visibility = ["//visibility:public"],
+)

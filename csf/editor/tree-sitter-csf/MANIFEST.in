@@ -1,0 +1,3 @@
+include queries/highlights.scm
+include src/*.c src/*.json src/tree_sitter/*.h
+include tree-sitter.json

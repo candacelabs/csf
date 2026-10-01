@@ -1,0 +1,23 @@
+package fragments
+
+import (
+	"strconv"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+templ ReadingRegion(s State) {
+	<section { live.Region(FragmentReading)... }>
+		<output>{ strconv.Itoa(s.Latest.Len()) } samples</output>
+	</section>
+}
+
+templ LogRegion(s State) {
+	<section { live.Region(FragmentLog)... }>
+		if s.Paused {
+			<p>paused</p>
+		} else {
+			<p>running</p>
+		}
+	</section>
+}

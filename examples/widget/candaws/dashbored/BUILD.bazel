@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "dashbored",
+    srcs = [
+        "collector.go",
+        "config.go",
+        "seam.go",
+        "telemetry.go",
+        "view.go",
+        "view_templ.go",
+        "widget.gen.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/widget/candaws/dashbored",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//examples/widget/candaws/fleet",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_test(
+    name = "dashbored_test",
+    srcs = [
+        "card_test.go",
+        "dashbored_suite_test.go",
+        "telemetry_test.go",
+        "view_test.go",
+    ],
+    embed = [":dashbored"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget/widgettest",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

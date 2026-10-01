@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "wireconv",
+    srcs = ["wireconv.go"],
+    importpath = "github.com/candacelabs/csf/services/warden/wireconv",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/warden",
+        "//services/warden/proto/warden/v1:warden",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "wireconv_test",
+    srcs = ["wireconv_contract_test.go"],
+    deps = [
+        ":wireconv",
+        "//services/warden",
+        "//services/warden/proto/warden/v1:warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

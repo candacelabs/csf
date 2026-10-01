@@ -1,0 +1,22 @@
+load("@crates//:defs.bzl", "aliases", "all_crate_deps", "crate_edition")
+load("@rules_rust//rust:defs.bzl", "rust_binary")
+
+# Read by crate_universe from //:MODULE.bazel; see //xetcas:BUILD.bazel.
+exports_files(["Cargo.toml"])
+
+# The workspace's code generator, invoked as `cargo xtask gen-proto` from
+# candace/xetcas. Bazel compiles it so that a change breaking the generator is
+# caught by `bazel build //xetcas/...` too, but Bazel never runs it: the
+# generated Rust is committed, and regenerating it writes into the checkout,
+# which a build must not do. `bazel run` on this target would resolve its
+# output paths against the sandbox and write nothing useful.
+rust_binary(
+    name = "xtask",
+    srcs = glob(["src/**/*.rs"]),
+    aliases = aliases(),
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    version = "0.0.0",
+    visibility = ["//visibility:private"],
+    deps = all_crate_deps(normal = True),
+)

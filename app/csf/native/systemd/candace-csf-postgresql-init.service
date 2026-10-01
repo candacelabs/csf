@@ -1,0 +1,17 @@
+[Unit]
+Description=Initialize candace/csf PostgreSQL data
+ConditionPathExists=!/var/lib/candace-csf-postgresql/.candace-csf-postgresql-provisioned
+
+[Service]
+Type=oneshot
+User=candace-csf-postgresql
+Group=candace-csf-postgresql
+StateDirectory=candace-csf-postgresql
+StateDirectoryMode=0700
+ConfigurationDirectory=candace/csf
+EnvironmentFile=/etc/candace/csf/postgresql.env
+ExecStart=/opt/candace/csf/libexec/postgresql-first-boot
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

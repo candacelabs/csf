@@ -1,0 +1,10 @@
+#!/bin/sh
+set -eu
+
+if [ -z "${CSF_DATABASE_CONFIG:-}" ]; then
+  printf '%s\n' "CSF_DATABASE_CONFIG is required for schema initialization" >&2
+  exit 1
+fi
+
+exec /opt/candace/csf/components/csf/bin/csf initialize \
+  "--database-config=${CSF_DATABASE_CONFIG}"

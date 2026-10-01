@@ -1,0 +1,13 @@
+{
+  "region": "us-east-1",
+  "awsProfile": "simulation",
+  "jobQueue": "arn:aws:batch:us-east-1:123456789012:job-queue/csf-gpu",
+  "artifactUri": "s3://example-simulator-artifacts/csf",
+  "logGroup": "/aws/batch/job",
+  "timeoutSeconds": 900,
+  "budgetUsdMicros": "300000000",
+  "profiles": [
+    {"simulator": "SIMULATOR_CARLA", "jobDefinition": "arn:aws:batch:us-east-1:123456789012:job-definition/csf-carla:1", "reservationUsdMicros": "10000000"},
+    {"simulator": "SIMULATOR_ISAAC", "jobDefinition": "arn:aws:batch:us-east-1:123456789012:job-definition/csf-isaac:1", "reservationUsdMicros": "10000000"}
+  ]
+}

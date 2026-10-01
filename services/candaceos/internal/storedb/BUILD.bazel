@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "storedb",
+    srcs = [
+        "db.go",
+        "doc.go",
+        "models.go",
+        "queries.sql.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/candaceos/internal/storedb",
+    visibility = ["//services/candaceos:__subpackages__"],
+    deps = [
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgconn",
+        "@com_github_jackc_pgx_v5//pgtype",
+    ],
+)

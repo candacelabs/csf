@@ -1,0 +1,27 @@
+[Unit]
+Description=candace/csf
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=candace-csf
+Group=candace-csf
+StateDirectory=candace-csf
+StateDirectoryMode=0700
+ConfigurationDirectory=candace/csf
+EnvironmentFile=-/etc/candace/csf/csf.env
+# database.json is root:candace-csf 0640 when database support is enabled.
+# The minimal payload deliberately contains no Copilot Workbench UI or runtime.
+ExecStart=/opt/candace/csf/libexec/csf-serve
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

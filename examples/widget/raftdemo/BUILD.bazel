@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "raftdemo",
+    srcs = [
+        "cluster.go",
+        "config.go",
+        "doc.go",
+        "message.go",
+        "node.go",
+        "observer.go",
+        "state.go",
+        "transitions.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/widget/raftdemo",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "raftdemo_test",
+    srcs = [
+        "cluster_test.go",
+        "raftdemo_suite_test.go",
+        "transitions_test.go",
+    ],
+    embed = [":raftdemo"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

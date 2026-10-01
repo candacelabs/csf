@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "livetest",
+    srcs = [
+        "client.go",
+        "doc.go",
+        "frame.go",
+        "replay.go",
+        "session.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/live/livetest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/internal/livebridge",
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/live",
+        "@com_github_coder_websocket//:websocket",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "livetest_test",
+    srcs = [
+        "client_test.go",
+        "example_test.go",
+        "livetest_test.go",
+        "session_test.go",
+    ],
+    deps = [
+        ":livetest",
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

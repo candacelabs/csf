@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "terminaladapter",
+    srcs = ["manager.go"],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/terminaladapter",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/gen/api",
+        "@com_github_creack_pty//:pty",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "terminaladapter_test",
+    srcs = [
+        "manager_test.go",
+        "terminaladapter_suite_test.go",
+    ],
+    deps = [
+        ":terminaladapter",
+        "//pkg/patience",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/gen/api",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_onsi_gomega//gstruct",
+    ],
+)

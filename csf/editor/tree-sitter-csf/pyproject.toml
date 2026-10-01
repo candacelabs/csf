@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tree-sitter-csf"
+version = "0.1.0"
+description = "Internal documentation binding for the CSF highlighting parser"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+classifiers = ["Private :: Do Not Upload"]
+
+[tool.setuptools]
+# Internal image build input; no package-registry publication is part of CSF.

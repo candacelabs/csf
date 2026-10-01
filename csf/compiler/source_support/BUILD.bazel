@@ -1,0 +1,24 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_ocaml//build:rules.bzl", "ocaml_module")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "grammar_stubs",
+    srcs = ["grammar_stubs.c"],
+    linkstatic = True,
+    deps = [
+        "@opam.ocamlsdk//ffi/lib",
+        "@tree_sitter_go//:parser",
+    ],
+)
+
+ocaml_module(
+    name = "Go_source",
+    cc_deps = [":grammar_stubs"],
+    struct = "go_source.ml",
+    deps = [
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)

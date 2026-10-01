@@ -1,0 +1,9 @@
+{
+  "destination_repository": "candacelabs/csf",
+  "managed_by": "candace-component-export",
+  "schema_version": 2,
+  "source_path": "candace",
+  "source_repository": "kaashmonee/candace-server",
+  "source_revision": "1c91c72375062978d51751d78f102424609526cd",
+  "source_tree_oid": "85a70ce1e773604ecd3e1265652e0c3cffdbf6f0"
+}

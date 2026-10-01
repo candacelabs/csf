@@ -1,0 +1,119 @@
+{
+  "cgroup": "/sys/fs/cgroup/system.slice/docker-4c48d90b8ebe10b7825157ef83c405719cc4731cc10b792e9a9ea5e2f8358776.scope",
+  "sut_container": "4c48d90b8ebe10b7825157ef83c405719cc4731cc10b792e9a9ea5e2f8358776",
+  "sessions": 1000,
+  "tls": {
+    "boundary": "outside",
+    "listeners": 0,
+    "plaintext_ok": true,
+    "tls_handshake_refused": true,
+    "proxy": "none — see docs/bench/g2-baseline.md"
+  },
+  "introspect": {
+    "forced_gc": false,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 2007,
+    "memory_classes_total_bytes": 83028248,
+    "gc_heap_live_bytes": 22599576,
+    "gc_cycles_total": 8,
+    "memory_classes_heap_objects_bytes": 35445456,
+    "memory_classes_heap_stacks_bytes": 13402112,
+    "memory_classes_heap_free_bytes": 13041664,
+    "memory_classes_heap_unused_bytes": 3843376,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785883378067,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "forced_gc_floor": {
+    "forced_gc": true,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 2007,
+    "memory_classes_total_bytes": 83028248,
+    "gc_heap_live_bytes": 22824064,
+    "gc_cycles_total": 9,
+    "memory_classes_heap_objects_bytes": 22215520,
+    "memory_classes_heap_stacks_bytes": 13402112,
+    "memory_classes_heap_free_bytes": 204800,
+    "memory_classes_heap_unused_bytes": 7816352,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785883378088,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "driver": {
+    "target": 1000,
+    "dialed": 1000,
+    "mounted": 1000,
+    "live": 1000,
+    "closed": 0,
+    "dial_errors": 0,
+    "read_errors": 0,
+    "acks": 1000,
+    "heartbeats": 15000,
+    "patches": 0,
+    "snapshots": 1000,
+    "error_frames": 0
+  },
+  "host_pre": {
+    "uptime": " 22:37:55 up 6 days, 18:16, 10 users, load average: 7.80, 9.70, 10.59",
+    "nproc": 32,
+    "loadavg": {
+      "one": 7.8,
+      "five": 9.7,
+      "fifteen": 10.59
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 31787,
+    "running_containers": 24,
+    "container_names": "tenant-i-runtime-c8b17a8bc1af-query-run-401729d41936,tenant-i-foundation-c8b17a8bc1af-postgres-1,tenant-i-foundation-c013644f772d-postgres-1,reverent_nobel,gotth-gate-af9057d1,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "host_post": {
+    "uptime": " 22:43:13 up 6 days, 18:21, 10 users, load average: 12.39, 10.65, 10.69",
+    "nproc": 32,
+    "loadavg": {
+      "one": 12.39,
+      "five": 10.65,
+      "fifteen": 10.69
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 31757,
+    "running_containers": 25,
+    "container_names": "tenant-i-foundation-2a14b0969f40-postgres-1,tenant-a-docs-1,g2-drv-n1000-obs-on-r01-mn,g2-sut-n1000-obs-on-r01-mn,reverent_nobel,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "contended": true
+}

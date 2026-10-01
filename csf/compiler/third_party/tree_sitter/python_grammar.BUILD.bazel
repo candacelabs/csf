@@ -1,0 +1,11 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+cc_library(
+    name = "parser",
+    srcs = ["src/parser.c", "src/scanner.c"],
+    hdrs = glob(["src/tree_sitter/*.h"]),
+    includes = ["src"],
+    linkstatic = True,
+)

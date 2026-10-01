@@ -1,0 +1,24 @@
+[Unit]
+Description=candace/csf MinIO object storage
+After=network.target
+
+[Service]
+Type=simple
+DynamicUser=yes
+StateDirectory=candace-csf-minio
+StateDirectoryMode=0700
+RuntimeDirectory=candace-csf-minio
+RuntimeDirectoryMode=0700
+Environment=MC_CONFIG_DIR=/run/candace-csf-minio/mc
+EnvironmentFile=/etc/candace/csf/minio.env
+ExecStart=/opt/candace/csf/components/minio/bin/minio server --address 127.0.0.1:19000 --console-address 127.0.0.1:19001 /var/lib/candace-csf-minio
+ExecStartPost=/opt/candace/csf/libexec/minio-create-bucket
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[project]
+name = "brain-spine-driving-experiment"
+version = "0.1.0"
+description = "Retained CPU driving experiments through the generated brain-spine contract"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+  "highway-env==1.12.0",
+  "numpy==2.4.3",
+  "protobuf==7.35.1",
+]
+
+[dependency-groups]
+dev = ["pytest==9.0.2"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

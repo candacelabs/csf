@@ -1,0 +1,46 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "protocol",
+    srcs = [
+        "closecode.go",
+        "doc.go",
+        "frames.go",
+        "inbound.go",
+        "invariants.go",
+        "kind.go",
+        "limits.go",
+        "outbound.go",
+        "reject.go",
+        "sessionparams.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/protocol",
+    visibility = ["//pkg/gotth:__subpackages__"],
+    deps = [
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+    ],
+)
+
+go_test(
+    name = "protocol_test",
+    srcs = [
+        "conformance_test.go",
+        "hostile_test.go",
+        "outbound_test.go",
+        "protocol_suite_test.go",
+        "sessionparams_test.go",
+        "testdata_test.go",
+    ],
+    deps = [
+        ":protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/liquidproto",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protowire",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+    ],
+)

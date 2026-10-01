@@ -1,0 +1,26 @@
+genrule(
+    name = "neovim_runtime",
+    srcs = [
+        "//csf/editor/tree-sitter-csf:libcsf.so",
+        "//csf/editor/tree-sitter-csf:queries/highlights.scm",
+        "//csf/editor/tree-sitter-csf:neovim/ftdetect/csf.lua",
+        "//csf/editor/tree-sitter-csf:neovim/ftplugin/csf.lua",
+    ],
+    outs = ["neovim_runtime.tar"],
+    cmd = """
+      runtime=$(@D)/neovim-staging
+      mkdir -p $$runtime/parser $$runtime/queries/csf $$runtime/ftdetect $$runtime/ftplugin
+      cp $(location //csf/editor/tree-sitter-csf:libcsf.so) $$runtime/parser/csf.so
+      cp $(location //csf/editor/tree-sitter-csf:queries/highlights.scm) $$runtime/queries/csf/highlights.scm
+      cp $(location //csf/editor/tree-sitter-csf:neovim/ftdetect/csf.lua) $$runtime/ftdetect/csf.lua
+      cp $(location //csf/editor/tree-sitter-csf:neovim/ftplugin/csf.lua) $$runtime/ftplugin/csf.lua
+      tar --sort=name --mtime=@0 --owner=0 --group=0 --numeric-owner -cf $@ -C $$runtime .
+    """,
+    visibility = ["//visibility:public"],
+)
+
+filegroup(
+    name = "docsite_sources",
+    srcs = ["README.md"],
+    visibility = ["//visibility:public"],
+)

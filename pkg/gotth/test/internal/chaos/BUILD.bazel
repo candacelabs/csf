@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "chaos_test",
+    srcs = [
+        "app_test.go",
+        "case1_drop_test.go",
+        "case2_gap_test.go",
+        "case3_restart_test.go",
+        "case4_slowclient_test.go",
+        "case5_flood_test.go",
+        "case6_partition_test.go",
+        "case7_churn_test.go",
+        "case8_replay_test.go",
+        "chaos_suite_test.go",
+        "measure_test.go",
+        "relay_test.go",
+        "reverify_test.go",
+        "wire_test.go",
+    ],
+    deps = [
+        "//pkg/gotth/internal/obs",
+        "//pkg/gotth/internal/obstest",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/internal/session",
+        "//pkg/gotth/live",
+        "//pkg/patience",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

@@ -1,0 +1,19 @@
+[Unit]
+Description=Initialize candace/csf schema
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/etc/candace/csf/database.json
+
+[Service]
+Type=oneshot
+User=candace-csf
+Group=candace-csf
+StateDirectory=candace-csf
+StateDirectoryMode=0700
+ConfigurationDirectory=candace/csf
+EnvironmentFile=-/etc/candace/csf/csf.env
+ExecStart=/opt/candace/csf/libexec/csf-initialize
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

@@ -1,0 +1,119 @@
+{
+  "cgroup": "/sys/fs/cgroup/system.slice/docker-b662b24181f6b208991b228fe7e78796a56e0a196d4f715cc73c0832cd97d7fd.scope",
+  "sut_container": "b662b24181f6b208991b228fe7e78796a56e0a196d4f715cc73c0832cd97d7fd",
+  "sessions": 1000,
+  "tls": {
+    "boundary": "outside",
+    "listeners": 0,
+    "plaintext_ok": true,
+    "tls_handshake_refused": true,
+    "proxy": "none — see docs/bench/g2-baseline.md"
+  },
+  "introspect": {
+    "forced_gc": false,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 2007,
+    "memory_classes_total_bytes": 70117656,
+    "gc_heap_live_bytes": 22964208,
+    "gc_cycles_total": 9,
+    "memory_classes_heap_objects_bytes": 37967264,
+    "memory_classes_heap_stacks_bytes": 13434880,
+    "memory_classes_heap_free_bytes": 4587520,
+    "memory_classes_heap_unused_bytes": 3672672,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785880804643,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "forced_gc_floor": {
+    "forced_gc": true,
+    "observability": "on",
+    "tls_listeners": 0,
+    "goroutines": 2007,
+    "memory_classes_total_bytes": 70117656,
+    "gc_heap_live_bytes": 22824288,
+    "gc_cycles_total": 10,
+    "memory_classes_heap_objects_bytes": 22215744,
+    "memory_classes_heap_stacks_bytes": 13434880,
+    "memory_classes_heap_free_bytes": 335872,
+    "memory_classes_heap_unused_bytes": 7316416,
+    "memory_classes_os_stacks_bytes": 0,
+    "gogc": "100",
+    "gomemlimit": "2GiB",
+    "gomaxprocs": 4,
+    "num_cpu": 4,
+    "go_version": "go1.26.5",
+    "unix_ms": 1785880804658,
+    "limits_in_use": {
+      "coalesce_flush_at": 512,
+      "min_resync_interval": "1s",
+      "resync_burst": 3,
+      "mailbox_depth": 64,
+      "ack_channel_depth": 32,
+      "ack_window": 16,
+      "heartbeat_interval": "20s",
+      "heartbeat_timeout": "50s",
+      "idle_timeout": "30m0s",
+      "max_inbound_frame_bytes": 65536,
+      "max_sessions_per_identity": 20
+    }
+  },
+  "driver": {
+    "target": 1000,
+    "dialed": 1000,
+    "mounted": 1000,
+    "live": 1000,
+    "closed": 0,
+    "dial_errors": 0,
+    "read_errors": 0,
+    "acks": 1000,
+    "heartbeats": 15000,
+    "patches": 0,
+    "snapshots": 1000,
+    "error_frames": 0
+  },
+  "host_pre": {
+    "uptime": " 21:55:02 up 6 days, 17:33, 7 users, load average: 2.57, 5.10, 6.28",
+    "nproc": 32,
+    "loadavg": {
+      "one": 2.57,
+      "five": 5.1,
+      "fifteen": 6.28
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 33008,
+    "running_containers": 19,
+    "container_names": "dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "host_post": {
+    "uptime": " 22:00:19 up 6 days, 17:38, 7 users, load average: 8.69, 7.62, 7.06",
+    "nproc": 32,
+    "loadavg": {
+      "one": 8.69,
+      "five": 7.62,
+      "fifteen": 7.06
+    },
+    "mem_total_mb": 39136,
+    "mem_available_mb": 32642,
+    "running_containers": 23,
+    "container_names": "qa2-fmt,qa2-measure,g2-drv-n1000-obs-on-r01-mn,g2-sut-n1000-obs-on-r01-mn,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+  },
+  "contended": true
+}

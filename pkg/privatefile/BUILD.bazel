@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "privatefile",
+    srcs = ["read.go"],
+    importpath = "github.com/candacelabs/csf/pkg/privatefile",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "privatefile_test",
+    srcs = ["read_test.go"],
+    deps = [
+        ":privatefile",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

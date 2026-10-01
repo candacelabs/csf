@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "e2e_test",
+    srcs = [
+        "cli_contract_test.go",
+        "e2e_test.go",
+        "watch_e2e_test.go",
+    ],
+    # manual: the suite shells out to `go build` to produce the warden binary
+    # it then runs, so it needs a Go toolchain on PATH. `go test ./app/warden/e2e`
+    # in the golang container is its authority.
+    tags = ["manual"],  # keep
+    deps = [
+        "//pkg/patience",
+        "//services/warden/proto/warden/v1:warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+    ],
+)

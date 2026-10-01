@@ -1,0 +1,17 @@
+[Unit]
+Description=Migrate candace/csf Langfuse stores
+After=network-online.target candace-csf-postgresql.service candace-csf-clickhouse.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+DynamicUser=yes
+Environment=PATH=/opt/candace/csf/components/langfuse/bin:/usr/bin
+EnvironmentFile=/etc/candace/csf/langfuse.env
+WorkingDirectory=/opt/candace/csf/components/langfuse
+ExecStart=/opt/candace/csf/components/langfuse/web/entrypoint.sh /usr/bin/true
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+

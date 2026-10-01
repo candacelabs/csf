@@ -1,0 +1,32 @@
+package main
+
+// templ itself is not imported here: the generator adds "github.com/a-h/templ"
+// to every file it writes, so naming it again is a redeclaration in the
+// generated output rather than a missing import.
+import (
+	"strconv"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// Count is the one live fragment. Its root element carries live.Region, which
+// renders data-gotth-region: morph never touches anything outside a region,
+// and a patch names this ID.
+templ Count(s State) {
+	<p { live.Region("count")... }>
+		<output>{ strconv.Itoa(s.N) }</output>
+		<button { live.On("click", EventInc)... }>+1</button>
+	</p>
+}
+
+// Page is the whole document. app.Document writes the doctype, the <html>
+// element with the attributes passed to it and none of its own, a <head> with
+// the character encoding, the title and the runtime's script tag, and a <body>
+// holding whatever is written between its braces — which is the same component
+// the fragment renders, from the same state, so the snapshot that arrives over
+// the WebSocket morphs the page to bytes it already has.
+templ Page(s State) {
+	@app.Document(MountPath, "gotth-live quickstart", templ.Attributes{"lang": "en"}) {
+		@Count(s)
+	}
+}

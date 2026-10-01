@@ -1,0 +1,49 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "validate",
+    srcs = [
+        "build.go",
+        "clause.go",
+        "invariants.go",
+        "spec.go",
+        "symbols.go",
+        "text.go",
+        "validate.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/validate",
+    visibility = ["//pkg/widget:__subpackages__"],
+    deps = [
+        "//pkg/widget/internal/diag",
+        "//pkg/widget/internal/ir",
+        "//pkg/widget/internal/lex",
+        "//pkg/widget/internal/parse",
+    ],
+)
+
+go_test(
+    name = "validate_test",
+    srcs = [
+        "catalogue_test.go",
+        "fixture_test.go",
+        "invariants_internal_test.go",
+        "refinement_agreement_test.go",
+        "validate_suite_test.go",
+        "validate_test.go",
+    ],
+    # catalogue_test reads the three places the error catalogue is written down
+    # and compares them, so all three have to be in the runfiles.
+    data = [
+        "validate_test.go",  # keep
+        "//pkg/widget:docs/errors.md",  # keep
+        "//pkg/widget/internal/diag:diag.go",  # keep
+    ],
+    embed = [":validate"],
+    deps = [
+        "//pkg/widget/internal/diag",
+        "//pkg/widget/internal/ir",
+        "//pkg/widget/refinement/v1:refinement",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

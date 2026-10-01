@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "protoc-gen-liquidproto_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/liquidproto/cmd/protoc-gen-liquidproto",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/liquidproto/cmd/protoc-gen-liquidproto/internal/gen",
+        "@org_golang_google_protobuf//compiler/protogen",
+        "@org_golang_google_protobuf//types/pluginpb",
+    ],
+)
+
+go_binary(
+    name = "protoc-gen-liquidproto",
+    embed = [":protoc-gen-liquidproto_lib"],
+    visibility = ["//visibility:public"],
+)

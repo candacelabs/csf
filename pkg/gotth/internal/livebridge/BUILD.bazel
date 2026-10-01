@@ -1,0 +1,8 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "livebridge",
+    srcs = ["livebridge.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/livebridge",
+    visibility = ["//pkg/gotth:__subpackages__"],
+)

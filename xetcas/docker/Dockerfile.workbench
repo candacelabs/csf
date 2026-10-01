@@ -1,0 +1,96 @@
+# syntax=docker/dockerfile:1.7
+#
+# xetcas workbench — the *client* side of the demo.
+#
+# Contains everything a developer needs to push large files into a xetcasd
+# server: git, a pinned git-lfs, and git-xet (xet-core's LFS custom transfer
+# agent) built from the exact upstream revision this component targets.
+#
+# Build context: the xetcas/ directory. CI can supply the separately compiled
+# client as a named build context; normal builds compile the same recipe here.
+#
+#   docker build -f docker/Dockerfile.workbench -t xetcas-workbench .
+
+ARG GIT_XET_BUILD_IMAGE=rust:1.91-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33
+ARG WORKBENCH_RUNTIME_IMAGE=debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251
+ARG GIT_XET_SOURCE=git-xet-builder
+
+# ---------------------------------------------------------------------------
+# Stage 1: build git-xet from the pinned xet-core revision.
+# ---------------------------------------------------------------------------
+FROM ${GIT_XET_BUILD_IMAGE} AS git-xet-toolchain
+
+COPY docker/workbench-client.sh /usr/local/bin/workbench-client
+RUN bash /usr/local/bin/workbench-client dependencies
+
+FROM git-xet-toolchain AS git-xet-builder
+
+# Pinned xet-core revision. This is the protocol reference for the whole
+# component: xetcasd is written against the CAS API this revision speaks.
+ARG XET_CORE_REPO=https://github.com/huggingface/xet-core
+ARG XET_CORE_REV=77fc84d3d077973dade91a216da5e6b4a1595ca0
+
+# Both the default image build and the bounded CI preparation use this recipe.
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git,sharing=locked \
+    bash /usr/local/bin/workbench-client compile /out
+
+FROM ${GIT_XET_SOURCE} AS git-xet-source
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime workbench.
+# ---------------------------------------------------------------------------
+FROM ${WORKBENCH_RUNTIME_IMAGE} AS runtime
+
+ARG GIT_LFS_VERSION=3.7.1
+ARG GIT_LFS_SHA256_AMD64=1c0b6ee5200ca708c5cebebb18fdeb0e1c98f1af5c1a9cba205a4c0ab5a5ec08
+ARG GIT_LFS_SHA256_ARM64=73a9c90eeb4312133a63c3eaee0c38c019ea7bfa0953d174809d25b18588dd8d
+ARG TARGETARCH=amd64
+
+# python3 generates the deterministic synthetic model file in the demo;
+# libssl3 is git-xet's only non-trivial shared library.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        git \
+        less \
+        libssl3 \
+        procps \
+        python3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Debian ships an older git-lfs; pin the version the demo is validated against.
+RUN set -eux; \
+    case "${TARGETARCH}" in \
+        amd64) lfs_sha="${GIT_LFS_SHA256_AMD64}" ;; \
+        arm64) lfs_sha="${GIT_LFS_SHA256_ARM64}" ;; \
+        *) echo "unsupported TARGETARCH: ${TARGETARCH}" >&2; exit 1 ;; \
+    esac; \
+    tarball="git-lfs-linux-${TARGETARCH}-v${GIT_LFS_VERSION}.tar.gz"; \
+    curl -fsSL -o /tmp/git-lfs.tar.gz \
+        "https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/${tarball}"; \
+    echo "${lfs_sha}  /tmp/git-lfs.tar.gz" | sha256sum -c -; \
+    tar -xzf /tmp/git-lfs.tar.gz -C /tmp; \
+    install -m 0755 "/tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs" /usr/local/bin/git-lfs; \
+    rm -rf /tmp/git-lfs.tar.gz "/tmp/git-lfs-${GIT_LFS_VERSION}"; \
+    git-lfs version
+
+COPY --from=git-xet-source /out/bin/git-xet /usr/local/bin/git-xet
+
+# Non-root by default. /home/xet is a mount point for a named volume in the
+# demo compose file so `git config --global` and the xet cache survive across
+# `docker compose exec` invocations.
+RUN useradd --create-home --home-dir /home/xet --shell /bin/bash --uid 1000 xet \
+    && mkdir -p /home/xet/work \
+    && chown -R xet:xet /home/xet
+
+USER xet
+WORKDIR /home/xet/work
+ENV HOME=/home/xet \
+    USER=xet \
+    GIT_PAGER=cat \
+    PAGER=cat
+
+# Long-lived so `docker compose exec workbench ...` can drive the demo.
+CMD ["sleep", "infinity"]

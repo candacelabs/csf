@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "hosting",
+    srcs = ["hosting.go"],
+    importpath = "github.com/candacelabs/csf/examples/widget/hosting",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+    ],
+)

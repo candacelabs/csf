@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+set -- /opt/candace/csf/components/csf/bin/csf serve \
+  --listen=127.0.0.1:14111 \
+  --origin=http://127.0.0.1:14111 \
+  --artifacts=/var/lib/candace-csf/artifacts \
+  --events=/var/lib/candace-csf/events.jsonl
+
+if [ -n "${CSF_DATABASE_CONFIG:-}" ]; then
+  set -- "$@" "--database-config=${CSF_DATABASE_CONFIG}"
+fi
+if [ -n "${CSF_SEARCH_URL:-}" ]; then
+  if [ -z "${CSF_DATABASE_CONFIG:-}" ]; then
+    printf '%s\n' "CSF_SEARCH_URL requires CSF_DATABASE_CONFIG" >&2
+    exit 1
+  fi
+  set -- "$@" "--search-url=${CSF_SEARCH_URL}"
+  if [ -n "${CSF_SEARCH_INDEX:-}" ]; then
+    set -- "$@" "--search-index=${CSF_SEARCH_INDEX}"
+  fi
+fi
+
+exec "$@"

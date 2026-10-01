@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "store",
+    srcs = ["store.go"],
+    importpath = "github.com/candacelabs/csf/services/warden/store",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/warden",
+        "//services/warden/proto/warden/v1:warden",
+        "//services/warden/wireconv",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_test(
+    name = "store_test",
+    srcs = [
+        "store_contract_test.go",
+        "store_test.go",
+    ],
+    deps = [
+        ":store",
+        "//services/warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

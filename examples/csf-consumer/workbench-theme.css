@@ -1,0 +1,4 @@
+/* Consumer-owned appearance; CSF loads only this fixed filename. */
+:root[data-mantine-color-scheme="light"] body {
+  background-color: #f4f0e8;
+}

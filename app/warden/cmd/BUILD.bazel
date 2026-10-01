@@ -1,0 +1,53 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "cmd_lib",
+    srcs = [
+        "main.go",
+        "provenance.go",
+    ],
+    importpath = "github.com/candacelabs/csf/app/warden/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/core",
+        "//pkg/privatefile",
+        "//proto/candace/provenance/v1:provenance",
+        "//services/email",
+        "//services/warden",
+        "//services/warden/config",
+        "//services/warden/dashboard",
+        "//services/warden/discovery",
+        "//services/warden/election",
+        "//services/warden/grpcmux",
+        "//services/warden/grpctransport",
+        "//services/warden/httpserver",
+        "//services/warden/metrics",
+        "//services/warden/notify",
+        "//services/warden/store",
+        "//services/warden/watchdog",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_rs_zerolog//:zerolog",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "cmd_test",
+    srcs = ["provenance_test.go"],
+    embed = [":cmd_lib"],
+    deps = [
+        "//proto/candace/provenance/v1:provenance",
+        "//services/warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)

@@ -1,0 +1,257 @@
+package main
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// LogRegion is the shared fragment: everything everybody in the room can see.
+//
+// Two rules govern the markup and both are contracts rather than style. The
+// root element carries live.Region(FragmentLog), which renders
+// data-gotth-region and is what the client morphs against — morph never
+// touches anything outside a region, and a patch names this ID. And every
+// value here is a pure function of state, because the same state must render
+// byte-identical HTML: that comparison is what suppresses a patch nobody
+// needs.
+//
+// { m.Body } is the whole of FR-50 in this application. templ escapes an
+// interpolated string for the context it lands in, so a member who types
+// <script>alert(1)</script> puts that text on everybody's screen and nothing
+// else. There is no raw-HTML path here and there is no reason for one; the
+// escaping is the default rather than a call somebody remembered to make.
+templ LogRegion(s State) {
+	<section { live.Region(FragmentLog)... } class="card log" data-chat-region="log">
+		<h2>
+			Room log
+			<span class="count" data-chat-id="count">{ s.MessageCount() }</span>
+		</h2>
+		<ol class="messages" data-chat-id="messages">
+			for _, m := range s.Messages() {
+				<li
+					data-chat-seq={ strconv.FormatUint(m.Seq, 10) }
+					class={ "message", templ.KV("mine", s.Mine(m)) }
+				>
+					<span class="at">{ m.Clock() }</span>
+					<span class="author">{ m.Author }</span>
+					<span class="body">{ m.Body }</span>
+				</li>
+			}
+		</ol>
+		if len(s.Messages()) == 0 {
+			<p class="empty" data-chat-id="empty">Nothing has been said in here yet.</p>
+		}
+	</section>
+}
+
+// ComposerRegion is this session's own fragment: the form, the server's
+// verdict on it, and whatever last went wrong.
+//
+// Nothing in here is derived from the room, and that is deliberate down to the
+// Dirty function in chat.go that names exactly these fields. When another
+// member speaks, this region is not in the patch, so the browser is never
+// handed markup for the box somebody is typing into.
+//
+// live.On is the whole binding. There is no id, no handler registration and no
+// JavaScript: the attribute names a DOM event and a server event, and the
+// runtime's single delegated listener does the rest, which is why a morph can
+// replace this markup without destroying a binding. The client calls
+// preventDefault on a submit it recognises, so the form does not navigate.
+//
+// Enter-to-send comes from this being a real <form> rather than from a keydown
+// binding, and that is still the right answer here rather than a workaround: a
+// form gets it for free, in every browser, with no binding at all. What made it
+// a workaround was the sentence that used to follow it — that live.On has no key
+// filter and that Escape-to-clear "has no expression at all". Both were false
+// from 591c275a, which added live.Bind.Keys and live.OnAll citing FRICTION.md
+// F-3 by name, and they stayed on this page for a release. F-3 is now closed.
+//
+// Escape-to-clear is implemented, below: live.OnAll composes a key-filtered
+// keydown binding with the debounced input binding, on the one element, and the
+// two do not interfere. That last clause is load-bearing and is newer than the
+// filter — until FR-54 failure 2 landed, Debounce was an attribute of the
+// element, so this Escape binding would have inherited the input's 150 ms and
+// the next character typed would have destroyed the pending clear outright.
+// The order matters too: the client matches in the order given and the first
+// match wins, so the filtered binding has to come first or nothing can reach it.
+//
+// The input carries value={ s.Draft }. That is the second half of FR-55's
+// input preservation and it is easy to leave out, because in the common case
+// the browser's own uncontrolled-input handling hides its absence: the box
+// keeps what you typed across a morph whether or not the server agrees. It
+// stops hiding it the moment this region is genuinely re-rendered — a
+// validation message, a reconnect, a resync — and then an empty value
+// attribute is a sentence deleted out from under somebody.
+templ ComposerRegion(s State) {
+	<section { live.Region(FragmentComposer)... } class="card composer" data-chat-region="composer">
+		if s.Notice != "" {
+			<p class="notice" data-chat-id="notice" role="status">{ s.Notice }</p>
+		}
+		<form { live.On("submit", EventSend)... } data-chat-id="form" autocomplete="off">
+			<label for="chat-body">
+				Say something as { s.Me } ({ s.Role.String() })
+			</label>
+			<input
+				id="chat-body"
+				type="text"
+				name={ fieldBody }
+				data-chat-id="body"
+				value={ s.Draft }
+				placeholder="type here"
+				autocomplete="off"
+				disabled?={ !s.CanPost() }
+				aria-invalid?={ s.DraftError != "" }
+				aria-describedby="chat-body-help"
+				{ live.OnAll(
+					live.OnWith("keydown", EventClear, live.Bind{Keys: []string{"Escape"}}),
+					live.OnWith("input", EventDraft, live.Bind{Debounce: 150 * time.Millisecond}),
+				)... }
+			/>
+			<button type="submit" data-chat-id="send" disabled?={ !s.CanPost() }>Send</button>
+			if s.CanPurge() {
+				<button type="button" data-chat-id="purge" { live.On("click", EventPurge)... }>
+					Clear the room
+				</button>
+			}
+		</form>
+		if s.DraftError != "" {
+			<p class="error" id="chat-body-help" data-chat-id="draft-error">{ s.DraftError }</p>
+		} else {
+			<p class="hint" id="chat-body-help" data-chat-id="draft-hint">
+				{ strconv.Itoa(s.Remaining()) } characters left
+			</p>
+		}
+	</section>
+}
+
+// RosterRegion is who is in the room, which is the cheapest way to see that a
+// patch arrived over the server's push channel rather than from anything
+// local: open a second tab and the first one's list grows before you have
+// touched it.
+templ RosterRegion(s State) {
+	<section { live.Region(FragmentRoster)... } class="card roster" data-chat-region="roster">
+		<h2>In the room</h2>
+		<ul data-chat-id="members">
+			for _, name := range s.Members() {
+				<li class={ "member", templ.KV("you", name == s.Me) }>{ name }</li>
+			}
+		</ul>
+	</section>
+}
+
+// Page is the whole document.
+//
+// It composes the same three components the fragments render, from the same
+// state, which is the point: the first paint is server-rendered HTML with no
+// data attributes missing and no placeholder, and the snapshot that arrives a
+// moment later over the WebSocket morphs it to bytes it already has. There is
+// no flash, and the page is meaningful with JavaScript disabled — it simply
+// stops updating.
+//
+// app.Document writes the document around it, including the one script tag,
+// and it is given MountPath — the same constant NewMux registers the handler
+// under. Passing a literal here instead would put the same string in two files
+// and let them drift, and the drift is silent: the page loads, the script
+// 404s, and nothing is live. This example mounts at /chat/live rather than
+// /live precisely so that a wrong default would be visible.
+templ Page(app *live.App[State, Member], s State) {
+	@app.Document(MountPath, "gotth-live chat", templ.Attributes{"lang": "en"}, chatHead()) {
+		<main>
+			<h1>gotth-live chat</h1>
+			<p class="lede">
+				The room lives in Go. Sending a message raises an event, the
+				reducer returns an effect, the room records it, and every
+				subscribed session is pushed the result — including yours.
+			</p>
+			@RosterRegion(s)
+			@LogRegion(s)
+			@ComposerRegion(s)
+			<!--
+					The connection indicator is CSS and nothing else. The
+					client runtime writes data-gotth-status on <html> —
+					connecting, live, reconnecting, closed — and the
+					stylesheet selects on it. No script of ours runs on this
+					page at all.
+				-->
+			<p class="status">connection: <span class="dot"></span></p>
+			<details class="try">
+				<summary>Things to try</summary>
+				<ul>
+					<li>
+						Open a second browser and sign in as <code>bob</code>.
+						Say something in one and watch the other repaint.
+					</li>
+					<li>
+						Start typing in one window and send a message from the
+						other. Your half-typed sentence stays exactly where it
+						was.
+					</li>
+					<li>
+						Sign in as <code>olive</code>, an observer: the box is
+						disabled, and an event sent anyway is refused.
+					</li>
+					<li>
+						Sign in as <code>mallory</code> to get the
+						<em>Clear the room</em> button. As anybody else, the
+						same event is denied.
+					</li>
+					<li>
+						Send <code>{ CmdPanicReducer }</code>,
+						<code>{ CmdPanicEffect }</code> or
+						<code>{ CmdPanicRender }</code>. This window is
+						affected; the other one keeps working.
+					</li>
+				</ul>
+			</details>
+		</main>
+	}
+}
+
+// chatHead is this example's own head content. app.Document owns the charset
+// and the title and nothing else up there: a viewport meta and a stylesheet
+// are decisions about how this page looks, not about how it is connected.
+//
+// One component serves both pages, which is the honest shape here — the login
+// page and the room are the same site and want the same stylesheet — and it is
+// also the demonstration that a page shell which could not carry head content
+// would have been useless to this example on the day it shipped.
+templ chatHead() {
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<link rel="stylesheet" href="/chat.css"/>
+}
+
+// LoginPage is what a browser with no identity cookie gets.
+//
+// It exists because Config.Authenticate is a real hook here rather than
+// live.Anonymous: the session is bound to a member at the handshake, and there
+// is nothing to bind it to until somebody says who they are.
+//
+// It is a page in a live application that is deliberately NOT live: there are
+// no regions on it, nothing to morph, and no identity yet to bind a session to.
+// live.NoRuntime is how that is said. It is a named value rather than an
+// omitted argument for the reason every other opt-out in this library is a
+// named value: an absence would be indistinguishable from forgetting, and
+// forgetting would render a page that loads perfectly and does nothing.
+templ LoginPage(app *live.App[State, Member], names []string) {
+	@app.Document(live.NoRuntime, "gotth-live chat — sign in", templ.Attributes{"lang": "en"}, chatHead()) {
+		<main>
+			<h1>gotth-live chat</h1>
+			<p class="lede">
+				Pick somebody to be. Each one has a different role, and the
+				roles are what Config.Authorize decides on.
+			</p>
+			<ul class="login" data-chat-id="login">
+				for _, name := range names {
+					<li><a href={ templ.SafeURL("/login?user=" + name) }>{ name }</a></li>
+				}
+			</ul>
+			<p class="hint">
+				Two windows signed in as the same name is a supported case,
+				and the one this example sets Limits.MaxSessionsPerIdentity
+				for.
+			</p>
+		</main>
+	}
+}

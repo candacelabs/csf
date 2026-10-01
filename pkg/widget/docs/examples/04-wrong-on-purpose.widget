@@ -1,0 +1,228 @@
+%% ============================================================================
+%% 04 — Wrong on purpose
+%%
+%% This document does not validate, and every fault in it is deliberate. It is
+%% the acceptance test for the validator and the worked example for
+%% ../errors.md: each comment names the error class the validator MUST produce
+%% at the line below it.
+%%
+%% Read it as a catalogue of the mistakes the language expects an author to
+%% make. Twenty-nine faults across twenty-four error classes, chosen to cover
+%% every group in the catalogue: structure, lexical, reference, cardinality,
+%% semantic invariant, canonical form, and accessibility policy. One line
+%% carries two findings, which is normal and is why the validator reports per
+%% finding rather than per line.
+%%
+%% The validator reports ALL of them in one run. An author who fixes one error
+%% and re-runs to find the next learns to distrust the tool.
+%% ============================================================================
+
+
+%% W002 — the `dialect` directive is missing from the preamble. All four
+%% preamble directives are required, in order.
+widget BrokenCard
+
+%% W108 — a region identity must match ^[A-Za-z0-9_:.-]{1,64}$. This one
+%% contains a space.
+region "widget.broken card"
+
+%% W208 — no such palette. The interpreter does not resolve a palette's colour
+%% values, but the set of palette NAMES is closed, so a typo here is refusable
+%% rather than something a host discovers at its first render.
+palette midnightNeon
+
+
+state
+  %% W419 — the runtime writes a signal as true and false, so the field a
+  %% `signal` clause binds is a `flag`. A counter can hold neither. This is the
+  %% one fault here that the interpreter used to have no class for: it called
+  %% the line sound, and the generator turned it into Go assigning a bool to a
+  %% uint64.
+  field beats type counter signal slowClient
+  field reachable type flag
+  %% W409 — nothing writes `orphan`: no event field assigns it, no event
+  %% toggles it, no runtime signal binds it.
+  field orphan type count
+end
+
+
+predicates
+  %% W408 — `up` requires `down`, and `down` forbids `up`. The predicate
+  %% reference graph must be acyclic.
+  predicate up
+    requires reachable
+    requires down
+  end
+
+  predicate down
+    forbids up
+  end
+end
+
+
+bindings
+  %% W401 — no `otherwise` clause. A binding must be total.
+  binding statusText
+    when reachable then "reachable"
+  end
+
+  binding sceneDescriptionText
+    when up then "up"
+    %% W201 — `upAndReachable` is not declared anywhere.
+    when upAndReachable then "still up"
+    otherwise "down"
+  end
+
+  %% W415 — clause 2's guard is a strict conjunctive refinement of clause 1's
+  %% (`up` requires everything `reachable` does, and more), so it can never be
+  %% reached. It is dead text an author believes is live.
+  binding beatCaptionText
+    when reachable then "beating"
+    when up then "beating and up"
+    otherwise "quiet"
+  end
+
+  %% W410 — no label binds this. A binding referenced by nothing never renders.
+  binding neverUsedText
+    when reachable then "a"
+    otherwise "b"
+  end
+end
+
+
+labels
+  label titleLabel text "Broken card"
+  label sceneDescriptionLabel binds sceneDescriptionText
+  label nodeALabel text "node-a"
+  label beatLegendLabel text "beat"
+  label ghostLegendLabel text "ghost"
+  label beatCaptionLabel binds beatCaptionText
+
+  %% W402 — two sources. A label is `text` or `binds`, never both.
+  label statusLabel text "up" binds statusText
+
+  %% W605 — a literal address in a label. A widget document carries no host
+  %% name, address, path or operator identifier; use a role name instead.
+  label siteLabel text "203.0.113.7"
+end
+
+
+roles
+  role peer
+    %% W505 — an inline colour where a token name belongs. A widget writes a
+    %% token name only; there is no hex literal and no var(--…) escape hatch.
+    token #7a8b5f
+    marker small
+    emphasis forbidden
+  end
+end
+
+%% W005 — blocks appear in one fixed order and `chrome` is block 5, which comes
+%% before `roles` at 6. The order is the resolution order, so this is not a
+%% style preference. The finding anchors at the block that arrived late, which
+%% is the one whose ordinal is lower than the block before it.
+chrome
+  title titleLabel
+  %% Not a fault: the stat slot is what references `statusLabel`, whose two
+  %% sources are the W402 above. A label filling no slot would be a second,
+  %% undeclared fault in a document whose faults are all deliberate.
+  stat statusLabel
+end
+
+
+channels
+  channel beat
+    direction forward
+    token accent
+    legend beatLegendLabel
+  end
+
+  %% W410 — `ghost` is carried by no edge.
+  channel ghost
+    %% W105 — `direction` is `forward` or `reverse`. A channel is never
+    %% bidirectional and never anything else.
+    direction sideways
+    token accent
+    legend ghostLegendLabel
+  end
+end
+
+
+placements
+  placement here left 50 top 50
+  %% W104 and W410, both on this line — `left` and `top` are integers in
+  %% [0, 100], and no node is placed `there`.
+  placement there left 120 top 50
+end
+
+
+scene broken
+  description sceneDescriptionLabel
+
+  node nodeA
+    role peer
+    at here
+    title nodeALabel
+    caption siteLabel
+  end
+
+  node nodeB
+    %% W201 — `missingRole` is not declared in the `roles` block.
+    role missingRole
+    %% W306 — `here` is already taken by nodeA. One point holds one node.
+    at here
+    %% W507 — a literal string where a label reference belongs. Text lives in
+    %% the `labels` block and nowhere else.
+    title "node-b"
+    caption beatCaptionLabel
+  end
+
+  %% W501 — a mermaid edge operator. The dialect has one edge form, and it
+  %% carries an identifier, which `-->` has nowhere to put.
+  nodeA --> nodeB
+
+  %% W403 — a self-edge. `from` and `to` must differ; a self-edge has no
+  %% derivable geometry in a point-placement scene.
+  edge loop
+    from nodeA
+    to nodeA
+    carries beat
+  end
+end
+
+
+%% W405 — this block holds a pulse but declares no `restartOn`, so nothing
+%% would ever re-arm the animation.
+motion
+  requires up
+
+  pulse ghostBeat
+    edge loop
+    %% W404 — `loop` carries `beat`, not `ghost`.
+    channel ghost
+    %% W506 — a unit sigil. Time carries its unit as a word:
+    %% `duration 820 milliseconds`.
+    duration 820ms
+    delay 0 milliseconds
+  end
+end
+
+
+controls
+  control toggle
+    caption titleLabel
+    %% W105 — `trigger` is one of click, change, input, submit.
+    trigger hover
+    %% W411 — no `togglePause` event is declared. A widget declares every
+    %% event it emits.
+    emits togglePause
+  end
+end
+
+
+%% Neither `events` nor `data` is a required block, so their absence is not
+%% itself an error. The consequence is: nothing writes `reachable`, so W409
+%% fires once more, at its declaration in the `state` block rather than here. A
+%% whole-document invariant anchors at the declaration of the thing it is about,
+%% never at the end of the file. `beats` escapes it only because the `signal`
+%% clause above is a writer — a wrong one, which is what W419 says.

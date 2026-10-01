@@ -1,0 +1,110 @@
+{
+  "backend": "isaac",
+  "backend_profile": {
+    "frame_projection": "Author the stage as canonical right-handed Z-up, metresPerUnit=1; verify asset transforms.",
+    "reference_version": "Isaac Sim 6.0 direct interface",
+    "requirements": [
+      "Use one fixed-step physics owner and stamp observations with simulation tick.",
+      "Provide a pinned Ackermann vehicle USD, joint names and actuator calibration.",
+      "Create a flat lane fixture with the declared width; lane boundaries are reference geometry, not collision claims.",
+      "Joint targets and applied acceleration differ; record the controller/drive model used."
+    ],
+    "settings": {
+      "metres_per_unit": 1.0,
+      "physics_dt": 0.1,
+      "up_axis": "Z"
+    }
+  },
+  "canonical_frame": "right-handed: x forward, y left, z up",
+  "clock": {
+    "command_deadlines_use_monotonic_runtime_clock_on_hardware": true,
+    "mode": "single_owner_fixed_step",
+    "steps": 20,
+    "tick_milliseconds": 100
+  },
+  "contract_descriptor_sha256": "c180261471f115fb7d1c87127ad786d3ac8b6391f3e808a425df6331417b9598",
+  "controller_io": {
+    "acceleration_conversion": "action.acceleration/1000 * 3 metres/second^2",
+    "controller_replacement": "between episodes; strictly increasing epoch",
+    "feature_order": [
+      "lateral/half_lane_width",
+      "heading_error/0.5rad",
+      "speed_error/10mps",
+      "curvature/0.05_per_metre"
+    ],
+    "feature_quantization": "multiply1000, nearest ties-to-even, clip[-10000,10000]",
+    "numeric_profile": 1,
+    "steering_conversion": "action.steering/1000 * 0.5 radians",
+    "transport": "generated RuntimeRequest/RuntimeResponse JSONL"
+  },
+  "execution_blockers": [
+    "Attach a pinned simulator and a vehicle fixture with a known actuator mapping.",
+    "Calibrate steering/acceleration realization and record tolerance bounds.",
+    "Run adapter conformance and preserve the observed trace before claiming execution."
+  ],
+  "format": "brain-spine-simulator-plan-v1",
+  "initial_state": {
+    "speed_mps": 7.805933869807231,
+    "x_metres": 0,
+    "y_metres": 0.23172966472292944,
+    "yaw_radians": -0.033781881329407425
+  },
+  "observations_required": [
+    "pose",
+    "linear_velocity",
+    "simulation_tick",
+    "monotonic_sequence",
+    "active_epoch"
+  ],
+  "oracles": [
+    "normalized feature/units conformance",
+    "command bounds",
+    "stale/epoch enforcement in spine",
+    "centre-lane departure",
+    "tracking objective"
+  ],
+  "reference_path": {
+    "direction": [
+      1,
+      0,
+      0
+    ],
+    "half_width_metres": 2.0,
+    "kind": "straight",
+    "start_metres": [
+      0,
+      0,
+      0
+    ]
+  },
+  "reproducibility": {
+    "cross_backend_identical_physics_claimed": false,
+    "record_before_execution": [
+      "simulator_version",
+      "physics_version",
+      "asset_sha256",
+      "adapter_sha256",
+      "hardware",
+      "realized_initial_state"
+    ],
+    "seed": "100"
+  },
+  "source_scenario": {
+    "initial_heading_radians": -0.033781881329407425,
+    "initial_lateral_metres": 0.23172966472292944,
+    "lane_half_width_metres": 2.0,
+    "name": "lane-tracking-100",
+    "schema_version": 1,
+    "seed": "100",
+    "steps": 20,
+    "target_speed_mps": 13.009889783012053,
+    "tick_milliseconds": 100
+  },
+  "source_scenario_sha256": "31e33126f542e2fa60d0bc521c867c5a3613a5cd8b3b68988b20a00797059d80",
+  "status": "unexecuted_plan",
+  "units": {
+    "angle": "radian",
+    "distance": "metre",
+    "time": "second"
+  }
+}

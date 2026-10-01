@@ -1,0 +1,73 @@
+// Runtime-observed provenance shared by notifications and other CSF receipts.
+syntax = "proto3";
+
+package candace.provenance.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/provenance/v1;provenancev1";
+
+// A transport signature is not implied: this record identifies observations,
+// not cryptographic attestation. Unknown values stay absent, never inferred.
+message ReceiptMetadata {
+  uint32 schema_version = 1 [(candace.liquid.v1.field) = {expr: "this == 1"}];
+  string receipt_id = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+  google.protobuf.Timestamp recorded_at = 3;
+  NodeIdentity reporting_node = 4;
+  string csf_version = 5 [(candace.liquid.v1.field) = {expr: "len(this) <= 128"}];
+  string source_revision = 6 [(candace.liquid.v1.field) = {expr: "len(this) <= 128"}];
+  // Only sessions associated with this operation, supplied by its trusted host.
+  // Do not collect unrelated conversations, prompts, credentials or tokens.
+  repeated SessionReference sessions = 7;
+  repeated ContainerObservation containers = 8;
+  repeated EvidenceLink links = 9;
+  // Explicit collection gaps, e.g. "container observer unavailable".
+  repeated string unavailable = 10;
+}
+
+message NodeIdentity {
+  string node_id = 1 [(candace.liquid.v1.field) = {expr: "len(this) <= 128"}];
+  string hostname = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 253"}];
+  string address = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 512"}];
+}
+
+message SessionReference {
+  // Stable provider identifier, e.g. copilot or chatgpt, not a model guess.
+  string provider = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 64"}];
+  string session_id = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  string agent_id = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 128"}];
+  string url = 4 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096"}];
+}
+
+enum ContainerState {
+  CONTAINER_STATE_UNSPECIFIED = 0;
+  CONTAINER_STATE_RUNNING = 1;
+  CONTAINER_STATE_STOPPED = 2;
+  CONTAINER_STATE_UNKNOWN = 3;
+}
+
+message ContainerObservation {
+  string name = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  string image = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 1024"}];
+  NodeIdentity node = 3;
+  ContainerState state = 4;
+  google.protobuf.Timestamp observed_at = 5;
+  repeated EvidenceLink links = 6;
+}
+
+enum EvidenceLinkKind {
+  EVIDENCE_LINK_KIND_UNSPECIFIED = 0;
+  EVIDENCE_LINK_KIND_LOGS = 1;
+  EVIDENCE_LINK_KIND_TRACE = 2;
+  EVIDENCE_LINK_KIND_GRAFANA = 3;
+  EVIDENCE_LINK_KIND_WORKBENCH = 4;
+  EVIDENCE_LINK_KIND_CSF = 5;
+}
+
+message EvidenceLink {
+  EvidenceLinkKind kind = 1;
+  string label = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+  // The renderer additionally permits only HTTP(S), with no userinfo or secrets.
+  string url = 3 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 4096"}];
+}

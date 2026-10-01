@@ -1,0 +1,13 @@
+{
+  "assignment_id": "0caf2d51-1ee7-468a-882f-ac478a437640",
+  "agent": {
+    "id": "go-reviewer",
+    "revision": 1,
+    "display_name": "Mira",
+    "instructions": "Review Go changes. Read the repository instructions first. Report concrete findings with file and line references and evidence. Do not edit files for a review-only assignment."
+  },
+  "ticket_url": "https://example.invalid/project/issues/1",
+  "task": "Inspect the repository's service composition example. Identify its resource owner, shutdown behavior and checks. Report findings without modifying files.",
+  "model": "choose-from-workbench-models",
+  "repository_id": "choose-from-workbench-repositories"
+}

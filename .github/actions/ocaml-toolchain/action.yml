@@ -1,0 +1,169 @@
+name: Reuse the validated OCaml toolchain
+description: Prepare or restore an exact locked installation at a stable container path; callers still run their complete native checks.
+
+inputs:
+  mode:
+    description: repository initializes pinned tooling and package metadata; bytecode builds the bootstrap; compiler installs OCaml; prepare completes its locked graph; restore requires the final installation.
+    default: restore
+
+outputs:
+  cache-hit:
+    description: Whether the exact installation was already cached.
+    value: ${{ steps.restore.outputs.cache-hit }}
+
+runs:
+  using: composite
+  steps:
+    - name: Identify the exact toolchain and stable installation
+      id: key
+      shell: bash
+      env:
+        ACTION_ROOT: ${{ github.action_path }}
+        MODE: ${{ inputs.mode }}
+      run: |
+        set -Eeuo pipefail
+        case "$MODE" in repository|bytecode|compiler|prepare|restore) ;; *) printf 'Unknown toolchain cache mode: %s\n' "$MODE" >&2; exit 2 ;; esac
+        module_root=$(cd -- "$ACTION_ROOT/../../.." && pwd -P)
+        key=$(bash "$ACTION_ROOT/key.sh")
+        printf 'value=%s\n' "$key" >> "$GITHUB_OUTPUT"
+        printf 'module-root=%s\n' "$module_root" >> "$GITHUB_OUTPUT"
+        printf 'preparation-bazel=%s/.git/csf-ocaml-bazel\n' "$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+        printf 'CANDACE_OCAML_TOOLCHAIN_CACHE=%s/.git/csf-ocaml-toolchain\n' "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
+
+    - name: Restore the exact validated installation
+      id: restore
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: .git/csf-ocaml-toolchain/
+        key: csf-ocaml-toolchain-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.value }}
+
+    - name: Require the prepared installation in check jobs
+      if: inputs.mode == 'restore' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        printf 'The exact OCaml installation is missing; the preparation job must finish successfully first.\n' >&2
+        exit 1
+
+    - name: Restore the separately validated compiler base
+      id: compiler
+      if: inputs.mode != 'restore' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: .git/csf-ocaml-toolchain/
+        key: csf-ocaml-compiler-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.value }}
+
+    - name: Restore the validated bytecode bootstrap
+      id: bytecode
+      if: inputs.mode != 'restore' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: |
+          .git/csf-ocaml-toolchain/
+          .git/csf-ocaml-bazel/output/install/
+          .git/csf-ocaml-bazel/output/cache/repos/v1/
+        key: csf-ocaml-bytecode-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.value }}
+
+    - name: Restore initialized repository metadata and pinned Bazel installation
+      id: repository
+      if: inputs.mode != 'restore' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true'
+      uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: |
+          .git/csf-ocaml-toolchain/
+          .git/csf-ocaml-bazel/output/install/
+          .git/csf-ocaml-bazel/output/cache/repos/v1/
+        key: csf-ocaml-repository-v1-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.value }}
+
+    - name: Initialize and validate repository metadata
+      if: inputs.mode == 'repository' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true' && steps.repository.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        CANDACE_BAZEL_WORKSPACE: ${{ steps.key.outputs.module-root }}
+        CANDACE_BAZEL_CACHE: ${{ steps.key.outputs.preparation-bazel }}
+      run: |
+        set -Eeuo pipefail
+        bash "$CANDACE_BAZEL_WORKSPACE/tools/bazel.sh" build @opam.repository//:repository.json --lockfile_mode=error
+
+    - name: Save the initialized repository and immutable Bazel files
+      if: inputs.mode == 'repository' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true' && steps.repository.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: |
+          .git/csf-ocaml-toolchain/
+          .git/csf-ocaml-bazel/output/install/
+          .git/csf-ocaml-bazel/output/cache/repos/v1/
+        key: ${{ steps.repository.outputs.cache-primary-key }}
+
+    - name: Require initialized repository metadata before bytecode preparation
+      if: inputs.mode == 'bytecode' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true' && steps.repository.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        printf 'The exact opam repository is missing; repository preparation must finish successfully first.\n' >&2
+        exit 1
+
+    - name: Build and validate the bytecode bootstrap
+      if: inputs.mode == 'bytecode' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        CANDACE_BAZEL_WORKSPACE: ${{ steps.key.outputs.module-root }}
+        CANDACE_BAZEL_CACHE: ${{ steps.key.outputs.preparation-bazel }}
+      run: |
+        set -Eeuo pipefail
+        bash "$CANDACE_BAZEL_WORKSPACE/tools/bazel.sh" build @opam.bytecode//:bytecode.json --lockfile_mode=error
+
+    - name: Save the completed bytecode bootstrap
+      if: inputs.mode == 'bytecode' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: |
+          .git/csf-ocaml-toolchain/
+          .git/csf-ocaml-bazel/output/install/
+          .git/csf-ocaml-bazel/output/cache/repos/v1/
+        key: ${{ steps.bytecode.outputs.cache-primary-key }}
+
+    - name: Require the bytecode bootstrap before native compiler installation
+      if: inputs.mode == 'compiler' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true' && steps.bytecode.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        printf 'The exact OCaml bootstrap is missing; bytecode preparation must finish successfully first.\n' >&2
+        exit 1
+
+    - name: Install and validate the exact base compiler
+      if: inputs.mode == 'compiler' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        CANDACE_BAZEL_WORKSPACE: ${{ steps.key.outputs.module-root }}
+        CANDACE_BAZEL_CACHE: ${{ steps.key.outputs.preparation-bazel }}
+      run: |
+        set -Eeuo pipefail
+        bash "$CANDACE_BAZEL_WORKSPACE/tools/bazel.sh" build @opam.compiler//:compiler.json --lockfile_mode=error
+
+    - name: Save the intermediate compiler preparation
+      if: inputs.mode == 'compiler' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: .git/csf-ocaml-toolchain/
+        key: ${{ steps.compiler.outputs.cache-primary-key }}
+
+    - name: Require the compiler base before preparing the complete graph
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true' && steps.compiler.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        printf 'The exact OCaml base is missing; compiler preparation must finish successfully first.\n' >&2
+        exit 1
+
+    - name: Install and validate the complete locked package and library graph
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        CANDACE_BAZEL_WORKSPACE: ${{ steps.key.outputs.module-root }}
+      run: |
+        set -Eeuo pipefail
+        bash "$CANDACE_BAZEL_WORKSPACE/tools/bazel.sh" build @opam.lock//:opam.lock.json --lockfile_mode=error
+
+    - name: Save only the successfully validated installation
+      if: inputs.mode == 'prepare' && steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      with:
+        path: .git/csf-ocaml-toolchain/
+        key: ${{ steps.restore.outputs.cache-primary-key }}

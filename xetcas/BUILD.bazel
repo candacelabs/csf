@@ -1,0 +1,11 @@
+# The Cargo workspace root.
+#
+# Nothing in this directory is built by Bazel directly: the two files exported
+# here are read by crate_universe (see //:MODULE.bazel), which resolves the
+# third-party crates from exactly the manifests and lockfile cargo resolves
+# from. The crates themselves are built from //xetcas/crates/... and
+# //xetcas/xtask.
+exports_files([
+    "Cargo.lock",
+    "Cargo.toml",
+])

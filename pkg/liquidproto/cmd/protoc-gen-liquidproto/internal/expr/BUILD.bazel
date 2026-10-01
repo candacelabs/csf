@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "expr",
+    srcs = [
+        "compile.go",
+        "types.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/liquidproto/cmd/protoc-gen-liquidproto/internal/expr",
+    visibility = ["//pkg/liquidproto/cmd/protoc-gen-liquidproto:__subpackages__"],
+    deps = ["@org_golang_google_protobuf//reflect/protoreflect"],
+)
+
+go_test(
+    name = "expr_test",
+    srcs = ["compile_test.go"],
+    embed = [":expr"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+    ],
+)

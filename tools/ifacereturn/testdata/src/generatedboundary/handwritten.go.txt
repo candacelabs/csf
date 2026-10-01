@@ -1,0 +1,4 @@
+package generatedboundary
+
+// A generated type does not exempt a handwritten declaration that returns it.
+func Handwritten() IGenerated { return nil } // want "Handwritten returns the interface generatedboundary.IGenerated"

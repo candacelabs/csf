@@ -1,0 +1,67 @@
+load("@csf_operator_crates//:defs.bzl", "aliases", "all_crate_deps", "crate_edition")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+
+exports_files([
+    "Cargo.lock",
+    "Cargo.toml",
+])
+
+rust_library(
+    name = "operator",
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/main.rs"],
+    ),
+    aliases = aliases(),
+    crate_name = "candace_csf",
+    crate_root = "src/lib.rs",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True),
+)
+
+rust_binary(
+    name = "csf",
+    srcs = ["src/main.rs"],
+    aliases = aliases(),
+    edition = crate_edition(),
+    visibility = ["//visibility:public"],
+    deps = [":operator"] + all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "operator_test",
+    aliases = aliases(
+        normal_dev = True,
+        proc_macro_dev = True,
+    ),
+    crate = ":operator",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)
+
+# These run the real binary and cover help/argument exits and piped request
+# forwarding. They use temporary state and never contact a container daemon.
+[
+    rust_test(
+        name = name + "_test",
+        srcs = ["tests/" + name + ".rs"],
+        aliases = aliases(
+            normal = True,
+            normal_dev = True,
+        ),
+        crate_root = "tests/" + name + ".rs",
+        data = [":csf"],
+        edition = crate_edition(),
+        rustc_env = {"CARGO_BIN_EXE_csf": "$(rootpath :csf)"},
+        deps = all_crate_deps(
+            normal = True,
+            normal_dev = True,
+        ),
+    )
+    for name in [
+        "help",
+        "stdin_forwarding",
+    ]
+]

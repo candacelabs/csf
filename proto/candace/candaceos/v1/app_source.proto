@@ -1,0 +1,39 @@
+// Immutable app-source selection and materialization bounds.
+syntax = "proto3";
+
+package candace.candaceos.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/candaceos/v1;candaceosv1";
+
+// AppSourceSelection identifies one subtree of one exact Git commit.
+message AppSourceSelection {
+  string revision = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^([0-9a-f]{40}|[0-9a-f]{64})$`)"
+  }];
+  string path = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 512 && (this == `.` || !matches(this, `(^/|/$|//|(^|/)\\.\\.?(/|$)|\\\\)`))"
+  }];
+}
+
+// AppSourceLimits bounds regular files and content bytes accepted from one
+// revision. The filesystem-entry ceiling is twice max_files.
+message AppSourceLimits {
+  // The ceiling keeps the derived two-entries-per-file budget within int32.
+  int64 max_files = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 1073741823"
+  }];
+  int64 max_bytes = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 1099511627776"
+  }];
+}
+
+// AppSourceEntry is one canonical slash-separated path below a materialized
+// source root. It excludes traversal, empty components, and path shapes that
+// cannot be represented portably by the node cache.
+message AppSourceEntry {
+  string path = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 1024 && !matches(this, `(^/|/$|//|(^|/)\\.\\.?(/|$)|\\\\|(^|/)[^/]{256})`) && !matches(this, `^([^/]+/){64}`)"
+  }];
+}

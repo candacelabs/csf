@@ -1,0 +1,232 @@
+{
+  "name": "csf",
+  "word": "_word",
+  "rules": {
+    "architecture": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "architecture" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "version" },
+        { "type": "SYMBOL", "name": "integer" },
+        { "type": "STRING", "value": "{" },
+        {
+          "type": "REPEAT",
+          "content": { "type": "SYMBOL", "name": "declaration" }
+        },
+        { "type": "STRING", "value": "}" }
+      ]
+    },
+    "component": {
+      "type": "SEQ",
+      "members": [
+        { "type": "SYMBOL", "name": "role" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "in" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "scope" },
+        { "type": "SYMBOL", "name": "identifier" },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                { "type": "STRING", "value": "source" },
+                { "type": "SYMBOL", "name": "string" }
+              ]
+            },
+            { "type": "BLANK" }
+          ]
+        },
+        { "type": "STRING", "value": "state" },
+        { "type": "SYMBOL", "name": "state" },
+        { "type": "STRING", "value": "lifecycle" },
+        { "type": "SYMBOL", "name": "lifecycle" },
+        { "type": "STRING", "value": "verification" },
+        { "type": "SYMBOL", "name": "verification" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "connection": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "connect" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "->" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "via" },
+        { "type": "SYMBOL", "name": "transport" },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                { "type": "STRING", "value": "boundary" },
+                { "type": "SYMBOL", "name": "identifier" }
+              ]
+            },
+            { "type": "BLANK" }
+          ]
+        },
+        { "type": "STRING", "value": "state" },
+        { "type": "SYMBOL", "name": "state" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "declaration": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "SYMBOL", "name": "process" },
+        { "type": "SYMBOL", "name": "scope" },
+        { "type": "SYMBOL", "name": "component" },
+        { "type": "SYMBOL", "name": "dependency" },
+        { "type": "SYMBOL", "name": "connection" },
+        { "type": "SYMBOL", "name": "scan" },
+        { "type": "SYMBOL", "name": "generated" }
+      ]
+    },
+    "dependency": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "requires" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "->" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "generated": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "generated" },
+        { "type": "SYMBOL", "name": "string" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "lifecycle": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "scoped" },
+        { "type": "STRING", "value": "borrowed" }
+      ]
+    },
+    "process": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "process" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "kind" },
+        { "type": "SYMBOL", "name": "process_kind" },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                { "type": "STRING", "value": "entrypoint" },
+                { "type": "SYMBOL", "name": "string" }
+              ]
+            },
+            { "type": "BLANK" }
+          ]
+        },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "process_kind": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "go" },
+        { "type": "STRING", "value": "external" }
+      ]
+    },
+    "role": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "service" },
+        { "type": "STRING", "value": "manager" },
+        { "type": "STRING", "value": "library" },
+        { "type": "STRING", "value": "adapter" },
+        { "type": "STRING", "value": "gateway" },
+        { "type": "STRING", "value": "resource" }
+      ]
+    },
+    "scan": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "scan" },
+        { "type": "SYMBOL", "name": "string" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "scope": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "scope" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": "under" },
+        { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "state": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "existing" },
+        { "type": "STRING", "value": "planned" }
+      ]
+    },
+    "transport": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "call" },
+        { "type": "STRING", "value": "channel" },
+        { "type": "STRING", "value": "subprocess" },
+        { "type": "STRING", "value": "remote" },
+        { "type": "STRING", "value": "device" }
+      ]
+    },
+    "verification": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "pending" },
+        {
+          "type": "SEQ",
+          "members": [
+            { "type": "STRING", "value": "test" },
+            { "type": "SYMBOL", "name": "string" }
+          ]
+        }
+      ]
+    },
+    "_word": {
+      "type": "PATTERN",
+      "value": "[\\x41\\x42\\x43\\x44\\x45\\x46\\x47\\x48\\x49\\x4a\\x4b\\x4c\\x4d\\x4e\\x4f\\x50\\x51\\x52\\x53\\x54\\x55\\x56\\x57\\x58\\x59\\x5a\\x5f\\x61\\x62\\x63\\x64\\x65\\x66\\x67\\x68\\x69\\x6a\\x6b\\x6c\\x6d\\x6e\\x6f\\x70\\x71\\x72\\x73\\x74\\x75\\x76\\x77\\x78\\x79\\x7a][\\x2d\\x30\\x31\\x32\\x33\\x34\\x35\\x36\\x37\\x38\\x39\\x41\\x42\\x43\\x44\\x45\\x46\\x47\\x48\\x49\\x4a\\x4b\\x4c\\x4d\\x4e\\x4f\\x50\\x51\\x52\\x53\\x54\\x55\\x56\\x57\\x58\\x59\\x5a\\x5f\\x61\\x62\\x63\\x64\\x65\\x66\\x67\\x68\\x69\\x6a\\x6b\\x6c\\x6d\\x6e\\x6f\\x70\\x71\\x72\\x73\\x74\\x75\\x76\\x77\\x78\\x79\\x7a]*"
+    },
+    "integer": {
+      "type": "TOKEN",
+      "content": { "type": "PATTERN", "value": "[0-9]+" }
+    },
+    "string": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PATTERN",
+        "value": "\"([^\"\\\\\u0000-\u001f]|\\\\([\"\\\\/bfnrt]|u[0-9a-fA-F]{4}))*\""
+      }
+    },
+    "comment": {
+      "type": "TOKEN",
+      "content": { "type": "PATTERN", "value": "//[^\n]*" }
+    }
+  },
+  "extras": [
+    { "type": "PATTERN", "value": "[ \t\r\n]" },
+    { "type": "SYMBOL", "name": "comment" }
+  ],
+  "externals": [ { "type": "SYMBOL", "name": "identifier" } ],
+  "conflicts": [],
+  "inline": [],
+  "supertypes": []
+}

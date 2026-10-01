@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "boundedbuffer",
+    srcs = ["buffer.go"],
+    importpath = "github.com/candacelabs/csf/pkg/boundedbuffer",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/boundedbuffer/v1:boundedbuffer"],
+)
+
+go_test(
+    name = "boundedbuffer_test",
+    srcs = [
+        "buffer_suite_test.go",
+        "buffer_test.go",
+    ],
+    deps = [
+        ":boundedbuffer",
+        "//pkg/boundedbuffer/v1:boundedbuffer",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

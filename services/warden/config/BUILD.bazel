@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "config",
+    srcs = [
+        "config.go",
+        "env.go",
+        "modes.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/warden",
+        "@in_gopkg_yaml_v3//:yaml_v3",
+    ],
+)
+
+go_test(
+    name = "config_test",
+    srcs = [
+        "config_contract_test.go",
+        "config_test.go",
+        "discovery_test.go",
+    ],
+    embed = [":config"],
+    deps = [
+        "//services/warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

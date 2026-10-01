@@ -1,0 +1,13 @@
+FROM nvcr.io/nvidia/isaac-sim:6.0.0@sha256:68735a60b6c15c85e0dd0098570c6d2cc79e928f2d068ce2790aa43284ac165d
+
+USER root
+COPY --chown=1234:1234 csf/tools/codegen/generated/python /opt/brain-spine/generated/python
+COPY --chown=1234:1234 csf/examples/simulators /opt/brain-spine/simulators
+RUN set -eu; \
+    /isaac-sim/python.sh -m pip install --no-cache-dir -r /opt/brain-spine/simulators/requirements.txt; \
+    install -d -o 1234 -g 1234 /artifacts
+ENV PYTHONPATH=/opt/brain-spine/generated/python \
+    ACCEPT_EULA=Y
+USER 1234:1234
+WORKDIR /isaac-sim
+ENTRYPOINT ["/isaac-sim/python.sh", "/opt/brain-spine/simulators/isaac_rigidbody.py"]

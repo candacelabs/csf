@@ -1,0 +1,12 @@
+version: v2
+# Local plugins: protoc-gen-go and protoc-gen-go-grpc must be on PATH
+# (installed via `go install`; see generate.sh, which prepends GOBIN/GOPATH bin).
+# Generated files land next to their source .proto (paths=source_relative), so
+# warden/v1/warden.proto -> warden/v1/warden.pb.go and warden_grpc.pb.go.
+plugins:
+  - local: protoc-gen-go
+    out: .
+    opt: paths=source_relative
+  - local: protoc-gen-go-grpc
+    out: .
+    opt: paths=source_relative

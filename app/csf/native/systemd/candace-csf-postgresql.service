@@ -1,0 +1,23 @@
+[Unit]
+Description=candace/csf PostgreSQL 17
+After=network.target candace-csf-postgresql-init.service
+Requires=candace-csf-postgresql-init.service
+
+[Service]
+Type=simple
+User=candace-csf-postgresql
+Group=candace-csf-postgresql
+StateDirectory=candace-csf-postgresql
+StateDirectoryMode=0700
+ExecStart=/opt/candace/csf/components/postgresql/bin/postgres -D /var/lib/candace-csf-postgresql -c listen_addresses=127.0.0.1 -c port=15432 -c password_encryption=scram-sha-256
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

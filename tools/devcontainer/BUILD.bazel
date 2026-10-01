@@ -1,0 +1,45 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+load(":devcontainer.bzl", "devcontainer")
+
+exports_files(["devcontainer.bzl"])
+
+devcontainer(
+    name = "dockerfile",
+    visibility = ["//visibility:public"],
+)
+
+ocaml_module(
+    name = "Devcontainer_codegen",
+    struct = "devcontainer_codegen.ml",
+    deps = ["//csf/compiler/architecture:Codegen_header"],
+)
+
+ocaml_module(
+    name = "Devcontainer_codegen_main",
+    struct = "devcontainer_codegen_main.ml",
+    deps = [
+        ":Devcontainer_codegen",
+        "//csf/compiler/architecture:Codegen_header",
+    ],
+)
+
+ocaml_binary(
+    name = "codegen",
+    main = ":Devcontainer_codegen_main",
+    visibility = ["//visibility:public"],
+)
+
+ocaml_module(
+    name = "Devcontainer_codegen_test",
+    struct = "devcontainer_codegen_test.ml",
+    deps = [
+        ":Devcontainer_codegen",
+        "//csf/compiler/architecture:Codegen_header",
+    ],
+)
+
+ocaml_test(
+    name = "codegen_test",
+    size = "small",
+    main = ":Devcontainer_codegen_test",
+)

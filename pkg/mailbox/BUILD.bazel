@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "mailbox",
+    srcs = ["mailbox.go"],
+    importpath = "github.com/candacelabs/csf/pkg/mailbox",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "mailbox_test",
+    srcs = [
+        "mailbox_suite_test.go",
+        "mailbox_test.go",
+    ],
+    embed = [":mailbox"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

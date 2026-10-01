@@ -1,0 +1,12 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["opam.lock.json"])
+
+# Stable command path for public compiler consumers.
+genrule(
+    name = "csfc",
+    srcs = ["//csf/compiler/architecture:csfc"],
+    outs = ["bin/csfc"],
+    cmd = "cp $(location //csf/compiler/architecture:csfc) $@",
+    executable = True,
+)

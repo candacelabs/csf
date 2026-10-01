@@ -1,0 +1,184 @@
+{
+  "_note": "[identifiers genericized for publication - measurements unmodified] Host, container and project names in this artifact are neutral stand-ins for the deployment they were recorded on; counts, order, timings and the verdict are exactly as measured.",
+  "schema": "gotth-live-bench/driver-validation/1",
+  "spec": "docs/bench/equivalence-spec.md §3.6, \"Driver validation gate\"",
+  "status": "not-run",
+  "reason": "[Q-7] a GPU streaming container is running on this host. docs/OPERATOR-QUESTIONS.md Q-7: measured runs are SKIPPED, not degraded, while a GPU session is present. Waiting is the only permitted mitigation — do not stop, restart or reconfigure a co-tenant container to make a run cleaner. The check is deliberately conservative: a RUNNING container blocks whether or not somebody is streaming through it, because the harness cannot see a streaming session from outside and guessing in the permissive direction is how a contended run gets published as a clean one.",
+  "blockers": [
+    {
+      "id": "Q-7",
+      "blocker": "a GPU streaming container is running on this host. docs/OPERATOR-QUESTIONS.md Q-7: measured runs are SKIPPED, not degraded, while a GPU session is present. Waiting is the only permitted mitigation — do not stop, restart or reconfigure a co-tenant container to make a run cleaner. The check is deliberately conservative: a RUNNING container blocks whether or not somebody is streaming through it, because the harness cannot see a streaming session from outside and guessing in the permissive direction is how a contended run gets published as a clean one.",
+      "observed": [
+        "gpu-desktop-steam-1 (steam-desktop:072b021e71c73b3314c88345709e055ad87ad4e1)"
+      ]
+    }
+  ],
+  "at": "2026-08-05T16:03:45.719Z",
+  "n": 10,
+  "tolerance": 0.1,
+  "app": "dashboard",
+  "variant": "sse",
+  "workload": "idle",
+  "driverSha256": "dbbcd8f79eaf070cb29fe5bc9ba63ecdeaf7aa5aace43aa5898a995b936a5f8a",
+  "driverPin": null,
+  "stacks": {},
+  "host": {
+    "hostname": "node-a",
+    "kernel": "6.8.0-136-generic",
+    "cpuModel": "AMD Ryzen 9 9950X3D 16-Core Processor",
+    "cores": 32,
+    "ramBytes": 41037271040,
+    "freeBytes": 35179483136,
+    "loadavg": [
+      6.05,
+      4.31,
+      4.19
+    ],
+    "dockerVersion": "29.6.2",
+    "cgroupVersion": "v2",
+    "containers": [
+      {
+        "name": "adoring_poincare",
+        "image": "dis-gotth-live-bench:latest",
+        "project": ""
+      },
+      {
+        "name": "bench-proxy",
+        "image": "caddy",
+        "project": "gotth-live-bench"
+      },
+      {
+        "name": "bench-app",
+        "image": "gotth-live-bench/dashboard-gotth:local",
+        "project": "gotth-live-bench"
+      },
+      {
+        "name": "dis-gotth-live-dev",
+        "image": "dis-gotth-live",
+        "project": ""
+      },
+      {
+        "name": "tenant-a-docs-1",
+        "image": "tenant-a/docs:local",
+        "project": "tenant-a"
+      },
+      {
+        "name": "tenant-b-indexer-1",
+        "image": "tenant-b/web:dev",
+        "project": "tenant-b"
+      },
+      {
+        "name": "tenant-b-gpu-runtime-1",
+        "image": "tenant-b/gpu-worker:dev",
+        "project": "tenant-b"
+      },
+      {
+        "name": "tenant-b-web-1",
+        "image": "tenant-b/web:dev",
+        "project": "tenant-b"
+      },
+      {
+        "name": "tenant-b-collector-1",
+        "image": "tenant-b/web:dev",
+        "project": "tenant-b"
+      },
+      {
+        "name": "tenant-c-web-1",
+        "image": "tenant-c/web:local",
+        "project": "tenant-c"
+      },
+      {
+        "name": "tenant-d-web-1",
+        "image": "tenant-d/web:local",
+        "project": "tenant-d"
+      },
+      {
+        "name": "tenant-e-web-1",
+        "image": "tenant-e/web:local",
+        "project": "tenant-e"
+      },
+      {
+        "name": "tenant-e-runner-1",
+        "image": "tenant-e/runner:local",
+        "project": "tenant-e"
+      },
+      {
+        "name": "tenant-f-web-1",
+        "image": "tenant-f/app:dev",
+        "project": "tenant-f"
+      },
+      {
+        "name": "tenant-f-worker-1",
+        "image": "tenant-f/app:dev",
+        "project": "tenant-f"
+      },
+      {
+        "name": "tenant-e-docker-1",
+        "image": "docker",
+        "project": "tenant-e"
+      },
+      {
+        "name": "dis-protobuf-refinement-types-dev",
+        "image": "dis-protobuf-refinement-types",
+        "project": ""
+      },
+      {
+        "name": "gpu-desktop-steam-1",
+        "image": "steam-desktop:072b021e71c73b3314c88345709e055ad87ad4e1",
+        "project": "gpu-desktop"
+      },
+      {
+        "name": "tenant-g-topology-1",
+        "image": "tenant-g/topology:local",
+        "project": "tenant-g"
+      },
+      {
+        "name": "tenant-g-web-1",
+        "image": "tenant-g/web:local",
+        "project": "tenant-g"
+      },
+      {
+        "name": "tenant-h-chat-1",
+        "image": "ghcr.io/example/chat:latest",
+        "project": "tenant-h"
+      },
+      {
+        "name": "tenant-h-mongodb-1",
+        "image": "mongo:7",
+        "project": "tenant-h"
+      },
+      {
+        "name": "tenant-h-meilisearch-1",
+        "image": "getmeili/meilisearch:v1.7",
+        "project": "tenant-h"
+      }
+    ],
+    "coTenants": [
+      "adoring_poincare (no project)",
+      "dis-gotth-live-dev (no project)",
+      "tenant-a-docs-1 (tenant-a)",
+      "tenant-b-indexer-1 (tenant-b)",
+      "tenant-b-gpu-runtime-1 (tenant-b)",
+      "tenant-b-web-1 (tenant-b)",
+      "tenant-b-collector-1 (tenant-b)",
+      "tenant-c-web-1 (tenant-c)",
+      "tenant-d-web-1 (tenant-d)",
+      "tenant-e-web-1 (tenant-e)",
+      "tenant-e-runner-1 (tenant-e)",
+      "tenant-f-web-1 (tenant-f)",
+      "tenant-f-worker-1 (tenant-f)",
+      "tenant-e-docker-1 (tenant-e)",
+      "dis-protobuf-refinement-types-dev (no project)",
+      "gpu-desktop-steam-1 (gpu-desktop)",
+      "tenant-g-topology-1 (tenant-g)",
+      "tenant-g-web-1 (tenant-g)",
+      "tenant-h-chat-1 (tenant-h)",
+      "tenant-h-mongodb-1 (tenant-h)",
+      "tenant-h-meilisearch-1 (tenant-h)"
+    ],
+    "contended": true,
+    "steamActive": true,
+    "at": "2026-08-05T16:03:45.698Z"
+  },
+  "runIds": []
+}

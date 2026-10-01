@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "gotth-live-dev_lib",
+    srcs = [
+        "main.go",
+        "run.go",
+        "watch.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/internal/cmd/gotth-live-dev",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "gotth-live-dev",
+    embed = [":gotth-live-dev_lib"],
+    visibility = ["//pkg/gotth:__subpackages__"],
+)
+
+go_test(
+    name = "gotth-live-dev_test",
+    srcs = [
+        "dev_suite_test.go",
+        "watch_test.go",
+    ],
+    embed = [":gotth-live-dev_lib"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

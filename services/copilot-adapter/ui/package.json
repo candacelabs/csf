@@ -1,0 +1,44 @@
+{
+  "name": "copilot-adapter-ui",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run gen:kanban:check && tsc -b --force && vite build",
+    "preview": "vite preview",
+    "gen": "node scripts/gen-check.mjs --write && npm run gen:kanban",
+    "gen:check": "node scripts/gen-check.mjs && npm run gen:kanban:check",
+    "test": "vitest",
+    "provenance": "node scripts/provenance.mjs",
+    "gen:kanban": "node scripts/gen-kanban.mjs --write",
+    "gen:kanban:check": "node scripts/gen-kanban.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "6.3.1",
+    "@dnd-kit/sortable": "10.0.0",
+    "@dnd-kit/utilities": "3.2.2",
+    "@mantine/core": "8.3.18",
+    "@mantine/hooks": "8.3.18",
+    "@xterm/addon-fit": "0.10.0",
+    "@xterm/xterm": "5.5.0",
+    "marked": "15.0.12",
+    "openapi-fetch": "0.13.4",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "sortablejs": "1.15.6"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/react": "16.1.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/sortablejs": "1.15.8",
+    "@vitejs/plugin-react": "4.3.4",
+    "jsdom": "25.0.1",
+    "openapi-typescript": "7.4.4",
+    "typescript": "5.6.3",
+    "vite": "6.4.3",
+    "vitest": "3.2.6"
+  }
+}

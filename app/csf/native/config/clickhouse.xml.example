@@ -1,0 +1,14 @@
+<clickhouse>
+  <logger>
+    <level>information</level>
+    <log>/var/log/candace-csf-clickhouse/server.log</log>
+    <errorlog>/var/log/candace-csf-clickhouse/error.log</errorlog>
+  </logger>
+  <listen_host>127.0.0.1</listen_host>
+  <http_port>18123</http_port>
+  <tcp_port>19090</tcp_port>
+  <path>/var/lib/candace-csf-clickhouse/</path>
+  <tmp_path>/var/lib/candace-csf-clickhouse/tmp/</tmp_path>
+  <user_files_path>/var/lib/candace-csf-clickhouse/user_files/</user_files_path>
+  <users_config>/etc/candace/csf/clickhouse-users.xml</users_config>
+</clickhouse>

@@ -1,0 +1,324 @@
+%% ============================================================================
+%% Copilot adapter pulse — the ONE view of the adapter's UI that the widget
+%% dialect can express.
+%%
+%% It is deliberately not the adapter's UI. openapi.yaml describes thirteen
+%% operations over collections (sessions, transcript entries, pending requests,
+%% models) and a free-text composer; `state` in dialect 0 has four field types
+%% — flag, counter, count, text — and no collection among them, so a list is
+%% not a thing this language has a word for. What IS expressible is the
+%% aggregate: how many sessions are open, how many requests are pending,
+%% whether a turn is running, and whether the event stream is live — plus one
+%% click control (abort) and one server-fed stream.
+%%
+%% Read widget-ui/README.md for the gap list and the lane verdict.
+%% ============================================================================
+
+
+widget CopilotAdapterPulse
+dialect 0
+region "widget.copilot-adapter-pulse"
+palette fieldStation
+
+
+%% `sequence` is the transcript's afterSeq cursor, which is the only field in
+%% the whole contract that is honestly a counter: SSE frames arrive ordered and
+%% the widget re-arms its motion on each one.
+%%
+%% `modelName` is the only text field, and it is the ONE place a
+%% GET /v1/models value survives: a model SWITCH needs a chooser, and a chooser
+%% needs a control whose trigger is `change`, which the generator refuses.
+
+state
+  field sequence type counter
+  field streamLive type flag
+  field turnRunning type flag
+  field requestPending type flag
+  field paused type flag
+  field openSessions type count
+  field pendingRequests type count
+  field modelName type text
+  field degraded type flag signal slowClient
+end
+
+
+predicates
+  predicate working
+    requires streamLive
+    requires turnRunning
+    forbids degraded
+  end
+
+  predicate sessionsKnown
+    requires streamLive
+    requires openSessions atLeast 1
+  end
+end
+
+
+bindings
+  binding cliTitleText
+    whenNot streamLive then "copilot cli — unreachable"
+    when turnRunning then "copilot cli — turn running"
+    otherwise "copilot cli — idle"
+  end
+
+  binding cliCaptionText
+    whenNot streamLive then "no session event subscription"
+    when requestPending then "waiting on a pending request"
+    otherwise "model {modelName}"
+  end
+
+  binding adapterCaptionText
+    when sessionsKnown then "{openSessions} open"
+    otherwise "no session"
+  end
+
+  binding sceneDescriptionText
+    whenNot streamLive then "The adapter's event stream is closed; the stopped diagram shows the browser, the adapter and the Copilot CLI only to illustrate the path a prompt takes."
+    when turnRunning then "A prompt is in flight: the browser posted to the adapter, the adapter is driving the Copilot CLI, and transcript events are streaming back."
+    otherwise "The browser is subscribed to the adapter and the Copilot CLI is idle."
+  end
+
+  binding streamStatusText
+    whenNot streamLive then "event stream closed"
+    when degraded then "browser catching up"
+    when requestPending then "request awaiting a decision"
+    when turnRunning then "turn in flight"
+    otherwise "stream live"
+  end
+
+  binding abortCaptionText
+    when turnRunning then "Abort the running turn"
+    otherwise "No turn to abort"
+  end
+
+  binding pauseCaptionText
+    when paused then "Resume live pulses"
+    otherwise "Pause live pulses"
+  end
+
+  binding sessionStatText
+    when sessionsKnown then "{openSessions} sessions"
+    otherwise "sessions —"
+  end
+
+  binding pendingStatText
+    when streamLive then "{pendingRequests} pending"
+    otherwise "pending —"
+  end
+
+  binding modelStatText
+    when streamLive then "model {modelName}"
+    otherwise "model —"
+  end
+end
+
+
+labels
+  label widgetTitleLabel text "Copilot adapter"
+  label widgetSourceLabel text "Read-only session event stream"
+  label sceneDescriptionLabel binds sceneDescriptionText
+  label browserLabel text "browser"
+  label browserCaptionLabel text "one operator"
+  label adapterLabel text "adapter"
+  label adapterCaptionLabel binds adapterCaptionText
+  label cliLabel binds cliTitleText
+  label cliCaptionLabel binds cliCaptionText
+  label promptLegendLabel text "prompt"
+  label eventLegendLabel text "event"
+  label streamStatusLabel binds streamStatusText
+  label abortCaptionLabel binds abortCaptionText
+  label pauseCaptionLabel binds pauseCaptionText
+  label sessionStatLabel binds sessionStatText
+  label pendingStatLabel binds pendingStatText
+  label modelStatLabel binds modelStatText
+end
+
+
+chrome
+  title widgetTitleLabel
+  source widgetSourceLabel
+  stat sessionStatLabel
+  stat pendingStatLabel
+  stat modelStatLabel
+end
+
+
+roles
+  role hub
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role peer
+    token positive
+    marker small
+    emphasis forbidden
+  end
+end
+
+
+channels
+  channel prompt
+    direction forward
+    token accent
+    legend promptLegendLabel
+  end
+
+  channel event
+    direction reverse
+    token positive
+    legend eventLegendLabel
+  end
+end
+
+
+placements
+  placement west left 20 top 20
+  placement centre left 50 top 50
+  placement east left 80 top 20
+end
+
+
+scene path
+  description sceneDescriptionLabel
+
+  node browser
+    role peer
+    at west
+    title browserLabel
+    caption browserCaptionLabel
+  end
+
+  node adapter
+    role hub
+    at centre
+    title adapterLabel
+    caption adapterCaptionLabel
+  end
+
+  node cli
+    role peer
+    at east
+    title cliLabel
+    caption cliCaptionLabel
+  end
+
+  edge browserLink
+    from adapter
+    to browser
+    carries prompt
+    carries event
+  end
+
+  edge cliLink
+    from adapter
+    to cli
+    carries prompt
+    carries event
+  end
+end
+
+
+motion
+  requires working
+  forbids paused
+  restartOn sequence
+
+  pulse promptToCli
+    edge cliLink
+    channel prompt
+    duration 780 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse eventFromCli
+    edge cliLink
+    channel event
+    duration 780 milliseconds
+    delay 160 milliseconds
+  end
+
+  pulse eventToBrowser
+    edge browserLink
+    channel event
+    duration 780 milliseconds
+    delay 320 milliseconds
+  end
+
+  emphasis adapterRing
+    node adapter
+    duration 700 milliseconds
+    delay 0 milliseconds
+  end
+end
+
+
+indicators
+  indicator stream
+    label streamStatusLabel
+    positiveWhen working
+  end
+end
+
+
+controls
+  control abortTurn
+    caption abortCaptionLabel
+    trigger click
+    emits abort
+    pressedWhen turnRunning
+  end
+
+  control motionToggle
+    caption pauseCaptionLabel
+    trigger click
+    emits toggleMotion
+    pressedWhen paused
+  end
+end
+
+
+%% `abort` is POST /v1/sessions/{id}/abort. The widget can only say the button
+%% was pressed: an event carries declared payload FIELDS that write state, not
+%% a path parameter, so which session to abort is not something this document
+%% can express — the host reducer has to know.
+
+events
+  event abort
+    wire "widget.copilot-adapter.abort"
+    toggles turnRunning
+  end
+
+  event toggleMotion
+    wire "widget.copilot-adapter.motion-toggle"
+    toggles paused
+  end
+
+  event pulse
+    wire "widget.copilot-adapter.pulse"
+    field sequence writes sequence
+    field stream_live writes streamLive
+    field turn_running writes turnRunning
+    field request_pending writes requestPending
+    field open_sessions writes openSessions
+    field pending_requests writes pendingRequests
+    field model_name writes modelName
+  end
+end
+
+
+%% A stream is a NAME the host owns the transport for. It is not an
+%% EventSource on the adapter's session-event endpoint: the host subscribes,
+%% the host maps SessionEvent frames onto `pulse`, and the browser never sees
+%% the SSE endpoint at all. That is the whole boundary — see README.md.
+
+data
+  stream adapterWatch
+    source "widget.copilot-adapter.watch"
+    delivers pulse
+    ordering sequence
+  end
+end

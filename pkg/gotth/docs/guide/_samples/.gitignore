@@ -1,0 +1,12 @@
+# Binaries a reader leaves behind running `go build ./quickstart`. The suite
+# builds into a temporary directory and leaves nothing here.
+#
+# The negation is load-bearing: `/quickstart` matches the DIRECTORY of that name
+# as well as the binary, and quickstart/ holds three tracked sample files. They
+# stayed tracked because they were added before this rule, so nothing noticed —
+# but every gitignore-respecting tool skipped them, and a fresh `git add -A`
+# dropped them. A trailing slash restricts the negation to the directory, which
+# leaves the binary ignored.
+/quickstart
+!/quickstart/
+/out

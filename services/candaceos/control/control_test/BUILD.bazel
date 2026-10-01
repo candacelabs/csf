@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "control_test_test",
+    srcs = ["runtime_contract_test.go"],
+    deps = [
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/control",
+        "//services/candaceos/fleet",
+        "//services/candaceos/internal/storedb",
+        "//services/candaceos/operator",
+        "//services/candaceos/store",
+        "//services/candaceos/webui",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgtype",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

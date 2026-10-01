@@ -1,0 +1,38 @@
+name: Save an optional build cache within the remaining budget
+description: Skip cache maintenance after its deadline; consuming checks stay with the caller.
+inputs:
+  path:
+    description: Cache paths, as used by the matching restore step.
+    required: true
+  key:
+    description: Exact primary key from the matching restore step.
+    required: true
+  deadline:
+    description: Latest upload start time in Unix seconds, recorded near job startup.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Check the remaining upload budget
+      id: budget
+      shell: bash
+      env:
+        CACHE_SAVE_DEADLINE: ${{ inputs.deadline }}
+      run: |
+        [[ "$CACHE_SAVE_DEADLINE" =~ ^[0-9]+$ ]] || {
+          printf 'Invalid optional cache deadline.\n' >&2
+          exit 2
+        }
+        if (( $(date +%s) < CACHE_SAVE_DEADLINE )); then
+          printf 'save=true\n' >> "$GITHUB_OUTPUT"
+        else
+          printf 'save=false\n' >> "$GITHUB_OUTPUT"
+          printf 'Checks passed; skipping optional cache maintenance near the job deadline.\n'
+        fi
+    # Callers bound this whole action with timeout-minutes: 1 and tolerate only
+    # its failure. Required preparation caches must use strict save steps.
+    - uses: actions/cache/save@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      if: steps.budget.outputs.save == 'true'
+      with:
+        path: ${{ inputs.path }}
+        key: ${{ inputs.key }}

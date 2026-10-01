@@ -1,0 +1,24 @@
+#!/bin/sh
+set -eu
+
+bucket="${MINIO_LANGFUSE_BUCKET:-langfuse}"
+if [ -z "${MINIO_ROOT_USER:-}" ] || [ "${MINIO_ROOT_USER}" = CHANGE_ME ] || \
+  [ -z "${MINIO_ROOT_PASSWORD:-}" ] || [ "${MINIO_ROOT_PASSWORD}" = CHANGE_ME ]
+then
+  printf '%s\n' "MinIO root credentials must be configured before bucket creation" >&2
+  exit 1
+fi
+
+mc=/opt/candace/csf/components/minio/bin/mc
+attempt=0
+until "${mc}" alias set candace-csf http://127.0.0.1:19000 "${MINIO_ROOT_USER}" "${MINIO_ROOT_PASSWORD}" --api S3v4 >/dev/null 2>&1
+do
+  attempt=$((attempt + 1))
+  if [ "${attempt}" -ge 30 ]; then
+    printf '%s\n' "MinIO did not accept local S3 connections" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+exec "${mc}" mb --ignore-existing "candace-csf/${bucket}"

@@ -1,0 +1,6 @@
+# Parser consumers and reproducible Python packaging checks.
+tree-sitter==0.25.2
+setuptools==80.9.0
+wheel==0.45.1
+build==1.3.0
+pytest==8.4.1

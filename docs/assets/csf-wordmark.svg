@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 132" width="520" height="132" role="img" aria-labelledby="title">
+  <title id="title">CSF — The Cerebrospinal Fluid</title>
+  <!-- Self-made wordmark: five vertebrae joined by one continuous fluid line,
+       beside the letters CSF. No font file or external asset is referenced. -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .vertebra { fill: #0F766E; }
+    .fluid { fill: none; stroke: #4338CA; stroke-width: 3; stroke-linecap: round; }
+    @media (prefers-color-scheme: dark) {
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .vertebra { fill: #2DD4BF; }
+      .fluid { stroke: #818CF8; }
+    }
+  </style>
+  <path class="fluid" d="M40 10 C 58 24, 22 34, 40 48 S 22 72, 40 86 S 58 110, 40 124"/>
+  <rect class="vertebra" x="26" y="12" width="28" height="14" rx="7"/>
+  <rect class="vertebra" x="26" y="36" width="28" height="14" rx="7"/>
+  <rect class="vertebra" x="26" y="60" width="28" height="14" rx="7"/>
+  <rect class="vertebra" x="26" y="84" width="28" height="14" rx="7"/>
+  <rect class="vertebra" x="26" y="108" width="28" height="14" rx="7"/>
+  <text class="ink" x="84" y="82" font-size="76" font-weight="800" letter-spacing="4">CSF</text>
+  <text class="muted" x="88" y="114" font-size="17" font-weight="600" letter-spacing="3.2">THE CEREBROSPINAL FLUID</text>
+</svg>

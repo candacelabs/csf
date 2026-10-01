@@ -1,0 +1,36 @@
+{
+  "uid": "csf-email",
+  "title": "CSF email receipts",
+  "schemaVersion": 41,
+  "version": 1,
+  "tags": ["csf", "email"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-6h", "to": "now"},
+  "templating": {"list": [
+    {"name": "datasource", "type": "datasource", "query": "prometheus", "label": "Prometheus"},
+    {"name": "instance", "type": "query", "datasource": {"type": "prometheus", "uid": "${datasource}"}, "query": "label_values(csf_email_send_total, instance)", "refresh": 1}
+  ]},
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Email attempt outcomes",
+      "description": "Procedure: Mailer.Send v1. Rate per second over the selected window, scoped to one scrape instance. accepted means SMTP accepted, not inbox delivery. unknown can have been accepted: do not blindly retry. Missing/stale targets show no data, not zero. Exact evidence is the private per-receipt protobuf file; counters reset at restart and are not a ledger. No failure-rate baseline is calibrated.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [{"refId": "A", "expr": "sum by (outcome) (rate(csf_email_send_total{instance=\"$instance\"}[$__rate_interval])) and on() (max(up{instance=\"$instance\"}) == 1)", "legendFormat": "{{outcome}}"}],
+      "fieldConfig": {"defaults": {"unit": "ops", "noValue": "Unknown"}, "overrides": []}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Email attempt duration p95",
+      "description": "Procedure: Mailer.Send v1. Histogram estimate in seconds by delivery outcome, scoped to one scrape instance and rate window; includes provenance, rendering, receipt persistence and transport. No samples or an unavailable exporter is Unknown, never a measured zero. This is not operator inbox latency. No latency SLO is calibrated.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [{"refId": "A", "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(csf_email_send_duration_seconds_bucket{instance=\"$instance\"}[$__rate_interval]))) and on() (max(up{instance=\"$instance\"}) == 1)", "legendFormat": "{{outcome}}"}],
+      "fieldConfig": {"defaults": {"unit": "s", "noValue": "Unknown"}, "overrides": []}
+    }
+  ]
+}

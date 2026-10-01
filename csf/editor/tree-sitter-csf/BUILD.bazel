@@ -1,0 +1,30 @@
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+
+cc_library(
+    name = "parser",
+    srcs = [
+        "src/parser.c",
+        "src/scanner.c",
+    ],
+    hdrs = ["src/tree_sitter/parser.h"],
+    copts = ["-std=c11"],
+    includes = ["src"],
+    alwayslink = True,
+)
+
+cc_binary(
+    name = "libcsf.so",
+    linkshared = True,
+    visibility = ["//visibility:public"],
+    deps = [":parser"],
+)
+
+# Checked-in compiler projections consumed by the native drift test.
+exports_files([
+    "neovim/ftdetect/csf.lua",
+    "neovim/ftplugin/csf.lua",
+    "src/grammar.json",
+    "src/scanner.c",
+    "queries/highlights.scm",
+])

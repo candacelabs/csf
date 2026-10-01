@@ -1,0 +1,272 @@
+// Package candacenet.warden.v1 is the Protocol-Buffers source of truth for the
+// candacenet warden node-to-node wire contracts: the cluster RPCs
+// (vote/heartbeat/identify), the server-streaming cluster watch, and the
+// durable persistent-state record.
+//
+// -----------------------------------------------------------------------------
+// Field-number policy (this file is the authority; numbers are the only literals
+// permitted in this schema, by mandate)
+// -----------------------------------------------------------------------------
+//   * Numbers 1-15 encode as a single tag byte on the binary wire and are
+//     reserved for the current, frequently-set ("hot") fields of every message.
+//     Every message defined here fits entirely within the 1-15 band today.
+//   * Field numbers are assigned in declaration order starting at 1. Declaration
+//     order is also protojson's field-output order, so keeping declaration order
+//     aligned with the historical Go struct order keeps the JSON rendering
+//     familiar.
+//   * A shipped field number is permanent: never renumber it and never reuse it
+//     for a different field. Removing a field REQUIRES a `reserved <number>;` and
+//     `reserved "<name>";` declaration in the same message so no later field can
+//     silently reoccupy the slot or name.
+//   * Growth is additive-only within a version: new fields take the next free
+//     number (spilling past 15 only once the hot band is full). Any breaking
+//     change (renumber, retype, delete-without-reserve, semantic reinterpretation)
+//     requires a new package version directory (candacenet.warden.v2).
+//   * `buf breaking` enforces this mechanically against the last committed schema.
+//
+// -----------------------------------------------------------------------------
+// Relationship to the current JSON wire (services/warden: wire.go, types.go)
+// -----------------------------------------------------------------------------
+// This schema mirrors the frozen Go wire types 1:1 in field names and meaning.
+// It is the source of truth for the forthcoming gRPC transport; the existing
+// HTTP/JSON transport and its contract goldens are intentionally left in place
+// and unchanged. Where a follow-up worker renders these messages with protojson,
+// canonical protobuf-JSON differs from today's encoding/json output in ways that
+// are inherent to the proto3 JSON mapping and are accepted, documented deltas:
+//   * 64-bit integers (uint64 term/version/…) render as JSON *strings*
+//     ("7"), not bare numbers (7). This is mandatory proto3 JSON and unavoidable.
+//   * Zero-valued scalar fields are omitted by default (no EmitUnpopulated); the
+//     historical encoding/json output emits them (e.g. "term":0). A DiscardUnknown
+//     reader reconstructs the zero, so the semantics are identical.
+//   * snake_case names are preserved ONLY when the renderer sets
+//     protojson.MarshalOptions{UseProtoNames: true}; the default emits lowerCamel
+//     (candidateId). No json_name overrides are used because UseProtoNames covers
+//     the whole schema uniformly.
+//   * timestamps render per google.protobuf.Timestamp (RFC 3339, 0/3/6/9
+//     fractional digits) and are omitted entirely when unset, rather than
+//     appearing as the Go zero instant "0001-01-01T00:00:00Z".
+
+syntax = "proto3";
+
+// buf:lint:ignore PACKAGE_DIRECTORY_MATCH
+// The brief fixes both the package (candacenet.warden.v1) and the on-disk path
+// (services/warden/proto/warden/v1/warden.proto). The path omits the org
+// "candacenet" segment that PACKAGE_DIRECTORY_MATCH would require, so the rule is
+// intentionally waived for this package. The version-suffixed leaf (warden/v1)
+// still guarantees per-version isolation.
+package candacenet.warden.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/candacelabs/csf/services/warden/proto/warden/v1;wardenv1";
+
+// Node is a member of the cluster peer set: a stable id plus the host:port its
+// warden HTTP/RPC server listens on over the tailnet.
+message Node {
+  string id = 1;
+  // addr is the "host:port" the node's warden server listens on (e.g.
+  // "203.0.113.10:7717").
+  string addr = 2;
+}
+
+// Membership is the effective voting configuration. It is persisted, changed
+// ONLY by the leader one node at a time, and disseminated via heartbeats. Quorum
+// is always computed over voters, never over a discovery roster or "reachable
+// peers", so unreachability can never shrink the quorum denominator.
+//
+// Identity is the (version, created_in_term) pair, not a bare version: a leader
+// that persists a new version and is deposed before disseminating it leaves a
+// config sharing that version with the next leader's, and only the higher
+// created_in_term wins (see the Go Membership.Supersedes contract).
+message Membership {
+  // version increases by one per membership change.
+  uint64 version = 1;
+  // created_in_term is the term of the leader that minted this membership; it
+  // disambiguates sibling configurations of equal version.
+  uint64 created_in_term = 2;
+  // voters is the full voting member set, canonically sorted by Node.id.
+  repeated Node voters = 3;
+}
+
+// PeerView is one row of a ClusterView: a single peer as observed by the view's
+// source node.
+message PeerView {
+  Node node = 1;
+  // status is the liveness classification ("unknown"|"alive"|"suspect"|"dead"),
+  // carried as a string so the exact frozen wire values survive verbatim.
+  string status = 2;
+  // last_seen is the source's last successful contact with this peer; unset when
+  // the peer has never been seen.
+  google.protobuf.Timestamp last_seen = 3;
+  // latency_ms is the most recent heartbeat round-trip in milliseconds as
+  // measured by the source (0 if unknown).
+  double latency_ms = 4;
+  // member classifies membership standing ("voter"|"observer"|"discovered").
+  // Empty is treated as "voter" for backward compatibility, matching the JSON
+  // wire's omitempty behavior.
+  string member = 5;
+}
+
+// ClusterView is a point-in-time snapshot of the cluster as known by one node.
+// The leader produces authoritative views from its own liveness tracking and
+// piggybacks them on heartbeats; followers cache the most recent leader view so
+// every node's dashboard shows the same state. With no fresh leader view a node
+// falls back to its own observations with authoritative == false.
+message ClusterView {
+  // self is the node rendering this view.
+  string self = 1;
+  // role is self's current election role ("follower"|"candidate"|"leader"),
+  // carried as a string to preserve the frozen wire values verbatim.
+  string role = 2;
+  // term is self's current term.
+  uint64 term = 3;
+  // leader_id is the current known leader, or "" if leaderless/unknown.
+  string leader_id = 4;
+  // source is the node whose observations produced peers (the leader for
+  // authoritative views; self for local fallback views).
+  string source = 5;
+  // authoritative is true when peers reflects the current leader's liveness
+  // tracking (self is the leader, or the view came from the leader within the
+  // freshness window).
+  bool authoritative = 6;
+  // updated_at is when source produced the peer observations.
+  google.protobuf.Timestamp updated_at = 7;
+  // peers contains every cluster member including self and source, sorted by
+  // Node.id.
+  repeated PeerView peers = 8;
+  // elections_started counts elections self has started since boot.
+  uint64 elections_started = 9;
+  // membership is the effective voting configuration this view was rendered
+  // under.
+  Membership membership = 10;
+}
+
+// PersistentState is the durable election state (Raft current term + vote).
+// Persisting the term and the vote cast in it guarantees a node can never vote
+// twice in the same term across restarts, which is what makes majority quorum
+// imply at most one leader per term. This is the on-disk state-file record.
+message PersistentState {
+  // current_term is the highest term this node has observed.
+  uint64 current_term = 1;
+  // voted_for is the candidate this node granted its vote to in current_term
+  // ("" if none).
+  string voted_for = 2;
+  // membership is the effective voting configuration, persisted so a restart
+  // resumes with the same quorum denominator (unset in state written before
+  // membership support; the config seed applies then).
+  Membership membership = 3;
+}
+
+// VoteRequest asks a peer for its vote in candidate_id's election for term.
+message VoteRequest {
+  uint64 term = 1;
+  string candidate_id = 2;
+}
+
+// VoteResponse replies to a VoteRequest. term is the voter's current term after
+// processing the request (a candidate seeing a higher term must step down).
+message VoteResponse {
+  uint64 term = 1;
+  bool granted = 2;
+  string voter_id = 3;
+}
+
+// HeartbeatRequest is sent by the leader to every peer at the heartbeat
+// interval. It asserts leadership for term and optionally carries the leader's
+// authoritative view and effective membership.
+message HeartbeatRequest {
+  uint64 term = 1;
+  string leader_id = 2;
+  // view is the leader's current authoritative cluster view; unset means "no
+  // view conveyed" (followers keep their previous cached view).
+  ClusterView view = 3;
+  // membership is the leader's effective voting configuration; unset means "no
+  // change conveyed". Receivers with a lower local (version, created_in_term)
+  // persist-then-adopt it, only from the leader they currently accept.
+  Membership membership = 4;
+}
+
+// HeartbeatResponse acknowledges a heartbeat. ok is false when the receiver
+// rejects the sender as leader (stale term); term then tells the stale leader
+// the newer term so it can step down.
+message HeartbeatResponse {
+  uint64 term = 1;
+  bool ok = 2;
+  string node_id = 3;
+}
+
+// IdentifyRequest is the request for the cluster-identity handshake. It is
+// intentionally empty today but declared as its own message (rather than
+// google.protobuf.Empty) so the handshake can grow request fields compatibly.
+message IdentifyRequest {}
+
+// IdentifyResponse answers the Identify handshake. A caller treats a node as a
+// same-cluster warden only when cluster_id matches its local configuration.
+message IdentifyResponse {
+  string cluster_id = 1;
+  string node_id = 2;
+  string version = 3;
+}
+
+// ClusterViewCursor is the dedup/resume key for the cluster watch. It is the
+// (membership.version, membership.created_in_term, view.updated_at) triple
+// derived from a ClusterView. Two updates carrying an equal cursor represent the
+// same observable cluster state; a client that has already applied a cursor may
+// skip a repeat, and may present a known cursor when (re)opening a watch to
+// suppress a redundant initial snapshot.
+message ClusterViewCursor {
+  uint64 membership_version = 1;
+  uint64 membership_created_in_term = 2;
+  google.protobuf.Timestamp view_updated_at = 3;
+}
+
+// WatchClusterRequest opens a server-streaming cluster watch.
+message WatchClusterRequest {
+  // since is an optional resume cursor. When set, the server SHOULD suppress the
+  // initial snapshot if its current state matches `since`, emitting only
+  // subsequent changes. When unset, the server emits the current snapshot first,
+  // then one update per change.
+  ClusterViewCursor since = 1;
+}
+
+// ClusterViewUpdate is one element of the WatchCluster stream. Updates are
+// FULL SNAPSHOTS, never diffs: each carries the complete current ClusterView.
+// This keeps the protocol stateless and self-healing — a client that drops or
+// reconnects re-syncs from the next update with no replay bookkeeping.
+//
+// Ordering and dedup: updates are keyed by `cursor`, the
+// (membership.version, membership.created_in_term, view.updated_at) triple.
+// The server emits an update whenever any keyed component advances (a membership
+// change bumps version/created_in_term; a fresh view bumps view.updated_at).
+// Consumers dedup and order by cursor rather than by stream arrival.
+message ClusterViewUpdate {
+  // view is the complete current cluster snapshot.
+  ClusterView view = 1;
+  // cursor is the dedup/resume key derived from view.
+  ClusterViewCursor cursor = 2;
+}
+
+// WardenService is the node-to-node RPC surface. The three unary RPCs mirror the
+// existing HTTP endpoints; WatchCluster adds a push-based cluster-view stream
+// that a follow-up worker will implement over gRPC. This schema defines the
+// contract only — no server or client is generated here beyond the stubs.
+service WardenService {
+  // Vote requests a peer's vote in an election (mirrors POST /warden/v1/vote).
+  rpc Vote(VoteRequest) returns (VoteResponse);
+
+  // Heartbeat asserts leadership and conveys the authoritative view/membership
+  // (mirrors POST /warden/v1/heartbeat).
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // Identify answers the cluster-identity handshake (mirrors GET
+  // /warden/v1/identify).
+  rpc Identify(IdentifyRequest) returns (IdentifyResponse);
+
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
+  // WatchCluster streams full ClusterView snapshots on every cluster-state
+  // change. The response is named for the domain event it carries
+  // (ClusterViewUpdate), not the RPC, because it is a recurring push element
+  // rather than a one-shot WatchClusterResponse envelope — hence the scoped
+  // waiver of the response-naming rule.
+  rpc WatchCluster(WatchClusterRequest) returns (stream ClusterViewUpdate);
+}

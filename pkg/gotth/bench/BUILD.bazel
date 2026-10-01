@@ -1,0 +1,12 @@
+# The benchmark tree has no Go sources at this level. This package exists so
+# the per-app Go benchmark suites can name the shared harness shim and the
+# Next.js stylesheets they assert byte-for-byte equality against.
+exports_files(
+    [
+        "apps/chat/next/src/app/chat.css",
+        "apps/counter/next/src/app/counter.css",
+        "apps/dashboard/next/src/app/dashboard.css",
+        "harness/shim.js",
+    ],
+    visibility = ["//pkg/gotth/bench:__subpackages__"],
+)

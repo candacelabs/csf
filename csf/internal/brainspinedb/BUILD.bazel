@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "brainspinedb",
+    srcs = [
+        "agent_configurations.sql.go",
+        "db.go",
+        "models.go",
+        "queries.sql.go",
+        "schema.go",
+        "simulations.sql.go",
+    ],
+    embedsrcs = [
+        "migrations/003_projection_tasks.up.sql",
+        "migrations/004_simulations.up.sql",
+        "migrations/005_local_simulations.up.sql",
+        "migrations/006_simulation_logs.up.sql",
+        "migrations/007_simulation_trace_deliveries.up.sql",
+        "migrations/008_agent_configurations.up.sql",
+        "schema.sql",
+    ],
+    importpath = "github.com/candacelabs/csf/csf/internal/brainspinedb",
+    visibility = ["//csf:__subpackages__"],
+    deps = [
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgconn",
+        "@com_github_jackc_pgx_v5//pgtype",
+    ],
+)

@@ -1,0 +1,12 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations/000001_create_cron_jobs_and_runs.up.sql"
+    queries: "queries.sql"
+    gen:
+      go:
+        package: "postgres"
+        out: "."
+        sql_package: "database/sql"
+        emit_json_tags: false
+        emit_empty_slices: true
