@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "watchdog",
+    srcs = [
+        "doc.go",
+        "watchdog.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/watchdog",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+    ],
+)
+
+go_test(
+    name = "watchdog_test",
+    srcs = [
+        "fakes_test.go",
+        "run_test.go",
+        "watchdog_contract_test.go",
+        "watchdog_test.go",
+    ],
+    embed = [":watchdog"],
+    deps = [
+        "//pkg/patience",
+        "//services/warden",
+        "//services/warden/internal/mocks",
+        "//services/warden/testclock",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

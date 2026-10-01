@@ -1,0 +1,35 @@
+(* CSF documentation language, not the controller expression language.
+   Whitespace and # line comments are ignored between tokens. *)
+source        = { term | diagram | document } ;
+term          = 'term', identifier, string, string, ';' ;
+diagram       = 'diagram', identifier, direction, '{',
+                  { node | group | edge }, '}' ;
+direction     = 'LR' | 'TB' ;
+node          = 'node', identifier, ':', identifier, state,
+                  [ 'in', identifier ], ';' ;
+group         = 'group', identifier, ':', identifier, ';' ;
+edge          = 'edge', identifier, state, identifier,
+                  [ 'label', string ], ';' ;
+state         = 'existing' | 'planned' ;
+document      = 'document', string, '{', { identifier, ';' }, '}' ;
+identifier    = lowercase, { lowercase | digit | '_' } ;
+lowercase     = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i'
+              | 'j' | 'k' | 'l' | 'm' | 'n' | 'o' | 'p' | 'q' | 'r'
+              | 's' | 't' | 'u' | 'v' | 'w' | 'x' | 'y' | 'z' ;
+digit         = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+string        = '"', { ordinary | escape }, '"' ;
+escape        = '\', ( '"' | '\' | 'n' ) ;
+ordinary      = ? UTF-8 character except quote, backslash, ASCII controls,
+                  and DEL; UTF-8 is preserved without normalization ? ;
+whitespace    = ' ' | ? tab ? | ? CR ? | ? LF ? ;
+comment       = '#', { ? any character except LF ? }, [ ? LF ? ] ;
+
+(* Semantic checks: at least one term, diagram, and document; every diagram
+   has a node. Term names, definitions, and supplied edge labels are nonblank.
+   Terms, diagrams, document paths, node/group identifiers within a diagram,
+   ordered edge endpoint pairs, and each document's references are unique.
+   Every reference resolves, including forward references. Document paths are
+   relative .md or .markdown paths without empty, '.' or '..' components,
+   backslashes, or control characters. The generated ontology path is reserved.
+   File components must not be symlinks. Target documents already exist and
+   contain each declared diagram's opening and closing marker once. *)

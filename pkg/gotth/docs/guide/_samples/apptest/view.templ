@@ -1,0 +1,15 @@
+package apptest
+
+import (
+	"strconv"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+templ ValueRegion(s State) {
+	<p { live.Region(FragmentValue)... }>{ strconv.Itoa(s.N) }</p>
+}
+
+templ LabelRegion(s State) {
+	<p { live.Region(FragmentLabel)... }>{ strconv.Itoa(s.Resets) } resets</p>
+}

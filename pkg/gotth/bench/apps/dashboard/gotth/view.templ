@@ -1,0 +1,343 @@
+package main
+
+import (
+	"strconv"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// The markup is bench/apps/dashboard/next/src/components/DashboardLive.tsx
+// element for element and class for class, because E1 ("same product surface")
+// and E5 ("bounded DOM") are checked against the rendered document and §2.4's
+// bounds — ≤ 4000 elements, of which ≤ 800 inline SVG — are stated against one
+// document, not one per stack.
+//
+// Four structural differences, all declared rather than chosen:
+//
+//   - the five live regions carry data-gotth-region, which is the attribute
+//     morph reconciles against. It is this stack's runtime cost in HTML bytes
+//     and it is counted (§4.6).
+//   - the search input carries name="q". The runtime serialises a bound
+//     element's own name and value when the element is outside a form, and the
+//     needle is the one control value the DOM carries rather than the markup.
+//   - the search input is rendered with NO value attribute, so morph leaves the
+//     box to the browser (see SearchInput). The Next.js input is controlled by
+//     LOCAL state, which is the same visible behaviour reached the other way.
+//   - region E's form carries no hidden session field. The Next.js form posts
+//     the session key to a Server Action; a plain HTMX GET carries the cookie
+//     instead, so there is nothing to put in the form. One element fewer, in a
+//     region §2.4 sizes at ~40.
+
+// KPIRegion is region A: §2.4's "8 tiles: label, value, delta %, inline SVG
+// sparkline of 60 points", 1 Hz.
+templ KPIRegion(s State) {
+	<section { live.Region(FragmentKPIs)... } class="card kpis" data-bench-region="A">
+		<h2>KPIs</h2>
+		<ul class="kpi-strip" data-bench-id="kpis">
+			for _, k := range s.KPIs() {
+				@KPITile(k)
+			}
+		</ul>
+	</section>
+}
+
+// KPITile is one tile.
+//
+// §2.4 sizes region A at "8 × ~70 nodes = 560", which is only reachable if each
+// sparkline point is its own element: a single <polyline> would be one node and
+// the region would be an order of magnitude cheaper than the document the spec
+// asks to be measured. That is BENCH-1's reading R-4, taken here rather than
+// reopened, and the document's SVG budget lands at 8×60 + 2×120 = 720 of ≤ 800.
+templ KPITile(k KPI) {
+	<li class="kpi" data-bench-id={ "kpi-" + strconv.Itoa(k.Index) }>
+		<span class="kpi-label">{ k.Label }</span>
+		<span
+			class="kpi-value"
+			data-bench-id={ "kpi-value-" + strconv.Itoa(k.Index) }
+			data-bench-value={ k.ValueText() }
+		>{ k.ValueText() }</span>
+		<span class={ "kpi-delta", k.Band() }>{ k.DeltaText() }</span>
+		<svg class="spark" viewBox={ SparkViewBox } preserveAspectRatio="none" aria-hidden="true">
+			for _, bar := range k.Bars() {
+				<rect
+					x={ strconv.Itoa(bar.X) }
+					y={ strconv.Itoa(bar.Y) }
+					width="0.8"
+					height={ strconv.Itoa(bar.H) }
+				></rect>
+			}
+		</svg>
+	</li>
+}
+
+// ControlsRegion is §2.4's six-control surface.
+//
+// Every one of them is a server round trip, because §2.4 says the filter and
+// the search filter region B server-side ON BOTH STACKS and E4 says a feature
+// that is server-authoritative in one is server-authoritative in the other.
+// There is no client-side filtering here, and its absence is the measurement.
+templ ControlsRegion(s State) {
+	<section { live.Region(FragmentControls)... } class="card controls" data-bench-id="controls">
+		<div class="control-group" role="group" aria-label="Status filter">
+			for _, f := range StatusFilters {
+				<button
+					type="button"
+					class={ "chip", templ.KV("current", s.Controls.Filter == f) }
+					data-bench-id={ "filter-" + f }
+					aria-pressed={ BoolAttr(s.Controls.Filter == f) }
+					{ FilterBinding(f)... }
+				>{ f }</button>
+			}
+		</div>
+		@SearchInput()
+		<button
+			type="button"
+			class="chip"
+			data-bench-id="sort-m1"
+			data-bench-value={ s.SortMode() }
+			{ SortBinding()... }
+		>metric_1 { s.SortMode() }</button>
+		<div class="control-group" role="group" aria-label="Rows per page">
+			for _, n := range PerPageChoices {
+				<button
+					type="button"
+					class={ "chip", templ.KV("current", s.Controls.PerPage == n) }
+					data-bench-id={ "per-page-" + strconv.Itoa(n) }
+					aria-pressed={ BoolAttr(s.Controls.PerPage == n) }
+					{ PerPageBinding(n)... }
+				>{ strconv.Itoa(n) }</button>
+			}
+		</div>
+		<button
+			type="button"
+			class="chip"
+			data-bench-id="pause"
+			data-bench-value={ s.Paused() }
+			{ PauseBinding()... }
+		>
+			if s.Controls.Paused {
+				{ "Resume" }
+			} else {
+				{ "Pause" }
+			}
+		</button>
+	</section>
+}
+
+// SearchInput is DSH-2's box, and it is a component of its own so that the one
+// rule governing it is written beside it rather than three levels in.
+//
+// IT IS RENDERED WITH NO VALUE ATTRIBUTE, ON PURPOSE. The runtime's
+// controlled/uncontrolled rule reads an input's declared value as the server's
+// claim on the property: present means the server is controlling it and the
+// live value is overwritten; absent means the value is the user's and is left
+// alone. Rendering it absent is what keeps a keystroke that lands during the
+// 150 ms debounce — or during any other region's repaint, which happens ten
+// times a second here — from being replaced by what the server last heard.
+//
+// The Next.js input reaches the same behaviour from the other direction: its
+// value is React local state that the pushed view never writes. Neither stack
+// round-trips the character (that is CHT-1's rule for the chat composer and the
+// same rule applies here); what round-trips is the FILTER, which is what DSH-2
+// measures.
+//
+// It takes no state for exactly that reason. A parameter it rendered nothing
+// from would be an invitation to render something from it.
+templ SearchInput() {
+	<input
+		type="search"
+		class="search"
+		data-bench-id="search"
+		name={ fieldQuery }
+		placeholder="search name"
+		{ SearchBinding()... }
+	/>
+}
+
+// TableRegion is region B: §2.4's "200 rows × 8 cols", 2 Hz, 20 rows changed
+// per tick. Filtered, searched, sorted and paged on the SERVER.
+//
+// No virtualization — §2.3 forbids it for the chat log and §2.4's DOM bound
+// ("200 × 10 = 2000") is stated against rendered nodes, so both stacks put the
+// same rows in the same document.
+templ TableRegion(s State, v TableView) {
+	<section { live.Region(FragmentTable)... } class="card table" data-bench-region="B">
+		<h2>
+			Live table
+			<span class="count" data-bench-id="row-count" data-bench-value={ v.Count() }>{ v.Count() } of { v.TotalText() }</span>
+			<span class="tick" data-bench-id="tick" data-bench-value={ s.Tick() }>tick { s.Tick() }</span>
+		</h2>
+		<table>
+			<thead>
+				<tr>
+					<th>id</th>
+					<th>name</th>
+					<th>status</th>
+					<th>metric_1</th>
+					<th>metric_2</th>
+					<th>metric_3</th>
+					<th>updated</th>
+					<th>badge</th>
+				</tr>
+			</thead>
+			<tbody data-bench-id="rows">
+				for _, row := range v.Rows {
+					@TableRow(row)
+				}
+			</tbody>
+		</table>
+	</section>
+}
+
+// TableRow is §2.4's eight columns, plus the badge's span: ten nodes per row,
+// so 200 rows is the spec's 2000.
+//
+// The column ORDER is a contract and not a layout choice: DSH-1, DSH-2 and
+// DSH-3's predicates read row.children[2], [1] and [3] for the status, the name
+// and metric_1. A reordered header would leave every predicate reading the
+// wrong cell and passing or failing for a reason unrelated to either stack.
+templ TableRow(row *Row) {
+	<tr data-bench-id="row" data-bench-value={ strconv.Itoa(row.ID) }>
+		<td>{ strconv.Itoa(row.ID) }</td>
+		<td>{ row.Name }</td>
+		<td>{ row.Status }</td>
+		<td>{ strconv.Itoa(row.M1) }</td>
+		<td>{ strconv.Itoa(row.M2) }</td>
+		<td>{ strconv.Itoa(row.M3) }</td>
+		<td>{ Stamp(row.TS) }</td>
+		<td><span class={ "badge", row.Status }>{ row.Status }</span></td>
+	</tr>
+}
+
+// SeriesRegion is region C: "2 series × 120 points, shift-one-point", 1 Hz.
+// One element per point, for R-4's reason.
+templ SeriesRegion(s State) {
+	<section { live.Region(FragmentSeries)... } class="card series" data-bench-region="C">
+		<h2>Time series</h2>
+		<svg
+			class="chart"
+			viewBox={ ChartViewBox }
+			preserveAspectRatio="none"
+			data-bench-id="series"
+			data-bench-value={ s.SeriesLast() }
+			aria-hidden="true"
+		>
+			for series := 0; series < 2; series++ {
+				for _, p := range s.SeriesPointsOf(series) {
+					<circle
+						class={ "p", "s" + strconv.Itoa(series) }
+						cx={ strconv.Itoa(p.CX) }
+						cy={ strconv.Itoa(p.CY) }
+						r="0.9"
+					></circle>
+				}
+			}
+		</svg>
+	</section>
+}
+
+// LogRegion is region D: "append-only, capped 50 entries", 5 Hz. The cap is
+// applied on the server on both stacks, so the two documents hold the same
+// number of nodes by construction.
+templ LogRegion(s State) {
+	<section { live.Region(FragmentLog)... } class="card log" data-bench-region="D">
+		<h2>
+			Event log
+			<span class="count" data-bench-id="log-count" data-bench-value={ s.LogCount() }>{ s.LogCount() }</span>
+		</h2>
+		<ol class="entries" data-bench-id="log">
+			for _, e := range s.LogEntries() {
+				<li class="entry" data-bench-id="log-entry" data-bench-value={ strconv.Itoa(e.Seq) }>
+					<span class="at">{ Stamp(e.TS) }</span>
+					<span class="text">{ e.Text }</span>
+				</li>
+			}
+		</ol>
+	</section>
+}
+
+// PanelRegion is region E: "a small panel refreshed by an explicit button
+// press", plain HTMX on this stack (§2.4, FR-62, AS-3).
+//
+// IT IS NOT A LIVE FRAGMENT AND IT IS NOT INSIDE ONE, and that is structural
+// rather than stylistic. A live region is server-owned by FR-32's precedence
+// rule, so morph would overwrite any HTMX swap into it; and an hx-* control the
+// server starts rendering MID-SESSION is inserted by the morph, which HTMX
+// never processes, so it would be inert until the application called
+// htmx.process — defect D-16, ruled documented rather than fixed. Keeping HTMX
+// outside every declared region is how examples/dashboard obeys the same rule,
+// and it is why no patch in this application can name region E.
+//
+// gotth-live neither intercepts nor rewrites the request the button makes: it
+// is an ordinary GET to an ordinary http.Handler, which is what "plain HTMX"
+// means. The Next.js side reaches the same visible behaviour with a Server
+// Action form, both mechanisms ship in both apps, and HTMX's gzipped bytes are
+// counted against this stack in §3.5.
+templ PanelRegion(p Panel) {
+	<section class="card panel" data-bench-region="E">
+		<h2>Operator panel</h2>
+		<form>
+			<button
+				type="button"
+				data-bench-id="refresh"
+				hx-get={ PanelRoute }
+				hx-target={ "#" + PanelNodeID }
+				hx-swap="outerHTML"
+			>Refresh</button>
+		</form>
+		@PanelText(p)
+	</section>
+}
+
+// PanelText is the fragment PanelRoute serves and the fragment the page renders
+// in place. It is rendered by templ and served by a plain handler: HTMX asks for
+// HTML over HTTP and swaps it in, and nothing on that path touches the live
+// session.
+//
+// The swap is outerHTML, so the served fragment must carry the id it replaces —
+// otherwise the second refresh has no target.
+templ PanelText(p Panel) {
+	<p id={ PanelNodeID } class="panel-text" data-bench-id="panel" data-bench-value={ strconv.Itoa(p.Seq) }>
+		{ p.Text }
+	</p>
+}
+
+// Page is the whole document.
+//
+// The script order is §3.2's requirement and not a preference: the shim
+// registers the t_input listener before any application script, so its tag is
+// first and is not deferred while the runtime's is. HTMX is deferred too — it
+// only has to have run before a person can press region E's button, and D5's
+// ready signal does not wait for it.
+templ Page(s State, p Panel) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>gotth-live dashboard — gotth-live bench</title>
+			<link rel="stylesheet" href="/dashboard.css"/>
+			<script src={ ShimRoute }></script>
+			@live.Script(MountPath)
+			<script src={ ReadyRoute } defer></script>
+			<script src={ HTMXRoute } defer></script>
+		</head>
+		<body>
+			<main>
+				<h1>gotth-live live dashboard</h1>
+				<p class="lede">
+					Five regions driven by one committed fixture at 10 Hz, six
+					server-authoritative controls, and one connection. Nothing in
+					this browser polls anything and nothing in it filters anything.
+				</p>
+				@KPIRegion(s)
+				@ControlsRegion(s)
+				@TableRegion(s, s.TableView())
+				@SeriesRegion(s)
+				@LogRegion(s)
+				@PanelRegion(p)
+				<p class="status">connection: <span class="dot"></span></p>
+			</main>
+		</body>
+	</html>
+}

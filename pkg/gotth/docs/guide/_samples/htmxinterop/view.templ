@@ -1,0 +1,55 @@
+package htmxinterop
+
+import "github.com/candacelabs/csf/pkg/gotth/live"
+
+// ControlsRegion is a live region that hosts an HTMX-owned island.
+//
+// The rule is innermost-declaration-wins. The <section> is a live region, so
+// morph owns it. live.Preserve marks the <div> and its whole subtree as not
+// the server's, and morph leaves it alone — so HTMX's swap into it survives
+// every patch, and the hx-* element HTMX processed at page load is never
+// replaced by markup HTMX has not seen.
+//
+// An hx-* element inside a live region WITHOUT live.Preserve is server-owned:
+// morph will overwrite it, and any swap into it will be reverted by the next
+// patch. The library does not detect that; it is a documented precedence rule,
+// not a server-side scan of rendered HTML.
+templ ControlsRegion(paused bool) {
+	<section { live.Region("controls")... }>
+		if paused {
+			<button { live.On("click", "feed.resume")... }>Resume</button>
+		} else {
+			<button { live.On("click", "feed.pause")... }>Pause</button>
+		}
+		<div { live.Preserve()... } id="notes">
+			<button hx-get="/htmx/notes" hx-target="#notes-out" hx-swap="innerHTML">
+				Load operator notes
+			</button>
+			<div id="notes-out">—</div>
+		</div>
+	</section>
+}
+
+// DeploysRegion is plain HTMX OUTSIDE every declared live region.
+//
+// It is not a fragment, it is not in Config.Fragments, and no patch can name
+// it, so morph never reaches it and live.Preserve is not needed. This is the
+// cheaper of the two arrangements and the one to prefer when the markup does
+// not have to sit inside a live region.
+templ DeploysRegion() {
+	<section id="deploys">
+		<button hx-get="/htmx/deploys" hx-target="#deploys-out" hx-swap="innerHTML">Load</button>
+		<div id="deploys-out">—</div>
+	</section>
+}
+
+// NotesList is what /htmx/notes serves: templ-rendered HTML over ordinary
+// HTTP.
+templ NotesList(notes []string, at string) {
+	<ul>
+		for _, n := range notes {
+			<li>{ n }</li>
+		}
+		<li>fetched { at }</li>
+	</ul>
+}

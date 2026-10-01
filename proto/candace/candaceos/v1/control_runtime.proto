@@ -1,0 +1,178 @@
+// Stable control-runtime configuration contracts for CandaceOS Core.
+syntax = "proto3";
+
+package candace.candaceos.v1;
+
+import "candace/candaceos/v1/node_control.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/candaceos/v1;candaceosv1";
+
+// HarnessBackend selects the agent runtime adapter owned by Core. The enum is
+// the canonical backend vocabulary; environment strings are derived from its
+// value descriptors at the process boundary.
+enum HarnessBackend {
+  // UNSPECIFIED is the protobuf zero-value sentinel and is never a runnable
+  // backend. Configuration must select one of the concrete values below.
+  HARNESS_BACKEND_UNSPECIFIED = 0;
+  HARNESS_BACKEND_COPILOT_CLI = 1;
+  HARNESS_BACKEND_DEMO = 2;
+  HARNESS_BACKEND_OLLAMA = 3;
+  // EMBEDDED identifies a Go implementation supplied through harness.IFactory
+  // by the embedding binary. HarnessRuntimeIdentity.implementation records
+  // the implementation's stable name.
+  HARNESS_BACKEND_EMBEDDED = 4;
+  // OPENCODE is the private HTTP/SSE agent runtime managed outside Core.
+  HARNESS_BACKEND_OPENCODE = 5;
+}
+
+// HarnessCapability reports optional behavior implemented by one harness.
+// Core consumes capabilities instead of inferring behavior from a backend
+// name, so custom implementations receive the same UI and policy machinery.
+enum HarnessCapability {
+  HARNESS_CAPABILITY_UNSPECIFIED = 0;
+  HARNESS_CAPABILITY_WORKSPACE_WRITE = 1;
+  HARNESS_CAPABILITY_RECONCILE = 2;
+  // ACTIVE_TURN_STEERING guarantees that ENQUEUE waits behind active work and
+  // IMMEDIATE applies guidance to active work using provider-native semantics;
+  // it does not require aborting or restarting that work.
+  HARNESS_CAPABILITY_ACTIVE_TURN_STEERING = 3;
+}
+
+// CoreConfig is Core's resolved process configuration after environment
+// defaults and legacy aliases have been normalized. Durations are represented
+// as nanoseconds so every runtime consumer uses the validated value directly.
+message CoreConfig {
+  HarnessBackend harness_backend = 1 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2 || this == 3 || this == 4 || this == 5"
+  }];
+  string bind = 2;
+  string data_dir = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1"
+  }];
+  string workspace = 4 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1"
+  }];
+  string database_url = 5 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1"
+  }];
+  string warden_url = 6;
+  string agent_url = 7;
+  int32 agent_port = 8 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 65535"
+  }];
+  string agent_token = 9;
+  // The environment adapter accepts the existing object-of-objects JSON and
+  // normalizes it into canonical Node contracts in deterministic ID order.
+  repeated Node node_labels = 10;
+  // copilot_cli is the host executable path used by the stdio adapter.
+  string copilot_cli = 11;
+  string copilot_url = 12;
+  string copilot_connection_token = 13;
+  string copilot_model = 14;
+  string github_token = 15;
+  int64 approval_timeout = 16 [(candace.liquid.v1.field) = {
+    expr: "this > 0"
+  }];
+  PersistenceTiming fleet_poll_interval = 17;
+  // Fields 18 through 22 were the original flat Ollama policy. They remain
+  // reserved so an older encoded CoreConfig cannot be misread as this nested
+  // contract.
+  reserved 18 to 22;
+  // ollama is present only when the Ollama harness is selected. Keeping its
+  // resolved policy nested prevents unused backend settings from becoming
+  // part of another harness's validation surface.
+  OllamaConfig ollama = 23;
+  // opencode is present only when the OpenCode harness is selected. Core is a
+  // narrow authenticated client of this private endpoint, never a reverse
+  // proxy for the runtime's broader file, shell, PTY, or credential APIs.
+  OpenCodeConfig opencode = 24;
+}
+
+// OllamaConfig binds one selected model artifact and its bounded turn policy.
+message OllamaConfig {
+  // url is the base URL of the operator-selected Ollama API.
+  string url = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 2048"
+  }];
+  string model = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 256 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]*(:[A-Za-z0-9][A-Za-z0-9._-]*)?$`)"
+  }];
+  // model_digest is the lowercase SHA-256 identity returned by Ollama for the
+  // exact model artifact verified by the fleet installer.
+  string model_digest = 3 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[0-9a-f]{64}$`)"
+  }];
+  int32 context_tokens = 4 [(candace.liquid.v1.field) = {
+    expr: "this >= 4096 && this <= 32768"
+  }];
+  int32 max_tool_calls = 5 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 64"
+  }];
+  int64 turn_timeout = 6 [(candace.liquid.v1.field) = {
+    expr: "this >= 1000000000 && this <= 1800000000000"
+  }];
+}
+
+// OpenCodeConfig is the complete bounded transport and delivery policy for a
+// pinned private OpenCode server. Durations are represented as nanoseconds so
+// runtime code consumes only generated, validated values.
+message OpenCodeConfig {
+  string url = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 2048"
+  }];
+  string username = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\r\\n]`)"
+  }];
+  string password = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 4096 && !matches(this, `[\\r\\n]`)"
+  }];
+  // session_id attaches Core to one exact persisted session when configured;
+  // otherwise the harness creates a fresh session during Start.
+  string session_id = 4 [(candace.liquid.v1.field) = {
+    expr: "len(this) == 0 || (len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`))"
+  }];
+  int64 request_timeout = 5 [(candace.liquid.v1.field) = {
+    expr: "this >= 1000000000 && this <= 120000000000"
+  }];
+  int64 poll_interval = 6 [(candace.liquid.v1.field) = {
+    expr: "this >= 100000000 && this <= 30000000000"
+  }];
+  int32 queue_capacity = 7 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 128"
+  }];
+  // model is the explicit provider/model identity sent with every prompt.
+  // The model component may itself contain slash-separated namespaces.
+  string model = 8 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 3 && len(this) <= 512 && matches(this, `^[^/\\s]+/[^\\s]*[^/\\s]$`)"
+  }];
+}
+
+// HarnessRuntimeIdentity is the immutable backend and model identity attached
+// to every operator run receipt.
+message HarnessRuntimeIdentity {
+  HarnessBackend backend = 1 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2 || this == 3 || this == 4 || this == 5"
+  }];
+  string model = 2;
+  string model_digest = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) == 0 || matches(this, `^[0-9a-f]{64}$`)"
+  }];
+  // implementation is the stable adapter name shown in UI and receipts.
+  // Built-ins use copilot-cli, demo, ollama, and opencode; an embedding binary
+  // chooses the name for its EMBEDDED implementation.
+  string implementation = 4 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z0-9][a-z0-9._-]*$`)"
+  }];
+  repeated HarnessCapability capabilities = 5;
+}
+
+// PersistenceTiming is the single validated timing primitive from which Core
+// derives every durable write, ambiguous-commit probe, fleet checkpoint, and
+// retry cadence. The bounds guarantee that all derived nanosecond durations
+// remain positive and representable by Go's time.Duration.
+message PersistenceTiming {
+  int64 fleet_poll_interval_nanoseconds = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 20 && this <= 614891469123651720"
+  }];
+}

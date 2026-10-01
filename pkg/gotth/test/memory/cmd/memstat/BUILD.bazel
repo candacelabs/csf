@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "memstat_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/test/memory/cmd/memstat",
+    visibility = ["//visibility:private"],
+    deps = ["//pkg/gotth/test/memory"],
+)
+
+go_binary(
+    name = "memstat",
+    embed = [":memstat_lib"],
+    visibility = ["//visibility:public"],
+)

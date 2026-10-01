@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sqlmigrate",
+    srcs = ["sqlmigrate.go"],
+    importpath = "github.com/candacelabs/csf/pkg/sqlmigrate",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "sqlmigrate_test",
+    srcs = [
+        "sqlmigrate_postgres_test.go",
+        "sqlmigrate_suite_test.go",
+        "sqlmigrate_test.go",
+    ],
+    deps = [
+        ":sqlmigrate",
+        "//pkg/patience",
+        "//pkg/pgmem",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//stdlib",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

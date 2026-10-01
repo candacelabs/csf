@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "postgres",
+    srcs = [
+        "db.go",
+        "models.go",
+        "queries.sql.go",
+        "schema.go",
+        "store.go",
+    ],
+    embedsrcs = ["migrations/000001_create_cron_jobs_and_runs.up.sql"],
+    importpath = "github.com/candacelabs/csf/pkg/cron/postgres",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/cron"],
+)
+
+go_test(
+    name = "postgres_test",
+    srcs = [
+        "postgres_suite_test.go",
+        "store_integration_test.go",
+    ],
+    embedsrcs = ["migrations/000001_create_cron_jobs_and_runs.up.sql"],
+    deps = [
+        ":postgres",
+        "//pkg/cron",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//stdlib",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

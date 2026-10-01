@@ -1,0 +1,52 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "widget_lib",
+    srcs = [
+        "main.go",
+        "page_templ.go",
+    ],
+    embedsrcs = ["widget.css"],
+    importpath = "github.com/candacelabs/csf/examples/widget",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//examples/widget/clusterheartbeats",
+        "//examples/widget/hosting",
+        "//examples/widget/nodestatus",
+        "//examples/widget/raftdemo",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_binary(
+    name = "widget",
+    embed = [":widget_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "widget_test",
+    srcs = [
+        "churn_test.go",
+        "dirty_test.go",
+        "forgery_nodestatus_test.go",
+        "forgery_test.go",
+        "live_test.go",
+        "widget_suite_test.go",
+    ],
+    embed = [":widget_lib"],
+    deps = [
+        "//examples/widget/clusterheartbeats",
+        "//examples/widget/nodestatus",
+        "//examples/widget/raftdemo",
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "//pkg/widget",
+        "//pkg/widget/widgettest",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

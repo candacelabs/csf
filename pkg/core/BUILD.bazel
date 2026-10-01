@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "core",
+    srcs = [
+        "convert.go",
+        "format.go",
+        "logger.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/core",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_rs_zerolog//:zerolog"],
+)
+
+go_test(
+    name = "core_test",
+    srcs = ["core_contract_test.go"],
+    deps = [
+        ":core",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

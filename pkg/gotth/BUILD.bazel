@@ -1,0 +1,10 @@
+# gotth has no Go sources of its own; this package exists so that two files
+# under it can be named as inputs to tests that live in sibling packages and
+# read them through package-relative paths.
+exports_files(
+    [
+        "client/test/golden.json",
+        "docs/api-surface.md",
+    ],
+    visibility = ["//pkg/gotth:__subpackages__"],
+)

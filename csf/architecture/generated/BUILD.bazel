@@ -1,0 +1,8 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_module")
+
+ocaml_module(
+    name = "typed_projection",
+    struct = "csf_architecture_cgen.ml",
+    visibility = ["//visibility:public"],
+    deps = ["//csf/compiler/architecture:Model"],
+)

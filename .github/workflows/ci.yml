@@ -1,0 +1,597 @@
+name: CI
+
+# Everything this repository can prove about itself, without the monorepo it is
+# exported from. In a public repository, these jobs check generated updates
+# before merge — the Bazel graph builds and its tests
+# pass, the plain `go` battery the README documents passes too (and it is the
+# only thing anywhere that runs the Go targets Bazel tags `manual`), the
+# deployment kit's hermetic suites pass, and no operator identifier came along
+# for the ride. Private staging is verified by the canonical repository's own
+# runners and exact-archive acceptance; every job below checks visibility before
+# allocating a GitHub-hosted runner.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+# A new pull-request head cancels the older run, which would otherwise spend a
+# runner producing a verdict on code that no longer exists. Main commits have
+# commit-scoped groups and never cancel: "was this snapshot green" is a question
+# a bisect asks, and a cancelled run answers it with "unknown".
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  notify_release:
+    name: Notify publisher of merged snapshot
+    # Operator-approved exception: one Actions-write-only dispatch credential.
+    # No checkout, PR execution, destination write, or periodic trigger.
+    if: >-
+      github.event.repository.private == false &&
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      vars.CSF_RELEASE_SOURCE_REPOSITORY != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Dispatch the existing source publisher
+        env:
+          GH_TOKEN: ${{ secrets.CSF_RELEASE_DISPATCH_TOKEN }}
+          GH_HOST: github.com
+          RELEASE_SOURCE_REPOSITORY: ${{ vars.CSF_RELEASE_SOURCE_REPOSITORY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "$GH_TOKEN" ]]; then
+            echo 'CSF_RELEASE_DISPATCH_TOKEN must grant Actions write on the source repository.' >&2
+            exit 1
+          fi
+          if [[ ! "$RELEASE_SOURCE_REPOSITORY" =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9_][A-Za-z0-9_.-]*$ ]]; then
+            echo 'CSF_RELEASE_SOURCE_REPOSITORY must be an owner/repository name.' >&2
+            exit 1
+          fi
+          gh api --method POST \
+            "repos/$RELEASE_SOURCE_REPOSITORY/actions/workflows/publish-component-snapshots.yml/dispatches" \
+            --input - <<'JSON'
+          {"ref":"main","inputs":{"release_only":true}}
+          JSON
+
+  identifiers:
+    name: Operator identifiers
+    # Cheapest job in the file and the one whose failure matters most, so it
+    # runs on its own runner rather than behind a build.
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Every tracked byte here is public. The scanner reads nothing but the
+      # tracked tree — no network, no history, no dependency outside the
+      # standard library — and its pattern list is append-only: when it fires,
+      # the repair is in the content, never in the pattern.
+      - name: Scan the tracked tree
+        run: python3 tools/check_operator_identifiers.py
+
+  csf_operator:
+    name: Standalone CSF operator
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Format, lint, and test the Rust operator
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env HOME=/tmp \
+            --env CARGO_HOME=/tmp/cargo \
+            --volume "${PWD}:/src" \
+            --workdir /src/tools/csf-operator \
+            rust:1.91-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 \
+            sh -eu -c '
+              rustup component add rustfmt clippy
+              cargo fmt --all --check
+              cargo clippy --locked --all-targets -- -D warnings
+              cargo test --locked
+            '
+
+  bazel_inventory:
+    name: Complete Bazel target inventory
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Partition every target and verify manual test ownership
+        run: bash tools/check-bazel-partition.sh plan "$RUNNER_TEMP/bazel-plan"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: bazel-target-plan
+          path: ${{ runner.temp }}/bazel-plan/
+          if-no-files-found: error
+
+  bazel_runtime_base:
+    name: Prepare Bazel runtime (${{ matrix.stage }})
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [go, rust-base]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/bazel-runtime-cache
+        with:
+          mode: prepare
+          stage: ${{ matrix.stage }}
+
+  bazel_runtime_network:
+    name: Prepare Bazel Rust network dependencies
+    needs: bazel_runtime_base
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/bazel-runtime-cache
+        with:
+          mode: prepare
+          stage: rust-network
+
+  bazel_runtime_support:
+    name: Prepare Bazel Rust storage and generator dependencies
+    needs: bazel_runtime_network
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/bazel-runtime-cache
+        with:
+          mode: prepare
+          stage: rust-support
+
+  bazel_runtime_rust:
+    name: Prepare Bazel Rust libraries
+    needs: bazel_runtime_support
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/bazel-runtime-cache
+        with:
+          mode: prepare
+          stage: rust-deps
+
+  bazel:
+    name: Bazel build and test (${{ matrix.partition }})
+    needs: [bazel_inventory, bazel_runtime_rust]
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: [go-libraries, go-services, go-programs, go-chaos, rust]
+    env:
+      CANDACE_BAZEL_DISK_CACHE: /bazel-home/sharedtaskcache
+    steps:
+      - name: Bound optional Bazel cache maintenance
+        run: printf 'OPTIONAL_CACHE_SAVE_DEADLINE=%s\n' "$(( $(date +%s) + 180 ))" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Require prepared runtime dependencies
+        uses: ./.github/actions/bazel-runtime-cache
+        with:
+          stage: ${{ matrix.partition == 'rust' && 'rust-deps' || 'go' }}
+      # Only immutable repository downloads and content-addressed build results
+      # cross jobs. Each job resolves the module graph in a fresh output base.
+      - name: Restore Bazel content caches
+        id: bazel-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            ${{ env.CANDACE_BAZEL_CACHE }}/output/cache/repos/v1/
+            ${{ env.CANDACE_BAZEL_CACHE }}/home/sharedtaskcache/
+          key: bazel-partition-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.partition }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', '.bazelversion', 'tools/bazel.sh', 'tools/check-bazel-partition.sh') }}-${{ github.sha }}
+          restore-keys: bazel-partition-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.partition }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', '.bazelversion', 'tools/bazel.sh', 'tools/check-bazel-partition.sh') }}-
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: bazel-target-plan
+          path: ${{ runner.temp }}/bazel-plan/
+      - name: Build all assigned targets and run every non-manual test
+        run: bash tools/check-bazel-partition.sh check "${{ matrix.partition }}" "$RUNNER_TEMP/bazel-plan"
+
+      - name: Save the successful Bazel content cache
+        if: steps.bazel-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 1
+        continue-on-error: true
+        uses: ./.github/actions/optional-cache-save
+        with:
+          deadline: ${{ env.OPTIONAL_CACHE_SAVE_DEADLINE }}
+          path: |
+            ${{ env.CANDACE_BAZEL_CACHE }}/output/cache/repos/v1/
+            ${{ env.CANDACE_BAZEL_CACHE }}/home/sharedtaskcache/
+          key: ${{ steps.bazel-cache.outputs.cache-primary-key }}
+
+  ocaml_repository:
+    name: Prepare pinned tooling and opam metadata
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: repository
+
+  ocaml_bytecode:
+    needs: ocaml_repository
+    name: Prepare the OCaml bytecode bootstrap
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: bytecode
+
+  ocaml_compiler:
+    needs: ocaml_bytecode
+    name: Prepare the pinned OCaml compiler
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: compiler
+
+  ocaml_toolchain:
+    name: Prepare the locked OCaml libraries
+    needs: ocaml_compiler
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: prepare
+
+  bazel_compiler:
+    name: Bazel compiler build and test
+    needs: [bazel_inventory, ocaml_toolchain]
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: restore
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: bazel-target-plan
+          path: ${{ runner.temp }}/bazel-plan/
+      - name: Build and test the complete compiler partition
+        run: bash tools/check-bazel-partition.sh check compiler "$RUNNER_TEMP/bazel-plan"
+
+  bazel_metadata:
+    name: Generated Bazel metadata drift
+    needs: ocaml_toolchain
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: restore
+      - name: Check the complete generated Bazel metadata for drift
+        run: ./tools/check-bazel-metadata.sh
+
+  go_dependencies:
+    name: Go dependencies and standard library
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      GOCACHE: /tmp/csf-go-cache/build
+      GOMODCACHE: /tmp/csf-go-cache/modules
+      GOPATH: /tmp/csf-go-cache/gopath
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Resolve modules and compile the standard library once before the
+      # bounded checks fan out. The workflow owns the pinned image, so its
+      # digest participates in this cache key through the workflow hash.
+      - name: Restore Go dependencies and standard library
+        id: dependencies
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            /tmp/csf-go-cache/modules
+            /tmp/csf-go-cache/build
+          key: csf-go-dependencies-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/workflows/ci.yml') }}
+
+      - name: Prepare Go dependencies and standard library
+        if: steps.dependencies.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /tmp/csf-go-cache/{modules,build,gopath}
+          docker run --rm -i --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/src" --volume /tmp/csf-go-cache:/tmp/csf-go-cache \
+            --workdir /src --env GOCACHE --env GOMODCACHE --env GOPATH \
+            --env GOTOOLCHAIN --env GOFLAGS \
+            golang:1.26.5-bookworm@sha256:6c5605ab3a9a9fb3c4eafe5b3d63cdbf3881caf113262b67862547b54a9db599 \
+            bash -euo pipefail <<'GO'
+          go mod download
+          go build std
+          GO
+
+  go_toolchain:
+    name: Go ${{ matrix.lane }}
+    # README.md and AGENTS.md both present `go build ./... && go test ./...` as
+    # a first-class path on this tree, and until this job existed nothing here
+    # ran it. That is not only an unexercised claim: the targets in
+    # tools/bazel-manual-tests.txt carry `manual` because Bazel cannot supply
+    # what they need (a Go toolchain on PATH, the source tree as directories,
+    # /etc/localtime), so `bazel test //...` skips them and this battery is the
+    # only thing that runs them. Each test shard selects from the complete,
+    # sorted `go list ./...` inventory, so a new package or a manual Bazel
+    # target cannot silently fall out of coverage. Build and vet cover that
+    # complete inventory in their own jobs instead of consuming the test budget.
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    needs: go_dependencies
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {lane: build, command: build, shard: 0, shards: 1}
+          - {lane: vet-and-api, command: vet, shard: 0, shards: 1}
+          - {lane: test-1, command: test, shard: 0, shards: 4}
+          - {lane: test-2, command: test, shard: 1, shards: 4}
+          - {lane: test-3, command: test, shard: 2, shards: 4}
+          - {lane: test-4, command: test, shard: 3, shards: 4}
+    env:
+      GOCACHE: /tmp/csf-go-cache/build
+      GOMODCACHE: /tmp/csf-go-cache/modules
+      GOPATH: /tmp/csf-go-cache/gopath
+      GOTOOLCHAIN: local
+      GOFLAGS: -mod=readonly
+
+    steps:
+      - name: Bound optional compiler cache maintenance
+        run: printf 'OPTIONAL_CACHE_SAVE_DEADLINE=%s\n' "$(( $(date +%s) + 180 ))" >> "$GITHUB_ENV"
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Restore prepared Go dependencies and standard library
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: |
+            /tmp/csf-go-cache/modules
+            /tmp/csf-go-cache/build
+          key: csf-go-dependencies-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/workflows/ci.yml') }}
+          fail-on-cache-miss: true
+
+      # Keep the cache action on the Ubuntu runner, where zstd is available.
+      # The pinned Go image has only gzip; restoring that archive consumed
+      # almost the entire margin left by a cold check.
+      # Go's compiler cache validates its own input hashes. Retain each lane's
+      # completed work across revisions while keeping concurrent writers apart.
+      - name: Restore Go compiler cache
+        id: build-cache
+        uses: actions/cache/restore@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+        with:
+          path: /tmp/csf-go-cache/build
+          key: csf-go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/workflows/ci.yml') }}-${{ matrix.lane }}-${{ github.sha }}
+          restore-keys: csf-go-build-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.mod', 'go.sum', '.github/workflows/ci.yml') }}-${{ matrix.lane }}-
+
+      - name: Check the selected Go packages
+        shell: bash
+        env:
+          CSF_GO_COMMAND: ${{ matrix.command }}
+          CSF_GO_SHARD: ${{ matrix.shard }}
+          CSF_GO_SHARDS: ${{ matrix.shards }}
+        run: |
+          set -euo pipefail
+          docker run --rm -i --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/src" --volume /tmp/csf-go-cache:/tmp/csf-go-cache \
+            --workdir /src --env GOCACHE --env GOMODCACHE --env GOPATH \
+            --env GOTOOLCHAIN --env GOFLAGS --env RUNNER_TEMP=/tmp \
+            --env CSF_GO_COMMAND --env CSF_GO_SHARD --env CSF_GO_SHARDS \
+            golang:1.26.5-bookworm@sha256:6c5605ab3a9a9fb3c4eafe5b3d63cdbf3881caf113262b67862547b54a9db599 \
+            bash -euo pipefail <<'GO'
+          if [[ "$CSF_GO_COMMAND" == build ]]; then
+            # The wildcard skips packages containing only tests; an explicit
+            # package list makes go build reject those otherwise valid suites.
+            go build ./...
+            exit
+          fi
+          csf_go_inventory="$RUNNER_TEMP/csf-go-packages.txt"
+          go list ./... | LC_ALL=C sort > "$csf_go_inventory"
+          mapfile -t packages < <(
+            awk -v shard="$CSF_GO_SHARD" -v count="$CSF_GO_SHARDS" \
+              '(NR - 1) % count == shard' "$csf_go_inventory"
+          )
+          test "${#packages[@]}" -gt 0
+          printf '%s\n' "${packages[@]}"
+          if [[ "$CSF_GO_COMMAND" == test ]]; then
+            go test -count=1 "${packages[@]}"
+          else
+            go "$CSF_GO_COMMAND" "${packages[@]}"
+          fi
+          GO
+
+      # Compiling apisurface does not execute its ledger comparison.
+      - name: Check the exported API inventory
+        if: matrix.command == 'vet'
+        run: |
+          docker run --rm -i --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/src" --volume /tmp/csf-go-cache:/tmp/csf-go-cache \
+            --workdir /src --env GOCACHE --env GOMODCACHE --env GOPATH \
+            --env GOTOOLCHAIN --env GOFLAGS \
+            golang:1.26.5-bookworm@sha256:6c5605ab3a9a9fb3c4eafe5b3d63cdbf3881caf113262b67862547b54a9db599 \
+            bash -euo pipefail <<'GO'
+          (cd pkg/gotth/tools && go run ./apisurface)
+          GO
+
+      - name: Save the optional compiler cache
+        if: steps.build-cache.outputs.cache-hit != 'true'
+        timeout-minutes: 1
+        continue-on-error: true
+        uses: ./.github/actions/optional-cache-save
+        with:
+          deadline: ${{ env.OPTIONAL_CACHE_SAVE_DEADLINE }}
+          path: /tmp/csf-go-cache/build
+          key: ${{ steps.build-cache.outputs.cache-primary-key }}
+
+  candaceos:
+    name: Deployment-kit suites
+    # candaceos/ is shell, not Bazel: an installer, a fleet driver, and a
+    # self-updating deployment agent. These three suites are the ones that need
+    # nothing but the runner — bash, python3, docker, and the tree itself — so
+    # they say the same thing here that they say in the monorepo. The suites
+    # that need a live stack or a model provider stay in the monorepo, where the
+    # credentials and the GPU are.
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      # Asserts the installer rejects malformed quotas before it creates state
+      # or reaches for Docker. Runs against a stub `docker` that fails loudly if
+      # it is called at all.
+      - name: Installer validation
+        run: ./candaceos/test-install-validation.sh
+
+      # Drives the updater's deployment ledger, retry backoff, and rollback
+      # bookkeeping in-process, then builds the updater image and exercises its
+      # read-only health and credential-askpass entrypoints.
+      - name: Updater
+        run: ./candaceos/test-updater.sh
+
+      # Plans every fleet topology against stub transports that fail if they are
+      # ever invoked, and renders each Compose overlay with `docker compose
+      # config`. Nothing is deployed and no credential is read. The suite
+      # self-skips its one operator-side bundle check when it is not running
+      # inside a Git worktree.
+      - name: Fleet
+        run: ./candaceos/test-fleet.sh
+
+  public_contracts:
+    name: Public contract generation (${{ matrix.component }})
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: shared-proto
+            script: proto/generate.sh
+          - component: adapter-openapi
+            script: services/copilot-adapter/generate.sh
+          - component: adapter-store
+            script: services/copilot-adapter/store/generate.sh
+          - component: adapter-config
+            script: services/copilot-adapter/proto/generate.sh
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Regenerate and compare the complete projection
+        env:
+          GENERATOR: ${{ matrix.script }}
+        run: bash "$GENERATOR" check
+
+  csf_contracts:
+    name: CSF API contract generation
+    needs: ocaml_toolchain
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: restore
+      - name: Regenerate and compare every CSF API projection
+        run: bash csf/tools/codegen/generate.sh check
+
+  csf_workbench:
+    name: Workbench browser generation, tests and build
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Test and build the Workbench from public source only
+        run: |
+          docker run --rm --user "$(id -u):$(id -g)" \
+            -e HOME=/tmp -e npm_config_cache=/tmp/npm \
+            -v "$PWD:/src" -w /src/services/copilot-adapter/ui \
+            node:22-bookworm@sha256:8a34c4ab3ea2c5cd194f07e317b2a8f09461d3c8b05c4e34c8ccd56d56024c4d \
+            bash -euo pipefail -c 'npm ci && npm run gen:check && npm test -- --run && npm run build'

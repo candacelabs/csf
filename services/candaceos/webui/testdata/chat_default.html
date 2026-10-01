@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Steer the current CandaceOS Claw session in real time.">
+  <title>Build a private garden notes app · Claw chat · CandaceOS</title>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body class="chat-page" data-route-approval="/api/approvals/:id"
+data-route-claw-chat="/claws/:sessionID/chat"
+data-route-claw-messages="/api/claws/:sessionID/messages"
+data-route-claw-run-abort="/api/claws/:sessionID/runs/:runID/abort"
+data-route-current-run-abort="/api/runs/current/abort"
+data-route-events="/api/events"
+data-route-prompts="/api/prompts"
+data-route-snapshot="/api/snapshot" data-enum-harness-backend-copilot-cli="HARNESS_BACKEND_COPILOT_CLI"
+data-enum-harness-backend-demo="HARNESS_BACKEND_DEMO"
+data-enum-harness-backend-embedded="HARNESS_BACKEND_EMBEDDED"
+data-enum-harness-backend-ollama="HARNESS_BACKEND_OLLAMA"
+data-enum-harness-backend-opencode="HARNESS_BACKEND_OPENCODE"
+data-enum-harness-capability-active-turn-steering="HARNESS_CAPABILITY_ACTIVE_TURN_STEERING"
+data-enum-harness-delivery-enqueue="HARNESS_DELIVERY_ENQUEUE"
+data-enum-harness-delivery-immediate="HARNESS_DELIVERY_IMMEDIATE">
+  <a class="skip-link" href="#chat-main">Skip to chat</a>
+
+  <header class="chat-topbar">
+    <a class="chat-brand" href="/">
+      <span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>
+      <span>Candace<span class="brand-os">OS</span></span>
+    </a>
+    <a class="chat-back" href="/"><span aria-hidden="true">←</span> Dashboard</a>
+    <div class="live-state" role="status" aria-live="polite">
+      <span class="live-dot" aria-hidden="true"></span>
+      <span data-live-label>Connected</span>
+    </div>
+  </header>
+
+  <main id="chat-main" class="chat-main" data-chat-session="session-1">
+    <section class="chat-header" aria-labelledby="chat-title">
+      <div>
+        <p class="kicker">Live Claw session</p>
+        <h1 id="chat-title" data-chat-title>Build a private garden notes app</h1>
+        <p>Watch the exact run and steer it without leaving this session.</p>
+      </div>
+      <div data-chat-status><span class="status-pill tone-positive"><span class="status-dot" aria-hidden="true"></span>Running</span></div>
+    </section>
+
+    <dl class="chat-meta" aria-label="Claw runtime">
+      <div><dt>Backend</dt><dd data-chat-backend>OpenCode</dd></div>
+      <div><dt>Model</dt><dd class="mono" data-chat-model>opencode/example-model</dd></div>
+      <div><dt>Session</dt><dd class="mono">session-1</dd></div>
+      <div><dt>Run</dt><dd class="mono" data-chat-run-id>run-1</dd></div>
+    </dl>
+
+    <section class="chat-card" aria-label="Claw transcript">
+      <div class="chat-card-head">
+        <div><p class="section-label">Transcript</p><p data-chat-update-count>5 updates</p></div>
+        <button class="text-button danger" type="button" data-abort-run data-chat-stop
+          data-chat-abort-url="/api/claws/session-1/runs/run-1/abort">Stop this run</button>
+      </div>
+      <div class="chat-session-unavailable" data-chat-unavailable role="status" hidden>
+        This Claw session is no longer the current session. Return to the dashboard to open the latest run.
+      </div>
+      <ol class="transcript chat-transcript" data-chat-transcript aria-live="polite">
+        
+        <li class="transcript-entry entry-message">
+          
+          <div class="message-role">You</div>
+          <p>Build me a garden notes app</p>
+          
+        </li>
+        
+        <li class="transcript-entry entry-tool">
+          
+          <div class="tool-card">
+            <div class="tool-card-head">
+              <span class="tool-symbol" aria-hidden="true">›_</span>
+              <strong>shell</strong>
+              <span class="status-pill tone-positive"><span class="status-dot" aria-hidden="true"></span>Done</span>
+            </div>
+            <p>Running focused tests</p>
+            <pre>go test ./services/garden/...</pre>
+          </div>
+          
+        </li>
+        
+        <li class="transcript-entry entry-notice">
+          
+          <div class="tool-card notice-card">
+            <div class="tool-card-head">
+              <span class="tool-symbol" aria-hidden="true">i</span>
+              <strong>Claw</strong>
+              <span class="status-pill tone-attention"><span class="status-dot" aria-hidden="true"></span>Compacted</span>
+            </div>
+            <p>Context was compacted</p>
+          </div>
+          
+        </li>
+        
+        <li class="transcript-entry entry-error">
+          
+          <div class="tool-card error-card">
+            <div class="tool-card-head">
+              <span class="tool-symbol" aria-hidden="true">!</span>
+              <strong>Claw</strong>
+              <span class="status-pill tone-negative"><span class="status-dot" aria-hidden="true"></span>Failed</span>
+            </div>
+            <p>Worker unavailable</p>
+          </div>
+          
+        </li>
+        
+        <li class="transcript-entry entry-message">
+          
+          <div class="message-role">Claw</div>
+          <p>Placing the app on core-1</p>
+          
+        </li>
+        
+      </ol>
+    </section>
+
+    <div class="chat-composer-wrap">
+      <form class="chat-composer" action="/api/claws/session-1/messages" method="post" data-chat-form
+        data-expected-run-id="run-1">
+        <label for="chat-prompt">Steer Claw</label>
+        <textarea id="chat-prompt" name="prompt" rows="3" required maxlength="12000"
+          placeholder="Add context, change direction, or ask Claw to check something…"></textarea>
+        <div class="chat-composer-foot">
+          <span class="prompt-hint">Ctrl Enter to send</span>
+          <div class="chat-actions" data-chat-busy-actions>
+            <button class="button secondary" type="submit" data-chat-enqueue data-delivery="HARNESS_DELIVERY_ENQUEUE">Send after current</button>
+            <button class="button primary" type="submit" data-chat-immediate data-delivery="HARNESS_DELIVERY_IMMEDIATE">Steer now</button>
+          </div>
+          <div class="chat-actions" data-chat-idle-actions hidden>
+            <button class="button primary" type="submit" data-chat-enqueue data-delivery="HARNESS_DELIVERY_ENQUEUE">Send follow-up</button>
+          </div>
+        </div>
+        <p class="chat-steer-note" data-chat-steer-note>
+          Steer now applies this guidance to active work. Depending on the provider, it may interject or restart its work.
+        </p>
+        <p class="form-message" data-chat-message role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </main>
+
+  <noscript><div class="notice chat-noscript">Live updates and steering require JavaScript. The current transcript remains available above.</div></noscript>
+  <div class="toast" data-toast role="status" aria-live="polite" hidden></div>
+  <script id="initial-snapshot" type="application/json">{"activity":[{"at":"0001-01-01T00:00:00Z","detail":"Health check passed on core-1.","id":"activity-1","kind":"deploy","receipt_id":"rcpt_01K2","status":"succeeded","title":"Garden Notes deployed"}],"apps":[{"id":"garden-notes","name":"Garden Notes","node_id":"core-1","revision":"a1b2c3d","status":"running","updated_at":"0001-01-01T00:00:00Z","url":"/apps/garden-notes"},{"id":"unsummarized","name":"Unsummarized","status":"pending","updated_at":"0001-01-01T00:00:00Z"}],"attention":[{"detail":"This writes a new Compose service and publishes it.","id":"approval-deploy-1","requested_at":"0001-01-01T00:00:00Z","risk":"writes production","title":"Deploy Garden Notes to core-1?"}],"fleet":{"leader_id":"core-1","nodes":[{"address":"192.0.2.10","apps":2,"cpu_percent":22,"id":"core-1","labels":{"role":"worker"},"last_seen":"0001-01-01T00:00:00Z","memory_percent":61,"name":"Core One","role":"worker","status":"healthy"}],"quorum":{"healthy":true,"online":3,"required":2},"term":7},"generated_at":"0001-01-01T00:00:00Z","run":{"can_abort":true,"entries":[{"at":"0001-01-01T00:00:00Z","id":"entry-1","kind":"message","role":"user","text":"Build me a garden notes app"},{"at":"0001-01-01T00:00:00Z","detail":"go test ./services/garden/...","id":"entry-2","kind":"tool","name":"shell","status":"done","text":"Running focused tests"},{"at":"0001-01-01T00:00:00Z","id":"entry-3","kind":"notice","status":"compacted","text":"Context was compacted"},{"at":"0001-01-01T00:00:00Z","id":"entry-4","kind":"error","status":"failed","text":"Worker unavailable"},{"at":"0001-01-01T00:00:00Z","id":"entry-5","kind":"message","role":"assistant","text":"Placing the app on core-1"}],"id":"run-1","session_id":"session-1","started_at":"0001-01-01T00:00:00Z","status":"running","title":"Build a private garden notes app"},"system":{"harness_backend":"HARNESS_BACKEND_OPENCODE","harness_capabilities":["HARNESS_CAPABILITY_WORKSPACE_WRITE","HARNESS_CAPABILITY_ACTIVE_TURN_STEERING"],"harness_model":"opencode/example-model","name":"CandaceOS","status":"healthy","summary":"3 nodes · quorum healthy","version":"0.1.0"}}</script>
+</body>
+</html>

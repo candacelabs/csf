@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "ifacereturn_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/tools/ifacereturn/cmd/ifacereturn",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//tools/ifacereturn",
+        "@org_golang_x_tools//go/packages",
+    ],
+)
+
+go_binary(
+    name = "ifacereturn",
+    embed = [":ifacereturn_lib"],
+    visibility = ["//visibility:public"],
+)

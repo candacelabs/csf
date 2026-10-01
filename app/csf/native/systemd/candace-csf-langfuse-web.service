@@ -1,0 +1,23 @@
+[Unit]
+Description=candace/csf Langfuse web
+After=network-online.target candace-csf-langfuse-migrate.service
+Requires=candace-csf-langfuse-migrate.service
+
+[Service]
+Type=simple
+DynamicUser=yes
+Environment=NODE_ENV=production
+Environment=PORT=13000
+Environment=HOSTNAME=127.0.0.1
+EnvironmentFile=/etc/candace/csf/langfuse.env
+WorkingDirectory=/opt/candace/csf/components/langfuse
+ExecStart=/opt/candace/csf/components/langfuse/bin/node web/server.js --keepAliveTimeout 110000
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

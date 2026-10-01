@@ -1,0 +1,470 @@
+%% ============================================================================
+%% CandaWS — Queuecumber
+%%
+%% Category parodied: a managed message queue.
+%%
+%% Build order 2. The widest new surface in the fleet: six nodes, five edges,
+%% four channels, four roles, two indicators, two controls, seven pulses. It is
+%% here to find every generator refusal early, while there is still budget to
+%% record one.
+%%
+%% What it demonstrates that the raft card does not: a role classifying three
+%% nodes at once, a four-entry legend, a second indicator, a second control, a
+%% control whose event carries no state change at all, and the `atMost` bound —
+%% the half of the symmetric pair that had no caller before this document.
+%% ============================================================================
+
+
+widget Queuecumber
+dialect 0
+region "widget.candaws.queuecumber"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% A message at runtime lives in exactly one place: the broker goroutine's own
+%% slice, or one worker's goroutine stack. These fields are the broker's
+%% published view of that, and nothing else may write them.
+
+state
+  field sequence type counter
+  field accepting type flag
+  field intakePaused type flag
+  field depth type count
+  field inFlight type count
+  field deadLettered type count
+  field workersUp type count
+  field behind type flag signal slowClient
+end
+
+
+predicates
+  %% `atMost` had no caller anywhere in the repository before this fleet. Two
+  %% documents here use it and a third uses `atLeast` on the same field, which
+  %% is the shape the symmetric pair was shipped for.
+  predicate drained
+    requires depth atMost 0
+  end
+
+  predicate clean
+    requires deadLettered atMost 0
+  end
+
+  predicate staffed
+    requires workersUp atLeast 1
+  end
+
+  %% GAP (dialect v1): the broker's real invariant is `inFlight atMost
+  %% workersUp` — every leased message is inside some worker. A numeric bound
+  %% compares against an integer literal only, so that relation lives in the
+  %% engine and the card takes the two numbers on trust. Roundabout wants
+  %% `healthyBackends + ejectedBackends atMost 3` and cannot say it either.
+
+  %% A composed predicate naming another composed predicate. Example 01's
+  %% `live` composes flag fields only, so this is the first document in which
+  %% the predicate graph is more than one level deep.
+  predicate flowing
+    requires accepting
+    requires staffed
+    forbids intakePaused
+    forbids behind
+  end
+end
+
+
+bindings
+  binding queueDescriptionText
+    whenNot accepting then "A producer, a queue, three workers and a dead-letter store; the queue is refusing new messages."
+    when flowing then "A producer, a queue, three workers and a dead-letter store; messages are leased to workers and acknowledged back."
+    whenNot staffed then "A producer, a queue, three workers and a dead-letter store; no worker is leasing."
+    otherwise "A producer, a queue, three workers and a dead-letter store; delivery is stalled."
+  end
+
+  binding brokerCaptionText
+    when drained then "empty"
+    otherwise "{depth} queued"
+  end
+
+  %% One bound label fills all three worker captions. The three worker
+  %% goroutines are interchangeable by construction, so three copies of this
+  %% decision would be three chances to disagree.
+  binding workerCaptionText
+    when staffed then "leasing"
+    otherwise "idle"
+  end
+
+  binding deadLetterCaptionText
+    when clean then "empty"
+    otherwise "{deadLettered} held"
+  end
+
+  binding intakeStatusText
+    whenNot accepting then "intake closed"
+    when intakePaused then "intake paused by operator"
+    when behind then "browser catching up"
+    otherwise "intake open"
+  end
+
+  binding deadLetterStatusText
+    when clean then "no dead letters"
+    otherwise "{deadLettered} messages exhausted their attempts"
+  end
+
+  binding depthStatText
+    when drained then "queue empty"
+    otherwise "{depth} queued · {inFlight} in flight"
+  end
+
+  binding staffStatText
+    when staffed then "{workersUp} workers leasing"
+    otherwise "no workers leasing"
+  end
+
+  binding intakeCaptionText
+    when intakePaused then "Resume intake"
+    otherwise "Pause intake"
+  end
+end
+
+
+labels
+  label titleLabel text "Queuecumber"
+  label sourceLabel text "Read-only broker stream"
+  label sceneDescriptionLabel binds queueDescriptionText
+
+  label producerLabel text "producer"
+  label producerCaptionLabel text "submitting"
+  label brokerLabel text "queue"
+  label brokerCaptionLabel binds brokerCaptionText
+  label workerOneLabel text "worker-1"
+  label workerTwoLabel text "worker-2"
+  label workerThreeLabel text "worker-3"
+  label workerCaptionLabel binds workerCaptionText
+  label graveyardLabel text "dead letters"
+  label graveyardCaptionLabel binds deadLetterCaptionText
+
+  label enqueueLegendLabel text "enqueue"
+  label leaseLegendLabel text "lease"
+  label ackLegendLabel text "ack"
+  label redriveLegendLabel text "redrive"
+
+  label intakeStatusLabel binds intakeStatusText
+  label deadLetterStatusLabel binds deadLetterStatusText
+
+  label depthStatLabel binds depthStatText
+  label staffStatLabel binds staffStatText
+  label redeliveryStatLabel text "{deadLettered} redriven"
+
+  label intakeCaptionLabel binds intakeCaptionText
+  label drainCaptionLabel text "Redrive the dead letters"
+end
+
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat depthStatLabel
+  stat staffStatLabel
+  stat redeliveryStatLabel
+end
+
+
+%% Four roles. `handler` classifies three nodes, which is what makes "change how
+%% a handler looks" one edit rather than three.
+
+roles
+  role sender
+    token ink
+    marker small
+    emphasis forbidden
+  end
+
+  role hub
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role handler
+    token positive
+    marker small
+    emphasis forbidden
+  end
+
+  role morgue
+    token warning
+    marker small
+    emphasis forbidden
+  end
+end
+
+
+%% Four channels and therefore a four-entry legend, rendered in this order. The
+%% raft card's legend has two entries, so nothing until now had exercised a
+%% legend long enough to wrap.
+
+channels
+  channel enqueue
+    direction forward
+    token accent
+    legend enqueueLegendLabel
+  end
+
+  channel lease
+    direction forward
+    token accent
+    legend leaseLegendLabel
+  end
+
+  channel ack
+    direction reverse
+    token positive
+    legend ackLegendLabel
+  end
+
+  channel redrive
+    direction forward
+    token warning
+    legend redriveLegendLabel
+  end
+end
+
+
+%% GAP (dialect v1): the broker node wants to show how full it is, and every
+%% queue picture ever drawn shows a level. A node carries a role, a placement, a
+%% title and a caption, and nothing numeric, so the depth is in the caption text
+%% and the stat line rather than in the picture. Blobfish wants the identical
+%% thing for a zone's fill.
+
+placements
+  placement intakeSpot left 8 top 46
+  placement brokerSpot left 38 top 46
+  placement laneTopSpot left 80 top 12
+  placement laneMiddleSpot left 86 top 46
+  placement laneBottomSpot left 80 top 80
+  placement graveyardSpot left 22 top 88
+end
+
+
+scene queue
+  description sceneDescriptionLabel
+
+  node producer
+    role sender
+    at intakeSpot
+    title producerLabel
+    caption producerCaptionLabel
+  end
+
+  node broker
+    role hub
+    at brokerSpot
+    title brokerLabel
+    caption brokerCaptionLabel
+  end
+
+  node workerOne
+    role handler
+    at laneTopSpot
+    title workerOneLabel
+    caption workerCaptionLabel
+  end
+
+  node workerTwo
+    role handler
+    at laneMiddleSpot
+    title workerTwoLabel
+    caption workerCaptionLabel
+  end
+
+  node workerThree
+    role handler
+    at laneBottomSpot
+    title workerThreeLabel
+    caption workerCaptionLabel
+  end
+
+  node graveyard
+    role morgue
+    at graveyardSpot
+    title graveyardLabel
+    caption graveyardCaptionLabel
+  end
+
+  edge submission
+    from producer
+    to broker
+    carries enqueue
+  end
+
+  edge laneOne
+    from broker
+    to workerOne
+    carries lease
+    carries ack
+  end
+
+  edge laneTwo
+    from broker
+    to workerTwo
+    carries lease
+    carries ack
+  end
+
+  edge laneThree
+    from broker
+    to workerThree
+    carries lease
+    carries ack
+  end
+
+  %% The redrive path carries a channel with no pulse. A channel must be
+  %% carried by an edge (W410); nothing requires it to animate, and a message
+  %% reaching the dead-letter store is an exception rather than a rhythm.
+  edge exhausted
+    from broker
+    to graveyard
+    carries redrive
+  end
+end
+
+
+%% Seven pulses and one emphasis — the most motion in the fleet, and the reason
+%% this document is built second rather than last.
+%%
+%% GAP (dialect v1): the `redrive` channel is carried by an edge and animates
+%% never. The states in which a message reaches the dead-letter store are
+%% exactly the states in which `flowing` does not hold, and one gate governs
+%% every pulse in the widget. Yakshave's rollback and Dashbored's breach hit the
+%% same wall; ranked first in `dialect-v1-asks.md` on the strength of the three.
+
+motion
+  requires flowing
+  forbids intakePaused
+  restartOn sequence
+
+  pulse submissionIn
+    edge submission
+    channel enqueue
+    duration 520 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse leaseOne
+    edge laneOne
+    channel lease
+    duration 620 milliseconds
+    delay 120 milliseconds
+  end
+
+  pulse leaseTwo
+    edge laneTwo
+    channel lease
+    duration 620 milliseconds
+    delay 200 milliseconds
+  end
+
+  pulse leaseThree
+    edge laneThree
+    channel lease
+    duration 620 milliseconds
+    delay 280 milliseconds
+  end
+
+  pulse ackOne
+    edge laneOne
+    channel ack
+    duration 620 milliseconds
+    delay 420 milliseconds
+  end
+
+  pulse ackTwo
+    edge laneTwo
+    channel ack
+    duration 620 milliseconds
+    delay 500 milliseconds
+  end
+
+  pulse ackThree
+    edge laneThree
+    channel ack
+    duration 620 milliseconds
+    delay 580 milliseconds
+  end
+
+  emphasis brokerBeat
+    node broker
+    duration 560 milliseconds
+    delay 0 milliseconds
+  end
+end
+
+
+%% Two indicators. The raft card has one, so nothing until now had answered
+%% whether a second one renders beside the first or replaces it.
+
+indicators
+  indicator intakeIndicator
+    label intakeStatusLabel
+    positiveWhen accepting
+  end
+
+  indicator deadLetterIndicator
+    label deadLetterStatusLabel
+    positiveWhen clean
+  end
+end
+
+
+%% Two controls, and deliberately of the two different kinds: one toggles a
+%% flag the widget owns, the other emits an event that changes no state here at
+%% all and is acted on by the host.
+
+controls
+  control intakeToggle
+    caption intakeCaptionLabel
+    trigger click
+    emits toggleIntake
+    pressedWhen intakePaused
+  end
+
+  control redriveAll
+    caption drainCaptionLabel
+    trigger click
+    emits redriveDeadLetters
+  end
+end
+
+
+events
+  event toggleIntake
+    wire "widget.candaws.queuecumber.intake-toggle"
+    toggles intakePaused
+  end
+
+  %% An event with neither `toggles` nor a `field` line: a command. The widget
+  %% declares that it can be sent and the host decides what it means, which is
+  %% the same seam a `stream` source name is.
+  event redriveDeadLetters
+    wire "widget.candaws.queuecumber.redrive"
+  end
+
+  event brokerReport
+    wire "widget.candaws.queuecumber.report"
+    field sequence writes sequence
+    field accepting writes accepting
+    field depth writes depth
+    field in_flight writes inFlight
+    field dead_lettered writes deadLettered
+    field workers_up writes workersUp
+  end
+end
+
+
+data
+  stream brokerWatch
+    source "widget.candaws.queuecumber.watch"
+    delivers brokerReport
+    ordering sequence
+  end
+end

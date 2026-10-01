@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "patience",
+    srcs = ["patience.go"],
+    importpath = "github.com/candacelabs/csf/pkg/patience",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_onsi_gomega//types",
+    ],
+)
+
+go_test(
+    name = "patience_test",
+    srcs = [
+        "export_test.go",
+        "patience_suite_test.go",
+        "patience_test.go",
+    ],
+    embed = [":patience"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

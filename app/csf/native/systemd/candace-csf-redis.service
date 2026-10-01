@@ -1,0 +1,21 @@
+[Unit]
+Description=candace/csf Redis 7
+After=network.target
+
+[Service]
+Type=notify
+DynamicUser=yes
+StateDirectory=candace-csf-redis
+StateDirectoryMode=0700
+EnvironmentFile=/etc/candace/csf/redis.env
+ExecStart=/opt/candace/csf/components/redis/bin/redis-server --bind 127.0.0.1 --port 16379 --dir /var/lib/candace-csf-redis --appendonly yes --maxmemory-policy noeviction --requirepass ${REDIS_AUTH} --supervised systemd
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target
+

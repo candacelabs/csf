@@ -1,0 +1,40 @@
+# Build-context hygiene for docker/gotth.Dockerfile, whose context is the
+# GOTTH-LIVE ROOT (the apps' go.mod `replace` onto the checkout is what makes
+# them measure the working tree, so the library source has to be in the
+# context). bench/.dockerignore is next.Dockerfile's, whose context stops at
+# bench/; this file is BuildKit's per-Dockerfile form so the two do not have to
+# be one file serving two different context roots.
+#
+# The fixtures are excluded on purpose: they are ~13 MB of derived JSONL and
+# docker/compose.yaml MOUNTS them read-only into the measured container rather
+# than baking them in, so both stacks' containers read the same bytes from the
+# same path and "both servers read the same bytes" (§2.5) is a property of the
+# topology instead of two Dockerfiles agreeing.
+#
+# .git is excluded because it is large and because nothing in the build reads
+# it — which is also why the build passes -buildvcs=false rather than letting Go
+# discover it is not in a repository.
+
+.git
+.github
+
+# node lives only under bench/ (FR-74) and none of it belongs in a Go build.
+**/node_modules
+bench/apps/*/next
+bench/analyze
+bench/audit
+bench/data
+bench/fixtures/*/ticks.jsonl
+
+# The proxy's local key and certificate. §3.6 puts TLS outside the measured
+# container; the one thing worse than a key in an image is a key in an image
+# that was excluded from the tree it was committed to.
+bench/docker/tls
+
+# Not read by the build: prose, the other modules, and this tree's own tooling.
+docs
+examples
+test/memory
+tools
+gotth-live
+*.log

@@ -1,0 +1,24 @@
+[Unit]
+Description=candace/csf ClickHouse 25.12
+After=network.target
+
+[Service]
+Type=simple
+User=candace-csf-clickhouse
+Group=candace-csf-clickhouse
+StateDirectory=candace-csf-clickhouse
+LogsDirectory=candace-csf-clickhouse
+StateDirectoryMode=0700
+EnvironmentFile=/etc/candace/csf/clickhouse.env
+# clickhouse.xml and clickhouse-users.xml are root:candace-csf-clickhouse 0640.
+ConfigurationDirectory=candace/csf
+ExecStart=/opt/candace/csf/components/clickhouse/bin/clickhouse server --config-file=/etc/candace/csf/clickhouse.xml
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+data=/var/lib/candace-csf-postgresql
+socket="${data}/bootstrap-socket"
+bin=/opt/candace/csf/components/postgresql/bin
+superuser=candace-csf-postgresql
+marker="${data}/.candace-csf-postgresql-provisioned"
+
+if [ -z "${CSF_POSTGRES_USER:-}" ] || [ -z "${CSF_POSTGRES_DATABASE:-}" ] || \
+  [ -z "${CSF_POSTGRES_PASSWORD:-}" ] || [ "${CSF_POSTGRES_PASSWORD}" = CHANGE_ME ] || \
+  [ -z "${LANGFUSE_POSTGRES_USER:-}" ] || [ -z "${LANGFUSE_POSTGRES_DATABASE:-}" ] || \
+  [ -z "${LANGFUSE_POSTGRES_PASSWORD:-}" ] || [ "${LANGFUSE_POSTGRES_PASSWORD}" = CHANGE_ME ]
+then
+  printf '%s\n' "PostgreSQL roles, databases, and credentials must be configured before first boot" >&2
+  exit 1
+fi
+
+if [ ! -f "${data}/PG_VERSION" ]; then
+  "${bin}/initdb" --username="${superuser}" --auth-local=peer --auth-host=scram-sha-256 \
+    --encoding=UTF8 --locale=C.UTF-8 -D "${data}"
+fi
+mkdir -p "${socket}"
+"${bin}/postgres" -D "${data}" -c listen_addresses='' -c "unix_socket_directories=${socket}" &
+postgres_pid=$!
+cleanup() {
+  kill "${postgres_pid}" 2>/dev/null || true
+  wait "${postgres_pid}" 2>/dev/null || true
+}
+trap cleanup EXIT HUP INT TERM
+
+attempt=0
+until "${bin}/psql" --host="${socket}" --username="${superuser}" --dbname=postgres --command='SELECT 1' >/dev/null 2>&1
+do
+  attempt=$((attempt + 1))
+  if [ "${attempt}" -ge 30 ]; then
+    printf '%s\n' "PostgreSQL did not accept local bootstrap connections" >&2
+    exit 1
+  fi
+  sleep 1
+done
+
+"${bin}/psql" --host="${socket}" --username="${superuser}" --dbname=postgres \
+  --set=ON_ERROR_STOP=1 \
+  --set=csf_user="${CSF_POSTGRES_USER}" \
+  --set=csf_database="${CSF_POSTGRES_DATABASE}" \
+  --set=csf_password="${CSF_POSTGRES_PASSWORD}" \
+  --set=langfuse_user="${LANGFUSE_POSTGRES_USER}" \
+  --set=langfuse_database="${LANGFUSE_POSTGRES_DATABASE}" \
+  --set=langfuse_password="${LANGFUSE_POSTGRES_PASSWORD}" <<'SQL'
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'csf_user', :'csf_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'csf_user')
+\gexec
+SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'csf_user', :'csf_password')
+\gexec
+SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'langfuse_user', :'langfuse_password')
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'langfuse_user')
+\gexec
+SELECT format('ALTER ROLE %I LOGIN PASSWORD %L', :'langfuse_user', :'langfuse_password')
+\gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'csf_database', :'csf_user')
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'csf_database')
+\gexec
+SELECT format('CREATE DATABASE %I OWNER %I', :'langfuse_database', :'langfuse_user')
+WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'langfuse_database')
+\gexec
+SQL
+
+: > "${marker}"
+chmod 0600 "${marker}"

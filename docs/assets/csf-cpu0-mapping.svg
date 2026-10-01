@@ -1,0 +1,149 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" role="img" aria-labelledby="title description">
+  <title id="title">CSF mapped onto LITHE's CPU 0 (Housekeeping)</title>
+  <desc id="description">An architectural mapping, not an implementation of LITHE. LITHE partitions one quad-core computer into CPU 0 Housekeeping, CPU 1 Spine, CPU 2 Brain and CPU 3 Transport. CSF is drawn inside CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers, whose internal handoffs need no socket, serialization or separate daemon. LITHE's Brain to Spine shared-memory IPC and the external PostgreSQL, OpenSearch, Langfuse and model or simulator protocol boundaries remain outside the process.</desc>
+  <!-- Hand-drawn mapping, not generated from architecture.csf. LITHE terms follow
+       arXiv:2603.07442 sections III-B (CPU partition), III-C (IPC), III-D (pipelined
+       transport) and III-E1 (loader thread). -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .boundary { fill: none; stroke: #B45309; stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .boundary-box { fill: #FFFBEB; stroke: #B45309; stroke-width: 1.5; stroke-dasharray: 6 4; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .boundary { stroke: #F59E0B; }
+      .boundary-box { fill: #1F1A0E; stroke: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+    }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="wire-head" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path class="link-head" d="M0,0 L10,5 L0,10 z"/>
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1000" height="640" rx="16"/>
+
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">LITHE partitions one quad-core computer. CSF is its housekeeping layer.</text>
+  <text class="muted" x="24" y="58" font-size="13">An architectural mapping: CSF composes CPU 0's coordination work in one process. It does not implement LITHE.</text>
+
+  <!-- CPU 0: Housekeeping -->
+  <rect class="panel" x="24" y="86" width="540" height="420" rx="14"/>
+  <text class="ink" x="44" y="112" font-size="16" font-weight="700">CPU 0 · Housekeeping</text>
+  <text class="muted" x="44" y="131" font-size="12">LITHE §III-B: Linux housekeeping, SSH sessions and non-critical IRQs</text>
+
+  <rect class="process" x="44" y="146" width="500" height="250" rx="12"/>
+  <text class="ink" x="64" y="172" font-size="15" font-weight="700">CSF — one Go process, one runtime</text>
+
+  <rect class="chip" x="57" y="188" width="150" height="62" rx="9"/>
+  <text class="chip-text" x="132" y="214" font-size="13" font-weight="700" text-anchor="middle">Typed tools</text>
+  <text class="chip-text" x="132" y="234" font-size="11" text-anchor="middle">HTTP · CLI · MCP</text>
+
+  <rect class="chip" x="219" y="188" width="150" height="62" rx="9"/>
+  <text class="chip-text" x="294" y="214" font-size="13" font-weight="700" text-anchor="middle">Sessions</text>
+  <text class="chip-text" x="294" y="234" font-size="11" text-anchor="middle">Workbench · worktrees</text>
+
+  <rect class="chip" x="381" y="188" width="150" height="62" rx="9"/>
+  <text class="chip-text" x="456" y="214" font-size="13" font-weight="700" text-anchor="middle">Schedules</text>
+  <text class="chip-text" x="456" y="234" font-size="11" text-anchor="middle">in-process cron</text>
+
+  <rect class="chip" x="57" y="262" width="150" height="62" rx="9"/>
+  <text class="chip-text" x="132" y="288" font-size="13" font-weight="700" text-anchor="middle">Knowledge</text>
+  <text class="chip-text" x="132" y="308" font-size="11" text-anchor="middle">ingest · search</text>
+
+  <rect class="chip" x="219" y="262" width="150" height="62" rx="9"/>
+  <text class="chip-text" x="294" y="288" font-size="13" font-weight="700" text-anchor="middle">Observation</text>
+  <text class="chip-text" x="294" y="308" font-size="11" text-anchor="middle">traces · receipts</text>
+
+  <rect class="chip" x="381" y="262" width="150" height="62" rx="9"/>
+  <text class="chip-text" x="456" y="288" font-size="13" font-weight="700" text-anchor="middle">Workers</text>
+  <text class="chip-text" x="456" y="308" font-size="11" text-anchor="middle">bounded goroutines</text>
+
+  <text class="accent" x="64" y="352" font-size="12.5" font-weight="600">Handoffs are typed Go calls, channels and context cancellation:</text>
+  <text class="accent" x="64" y="372" font-size="12.5" font-weight="600">no socket, no wire serialization, no extra service daemon.</text>
+
+  <rect class="boundary" x="44" y="412" width="500" height="76" rx="10"/>
+  <text class="muted" x="64" y="440" font-size="12">LITHE's loader thread (§III-E1) also runs on this core: it loads new</text>
+  <text class="muted" x="64" y="460" font-size="12">controllers off the real-time path. It belongs to LITHE, not to CSF.</text>
+
+  <!-- CSF to the Brain -->
+  <line class="link" x1="566" y1="141" x2="636" y2="141" marker-start="url(#link-end)" marker-end="url(#link-end)"/>
+  <text class="muted" x="601" y="131" font-size="11" text-anchor="middle">MCP · HTTP</text>
+
+  <!-- LITHE's own cores -->
+  <text class="muted" x="640" y="78" font-size="11">LITHE's other cores — outside CSF</text>
+
+  <rect class="lithe" x="640" y="86" width="336" height="110" rx="12"/>
+  <text class="ink" x="660" y="120" font-size="15" font-weight="700">CPU 2 · Brain</text>
+  <text class="muted" x="660" y="142" font-size="12">Best-effort Python runtime:</text>
+  <text class="muted" x="660" y="162" font-size="12">models and agents that propose</text>
+
+  <line class="wire" x1="700" y1="198" x2="700" y2="244" marker-start="url(#wire-end)" marker-end="url(#wire-end)"/>
+  <text class="muted" x="714" y="216" font-size="11">POSIX shared memory + seqlock</text>
+  <text class="muted" x="714" y="232" font-size="11">LITHE's Brain–Spine IPC (§III-C)</text>
+
+  <rect class="lithe" x="640" y="246" width="336" height="110" rx="12"/>
+  <text class="ink" x="660" y="280" font-size="15" font-weight="700">CPU 1 · Spine</text>
+  <text class="muted" x="660" y="302" font-size="12">Isolated C++ control loop at 1 kHz</text>
+  <text class="muted" x="660" y="322" font-size="12">that executes admitted behavior</text>
+
+  <line class="wire" x1="700" y1="358" x2="700" y2="394" marker-start="url(#wire-end)" marker-end="url(#wire-end)"/>
+  <text class="muted" x="714" y="380" font-size="11">pipelined bus handoff (§III-D)</text>
+
+  <rect class="lithe" x="640" y="396" width="336" height="110" rx="12"/>
+  <text class="ink" x="660" y="430" font-size="15" font-weight="700">CPU 3 · Transport</text>
+  <text class="muted" x="660" y="452" font-size="12">Blocking SPI / CAN-FD bus I/O,</text>
+  <text class="muted" x="660" y="472" font-size="12">kept off the control core</text>
+
+  <!-- Protocol boundaries that remain outside the process -->
+  <line class="wire" x1="294" y1="506" x2="294" y2="530"/>
+  <text class="muted" x="304" y="522" font-size="11">wire protocols remain at real process boundaries</text>
+  <line class="wire" x1="124" y1="530" x2="824" y2="530"/>
+  <line class="wire" x1="124" y1="530" x2="124" y2="544" marker-end="url(#wire-end)"/>
+  <line class="wire" x1="340" y1="530" x2="340" y2="544" marker-end="url(#wire-end)"/>
+  <line class="wire" x1="556" y1="530" x2="556" y2="544" marker-end="url(#wire-end)"/>
+  <line class="wire" x1="824" y1="530" x2="824" y2="544" marker-end="url(#wire-end)"/>
+
+  <rect class="boundary-box" x="24" y="546" width="200" height="52" rx="10"/>
+  <text class="ink" x="124" y="568" font-size="13" font-weight="700" text-anchor="middle">PostgreSQL</text>
+  <text class="muted" x="124" y="587" font-size="11" text-anchor="middle">records and durable queues</text>
+
+  <rect class="boundary-box" x="240" y="546" width="200" height="52" rx="10"/>
+  <text class="ink" x="340" y="568" font-size="13" font-weight="700" text-anchor="middle">OpenSearch</text>
+  <text class="muted" x="340" y="587" font-size="11" text-anchor="middle">search index</text>
+
+  <rect class="boundary-box" x="456" y="546" width="200" height="52" rx="10"/>
+  <text class="ink" x="556" y="568" font-size="13" font-weight="700" text-anchor="middle">Langfuse</text>
+  <text class="muted" x="556" y="587" font-size="11" text-anchor="middle">agent traces</text>
+
+  <rect class="boundary-box" x="672" y="546" width="304" height="52" rx="10"/>
+  <text class="ink" x="824" y="568" font-size="13" font-weight="700" text-anchor="middle">Model and simulator processes</text>
+  <text class="muted" x="824" y="587" font-size="11" text-anchor="middle">Copilot backend · CARLA · Isaac Sim</text>
+
+  <text class="muted" x="24" y="626" font-size="11">Mapping onto LITHE (Lim and Clites, 2026), arXiv:2603.07442 [cs.RO], LITHE §III-B to §III-E1. CPU affinity and isolation are deployment configuration.</text>
+</svg>

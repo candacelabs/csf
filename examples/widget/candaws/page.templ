@@ -1,0 +1,58 @@
+package main
+
+import (
+	"github.com/candacelabs/csf/pkg/gotth/live"
+	"github.com/candacelabs/csf/pkg/widget"
+)
+
+// templ itself is not imported here: the generator adds "github.com/a-h/templ"
+// to every file it writes, so naming it again is a redeclaration in the
+// generated output rather than a missing import.
+
+// Page is the whole document: the live library's shell, this host's own head
+// content, and one section per registered widget.
+//
+// It knows nothing about what a widget is, and nothing about CandaWS. It is
+// handed already-rendered regions, in registration order, and puts them on the
+// page — which is the property that made the fifth service a registration rather
+// than a page edit.
+templ Page(app *live.App[widget.HostState, live.AnonymousIdentity], regions []templ.Component) {
+	@app.Document(mountPath, "CandaWS", templ.Attributes{"lang": "en"}, headExtras()) {
+		<main>
+			<h1>CandaWS</h1>
+			<p class="lede">
+				Five services, five engines, five generated cards, one binary.
+				What separates any two of them is what separates two
+				goroutines.
+			</p>
+			<div class="fleet">
+				for _, region := range regions {
+					@region
+				}
+			</div>
+			<p class="status">connection: <span class="dot"></span></p>
+			<p class="hint">
+				Every card is drawing something that is actually happening in
+				this process. Yakshave&rsquo;s artifact really is moving down a
+				chain of channels; Queuecumber&rsquo;s workers really do let
+				leases expire, and the messages really do come back;
+				Blobfish&rsquo;s coordinator really does stop counting at two;
+				Coldstart&rsquo;s instances really are goroutines that exist
+				only while somebody is calling them; and Dashbored is watching
+				the other four from a fan-in of its own. Nothing on any card
+				was hand-written &mdash; the scenes, the motion, the legends,
+				the stats and every word came out of five widget documents
+				&mdash; and none of the five engines knows a region, a wire
+				name or a field spelling.
+			</p>
+		</main>
+	}
+}
+
+// headExtras is this host's own head content, which live.Document knows nothing
+// about and is not entitled to: a viewport meta and a stylesheet are decisions
+// about how a page looks, not about how it is connected.
+templ headExtras() {
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<link rel="stylesheet" href="/widget.css"/>
+}

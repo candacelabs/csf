@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = ["mocks.go"],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/mocks",
+    visibility = ["//pkg/widget:__subpackages__"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@org_uber_go_mock//gomock",
+    ],
+)

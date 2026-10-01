@@ -1,0 +1,45 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "counter_lib",
+    srcs = [
+        "counter.go",
+        "main.go",
+        "store.go",
+        "view_templ.go",
+    ],
+    embedsrcs = ["counter.css"],
+    importpath = "github.com/candacelabs/csf/examples/gotth/counter",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_binary(
+    name = "counter",
+    embed = [":counter_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "counter_test",
+    srcs = [
+        "counter_suite_test.go",
+        "counter_test.go",
+    ],
+    # The suite's ReportAfterSuite reads the README to check the spec count it
+    # publishes, so the README is an input to the test, not just documentation.
+    data = ["README.md"],  # keep
+    embed = [":counter_lib"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_ginkgo_v2//types",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

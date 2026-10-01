@@ -1,0 +1,51 @@
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema: "migrations"
+    queries: "queries.sql"
+    gen:
+      go:
+        package: "storedb"
+        out: "../storedb"
+        sql_package: "database/sql"
+        emit_json_tags: true
+        emit_interface: true
+        emit_empty_slices: true
+        overrides:
+          # Nullable columns come out as guregu/null values and pointer uuids,
+          # so no hand-written Null* conversion exists anywhere in the service.
+          - db_type: "text"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v5"
+              package: "null"
+              type: "String"
+          - db_type: "timestamptz"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v5"
+              package: "null"
+              type: "Time"
+          - db_type: "uuid"
+            nullable: true
+            go_type:
+              import: "github.com/google/uuid"
+              type: "UUID"
+              pointer: true
+          - db_type: "pg_catalog.int8"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v5"
+              package: "null"
+              type: "Int"
+          - db_type: "pg_catalog.float8"
+            nullable: true
+            go_type:
+              import: "github.com/guregu/null/v5"
+              package: "null"
+              type: "Float"
+          - db_type: "jsonb"
+            nullable: true
+            go_type:
+              import: "encoding/json"
+              type: "RawMessage"

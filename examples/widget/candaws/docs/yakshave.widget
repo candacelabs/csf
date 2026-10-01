@@ -1,0 +1,361 @@
+%% ============================================================================
+%% CandaWS — Yakshave
+%%
+%% Category parodied: a managed continuous-delivery pipeline.
+%%
+%% Build order 1. A chain, deliberately: `03-relay-pipeline.widget` already
+%% proves the generator emits a chain-shaped scene, so this is the lowest-risk
+%% way to establish the whole P4 loop — engine, document, generation, host
+%% registration, spec tests — before any novel construct is in play.
+%%
+%% What it demonstrates that the raft card does not: two streams rather than
+%% one, two field-carrying events rather than one, a `text` state field
+%% interpolated into a literal label, a chrome with no `source` slot, an edge
+%% carrying exactly one reverse-only channel, and no `controls` block at all.
+%% ============================================================================
+
+
+widget Yakshave
+dialect 0
+region "widget.candaws.yakshave"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% A stage at runtime is a goroutine owning one inbound channel; an artifact is
+%% a value moving down the chain. `currentStage` is the only `text` field in
+%% the fleet and the first one anywhere: nothing in the three shipped exemplars
+%% carries a string through state.
+
+state
+  field runSequence type counter
+  field currentStage type text
+  field checkoutOk type flag
+  field buildOk type flag
+  field testOk type flag
+  field deployOk type flag
+  field queueMinutes type count
+  field retries type count
+  field quotaMinutes type count
+  field lagging type flag signal slowClient
+end
+
+
+predicates
+  predicate quotaLeft
+    requires quotaMinutes atLeast 1
+  end
+
+  predicate green
+    requires checkoutOk
+    requires buildOk
+    requires testOk
+    requires deployOk
+    forbids lagging
+  end
+
+  predicate retrying
+    requires retries atLeast 1
+  end
+
+  predicate shipping
+    requires green
+    requires quotaLeft
+  end
+
+  predicate queueing
+    requires queueMinutes atLeast 1
+  end
+end
+
+
+bindings
+  binding pipelineDescriptionText
+    when shipping then "Four stages in a line; an artifact is moving from checkout through build and test to deploy."
+    whenNot quotaLeft then "Four stages in a line; the run is stopped because the minute quota is exhausted."
+    when retrying then "Four stages in a line; a failed stage is being retried."
+    otherwise "Four stages in a line; the artifact is not moving end to end."
+  end
+
+  binding checkoutCaptionText
+    when checkoutOk then "fetched"
+    otherwise "no source"
+  end
+
+  binding buildCaptionText
+    when buildOk then "compiled"
+    otherwise "broken"
+  end
+
+  binding testCaptionText
+    when testOk then "green"
+    otherwise "red"
+  end
+
+  binding deployCaptionText
+    when deployOk then "released"
+    otherwise "held"
+  end
+
+  binding queueStatText
+    when queueing then "{queueMinutes} minutes queued · billed"
+    otherwise "no queue time"
+  end
+
+  binding retryStatText
+    when retrying then "{retries} automatic retries"
+    otherwise "first attempt"
+  end
+
+  binding quotaStatText
+    when quotaLeft then "{quotaMinutes} minutes of quota left"
+    otherwise "quota exhausted"
+  end
+
+  binding pipelineStatusText
+    whenNot quotaLeft then "quota exhausted"
+    when lagging then "browser catching up"
+    when green then "pipeline green"
+    whenNot checkoutOk then "checkout failed"
+    whenNot buildOk then "build failed"
+    whenNot testOk then "tests failed"
+    otherwise "deploy held"
+  end
+end
+
+
+labels
+  label titleLabel text "Yakshave"
+  label sceneDescriptionLabel binds pipelineDescriptionText
+
+  label checkoutLabel text "checkout"
+  label checkoutCaptionLabel binds checkoutCaptionText
+  label buildLabel text "build"
+  label buildCaptionLabel binds buildCaptionText
+  label testLabel text "test"
+  label testCaptionLabel binds testCaptionText
+  label deployLabel text "deploy"
+  label deployCaptionLabel binds deployCaptionText
+
+  label artifactLegendLabel text "artifact"
+  label rollbackLegendLabel text "rollback"
+
+  %% A literal label carrying a template, which is the whole mechanism for
+  %% rendering a value with no decision around it. `currentStage` is `text`, so
+  %% it interpolates; a `flag` never would.
+  label stageStatLabel text "stage {currentStage}"
+  label queueStatLabel binds queueStatText
+  label retryStatLabel binds retryStatText
+  label quotaStatLabel binds quotaStatText
+
+  label pipelineStatusLabel binds pipelineStatusText
+end
+
+
+%% No `source` line. The slot is 0..1 and the raft card fills it, so nothing
+%% until now had rendered a chrome without one.
+
+chrome
+  title titleLabel
+  stat stageStatLabel
+  stat queueStatLabel
+  stat retryStatLabel
+  stat quotaStatLabel
+end
+
+
+roles
+  role step
+    token accent
+    marker small
+    emphasis allowed
+  end
+
+  role gate
+    token positive
+    marker large
+    emphasis allowed
+  end
+end
+
+
+channels
+  channel artifact
+    direction forward
+    token accent
+    legend artifactLegendLabel
+  end
+
+  channel rollback
+    direction reverse
+    token warning
+    legend rollbackLegendLabel
+  end
+end
+
+
+placements
+  placement firstSpot left 10 top 30
+  placement secondSpot left 37 top 58
+  placement thirdSpot left 64 top 30
+  placement fourthSpot left 90 top 58
+end
+
+
+scene pipeline
+  description sceneDescriptionLabel
+
+  node checkout
+    role step
+    at firstSpot
+    title checkoutLabel
+    caption checkoutCaptionLabel
+  end
+
+  node build
+    role step
+    at secondSpot
+    title buildLabel
+    caption buildCaptionLabel
+  end
+
+  node test
+    role step
+    at thirdSpot
+    title testLabel
+    caption testCaptionLabel
+  end
+
+  node deploy
+    role gate
+    at fourthSpot
+    title deployLabel
+    caption deployCaptionLabel
+  end
+
+  edge checkoutToBuild
+    from checkout
+    to build
+    carries artifact
+  end
+
+  edge buildToTest
+    from build
+    to test
+    carries artifact
+  end
+
+  edge testToDeploy
+    from test
+    to deploy
+    carries artifact
+  end
+
+  %% An edge carrying exactly one channel, and that channel `reverse`: traffic
+  %% runs `to` → `from`, so the rollback travels deploy → checkout. Every edge
+  %% in the raft card and the relay pipeline carries at least one forward
+  %% channel, so this is the first reverse-only edge anywhere.
+  edge revertPath
+    from checkout
+    to deploy
+    carries rollback
+  end
+end
+
+
+%% GAP (dialect v1): a widget has exactly one motion gate, and every pulse
+%% animates inside it or not at all. The rollback is the pipeline's most
+%% informative motion and it should run when the gate is SHUT — when the
+%% pipeline is not green. There is no spelling for a per-pulse gate, so this
+%% document ships no rollback pulse rather than a pulse that can only fire in
+%% the states where a rollback cannot happen. Dashbored hits the same wall from
+%% the other side; two witnesses, which is this repository's bar for a v1 ask.
+
+motion
+  requires shipping
+  restartOn runSequence
+
+  pulse artifactToBuild
+    edge checkoutToBuild
+    channel artifact
+    duration 640 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse artifactToTest
+    edge buildToTest
+    channel artifact
+    duration 640 milliseconds
+    delay 200 milliseconds
+  end
+
+  pulse artifactToDeploy
+    edge testToDeploy
+    channel artifact
+    duration 640 milliseconds
+    delay 400 milliseconds
+  end
+
+  emphasis gateBeat
+    node deploy
+    duration 560 milliseconds
+    delay 600 milliseconds
+  end
+end
+
+
+indicators
+  indicator pipelineIndicator
+    label pipelineStatusLabel
+    positiveWhen green
+  end
+end
+
+
+%% No `controls` block. This card is read-only: a pipeline you can drive from a
+%% status card is a pipeline with two control planes.
+
+
+%% GAP (dialect v1): `deployOk` implies `testOk` implies `buildOk` implies
+%% `checkoutOk` — a stage cannot succeed before its predecessor did. That is a
+%% fact about the engine, not about this document, so W415 cannot see it and
+%% the guard order in `pipelineStatusText` is correct only because a human
+%% ordered it. This is the same shape recorded for `authoritative` implying
+%% `leaderKnown` in example 01; the fleet is its second witness.
+
+events
+  event runAdvance
+    wire "widget.candaws.yakshave.advance"
+    field run_sequence writes runSequence
+    field current_stage writes currentStage
+    field checkout_ok writes checkoutOk
+    field build_ok writes buildOk
+    field test_ok writes testOk
+    field deploy_ok writes deployOk
+    field retries writes retries
+  end
+
+  event quotaUpdate
+    wire "widget.candaws.yakshave.quota"
+    field queue_minutes writes queueMinutes
+    field quota_minutes writes quotaMinutes
+  end
+end
+
+
+%% Two streams. The raft card declares one, so nothing until now had answered
+%% whether a widget may name two sources — and only one of them can be the
+%% tick, because `restartOn` names a single counter.
+
+data
+  stream runWatch
+    source "widget.candaws.yakshave.runs"
+    delivers runAdvance
+    ordering runSequence
+  end
+
+  stream quotaWatch
+    source "widget.candaws.yakshave.quota-watch"
+    delivers quotaUpdate
+  end
+end

@@ -1,0 +1,16 @@
+module(name = "csf_bazel_consumer")
+
+bazel_dep(name = "csf", version = "0.1.0")
+bazel_dep(name = "gazelle", version = "0.52.2")
+bazel_dep(name = "rules_go", version = "0.62.0")
+
+archive_override(
+    module_name = "csf",
+    integrity = "@CANDACE_ARCHIVE_INTEGRITY@",
+    strip_prefix = "@CANDACE_ARCHIVE_PREFIX@",
+    urls = ["@CANDACE_ARCHIVE_URL@"],
+)
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "@csf//:go.mod")
+@CANDACE_GO_REPOS@

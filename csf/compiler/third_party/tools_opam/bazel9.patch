@@ -1,0 +1,862 @@
+CSF compatibility changes for tools_opam 1.0.0.beta.1
+===================================================
+
+This is a unified diff against the pinned upstream release, not a standalone
+program. Bazel's single_version_override applies it after downloading that
+release, with patch_strip = 1. A leading + adds source, - removes source, and
+a space-prefixed context line locates the edit. The /dev/null section adds the
+small Python helper to the dependency; it is not a second CSF entry point.
+
+Upstream: https://github.com/obazl/tools_opam/releases/tag/1.0.0.beta.1
+Maintenance notes, preparation stages and verification: README.md beside this
+patch. Both standalone and monorepo builds apply this same compiler-owned file.
+
+Sections, in upstream path order:
+  extensions/BUILD.bazel             Export the configure timestamp helper.
+  extensions/opam.bzl                Bazel 9 invocation and locked stage graph.
+  extensions/opam/opam_dep.bzl       Make imports depend on completed preparation.
+  extensions/opam/opam_ops.bzl       Use Bazel's file-existence primitive.
+  extensions/opam/opam_toolchain_xdg.bzl
+                                    Split bootstrap from native installation.
+  extensions/preserve_configure_mtime.py
+                                    Run configure; reuse only identical inputs.
+
+The five-minute jobs split work, not validation: the final package graph must
+match the lock, and the real upstream compiler build/install still executes.
+
+diff --git a/extensions/BUILD.bazel b/extensions/BUILD.bazel
+index aeb7827..ff3a76e 100644
+--- a/extensions/BUILD.bazel
++++ b/extensions/BUILD.bazel
+@@ -1,7 +1,7 @@
+ load("@bazel_skylib//:bzl_library.bzl", "bzl_library")
+ package(default_visibility = ["//visibility:public"])
+ 
+-exports_files(["obazl.opamrc"])
++exports_files(["obazl.opamrc", "preserve_configure_mtime.py"])
+ 
+ bzl_library(
+     name = "stardoc",
+diff --git a/extensions/opam.bzl b/extensions/opam.bzl
+index 4ddd39e..a10aea0 100644
+--- a/extensions/opam.bzl
++++ b/extensions/opam.bzl
+@@ -1,5 +1,5 @@
+ load("@bazel_skylib//lib:collections.bzl", "collections")
+-load("//extensions/opam:opam_toolchain_xdg.bzl", "config_xdg_toolchain")
++load("//extensions/opam:opam_toolchain_xdg.bzl", "config_xdg_toolchain", "init_xdg_toolchain", "prepare_xdg_bytecode")
+ load("//extensions/opam:opam_toolchain_local.bzl", "config_local_toolchain")
+ load("//extensions/opam:opam_toolchain_global.bzl", "config_global_toolchain")
+ load("//extensions/opam:opam_toolchain_opam.bzl", "config_opam_toolchain")
+@@ -17,6 +17,21 @@ load("//extensions/opam:opam_ops.bzl",
+ ## - set version ids of bazel_deps in _build_config_tool
+ ## - remove dev registry from bazel build cmd
+ 
++# The lock is a declared Bazel input/output, not state discovered in a user's
++# global switch. Locked builds publish the graph validated by opam.packages;
++# the unlocked upstream path can still publish its freshly resolved content.
++def _opam_lock_impl(rctx):
++    if rctx.attr.source:
++        rctx.symlink(rctx.path(rctx.attr.source), "opam.lock.json")
++    else:
++        rctx.file("opam.lock.json", rctx.attr.content)
++    rctx.file("BUILD.bazel", 'exports_files(["opam.lock.json"])\n')
++
++opam_lock = repository_rule(
++    implementation = _opam_lock_impl,
++    attrs = {"content": attr.string(), "source": attr.label(allow_single_file = True)},
++)
++
+ ################################################################
+ def _build_config_tool(mctx, toolchain, debug, verbosity):
+     if debug > 1: print("_build_config_tool")
+@@ -56,6 +71,7 @@ bazel_dep(name = "rules_ocaml", version = "3.0.0.beta.1")
+     # only for opam install
+     if toolchain == "opam":
+         cmd = [bazel,
++               "--output_user_root=../.cache/config-bazel-output",
+                "--ignore_all_rc_files",
+                # WARNING: a different output base than the
+                # one set by the opam build cmd will cause
+@@ -63,6 +79,7 @@ bazel_dep(name = "rules_ocaml", version = "3.0.0.beta.1")
+                # "--output_base=../.config_base",
+                # "--output_user_root=../.config_user",
+                "build",
++               "--incompatible_autoload_externally=+@rules_cc",
+                "--symlink_prefix=config-",
+                "--lockfile_mode=off",
+                "--ignore_dev_dependency",
+@@ -75,9 +92,11 @@ bazel_dep(name = "rules_ocaml", version = "3.0.0.beta.1")
+                "@tools_opam//extensions/config"]
+     else:
+         cmd = ["bazel",
++               "--output_user_root=../.cache/config-bazel-output",
+                # "--output_base=../.config_base",
+                # "--output_user_root=../.config_user",
+                "build",
++               "--incompatible_autoload_externally=+@rules_cc",
+                # "--symlink_prefix=config-",
+                # testing:
+                # "--registry=file://{}/obazl/registry".format(HOME),
+@@ -87,6 +106,7 @@ bazel_dep(name = "rules_ocaml", version = "3.0.0.beta.1")
+                "--ignore_dev_dependency",
+                "--compilation_mode", "fastbuild",
+                "@tools_opam//extensions/config"]
++    cmd.append("--override_module=tools_opam=" + str(mctx.path(Label("//extensions/config:BUILD.bazel")).dirname.dirname.dirname))
+     if verbosity > 1:
+         cmd.append("--subcommands=pretty_print")
+ 
+@@ -128,6 +148,240 @@ bazel_dep(name = "rules_ocaml", version = "3.0.0.beta.1")
+ 
+     return config_pkg_tool
+ 
++# These are OPAM package names and versions. Findlib library names are a
++# separate namespace: one installed package may provide several libraries.
++def _installed_versions(rctx, opam, root, switch):
++    listed = rctx.execute([str(opam), "list", "--root", str(root),
++                           "--switch", switch, "--installed",
++                           "--columns=name,version", "--short"])
++    if listed.return_code != 0:
++        fail("Cannot read resolved opam dependencies: " + listed.stderr)
++    resolved = {}
++    for line in listed.stdout.splitlines():
++        fields = [field for field in line.replace("\t", " ").split(" ") if field]
++        if len(fields) == 2:
++            resolved[fields[0]] = fields[1]
++    return resolved
++
++# Initializing repository metadata has its own cold preparation budget. It does
++# not install or claim a compiler. The compiler repository consumes this marker.
++def _opam_repository_impl(rctx):
++    context_root = rctx.getenv("CSF_OCAML_TOOLCHAIN_ROOT") or str(rctx.path("opam"))
++    opam, root = init_xdg_toolchain(
++        rctx, rctx.attr.opam_version, rctx.attr.debug,
++        rctx.attr.opam_verbosity, rctx.attr.verbosity, context_root,
++    )
++    version = rctx.execute([str(opam), "--version"])
++    if version.return_code != 0 or version.stdout.strip() != rctx.attr.opam_version:
++        fail("Prepared opam differs from the requested version")
++    available = rctx.execute([str(opam), "show", "ocaml-base-compiler." + rctx.attr.ocaml_version,
++                              "--root", str(root), "--field=version"])
++    if available.return_code != 0 or available.stdout.strip() != rctx.attr.ocaml_version:
++        fail("The initialized repository cannot resolve the requested compiler")
++    rctx.file("repository.json", json.encode({"context_root": context_root}))
++    rctx.file("BUILD.bazel", 'exports_files(["repository.json"])\n')
++
++opam_repository = repository_rule(
++    implementation = _opam_repository_impl,
++    attrs = {
++        "opam_version": attr.string(mandatory = True),
++        "ocaml_version": attr.string(mandatory = True),
++        "debug": attr.int(),
++        "opam_verbosity": attr.int(),
++        "verbosity": attr.int(),
++    },
++)
++
++# A successful bootstrap is an intermediate source build, never an installed
++# compiler. Only the following opam compiler repository may claim installation.
++def _opam_bytecode_impl(rctx):
++    repository = json.decode(rctx.read(rctx.attr.repository))
++    prepare_xdg_bytecode(
++        rctx, rctx.attr.opam_version, rctx.attr.ocaml_version,
++        rctx.attr.debug, rctx.attr.opam_verbosity, rctx.attr.verbosity,
++        repository["context_root"],
++    )
++    rctx.file("bytecode.json", json.encode(repository))
++    rctx.file("BUILD.bazel", 'exports_files(["bytecode.json"])\n')
++
++opam_bytecode = repository_rule(
++    implementation = _opam_bytecode_impl,
++    attrs = {
++        "repository": attr.label(mandatory = True, allow_single_file = True),
++        "opam_version": attr.string(mandatory = True),
++        "ocaml_version": attr.string(mandatory = True),
++        "debug": attr.int(),
++        "opam_verbosity": attr.int(),
++        "verbosity": attr.int(),
++    },
++)
++
++# The compiler-only preparation target never claims a complete dependency graph.
++def _opam_compiler_impl(rctx):
++    repository = json.decode(rctx.read(rctx.attr.repository))
++    context_root = repository["context_root"]
++    (opam, root, _sdklib, switch, _version, _libraries) = config_xdg_toolchain(
++        rctx, rctx.attr.opam_version, rctx.attr.ocaml_version, [], {},
++        rctx.attr.debug, rctx.attr.opam_verbosity, rctx.attr.verbosity,
++        context_root = context_root,
++    )
++    resolved = _installed_versions(rctx, opam, root, switch)
++    if not rctx.attr.update_lock:
++        for package, version in resolved.items():
++            if rctx.attr.locked_versions.get(package) != version:
++                fail("Installed compiler preparation package differs from lock: " + package)
++    for executable in ["ocamlc", "ocamlopt"]:
++        checked = rctx.execute([str(root) + "/" + switch + "/bin/" + executable, "-version"])
++        if checked.return_code != 0 or checked.stdout.strip() != rctx.attr.ocaml_version:
++            fail("Prepared OCaml compiler differs from the requested version: " + executable)
++    rctx.file("compiler.json", json.encode({"context_root": context_root, "packages": resolved}))
++    rctx.file("BUILD.bazel", 'exports_files(["compiler.json"])\n')
++
++opam_compiler = repository_rule(
++    implementation = _opam_compiler_impl,
++    attrs = {
++        "repository": attr.label(mandatory = True, allow_single_file = True),
++        "opam_version": attr.string(mandatory = True),
++        "ocaml_version": attr.string(mandatory = True),
++        "locked_versions": attr.string_dict(mandatory = True),
++        "update_lock": attr.bool(),
++        "debug": attr.int(),
++        "opam_verbosity": attr.int(),
++        "verbosity": attr.int(),
++    },
++)
++
++# A repository dependency owns executable/toolchain installation. Extension
++# lockfile replay only declares this repository; fetching any package still
++# materializes its complete bootstrap dependency first.
++def _opam_packages_impl(rctx):
++    compiler = json.decode(rctx.read(rctx.attr.compiler))
++    (opam, root, sdklib, switch, ocaml_version, libraries) = config_xdg_toolchain(
++        rctx, rctx.attr.opam_version, rctx.attr.ocaml_version,
++        rctx.attr.packages.keys(), rctx.attr.packages,
++        rctx.attr.debug, rctx.attr.opam_verbosity, rctx.attr.verbosity,
++        context_root = compiler["context_root"],
++    )
++    resolved = _installed_versions(rctx, opam, root, switch)
++    libraries = sorted(libraries)
++    if not rctx.attr.update_lock and (
++        resolved != rctx.attr.locked_versions or libraries != rctx.attr.locked_libraries
++    ):
++        fail("Resolved opam packages or findlib libraries differ from lock; run the explicit lock update command")
++    graph = {"schema_version": 1, "packages": resolved, "libraries": libraries}
++    rctx.file("opam.lock.json", json.encode_indent(graph) + "\n")
++    rctx.file("packages.json", json.encode({
++        "opam": str(opam), "root": str(root), "sdklib": str(sdklib),
++        "switch": switch,
++        "graph": graph,
++    }))
++    rctx.file("BUILD.bazel", 'exports_files(["packages.json", "opam.lock.json"])\n')
++
++opam_packages = repository_rule(
++    implementation = _opam_packages_impl,
++    attrs = {
++        "compiler": attr.label(mandatory = True, allow_single_file = True),
++        "opam_version": attr.string(mandatory = True),
++        "ocaml_version": attr.string(mandatory = True),
++        "packages": attr.string_dict(mandatory = True),
++        "locked_versions": attr.string_dict(mandatory = True),
++        "locked_libraries": attr.string_list(mandatory = True),
++        "update_lock": attr.bool(),
++        "debug": attr.int(),
++        "opam_verbosity": attr.int(),
++        "verbosity": attr.int(),
++    },
++)
++
++# Native Bazel metadata needs the configuration helper; installing the package
++# graph does not. Keeping these dependencies separate makes cold preparation
++# bounded without changing the full graph validation consumed by every build.
++def _opam_bootstrap_impl(rctx):
++    packages = json.decode(rctx.read(rctx.attr.packages))
++    config_tool = _build_config_tool(rctx, "xdg", rctx.attr.debug, rctx.attr.verbosity)
++    copied = rctx.execute(["cp", str(config_tool), "config-tool"])
++    if copied.return_code != 0:
++        fail("Cannot retain opam configuration tool: " + copied.stderr)
++    runfiles = rctx.execute(["cp", "-RL", str(config_tool) + ".runfiles", "config-tool.runfiles"])
++    if runfiles.return_code != 0:
++        fail("Cannot retain opam configuration templates: " + runfiles.stderr)
++    packages["config_tool"] = str(rctx.path("config-tool"))
++    rctx.file("bootstrap.json", json.encode(packages))
++    rctx.file("BUILD.bazel", 'exports_files(["bootstrap.json"])\n')
++
++opam_bootstrap = repository_rule(
++    implementation = _opam_bootstrap_impl,
++    attrs = {
++        "packages": attr.label(mandatory = True, allow_single_file = True),
++        "debug": attr.int(),
++        "verbosity": attr.int(),
++    },
++)
++
++def _declare_locked_xdg(mctx, opam_version, ocaml_version, package_versions,
++                        locked_versions, locked_libraries, update_lock, direct_deps, dev_deps,
++                        obazl_pfx, debug, opam_verbosity, verbosity):
++    # Keep this chain explicit in repository labels:
++    # repository -> bytecode -> compiler -> packages -> bootstrap -> imports.
++    # Each preparation job can stop at one marker. A normal library build reads
++    # bootstrap.json, which requires every preceding stage even when Bazel
++    # restores the module extension's declarations from MODULE.bazel.lock.
++    opam_repository(
++        name = "opam.repository", opam_version = opam_version,
++        ocaml_version = ocaml_version,
++        debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++    )
++    opam_bytecode(
++        name = "opam.bytecode", repository = "@opam.repository//:repository.json",
++        opam_version = opam_version, ocaml_version = ocaml_version,
++        debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++    )
++    opam_compiler(
++        name = "opam.compiler", opam_version = opam_version,
++        repository = "@opam.bytecode//:bytecode.json",
++        ocaml_version = ocaml_version, locked_versions = locked_versions,
++        update_lock = update_lock,
++        debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++    )
++    opam_packages(
++        name = "opam.packages", opam_version = opam_version,
++        compiler = "@opam.compiler//:compiler.json",
++        ocaml_version = ocaml_version, packages = package_versions,
++        locked_versions = locked_versions, locked_libraries = locked_libraries,
++        update_lock = update_lock,
++        debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++    )
++    opam_bootstrap(
++        name = "opam.bootstrap", packages = "@opam.packages//:packages.json",
++        debug = debug, verbosity = verbosity,
++    )
++    opam_lock(name = "opam.lock", source = "@opam.packages//:opam.lock.json")
++    packages = {library: locked_versions.get(library, "") for library in locked_libraries
++                if library not in OBAZL_PKGS}
++    packages.update({"ocamlsdk": ocaml_version, "stublibs": ocaml_version})
++    for pkg, version in packages.items():
++        opam_dep(
++            name = obazl_pfx + pkg, pkg_version = version,
++            bootstrap = "@opam.bootstrap//:bootstrap.json",
++            ocaml_version = ocaml_version, obazl_pfx = obazl_pfx,
++            debug = debug, opam_verbosity = opam_verbosity, verbosity = verbosity,
++        )
++    root_deps = ["opam.ocamlsdk", "opam.lock", "opam.compiler", "opam.repository", "opam.bytecode"] + [
++        obazl_pfx + pkg for pkg in direct_deps if pkg not in OBAZL_PKGS
++    ]
++    root_dev_deps = [
++        obazl_pfx + pkg for pkg in dev_deps if pkg not in OBAZL_PKGS
++    ]
++    if mctx.root_module_has_non_dev_dependency:
++        return mctx.extension_metadata(
++            root_module_direct_deps = root_deps,
++            root_module_direct_dev_deps = root_dev_deps,
++        )
++    return mctx.extension_metadata(
++        root_module_direct_deps = [],
++        root_module_direct_dev_deps = root_deps + root_dev_deps,
++    )
++
+ ##################################
+ def _throw_cmd_error(cmd, r):
+     print("cmd: %s" % cmd)
+@@ -193,6 +447,10 @@ def _opam_ext_impl(mctx):
+     verbosity     = 0
+     root_module   = None
+     config_file   = "obazl.opamrc"
++    package_versions = {}
++    locked_versions = {}
++    locked_libraries = []
++    update_lock = mctx.getenv("OBAZL_UPDATE_LOCK") == "1"
+     direct_deps   = []
+     dev_deps      = []
+     opamtgt       = None
+@@ -232,6 +490,18 @@ def _opam_ext_impl(mctx):
+                     dev_deps.extend(
+                         {"utop": utop})
+             for cfg in m.tags.deps:
++                if cfg.lockfile:
++                    graph = json.decode(mctx.read(cfg.lockfile))
++                    if graph.get("schema_version") != 1:
++                        fail("Unsupported opam lock schema version")
++                    locked_versions = graph["packages"]
++                    locked_libraries = graph["libraries"]
++                    if not update_lock:
++                        for pkg, version in cfg.pkgs.items():
++                            if locked_versions.get(pkg) != version:
++                                fail("Direct dependency differs from opam lock: " + pkg)
++                        package_versions.update(locked_versions)
++                package_versions.update(cfg.pkgs)
+                 config_file = cfg._opam_config_file
+                 if mctx.is_dev_dependency(cfg):
+                     dev_deps.extend(cfg.pkgs)
+@@ -268,6 +538,18 @@ use_repo(opam_dev, utop="opam.utop")
+         else:
+             # non-root modules
+             for cfg in m.tags.deps:
++                if cfg.lockfile:
++                    graph = json.decode(mctx.read(cfg.lockfile))
++                    if graph.get("schema_version") != 1:
++                        fail("Unsupported opam lock schema version")
++                    locked_versions = graph["packages"]
++                    locked_libraries = graph["libraries"]
++                    if not update_lock:
++                        for pkg, version in cfg.pkgs.items():
++                            if locked_versions.get(pkg) != version:
++                                fail("Direct dependency differs from opam lock: " + pkg)
++                        package_versions.update(locked_versions)
++                package_versions.update(cfg.pkgs)
+                 if mctx.is_dev_dependency(cfg):
+                     dev_deps.extend(cfg.pkgs)
+                 else:
+@@ -292,6 +574,17 @@ use_repo(opam_dev, utop="opam.utop")
+     if mctx.getenv("OBAZL_OPAM_ENV"):
+         toolchain = "opam"
+ 
++    # The staged path applies only to a declared lock and an isolated XDG
++    # toolchain. Preserve upstream handling of local/global/opam toolchains.
++    if locked_versions and toolchain == "xdg":
++        if opamtgt or dbg or ocaml or utop:
++            fail("Locked xdg toolchains support package dependencies only")
++        return _declare_locked_xdg(
++            mctx, opam_version, ocaml_version, package_versions, locked_versions,
++            locked_libraries, update_lock, direct_deps, dev_deps, obazl_pfx,
++            debug, opam_verbosity, verbosity,
++        )
++
+     config_pkg_tool = _build_config_tool(mctx, toolchain,
+                                          debug, verbosity)
+     if debug > 0: print("CONFIG TOOL: %s" % config_pkg_tool)
+@@ -377,6 +670,7 @@ use_repo(opam_dev, "dbg")
+              opam_version,
+              ocaml_version,
+              direct_deps + dev_deps,
++             package_versions,
+              debug,
+              opam_verbosity,
+              verbosity)
+@@ -391,6 +685,22 @@ use_repo(opam_dev, "dbg")
+         fail("unrecognized toolchain: %s" % toolchain)
+     # if debug > 0: print(print_cwd(mctx))
+ 
++    # Materialize the resolved graph as a Bazel output. Normal builds reject
++    # transitive drift; only the explicit lock update mode may refresh it.
++    listed = mctx.execute([str(opam), "list", "--root", str(opamroot),
++                           "--switch", switch, "--installed",
++                           "--columns=name,version", "--short"])
++    if listed.return_code != 0:
++        fail("Cannot read resolved opam dependencies: " + listed.stderr)
++    resolved_versions = {}
++    for line in listed.stdout.splitlines():
++        fields = [field for field in line.replace("\t", " ").split(" ") if field]
++        if len(fields) == 2:
++            resolved_versions[fields[0]] = fields[1]
++    if locked_versions and not update_lock and resolved_versions != locked_versions:
++        fail("Resolved opam graph differs from lock; run the explicit lock update command")
++    opam_lock(name = "opam.lock", content = json.encode_indent(resolved_versions) + "\n")
++
+     opampath = str(opam)
+     rootpath = str(opamroot)
+     sdklib = str(sdklib)
+@@ -483,7 +793,7 @@ use_repo(opam_dev, "dbg")
+                   debug         = debug,
+                   verbosity     = verbosity)
+     ## configure all deps
+-    # for now, ignore versions
++    # Version attributes invalidate generated imports when a pin changes.
+     # if verbosity > 0: print("\n\tRegistering repos for opam pkgs")
+ 
+     tot = len(deps)
+@@ -501,6 +811,7 @@ use_repo(opam_dev, "dbg")
+             "\n  Registering repo {n} of {tot}: {p}".format(
+                 n=i+1, tot=tot, p=pkg))
+         opam_dep(name=pkg,
++                 pkg_version = resolved_versions.get(pkg.removeprefix(obazl_pfx), ""),
+                  install = False,
+                  opam = opampath,
+                  switch = switch,
+@@ -514,7 +825,7 @@ use_repo(opam_dev, "dbg")
+                  )
+         # if debug > 1: print("done")
+ 
+-    rmdirects = ["opam.ocamlsdk"]
++    rmdirects = ["opam.ocamlsdk", "opam.lock"]
+     # if stublibs_direct:
+     #     rmdirects.append("opam.stublibs")
+     for dep in direct_deps:
+@@ -633,6 +944,7 @@ ocaml_module(name="A", struct="a.ml", deps=["@opam.ounit2//lib"],...)
+                     mandatory = False,
+                     default = "5.3.0"
+                 ),
++                "lockfile": attr.label(),
+                 "pkgs": attr.string_dict(
+                     doc = "List of opam pkg Ids",
+                     # mandatory = True,
+diff --git a/extensions/opam/opam_dep.bzl b/extensions/opam/opam_dep.bzl
+index 214072b..b39d557 100644
+--- a/extensions/opam/opam_dep.bzl
++++ b/extensions/opam/opam_dep.bzl
+@@ -31,10 +31,14 @@ def _opam_dep_repo_impl(rctx):
+     if verbosity > 1:
+         print("\n  Creating repo: '" + rctx.name + "'")
+ 
+-    opambin = rctx.path(rctx.attr.opam)
++    # Reading the label creates the dependency edge that materializes the
++    # compiler, locked packages and metadata helper before any library import.
++    # An absolute path alone would not tell Bazel to prepare that dependency.
++    bootstrap = json.decode(rctx.read(rctx.attr.bootstrap)) if rctx.attr.bootstrap else {}
++    opambin = rctx.path(bootstrap.get("opam", rctx.attr.opam))
+     if debug > 1: print("OPAMBIN: %s" % opambin)
+ 
+-    opamroot = rctx.path(rctx.attr.root)
++    opamroot = rctx.path(bootstrap.get("root", rctx.attr.root))
+     # opamroot = None
+     # cmd = [opambin, "var", "root"]
+     # res = rctx.execute(cmd, quiet = (verbosity < 1))
+@@ -48,7 +52,7 @@ def _opam_dep_repo_impl(rctx):
+     #     fail("cmd failure")
+ 
+     if debug > 1: print("OPAMROOT: %s" % opamroot)
+-    opamswitch = rctx.attr.switch
++    opamswitch = bootstrap.get("switch", rctx.attr.switch)
+     if debug > 1: print("OPAMSWITCH: %s" % opamswitch)
+ 
+     # config tool needs switch prefix
+@@ -91,7 +95,7 @@ def _opam_dep_repo_impl(rctx):
+         repo_pkg,
+         switch_pfx)
+     )
+-    cmd = [rctx.attr.config_tool,
++    cmd = [bootstrap.get("config_tool", rctx.attr.config_tool),
+            "--pkg", repo_pkg,
+            "--pkg-pfx", rctx.attr.obazl_pfx,
+            "--switch-pfx", switch_pfx]
+@@ -100,7 +104,7 @@ def _opam_dep_repo_impl(rctx):
+     rctx.report_progress("Configuring pkg %s" % repo_pkg)
+     res = rctx.execute(cmd,
+                        environment = {
+-                           "OBAZL_SDKLIB": rctx.attr.sdklib
++                           "OBAZL_SDKLIB": bootstrap.get("sdklib", rctx.attr.sdklib)
+                        },
+                        quiet = (verbosity < 1))
+ 
+@@ -119,6 +123,7 @@ def _opam_dep_repo_impl(rctx):
+ opam_dep = repository_rule(
+     implementation = _opam_dep_repo_impl,
+     attrs = {
++        "bootstrap": attr.label(allow_single_file = True),
+         "install": attr.bool(default = True),
+         "opam": attr.string(),
+         "root": attr.string(),
+@@ -140,4 +145,3 @@ opam_dep = repository_rule(
+         "verbosity":  attr.int(default=0),
+     },
+ )
+-
+diff --git a/extensions/opam/opam_ops.bzl b/extensions/opam/opam_ops.bzl
+index 73e8107..ba3126a 100644
+--- a/extensions/opam/opam_ops.bzl
++++ b/extensions/opam/opam_ops.bzl
+@@ -30,18 +30,9 @@ def print_tree(ctx, dir=".", depth=1):
+ 
+ #####################
+ def file_exists(ctx, f, debug=0, verbosity=0):
+-    cmd = ["file", "-E", "-b", "{}".format(f)]
+-    res = ctx.execute(cmd, quiet = (verbosity < 1))
+-    if res.return_code == 0:
+-        return True
+-    elif res.return_code == 1:
+-        return False
+-    else:
+-        print("cmd: %s" % cmd)
+-        print("rc: %s" % res.return_code)
+-        print("stdout: %s" % res.stdout)
+-        print("stderr: %s" % res.stderr)
+-        fail("cmd failure")
++    # Bazel already supplies a filesystem existence primitive. The runner's
++    # external file(1) program may fail for reasons unrelated to path existence.
++    return ctx.path(f).exists
+ 
+ #####################
+ def run_cmd(ctx, cmd, debug=0, verbosity=0):
+diff --git a/extensions/opam/opam_toolchain_xdg.bzl b/extensions/opam/opam_toolchain_xdg.bzl
+index 3b972fa..ee8b08c 100644
+--- a/extensions/opam/opam_toolchain_xdg.bzl
++++ b/extensions/opam/opam_toolchain_xdg.bzl
+@@ -91,6 +91,7 @@ def _init_opam(mctx, opambin, opam_version, OPAMROOT,
+            "init",
+            "--root={}".format(OPAMROOT),
+            "--bare",
++           "--disable-sandboxing", # already inside the Bazel runner container
+            "--no-setup", # don't update shell stuff
+            "--no-opamrc",
+            # "--no" # use OPAMNO instead
+@@ -125,6 +126,13 @@ def _create_switch(mctx, opambin, opam_version,
+            "--root={}".format(OPAMROOT),
+            # "--verbose"
+            ]
++    if file_exists(mctx, "{}/{}".format(OPAMROOT, switch_id)):
++        # Complete an explicitly empty switch using the upstream package build.
++        # Reuse only the source tree prepared by the bytecode prerequisite.
++        cmd = [opambin, "switch", "set-invariant",
++               "ocaml-base-compiler." + str(switch_id),
++               "--switch", str(switch_id), "--root", OPAMROOT,
++               "--reuse-build-dir", "--yes"]
+     if opam_verbosity > 1:
+         s = "-"
+         for i in range(1, opam_verbosity):
+@@ -138,32 +146,41 @@ def _create_switch(mctx, opambin, opam_version,
+       in opam {o} root: {r}""".format(c = CCYEL, reset = CCRESET,
+                s = switch_id, v = switch_id,
+                o = opam_version, r = OPAMROOT))
++    previous_wrappers = None
++    if file_exists(mctx, "{}/{}/.opam-switch/build/ocaml-compiler.{}".format(
++        OPAMROOT, switch_id, switch_id,
++    )):
++        # Autoconf rewrites several byte-identical .ml/Makefile outputs. Preserve
++        # only those files' timestamps, after executing the real configure
++        # command, so the upstream make can reuse the completed bootstrap.
++        previous_wrappers = run_cmd(mctx, [opambin, "option", "--global",
++                                          "--root", OPAMROOT, "wrap-build-commands"]).strip()
++        wrapper = str(mctx.path(Label("//extensions:preserve_configure_mtime.py")))
++        run_cmd(mctx, [opambin, "option", "--global", "--root", OPAMROOT,
++                       'wrap-build-commands+=[["python3" %s] {name = "ocaml-compiler"}]' % json.encode(wrapper)])
+     res = mctx.execute(cmd,
+                        environment = {
+                            "PATH": "/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin"
+                        },
+                        quiet = (opam_verbosity < 1))
++    # Restore the operator's wrapper setting even when the build command
++    # fails. This hook must never leak into installation of another package.
++    if previous_wrappers != None:
++        run_cmd(mctx, [opambin, "option", "--global", "--root", OPAMROOT,
++                       "wrap-build-commands=" + previous_wrappers])
+     if res.return_code != 0:
+-        if res.return_code != 2: # already installed
+-            print("cmd: %s" % cmd)
+-            print("rc: %s" % res.return_code)
+-            print("stdout: %s" % res.stdout)
+-            print("stderr: %s" % res.stderr)
+-            fail("cmd failure: %s" % cmd)
+-
+-    ocaml_version = None
++        print("cmd: %s" % cmd)
++        print("rc: %s" % res.return_code)
++        print("stdout: %s" % res.stdout)
++        print("stderr: %s" % res.stderr)
++        fail("cmd failure: %s" % cmd)
+ 
+-    return switch_id, ocaml_version
++    return switch_id, switch_id
+ 
+ ################
+-def config_xdg_toolchain(mctx,
+-                         opam_version,
+-                         ocaml_version,
+-                         pkgs,
+-                         debug,
+-                         opam_verbosity, verbosity):
+-
+-    XDG_OPAM_CTX = _get_xdg_ctx(mctx, debug, verbosity)
++def init_xdg_toolchain(mctx, opam_version, debug, opam_verbosity, verbosity,
++                       context_root = None):
++    XDG_OPAM_CTX = context_root or _get_xdg_ctx(mctx, debug, verbosity)
+     if verbosity > 0:
+         print("\n  Configuring XDG toolchain in %s" % XDG_OPAM_CTX)
+ 
+@@ -206,9 +223,75 @@ def config_xdg_toolchain(mctx,
+         _init_opam(mctx, opambin, opam_version, OPAMROOT,
+                    verbosity, opam_verbosity)
+ 
++    return opambin, OPAMROOT
++
++def prepare_xdg_bytecode(mctx, opam_version, ocaml_version, debug,
++                         opam_verbosity, verbosity, context_root):
++    # This stage leaves an intermediate build tree in an empty switch. It does
++    # not register an installed compiler: _create_switch still runs upstream's
++    # configure/build/install recipe and validates the native executables.
++    opam, root = init_xdg_toolchain(
++        mctx, opam_version, debug, opam_verbosity, verbosity, context_root,
++    )
++    prefix = str(root) + "/" + ocaml_version
++    if file_exists(mctx, prefix + "/bin/ocamlc"):
++        return
++    if not file_exists(mctx, prefix):
++        run_cmd(mctx, [str(opam), "switch", "create", ocaml_version, "--empty",
++                       "--root", str(root), "--yes"])
++    source = prefix + "/.opam-switch/build/ocaml-compiler." + ocaml_version
++    if not file_exists(mctx, source):
++        run_cmd(mctx, [str(opam), "source", "ocaml-compiler." + ocaml_version,
++                       "--no-switch", "--root", str(root), "--dir", source])
++    wrapper = str(mctx.path(Label("//extensions:preserve_configure_mtime.py")))
++    # A restored directory is reusable only when its regular-file inventory,
++    # contents and modes match the receipt from a successful bootstrap.
++    prepared = file_exists(mctx, source + "/.csf-bootstrap-mtimes.json")
++    if prepared:
++        verified = mctx.execute(["python3", wrapper, "--verify"], working_directory = source)
++        if verified.return_code != 0:
++            fail("Prepared OCaml bootstrap contents differ from their receipt; prepare a fresh cache")
++    else:
++        # The pinned runner uses the vanilla Linux configuration. The next stage
++        # re-runs the complete upstream opam recipe before recording an installation.
++        configured = mctx.execute([
++            "./configure", "--prefix=" + prefix, "--docdir=" + prefix + "/doc/ocaml",
++            "-C", "--disable-warn-error",
++        ], working_directory = source, quiet = False)
++        if configured.return_code != 0:
++            fail("OCaml bootstrap configuration failed: " + configured.stderr)
++        jobs = mctx.getenv("OPAMJOBS") or run_cmd(mctx, ["getconf", "_NPROCESSORS_ONLN"]).strip()
++        # Both bootstrap compilers are bytecode programs. Build them sequentially;
++        # the native installation later builds their optimized native executables.
++        for target in ["core", "opt-core"]:
++            built = mctx.execute(["make", "-j" + jobs, target],
++                                 working_directory = source, quiet = False)
++            if built.return_code != 0:
++                fail("OCaml bytecode bootstrap failed: " + built.stderr)
++    for executable in ["ocamlc", "ocamlopt"]:
++        checked = mctx.execute([source + "/runtime/ocamlrun", source + "/" + executable, "-version"])
++        if checked.return_code != 0 or checked.stdout.strip() != ocaml_version:
++            fail("Prepared OCaml bytecode bootstrap differs from the requested version")
++    if not prepared:
++        recorded = mctx.execute(["python3", wrapper, "--record"], working_directory = source)
++        if recorded.return_code != 0:
++            fail("Cannot retain the validated bootstrap input identities: " + recorded.stderr)
++
++def config_xdg_toolchain(mctx,
++                         opam_version,
++                         ocaml_version,
++                         pkgs,
++                         package_versions,
++                         debug,
++                         opam_verbosity, verbosity, context_root = None):
++
++    opambin, OPAMROOT = init_xdg_toolchain(
++        mctx, opam_version, debug, opam_verbosity, verbosity, context_root,
++    )
++
+     if ocaml_version:
+         switch_id = ocaml_version
+-        if not file_exists(mctx, "{}/{}".format(OPAMROOT, switch_id)):
++        if not file_exists(mctx, "{}/{}/bin/ocamlc".format(OPAMROOT, switch_id)):
+             (switch_id,
+              ocaml_version) = _create_switch(mctx, opambin,
+                                              opam_version,
+@@ -238,7 +321,7 @@ def config_xdg_toolchain(mctx,
+             print("stderr: {stderr}".format(stderr= res.stderr))
+             fail("opam cmd failure.")
+ 
+-        if not file_exists(mctx, "{}/{}".format(OPAMROOT, ocaml_version)):
++        if not file_exists(mctx, "{}/{}/bin/ocamlc".format(OPAMROOT, ocaml_version)):
+             (switch_id,
+              ocaml_version) = _create_switch(mctx, opambin,
+                                              opam_version, OPAMROOT,
+@@ -272,20 +355,16 @@ def config_xdg_toolchain(mctx,
+ 
+     SDKBIN = switch_bin
+ 
+-    tot = len(pkgs)
+-    for i,pkg in enumerate(pkgs):
+-        if not is_pkg_installed(mctx, opambin, pkg,
+-                                OPAMROOT, ocaml_version):
+-            if verbosity > 1: print("\nInstalling pkg '{}'".format(pkg))
+-            opam_install_pkg(mctx,
+-                             opambin,
+-                             pkg,
+-                             switch_id,
+-                             switch_pfx,
+-                             SDKBIN,
+-                             OPAMROOT,
+-                             i+1, tot,
+-                             debug, opam_verbosity, verbosity)
++    # Resolve all requested constraints together. Checking only a library directory
++    # silently accepts a different installed version and drops the MODULE pins.
++    atoms = [pkg + "." + package_versions[pkg]
++             if package_versions.get(pkg) else pkg for pkg in package_versions]
++    if atoms:
++        cmd = [opambin, "install", "--root", OPAMROOT,
++               "--switch", switch_id, "--yes"] + atoms
++        res = mctx.execute(cmd, quiet = (opam_verbosity < 1))
++        if res.return_code != 0:
++            fail("opam dependency resolution failed: " + res.stderr)
+ 
+     # get all installed pkgs
+     cmd = [opambin,
+diff --git a/extensions/preserve_configure_mtime.py b/extensions/preserve_configure_mtime.py
+new file mode 100644
+index 0000000..44d073d
+--- /dev/null
++++ b/extensions/preserve_configure_mtime.py
+@@ -0,0 +1,86 @@
++#!/usr/bin/env python3
++"""Preserve identical bootstrap inputs after opam extraction and configuration."""
++# This helper is added to the upstream dependency by bazel9.patch. It runs in
++# the OCaml source directory, not in CSF's source tree. Its three uses are:
++#   --record: retain a successfully built bootstrap's regular-file identities;
++#   --verify: reject changed/missing/extra files or modes after cache restore;
++#   COMMAND: run the real build command, handling timestamps only for configure.
++# It never skips configuration, marks a compiler installed, or accepts a failed
++# command. The repository rule removes the temporary OPAM hook after the build.
++import hashlib
++import json
++import os
++from pathlib import Path
++import subprocess
++import sys
++import time
++
++RECEIPT = ".csf-bootstrap-mtimes.json"
++
++
++def fingerprint(path):
++    digest = hashlib.sha256()
++    with path.open("rb") as source:
++        for block in iter(lambda: source.read(1024 * 1024), b""):
++            digest.update(block)
++    return digest.hexdigest()
++
++
++def snapshot():
++    # Ignore symlinks and the receipt itself. Record relative paths so the
++    # same validated tree can be restored at another worker's filesystem path.
++    before = {}
++    for path in Path.cwd().rglob("*"):
++        if path.is_file() and not path.is_symlink() and path.name != RECEIPT:
++            status = path.stat()
++            before[str(path.relative_to(Path.cwd()))] = {
++                "mode": status.st_mode, "mtime_ns": status.st_mtime_ns,
++                "sha256": fingerprint(path),
++            }
++    return before
++
++
++def main():
++    command = sys.argv[1:]
++    if command == ["--record"]:
++        Path(RECEIPT).write_text(json.dumps(snapshot()))
++        return 0
++    if command == ["--verify"]:
++        expected = json.loads(Path(RECEIPT).read_text())
++        actual = snapshot()
++        # Copying a cache may change mtimes without changing the build inputs.
++        # Identity therefore checks contents and modes; configure restores a
++        # saved mtime only after checking that same identity again.
++        valid = expected.keys() == actual.keys() and all(
++            actual[name]["mode"] == saved["mode"] and actual[name]["sha256"] == saved["sha256"]
++            for name, saved in expected.items()
++        )
++        return 0 if valid else 1
++    if not command:
++        return 2
++    if Path(command[0]).name != "configure":
++        os.execvp(command[0], command)
++    # Opam may copy byte-identical source files before invoking configure. The
++    # earlier successful bootstrap owns the timestamps, not this new extraction.
++    before = json.loads(Path(RECEIPT).read_text()) if Path(RECEIPT).exists() else snapshot()
++    # Always execute upstream configure and propagate its exit status. Failed
++    # configuration leaves its output untouched for diagnostics and a retry.
++    result = subprocess.run(command)
++    if result.returncode == 0:
++        newest = max((saved["mtime_ns"] for saved in before.values()), default=0)
++        for name, saved in before.items():
++            path = Path(name)
++            if path.is_absolute() or ".." in path.parts:
++                raise ValueError("bootstrap receipt path escapes the build directory")
++            if path.is_file() and not path.is_symlink():
++                status = path.stat()
++                identical = status.st_mode == saved["mode"] and fingerprint(path) == saved["sha256"]
++                # Changed extracted inputs may carry old archive timestamps.
++                # Make them newer than every prepared output so make rebuilds.
++                stamp = saved["mtime_ns"] if identical else max(time.time_ns(), newest + 1, status.st_mtime_ns)
++                os.utime(path, ns=(status.st_atime_ns, stamp))
++    return result.returncode
++
++
++if __name__ == "__main__":
++    sys.exit(main())

@@ -1,0 +1,67 @@
+load("@crates//:defs.bzl", "aliases", "all_crate_deps", "crate_edition")
+load("@rules_rust//rust:defs.bzl", "rust_library", "rust_test")
+
+# Read by crate_universe from //:MODULE.bazel; see //xetcas:BUILD.bazel.
+exports_files(["Cargo.toml"])
+
+# src/generated/candace.xetcas.v1.rs is committed generated code, pulled in by
+# an `include!` from src/v1/mod.rs. `cargo xtask gen-proto` writes it and the
+# xetcas CI job diffs the result; Bazel compiles what is committed and never
+# runs the generator.
+rust_library(
+    name = "xetcas_contracts",
+    srcs = glob(["src/**/*.rs"]),
+    aliases = aliases(),
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    version = "0.1.0",
+    visibility = ["//visibility:public"],
+    deps = all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "xetcas_contracts_test",
+    aliases = aliases(
+        normal_dev = True,
+        proc_macro_dev = True,
+    ),
+    crate = ":xetcas_contracts",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)
+
+# The integration tests. Every one of them is a pure computation over the
+# committed contracts — no server, no filesystem, no network — so they all run
+# under `bazel test`, and none of them is tagged `manual`.
+[
+    rust_test(
+        name = "{}_test".format(name),
+        srcs = [
+            "tests/common/mod.rs",
+            "tests/{}.rs".format(name),
+        ],
+        aliases = aliases(
+            normal = True,
+            normal_dev = True,
+            proc_macro = True,
+            proc_macro_dev = True,
+        ),
+        crate_root = "tests/{}.rs".format(name),
+        edition = crate_edition(),
+        proc_macro_deps = all_crate_deps(
+            proc_macro = True,
+            proc_macro_dev = True,
+        ),
+        deps = all_crate_deps(
+            normal = True,
+            normal_dev = True,
+        ) + [":xetcas_contracts"],
+    )
+    for name in [
+        "golden_json",
+        "lfs_bridge",
+        "upstream_parity",
+        "validators",
+    ]
+]

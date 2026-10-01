@@ -1,0 +1,75 @@
+{
+  "format_version": 1,
+  "target": "debian-12-linux-amd64",
+  "install_prefix": "/opt/candace/csf",
+  "components": {
+    "csf": {
+      "version": "source",
+      "source": {"kind": "git", "path": "candace"},
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/csf"],
+      "units": ["candace-csf-initialize.service", "candace-csf.service"]
+    },
+    "postgresql": {
+      "version": "17.11",
+      "source": {"url": "https://ftp.postgresql.org/pub/source/v17.11/postgresql-17.11.tar.gz", "sha256": "5367f6fb2ec97efe1eb2e0c7926bb33438e51b0bd3a9733b88498056a7dc9a7e"},
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/initdb", "bin/postgres", "bin/psql"],
+      "units": ["candace-csf-postgresql-init.service", "candace-csf-postgresql.service"]
+    },
+    "opensearch": {
+      "version": "3.8.0",
+      "source": {"url": "https://artifacts.opensearch.org/releases/bundle/opensearch/3.8.0/opensearch-3.8.0-linux-x64.tar.gz", "sha512": "cba25b10114e796273fa9399af27fe9c2daaf25a190c37e4b5feb9cfd088e371e0fbd3cddf2bc0fbb753c2e681c0b55f08c0926d11718bf76f77e830017b06ff"},
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/opensearch"],
+      "units": ["candace-csf-opensearch.service"]
+    },
+    "redis": {
+      "version": "7.4.2",
+      "source": {"url": "https://download.redis.io/releases/redis-7.4.2.tar.gz", "sha256": "4ddebbf09061cbb589011786febdb34f29767dd7f89dbe712d2b68e808af6a1f"},
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/redis-server"],
+      "units": ["candace-csf-redis.service"]
+    },
+    "clickhouse": {
+      "version": "25.12.11.4",
+      "source": {"url": "https://github.com/ClickHouse/ClickHouse/releases/download/v25.12.11.4-stable/clickhouse-common-static-25.12.11.4-amd64.tgz", "sha512": "6dcd8e5a291f2dbd166d1646867bf4a8fc07eec5c0b53de38d5a6dd4d974f5f2d1a641e9848aa5bceae12565c8e43fc18045fba48f9932b647c86826adc7a5ea"},
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/clickhouse"],
+      "units": ["candace-csf-clickhouse.service"]
+    },
+    "minio": {
+      "version": "RELEASE.2025-09-07T16-13-09Z",
+      "sources": [
+        {"name": "minio", "commit": "07c3a429bfed433e49018cb0f78a52145d4bedeb", "url": "https://github.com/minio/minio/releases/download/RELEASE.2025-09-07T16-13-09Z/minio.linux-amd64.RELEASE.2025-09-07T16-13-09Z", "sha256": "7c5bd8512c6e966455b1d198209358b2d191c77a83ab377c4073281065fb855f"},
+        {"name": "mc", "version": "RELEASE.2025-08-13T08-35-41Z", "commit": "7394ce0dd2a80935aded936b09fa12cbb3cb8096", "url": "https://github.com/minio/mc/releases/download/RELEASE.2025-08-13T08-35-41Z/mc.linux-amd64.RELEASE.2025-08-13T08-35-41Z", "sha256": "01f866e9c5f9b87c2b09116fa5d7c06695b106242d829a8bb32990c00312e891"}
+      ],
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/mc", "bin/minio"],
+      "units": ["candace-csf-minio.service"]
+    },
+    "object-storage": {
+      "version": "source",
+      "source": {"kind": "git", "path": "candace/app/csf/native/object_storage"},
+      "requires": [],
+      "required_files": [],
+      "executables": ["bin/object-storage"],
+      "units": []
+    },
+    "langfuse": {
+      "version": "4.36.1",
+      "source": {"commit": "8b68bb1ebcb848a5266be39a5318c5a2b0e19841", "url": "https://github.com/langfuse/langfuse/archive/8b68bb1ebcb848a5266be39a5318c5a2b0e19841.tar.gz", "sha256": "437c7aa205e646a8af4714ce1fe2827d791eff3f235f4c20e108ad6aa77f83b3"},
+      "requires": ["object-storage"],
+      "bundled_requires": ["postgresql", "clickhouse", "redis"],
+      "required_files": ["web/server.js", "worker/dist/index.js"],
+      "executables": ["bin/migrate", "bin/node", "bin/prisma", "web/entrypoint.sh"],
+      "units": ["candace-csf-langfuse-migrate.service", "candace-csf-langfuse-web.service", "candace-csf-langfuse-worker.service"]
+    }
+  }
+}

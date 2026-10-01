@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "ifacereturn",
+    srcs = ["ifacereturn.go"],
+    importpath = "github.com/candacelabs/csf/tools/ifacereturn",
+    visibility = ["//visibility:public"],
+    deps = ["@org_golang_x_tools//go/analysis"],
+)
+
+go_test(
+    name = "ifacereturn_test",
+    srcs = [
+        "ifacereturn_suite_test.go",
+        "ifacereturn_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":ifacereturn",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_x_tools//go/analysis",
+        "@org_golang_x_tools//go/analysis/analysistest",
+    ],
+)

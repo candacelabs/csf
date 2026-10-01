@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "testclock",
+    srcs = ["clock.go"],
+    importpath = "github.com/candacelabs/csf/services/warden/testclock",
+    visibility = ["//visibility:public"],
+    deps = ["//services/warden"],
+)
+
+go_test(
+    name = "testclock_test",
+    srcs = [
+        "clock_test.go",
+        "testclock_contract_test.go",
+    ],
+    deps = [
+        ":testclock",
+        "//services/warden",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

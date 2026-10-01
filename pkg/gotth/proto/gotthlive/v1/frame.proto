@@ -1,0 +1,378 @@
+// The gotth-live wire protocol, version 1.
+//
+// Every WebSocket message payload, in both directions, is exactly one encoded
+// gotthlive.v1.Frame sent as a binary message. There is no JSON, no text
+// framing, no side channel and no debug escape hatch. Two things on the wire
+// are not frames and cannot be: the RFC 6455 opening handshake and the RFC
+// 6455 close frame. Everything the handshake negotiates that is
+// application-meaningful is re-asserted in band — the negotiated protocol
+// version arrives again as Frame.protocol_version in the first Snapshot.
+//
+// This file is the normative schema. docs/protocol.md is its prose, and the
+// two must agree; a change here that is not reflected there is incomplete.
+//
+// # Refinements
+//
+// Field predicates ride in candacelib's canonical
+// (candace.liquid.v1.field) option, extension 51234. protoc-gen-liquidproto
+// compiles each predicate to native Go validation code. Every inbound payload
+// is validated immediately after decoding and every outbound payload
+// immediately before encoding.
+//
+// The predicate language shapes this schema rather than decorating it. Only
+// singular scalars can be refined, so no map, no proto3 `optional`, and no
+// scalar directly inside a oneof appears anywhere below; absence is the zero
+// value with a documented meaning. Predicates have no free variables, so every
+// cross-field and cross-frame invariant is named in docs/protocol.md §6 as
+// H-1..H-14 with an enforcement site and a test, rather than being assumed
+// covered here.
+//
+// # Evolution
+//
+// Field numbers are never reused or renumbered; a deleted field becomes
+// `reserved` with a comment naming the version that removed it. Every change
+// to this file states its compatibility class — additive, wire-compatible, or
+// breaking — and a breaking change bumps the major protocol version.
+
+syntax = "proto3";
+
+package gotthlive.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb;gotthlivepb";
+
+// Frame is the one message on the wire, in both directions.
+//
+// Field numbers 1..10 are deliberate: all of them fit a one-byte tag, which
+// holds the envelope overhead to 22-23 bytes on every frame: 18 for the
+// session identifier, 2 for the protocol version, and 2-3 for the payload's
+// tag and length. It is a range because the payload length is.
+message Frame {
+  // Protocol version of the sender.
+  //
+  // The predicate rejects only the structurally impossible value. In proto3, 0
+  // is indistinguishable from unset, so a frame carrying it is malformed
+  // rather than merely old. There is deliberately no upper bound: a ceiling
+  // here would make a client above it fail as a malformed frame instead of as
+  // an unsupported version, putting the graceful path out of reach for exactly
+  // the field whose job is negotiating versions. Refinements reject what
+  // cannot be parsed; H-2 rejects what cannot be served, and says why.
+  uint32 protocol_version = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+
+  // Server-minted session identifier, 16 random bytes.
+  //
+  // It rides every frame, in both directions, so that one patch frame captured
+  // in isolation is resolvable. The width matches an OpenTelemetry trace ID.
+  // It rides inbound frames too, even though the connection already determines
+  // the session, because one envelope means one schema, one generated codec,
+  // one refinement boundary and one audit path on both sides — and because a
+  // direction-dependent predicate is inexpressible in a grammar with no free
+  // variables, so the alternative costs the totality of this bound.
+  bytes session_id = 2 [(candace.liquid.v1.field) = {expr: "len(this) == 16"}];
+
+  // Exactly one payload. Members are messages, never scalars, because a scalar
+  // inside a oneof cannot be refined.
+  oneof payload {
+    // Client to server.
+    Event event = 3;
+    Ack ack = 4;
+    ClientTelemetry client_telemetry = 6;
+    ResyncRequest resync_request = 7;
+
+    // Server to client.
+    Patch patch = 8;
+    Snapshot snapshot = 9;
+    Error error = 10;
+
+    // Both directions.
+    Heartbeat heartbeat = 5;
+  }
+}
+
+// ---------------------------------------------------------------- client → server
+
+// Event is one interaction raised by the browser.
+message Event {
+  // The client's own monotonic correlation handle, from 1 per connection.
+  //
+  // It is not the authoritative causal identifier: the server mints that and
+  // echoes this back in Origin, so no untrusted value ever enters provenance.
+  // A uint64 varint costs 1-3 bytes where a 128-bit identifier would cost 18,
+  // and the client runtime needs no identifier generator, which matters
+  // against a 12,288-byte budget.
+  uint64 client_ref = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+
+  // The registered event name. An unregistered name is rejected and counted,
+  // never dispatched and never ignored.
+  string name = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) > 0 && len(this) <= 64 && matches(this, `^[a-z][a-z0-9_.:-]*$`)"
+  }];
+
+  // The fragment whose markup raised the event.
+  string fragment_id = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) > 0 && len(this) <= 64 && matches(this, `^[A-Za-z0-9_:.-]+$`)"
+  }];
+
+  // The sequence number of the last patch the user had applied when they
+  // acted. This is the causation edge, and it is what makes a stale-view
+  // conflict detectable rather than silent. It is positive because the first
+  // Snapshot establishes server_seq = 1 and the client may send nothing before
+  // receiving it (H-10).
+  uint64 seen_server_seq = 4 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+
+  // Form values. A repeated message is neither refined by the generated
+  // boundary nor bounded by it, so cardinality is H-4 and each element is
+  // refined explicitly.
+  repeated EventField fields = 5;
+}
+
+// EventField is one form value.
+message EventField {
+  string key = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) > 0 && len(this) <= 128 && matches(this, `^[A-Za-z0-9_.\\[\\]-]+$`)"
+  }];
+
+  // Bounded to fail early with a field-specific error. The authoritative limit
+  // on inbound size is H-5, enforced on the connection before any payload is
+  // allocated; this bound is subordinate defence in depth, not a redundant
+  // restatement of it, and removing it would cost the specific diagnostic.
+  string value = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 8192"}];
+}
+
+// Ack reports the highest contiguous server_seq the client has applied.
+//
+// It is a cumulative high-water mark, which is why a dropped ack is harmless:
+// the next one supersedes it and the outbound window re-opens one round trip
+// later.
+message Ack {
+  uint64 server_seq = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+}
+
+// ResyncRequest asks the server to re-render everything.
+//
+// It is the one client frame that triggers a full re-render, so it is rate
+// limited in a bucket of its own, independent of the event budget (H-14). A
+// request whose last_applied_seq already equals the current server_seq
+// describes no gap and is answered with an Ack rather than a Snapshot.
+message ResyncRequest {
+  uint64 last_applied_seq = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  ResyncReason reason = 2;
+}
+
+// ClientTelemetry reports how long the browser took to apply a patch.
+//
+// Every field here is untrusted input. patch_id must name a patch actually
+// sent to this session (H-11) or the report is dropped and counted, and the
+// durations are bounded so a fabricated value cannot skew a histogram to
+// infinity.
+message ClientTelemetry {
+  uint64 patch_id = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint32 morph_micros = 2 [(candace.liquid.v1.field) = {expr: "this <= 60000000"}];
+  uint32 apply_micros = 3 [(candace.liquid.v1.field) = {expr: "this <= 60000000"}];
+}
+
+// ---------------------------------------------------------------- server → client
+
+// Patch carries the complete rendered HTML of each changed fragment.
+//
+// There is no server-side diff of consecutive renders: the diff that matters
+// happens in the browser, against the live DOM, and a server-side copy of what
+// the server believes the browser shows is a second source of truth that can
+// drift.
+message Patch {
+  uint64 server_seq = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint64 patch_id = 2 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint64 transition_id = 3 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint64 state_version = 4 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+
+  Origin origin = 5;
+
+  repeated FragmentUpdate updates = 6;
+}
+
+// Snapshot carries every registered fragment and the session's parameters.
+//
+// It is the first frame on every connection and the answer to every resync.
+// Nothing is serialized to produce it: state never leaves the server in any
+// form. A reconnect after a deploy is indistinguishable from any other
+// reconnect, because no state format crosses a version boundary and so none
+// can fail to migrate.
+message Snapshot {
+  uint64 server_seq = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint64 patch_id = 2 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint64 transition_id = 3 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint64 state_version = 4 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+
+  Origin origin = 5;
+
+  // Session parameters, sent once so the client needs no configuration.
+  uint32 heartbeat_interval_ms = 6 [(candace.liquid.v1.field) = {
+    expr: "this >= 1000 && this <= 300000"
+  }];
+  uint32 max_inbound_frame_bytes = 7 [(candace.liquid.v1.field) = {
+    expr: "this >= 1024 && this <= 1048576"
+  }];
+  uint32 ack_window = 8 [(candace.liquid.v1.field) = {expr: "this >= 1 && this <= 256"}];
+
+  repeated FragmentUpdate updates = 9;
+
+  // The supersession edge: the inclusive server_seq range this snapshot
+  // replaces.
+  //
+  // Without it, an analyst holding a wire capture cannot say which events
+  // produced the DOM the user is now looking at across a resync boundary — the
+  // superseded patches were emitted and counted, then dropped, and the
+  // snapshot that replaced them named none of them. A range rather than the
+  // union of contributing event identifiers, because the union is unbounded
+  // and would collide with H-4, while the range is two varints, is exact, and
+  // is sufficient: the superseded patches are themselves in the capture, so
+  // walking the range recovers the event set.
+  //
+  // Both are 0 on a session's first snapshot and both are non-zero on a resync
+  // snapshot; the zero case is legitimate, which is why no predicate can carry
+  // this and H-13 does instead.
+  uint64 superseded_from_seq = 10;
+  uint64 superseded_through_seq = 11;
+}
+
+// FragmentUpdate is the new markup for one live region.
+message FragmentUpdate {
+  string fragment_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) > 0 && len(this) <= 64 && matches(this, `^[A-Za-z0-9_:.-]+$`)"
+  }];
+
+  PatchOp op = 2;
+
+  // Rendered markup. A string rather than bytes, so protobuf's own UTF-8
+  // validation runs during Unmarshal — a free correctness check before the
+  // refinement boundary is even reached.
+  string html = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 1048576"}];
+}
+
+// Origin says what caused a patch. Nothing is ever emitted without one.
+message Origin {
+  OriginKind kind = 1;
+
+  // The originating event, for client-caused patches. Zero for patches the
+  // server started on its own — a timer, a pubsub delivery, an effect result,
+  // or a mount — where `source` names the cause instead. A resync is the one
+  // server-sent frame with a specific nameable client cause, so it carries the
+  // request's identifiers rather than zeros. H-6 binds these two fields to the
+  // kind, which no predicate can express.
+  uint64 event_id = 2;
+  uint64 client_ref = 3;
+
+  // What produced this patch, namespaced by convention: `event:<name>`,
+  // `effect:<source>`, `timer:<name>`, `pubsub:<topic>`, or the bare literals
+  // `mount` and `resync`.
+  //
+  // This is where a refinement does load-bearing product work. The requirement
+  // is that no patch may carry an unknown origin; the predicate below makes an
+  // origin-less patch unconstructable in Go and unparseable from the wire.
+  // That is the difference between a rule and a type.
+  //
+  // There is no registration step — a source is whatever an effect reports —
+  // so cardinality is bounded at the metric rather than at the schema: the
+  // label is capped at 64 distinct values per process, after which further
+  // values collapse to `other` and an overflow counter increments. Traces and
+  // the provenance log carry the full value.
+  string source = 4 [(candace.liquid.v1.field) = {
+    expr: "len(this) > 0 && len(this) <= 64 && matches(this, `^[a-z][a-z0-9_.:/-]*$`)"
+  }];
+
+  // Events whose state changes this patch carries but which were not
+  // individually patched, because coalescing collapsed them.
+  //
+  // Bounded by H-4 at 1,024. That bound is a flush trigger, never a
+  // truncation: at half the ceiling the actor emits the coalesced patch
+  // immediately rather than continuing to coalesce, so the list cannot
+  // overflow and no contributing event is ever dropped. Truncating would make
+  // the coalescing provenance property false silently, which is the worst of
+  // the available failures.
+  repeated uint64 contributing_event_ids = 5;
+}
+
+// Error reports a rejected frame or a failed transition.
+message Error {
+  ErrorCode code = 1;
+
+  // Operator-readable detail. In production this is generic; in dev mode it
+  // carries the stack. It never carries a token, a cookie, an authorization
+  // input, application state, or a raw frame body.
+  string message = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 512"}];
+
+  // The causal identifiers of the event this error concerns, or 0 when the
+  // error is not event-scoped (H-12).
+  uint64 event_id = 3;
+  uint64 client_ref = 4;
+
+  // Whether the connection is closing. A close always names a code from the
+  // enumeration in docs/protocol.md §8.3; a close for an unenumerated reason
+  // is a defect.
+  bool fatal = 5;
+}
+
+// ---------------------------------------------------------------- bidirectional
+
+// Heartbeat is the liveness signal, in both directions.
+//
+// Liveness is this frame, not an RFC 6455 ping: the library never initiates
+// ping or pong, so liveness is observable in the same capture as everything
+// else. The server sets interval_ms; the client echoes both fields verbatim,
+// which keeps the predicate total in both directions and doubles as an
+// acknowledgement that the client honoured the interval.
+message Heartbeat {
+  uint64 nonce = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  uint32 interval_ms = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 1000 && this <= 300000"
+  }];
+}
+
+// ---------------------------------------------------------------- enumerations
+
+// The *_UNSPECIFIED members exist because proto3 requires a zero value. They
+// are never valid on the wire: H-1 walks every enum field by descriptor and
+// rejects both the zero value and any value outside the declared set, so a
+// future enum field is covered without anyone remembering to cover it.
+
+// PatchOp is how a fragment update is applied to the DOM.
+enum PatchOp {
+  PATCH_OP_UNSPECIFIED = 0;
+  MORPH = 1;
+  APPEND = 2;
+  PREPEND = 3;
+  REMOVE = 4;
+}
+
+// OriginKind is the category of cause behind a patch.
+enum OriginKind {
+  ORIGIN_KIND_UNSPECIFIED = 0;
+  CLIENT_EVENT = 1;
+  EFFECT = 2;
+  TIMER = 3;
+  PUBSUB = 4;
+  MOUNT = 5;
+  RESYNC = 6;
+}
+
+// ResyncReason is why the client asked for a full re-render.
+enum ResyncReason {
+  RESYNC_REASON_UNSPECIFIED = 0;
+  GAP = 1;
+  RECONNECT = 2;
+  CLIENT_REQUEST = 3;
+}
+
+// ErrorCode is the machine-readable classification of an Error.
+enum ErrorCode {
+  ERROR_CODE_UNSPECIFIED = 0;
+  UNSUPPORTED_VERSION = 1;
+  UNAUTHORIZED = 2;
+  INVALID_FRAME = 3;
+  UNKNOWN_EVENT = 4;
+  UNKNOWN_FRAGMENT = 5;
+  RATE_LIMITED = 6;
+  INTERNAL = 7;
+  RESYNC_FAILED = 8;
+}

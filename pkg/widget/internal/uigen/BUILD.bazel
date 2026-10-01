@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "uigen",
+    srcs = [
+        "doc.go",
+        "names.go",
+        "scaffold.go",
+        "uigen.go",
+        "view.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/uigen",
+    visibility = ["//pkg/widget:__subpackages__"],
+    deps = ["//pkg/widget/internal/ir"],
+)
+
+go_test(
+    name = "uigen_test",
+    srcs = [
+        "uigen_suite_test.go",
+        "uigen_test.go",
+    ],
+    deps = [
+        ":uigen",
+        "//pkg/widget/internal/ir",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

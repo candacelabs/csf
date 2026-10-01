@@ -1,0 +1,63 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "operator",
+    srcs = [
+        "approvals.go",
+        "controller.go",
+        "copilot_harness.go",
+        "demo_harness.go",
+        "embedded_harness.go",
+        "harness.go",
+        "lifecycle.go",
+        "ollama_harness.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/candaceos/operator",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/config",
+        "//services/candaceos/fleet",
+        "//services/candaceos/harness",
+        "//services/candaceos/harness/opencode",
+        "@com_github_github_copilot_sdk_go//:go",
+        "@com_github_github_copilot_sdk_go//rpc",
+        "@com_github_google_uuid//:uuid",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/structpb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "operator_test",
+    srcs = [
+        "approvals_test.go",
+        "controller_security_test.go",
+        "copilot_harness_config_test.go",
+        "embedded_harness_test.go",
+        "fleet_status_test.go",
+        "harness_test.go",
+        "mock_harness_generate_test.go",
+        "mock_reconciler_test.go",
+        "mock_runtime_test.go",
+        "ollama_harness_test.go",
+        "run_completion_test.go",
+    ],
+    embed = [":operator"],
+    deps = [
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/fleet",
+        "//services/candaceos/harness",
+        "@com_github_github_copilot_sdk_go//:go",
+        "@com_github_github_copilot_sdk_go//rpc",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/structpb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_uber_go_mock//gomock",
+    ],
+)

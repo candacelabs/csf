@@ -1,0 +1,45 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "grpcserver",
+    srcs = [
+        "errors.go",
+        "server.go",
+        "watch.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/warden/grpcserver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/core",
+        "//services/warden",
+        "//services/warden/internal/transportidentity",
+        "//services/warden/proto/warden/v1:warden",
+        "//services/warden/wireconv",
+        "@com_github_rs_zerolog//:zerolog",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//peer",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_test(
+    name = "grpcserver_test",
+    srcs = ["heartbeat_auth_contract_test.go"],
+    deps = [
+        ":grpcserver",
+        "//services/warden",
+        "//services/warden/election",
+        "//services/warden/internal/mocks",
+        "//services/warden/internal/transportidentity",
+        "//services/warden/proto/warden/v1:warden",
+        "//services/warden/store",
+        "//services/warden/testclock",
+        "//services/warden/wireconv",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_uber_go_mock//gomock",
+    ],
+)

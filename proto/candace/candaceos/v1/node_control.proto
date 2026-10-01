@@ -1,0 +1,148 @@
+// Stable node-control contracts for CandaceOS desired-state reconciliation.
+syntax = "proto3";
+
+package candace.candaceos.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/candaceos/v1;candaceosv1";
+
+// DesiredState is the requested lifecycle state of one Compose service.
+enum DesiredState {
+  DESIRED_STATE_UNSPECIFIED = 0;
+  DESIRED_STATE_RUNNING = 1;
+  DESIRED_STATE_STOPPED = 2;
+}
+
+// Node is one CandaceOS machine as observed by the cluster authority. alive is
+// observation state, not an instruction to start or stop the machine.
+message Node {
+  string id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  map<string, string> labels = 2 [(candace.liquid.v1.field) = {
+    map_key_expr: "len(this) >= 1 && !matches(this, `[ \\t\\r\\n]`) && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+    map_value_expr: "len(this) >= 1 && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+  }];
+  bool alive = 3;
+}
+
+// Fence identifies the elected controller allowed to mutate a node. Terms are
+// monotonically increasing. An agent rejects an older term or a different
+// leader claiming the same term.
+message Fence {
+  uint64 term = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1"
+  }];
+  string leader_id = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+}
+
+// Assignment is one node-local Compose service desired state. path is a clean
+// slash-separated Git subtree relative to the agent's configured workspace.
+// source_revision and content_sha256 bind execution to the exact approved Git
+// object and its canonically materialized regular-file contents.
+message Assignment {
+  string app = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[a-z0-9][a-z0-9._-]{0,62}$`)"
+  }];
+  string project = 2 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[a-z0-9][a-z0-9_-]{0,62}$`)"
+  }];
+  string path = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 512 && (this == `.` || !matches(this, `(^/|/$|//|(^|/)\\.\\.?(/|$)|\\\\)`))"
+  }];
+  DesiredState desired_state = 4 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2"
+  }];
+  string source_revision = 5 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^([0-9a-f]{40}|[0-9a-f]{64})$`)"
+  }];
+  string content_sha256 = 6 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^sha256:[0-9a-f]{64}$`)"
+  }];
+}
+
+// RevisionLimits bounds the node-local immutable revision cache. Existing
+// revisions remain usable at capacity; materializing a new revision fails.
+message RevisionLimits {
+  // The upper bound is representable by int on every supported Go target.
+  int64 max_entries = 1 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 2147483647"
+  }];
+  // One TiB is a generous node-local cache ceiling that keeps accounting and
+  // operator mistakes bounded well above the four-GiB default.
+  int64 max_bytes = 2 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 1099511627776"
+  }];
+}
+
+// SourceSync configures read-only Git object synchronization. An empty remote
+// or message absence means local-only materialization. Repository absoluteness
+// and separation from execution roots are operating-system semantics checked
+// by the runner.
+message SourceSync {
+  string remote = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 4096 && !matches(this, `^-`)"
+  }];
+  string repository = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 4096"
+  }];
+  // Fetch cannot outlive the control plane's ten-minute reconciliation budget.
+  int64 fetch_timeout_nanoseconds = 3 [(candace.liquid.v1.field) = {
+    expr: "this >= 1 && this <= 600000000000"
+  }];
+}
+
+// Command is an exact argv vector executed directly, never through a shell.
+message Command {
+  repeated string argv = 1;
+}
+
+// ReconcileRequest asks one node agent to converge one assignment under the
+// supplied elected-leader fence.
+message ReconcileRequest {
+  Fence fence = 1;
+  Assignment assignment = 2;
+}
+
+// ReconcileResponse reports the accepted fence, requested assignment, and the
+// exact command plan. updated_at is set only after successful convergence.
+message ReconcileResponse {
+  Fence fence = 1;
+  Assignment assignment = 2;
+  bool dry_run = 3;
+  repeated Command commands = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// AgentStatus is the node agent's current reconciliation status. fence is
+// absent before the first fence is accepted. assignment is absent before the
+// first successful convergence; ordinary message presence represents both
+// cases without sentinel values.
+message AgentStatus {
+  string node_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  bool dry_run = 2;
+  string workspace = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 4096"
+  }];
+  Fence fence = 4;
+  Assignment assignment = 5;
+  repeated Command commands = 6;
+  google.protobuf.Timestamp updated_at = 7;
+}
+
+// HealthResponse is the small liveness response exposed by a node agent.
+message HealthResponse {
+  string status = 1 [(candace.liquid.v1.field) = {
+    expr: "this == `ok`"
+  }];
+  string node_id = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  bool dry_run = 3;
+}

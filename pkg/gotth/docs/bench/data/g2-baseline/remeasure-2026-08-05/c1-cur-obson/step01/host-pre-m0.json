@@ -1,0 +1,13 @@
+{
+  "uptime": " 21:49:46 up 6 days, 17:28, 7 users, load average: 6.35, 6.21, 6.86",
+  "nproc": 32,
+  "loadavg": {
+    "one": 6.35,
+    "five": 6.21,
+    "fifteen": 6.86
+  },
+  "mem_total_mb": 39136,
+  "mem_available_mb": 33077,
+  "running_containers": 23,
+  "container_names": "crazy_leavitt,tenant-i-foundation-7d7a068a1d22-postgres-1,qa2-cp3-full,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+}

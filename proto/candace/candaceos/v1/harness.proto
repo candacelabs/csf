@@ -1,0 +1,286 @@
+// Public contracts for embedding an agent harness in CandaceOS Core.
+syntax = "proto3";
+
+package candace.candaceos.v1;
+
+import "candace/candaceos/v1/node_control.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/candaceos/v1;candaceosv1";
+
+// HarnessDelivery selects whether a prompt must begin immediately or may wait
+// behind work already owned by the harness.
+enum HarnessDelivery {
+  HARNESS_DELIVERY_UNSPECIFIED = 0;
+  HARNESS_DELIVERY_IMMEDIATE = 1;
+  HARNESS_DELIVERY_ENQUEUE = 2;
+}
+
+// PlacementMode selects how a deployment resolves fleet nodes.
+enum PlacementMode {
+  PLACEMENT_MODE_UNSPECIFIED = 0;
+  PLACEMENT_MODE_EXACT_NODE = 1;
+  PLACEMENT_MODE_LEADER = 2;
+  PLACEMENT_MODE_LABELS = 3;
+}
+
+// HarnessContext is the complete Core-owned process context exposed to a
+// compiled-in harness. Providers may operate inside workspace; database,
+// fleet-agent, and built-in provider credentials remain owned by Core.
+message HarnessContext {
+  string workspace = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 4096 && matches(this, `^/`)"
+  }];
+}
+
+// HarnessSession is the identity returned after a harness starts.
+message HarnessSession {
+  string id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`)"
+  }];
+}
+
+// HarnessPrompt is one operator request delivered to a running harness.
+message HarnessPrompt {
+  string run_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  string content = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 12000"
+  }];
+  HarnessDelivery delivery = 3 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2"
+  }];
+}
+
+// HarnessSessionStarted announces one provider session after Core has installed
+// its immutable session identity.
+message HarnessSessionStarted {
+  string message = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 1048576"
+  }];
+}
+
+// HarnessUserMessage records the operator content accepted for one run.
+message HarnessUserMessage {
+  string content = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 1048576"
+  }];
+}
+
+// HarnessAssistantDelta carries one transient fragment of an assistant message.
+message HarnessAssistantDelta {
+  string message_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`)"
+  }];
+  string content = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 1048576"
+  }];
+}
+
+// HarnessAssistantMessage carries one complete assistant message.
+message HarnessAssistantMessage {
+  string message_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`)"
+  }];
+  string content = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 1048576"
+  }];
+}
+
+// HarnessToolStarted records a structured tool invocation for display.
+message HarnessToolStarted {
+  string tool_call_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`)"
+  }];
+  string tool_name = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  google.protobuf.Value arguments = 3;
+}
+
+// HarnessToolSucceeded carries the structured result of a successful tool
+// call. A successful call without a value uses google.protobuf.NullValue.
+message HarnessToolSucceeded {
+  google.protobuf.Value result = 1;
+}
+
+// HarnessToolFailed carries the provider error for a failed tool call.
+message HarnessToolFailed {
+  string message = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 65536"
+  }];
+}
+
+// HarnessToolCompleted records exactly one structured tool outcome.
+message HarnessToolCompleted {
+  string tool_call_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`)"
+  }];
+  string tool_name = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  oneof outcome {
+    HarnessToolSucceeded succeeded = 3;
+    HarnessToolFailed failed = 4;
+  }
+}
+
+// HarnessIdle marks the end of the active turn.
+message HarnessIdle {}
+
+// HarnessError marks a failed active turn.
+message HarnessError {
+  string message = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 65536"
+  }];
+}
+
+// HarnessEvent is one normalized lifecycle, message, or tool event. Its oneof
+// payload makes the applicable fields and their Liquid refinements explicit.
+message HarnessEvent {
+  string id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256 && !matches(this, `[\\s\\p{Z}\\x{0085}]`)"
+  }];
+  string run_id = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 128 && (len(this) == 0 || matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`))"
+  }];
+  reserved 3, 5 to 10;
+  google.protobuf.Timestamp at = 4;
+  oneof payload {
+    HarnessSessionStarted session_started = 11;
+    HarnessUserMessage user_message = 12;
+    HarnessAssistantDelta assistant_delta = 13;
+    HarnessAssistantMessage assistant_message = 14;
+    HarnessToolStarted tool_started = 15;
+    HarnessToolCompleted tool_completed = 16;
+    HarnessIdle idle = 17;
+    HarnessError error = 18;
+  }
+}
+
+// HarnessFleetNode combines fixed placement labels with Warden observation.
+message HarnessFleetNode {
+  string id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  string name = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 256"
+  }];
+  string role = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 64 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  map<string, string> labels = 4 [(candace.liquid.v1.field) = {
+    map_key_expr: "len(this) >= 1 && !matches(this, `[ \\t\\r\\n]`) && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+    map_value_expr: "len(this) >= 1 && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+  }];
+  string status = 5 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 64 && matches(this, `^[a-z][a-z0-9._-]*$`)"
+  }];
+  string address = 6 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 2048"
+  }];
+  google.protobuf.Timestamp last_seen = 7;
+}
+
+// HarnessFleetStatus is the complete fleet observation exposed to a harness.
+// authoritative and has_quorum remain distinct from leader_id.
+message HarnessFleetStatus {
+  string self = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 128 && (len(this) == 0 || matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`))"
+  }];
+  string leader_id = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 128 && (len(this) == 0 || matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`))"
+  }];
+  uint64 term = 3;
+  bool authoritative = 4;
+  bool has_quorum = 5;
+  uint32 online = 6 [(candace.liquid.v1.field) = {
+    expr: "this <= 1000000"
+  }];
+  uint32 required = 7 [(candace.liquid.v1.field) = {
+    expr: "this <= 1000000"
+  }];
+  repeated HarnessFleetNode nodes = 8;
+  google.protobuf.Timestamp updated_at = 9;
+  string error = 10 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 65536"
+  }];
+}
+
+// ReconcileIntent is one canonical desired-state mutation before source
+// resolution, approval, placement, fencing, and node dispatch.
+message ReconcileIntent {
+  string app = 1 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[a-z0-9][a-z0-9._-]{0,62}$`)"
+  }];
+  string project = 2 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^[a-z0-9][a-z0-9_-]{0,62}$`)"
+  }];
+  string path = 3 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 512 && (this == `.` || !matches(this, `(^/|/$|//|(^|/)\\.\\.?(/|$)|\\\\)`))"
+  }];
+  DesiredState desired_state = 4 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2"
+  }];
+  PlacementMode placement_mode = 5 [(candace.liquid.v1.field) = {
+    expr: "this == 1 || this == 2 || this == 3"
+  }];
+  string node_id = 6 [(candace.liquid.v1.field) = {
+    expr: "len(this) <= 128 && (len(this) == 0 || matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`))"
+  }];
+  map<string, string> labels = 7 [(candace.liquid.v1.field) = {
+    map_key_expr: "len(this) >= 1 && !matches(this, `[ \\t\\r\\n]`) && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+    map_value_expr: "len(this) >= 1 && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+  }];
+  int32 replicas = 8 [(candace.liquid.v1.field) = {
+    expr: "this >= 0 && this <= 1000000"
+  }];
+  bool stateful = 9;
+}
+
+// ReconcileRevision is the immutable source identity presented for approval
+// and checked immediately before an approved mutation is dispatched.
+message ReconcileRevision {
+  string id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[A-Za-z0-9][A-Za-z0-9._:-]*$`)"
+  }];
+  string source = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 4096 && !matches(this, `^[\\s\\p{Z}\\x{0085}]`) && !matches(this, `[\\s\\p{Z}\\x{0085}]$`)"
+  }];
+  string source_revision = 3 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^([0-9a-f]{40}|[0-9a-f]{64})$`)"
+  }];
+  string content_digest = 4 [(candace.liquid.v1.field) = {
+    expr: "matches(this, `^sha256:[0-9a-f]{64}$`)"
+  }];
+  string compose_path = 5 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 512 && matches(this, `(?i)^[^\\\\]*\\.ya?ml$`) && !matches(this, `(^/|/$|//|(^|/)\\.\\.?(/|$))`)"
+  }];
+}
+
+// ReconcileEvidence is the durable convergence evidence returned after Core
+// accepts and dispatches a reconciliation.
+message ReconcileEvidence {
+  string deployment_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128"
+  }];
+  string revision_id = 2 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 128"
+  }];
+  repeated string run_ids = 3;
+  repeated string node_ids = 4;
+  repeated int64 receipt_ids = 5;
+  bool dry_run = 6;
+}
+
+// HarnessReconcileRequest correlates one provider tool call with its canonical
+// desired-state intent. Core retains approval, fencing, and dispatch ownership.
+message HarnessReconcileRequest {
+  string tool_call_id = 1 [(candace.liquid.v1.field) = {
+    expr: "len(this) >= 1 && len(this) <= 256"
+  }];
+  ReconcileIntent intent = 2;
+}

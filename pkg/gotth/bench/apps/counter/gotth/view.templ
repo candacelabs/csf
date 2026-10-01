@@ -1,0 +1,133 @@
+package main
+
+import "github.com/candacelabs/csf/pkg/gotth/live"
+
+// The markup is bench/apps/counter/next/src/components/CounterLive.tsx element
+// for element and class for class, because E1 ("same product surface") and E5
+// ("bounded DOM") are checked against the rendered document and a structural
+// difference would make the two stacks two documents.
+//
+// The differences are exactly two, both required rather than chosen:
+//
+//   - data-gotth-region and data-gotth-on are here and absent there; React's
+//     event handlers and hydration payload are there and absent here. Those are
+//     each stack's own binding mechanism and their bytes are counted on their
+//     own side (§3.5).
+//   - the keyboard binding is a data attribute here and an onKeyDown prop
+//     there. F-CTR-6 needs a key FILTER on both sides; live.Bind.Keys is how
+//     this one spells it (see KeyBindings below).
+//
+// data-bench-* attributes are the harness's handles (§2.0). They are in the
+// markup on both sides of the comparison, so their bytes are counted on both.
+
+// ValueRegion is region A: the number and everything derived from it.
+//
+// F-CTR-3 asks for "a derived display: parity label and a status badge whose
+// colour class changes at thresholds (<0, 0, 1–9, ≥10) — so a render is not a
+// single text node". Three paragraphs, five text nodes and a class that moves
+// on three of the four bands is what that costs, and it is the same shape on
+// the other stack.
+//
+// tabindex is on the region because CTR-5 focuses [data-bench-id=counter] and
+// then presses a key: a section is not focusable without it, the key would go
+// to <body>, and the binding — which is resolved from the event target's
+// nearest data-gotth-region ancestor — would never be reached.
+templ ValueRegion(s State) {
+	<section
+		{ live.Region(FragmentValue)... }
+		{ KeyBindings()... }
+		class="card value"
+		data-bench-region="A"
+		data-bench-id="counter"
+		tabindex="0"
+	>
+		<p class="number" data-bench-id="value" data-bench-value>{ s.ValueText() }</p>
+		<p class="derived">
+			<span class="parity">{ s.Parity() }</span>
+			<span class={ "badge", "badge-" + s.Band() }>{ s.Band() }</span>
+		</p>
+		<p class="age">changed { s.AgeLabel() } by { s.Author() }</p>
+	</section>
+}
+
+// ControlsRegion is region B: the four buttons F-CTR-2 names, and the shared-tab
+// count that makes F-CTR-5's push channel visible without a second screen.
+//
+// The buttons must be inside a region: the runtime resolves an event's fragment
+// by walking up from the clicked element to the nearest data-gotth-region
+// ancestor, so a control outside every region raises nothing at all — silently.
+//
+// The key bindings are repeated here for the same reason the Next.js component
+// puts its handler on both regions: after a click the focus is on a button, and
+// a person who then presses "+" expects it to count.
+templ ControlsRegion(s State) {
+	<section
+		{ live.Region(FragmentControls)... }
+		{ KeyBindings()... }
+		class="card controls"
+		data-bench-region="B"
+	>
+		<div class="buttons">
+			<button type="button" data-bench-id="dec" { live.On("click", EventDecrement)... }>&minus;1</button>
+			<button type="button" data-bench-id="inc" { live.On("click", EventIncrement)... }>+1</button>
+			<button type="button" data-bench-id="inc10" { live.On("click", EventIncrement10)... }>+10</button>
+			<button type="button" data-bench-id="reset" { live.On("click", EventReset)... }>Reset</button>
+		</div>
+		<p class="tabs" data-bench-id="tabs">
+			{ s.TabLabel() } sharing this counter
+		</p>
+	</section>
+}
+
+// Page is the whole document, and the head is where the two stacks are made
+// comparable rather than merely similar.
+//
+// The script order is a requirement and not a preference. §3.2 defines t_input
+// as the browser's own timestamp for the native pointerdown/keydown, "captured
+// by a {capture:true, passive:true} listener registered at window by the shim
+// BEFORE any application script" — so the shim tag is first and it is not
+// deferred, while the runtime's tag is deferred and therefore strictly later.
+// The Next.js side reaches the same ordering with next/script's
+// strategy="beforeInteractive", and the file is byte-identical on both (§2.0).
+templ Page(s State) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>gotth-live counter — gotth-live bench</title>
+			<link rel="stylesheet" href="/counter.css"/>
+			<script src={ ShimRoute }></script>
+			@live.Script(MountPath)
+			<script src={ ReadyRoute } defer></script>
+		</head>
+		<body>
+			<main>
+				<h1>gotth-live counter</h1>
+				<p class="lede">
+					The value lives in Go. Clicking sends an event, the reducer
+					returns an effect, the store applies it, and every open tab
+					is pushed the result.
+				</p>
+				@ValueRegion(s)
+				@ControlsRegion(s)
+				<!--
+					The connection indicator is CSS and nothing else. The client
+					runtime writes data-gotth-status on <html> — connecting,
+					live, reconnecting, closed — and the stylesheet selects on
+					it. The stylesheet here is the Next.js side's byte for byte,
+					so it selects data-bench-status, which is the attribute THAT
+					stack's client component writes; bench/ready.js mirrors one
+					onto the other in three lines so the same bytes light the
+					same dot on both sides.
+				-->
+				<p class="status">connection: <span class="dot"></span></p>
+				<p class="hint">
+					Open this page in a second tab. Both show the same number,
+					both repaint when either changes, and a reload keeps the
+					value &mdash; none of it is in the browser.
+				</p>
+			</main>
+		</body>
+	</html>
+}

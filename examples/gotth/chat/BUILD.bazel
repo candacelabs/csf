@@ -1,0 +1,46 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "chat_lib",
+    srcs = [
+        "chat.go",
+        "main.go",
+        "room.go",
+        "view_templ.go",
+    ],
+    embedsrcs = ["chat.css"],
+    importpath = "github.com/candacelabs/csf/examples/gotth/chat",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//pkg/gotth/live",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_binary(
+    name = "chat",
+    embed = [":chat_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "chat_test",
+    srcs = [
+        "chat_suite_test.go",
+        "chat_test.go",
+        "wire_test.go",
+    ],
+    # The suite's ReportAfterSuite reads the README to check the spec count it
+    # publishes, so the README is an input to the test, not just documentation.
+    data = ["README.md"],  # keep
+    embed = [":chat_lib"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_ginkgo_v2//types",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

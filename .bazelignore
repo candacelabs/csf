@@ -1,0 +1,11 @@
+# Directories Bazel must not descend into at all.
+#
+# The external-consumer example is a separate Bazel repository, built against a
+# packaged archive by tools/test_candace_external_consumer.sh in the monorepo.
+# Its BUILD files resolve `@candace` to that archive, so they are not packages
+# of this module and Bazel reading them as such would be wrong twice over.
+examples/external-consumer/_workspace
+
+# Node dependencies installed by the gotth benchmark harness. Untracked, huge,
+# and not an input to any Bazel target.
+pkg/gotth/bench/node_modules

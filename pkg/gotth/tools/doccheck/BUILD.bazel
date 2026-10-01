@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "doccheck_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/pkg/gotth/tools/doccheck",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "doccheck",
+    embed = [":doccheck_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "doccheck_test",
+    srcs = ["doccheck_test.go"],
+    embed = [":doccheck_lib"],
+    # manual: TestWalksTheCommittedTree and TestWalksTheExamplesToo walk
+    # pkg/gotth/ and examples/gotth/ as directory trees, which Bazel's
+    # per-package inputs cannot present. `go test ./pkg/gotth/tools/doccheck`
+    # is its authority.
+    tags = ["manual"],  # keep
+)

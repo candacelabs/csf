@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "custom-brand_lib",
+    srcs = [
+        "harborlog.go",
+        "identity.go",
+        "main.go",
+    ],
+    embedsrcs = ["overlay/assets/wordmark.svg"],
+    importpath = "github.com/candacelabs/csf/examples/custom-brand",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//app/candaceos-core/bootstrap",
+        "//services/candaceos/browserroutes",
+        "//services/candaceos/webui",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_binary(
+    name = "custom-brand",
+    embed = [":custom-brand_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "custom-brand_test",
+    srcs = ["custom_brand_test.go"],
+    embed = [":custom-brand_lib"],
+    deps = [
+        "//proto/candace/candaceos/v1:candaceos",
+        "//services/candaceos/browserroutes",
+        "//services/candaceos/httpserver",
+        "//services/candaceos/webui",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

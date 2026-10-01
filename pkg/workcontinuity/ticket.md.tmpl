@@ -1,0 +1,23 @@
+## Goal
+
+{{.Goal}}
+
+## Scope
+{{range .Scope}}
+- {{.}}{{end}}
+
+## Acceptance
+{{range .Acceptance}}
+- [ ] {{.}}{{end}}
+{{if .Dependencies}}
+## Dependencies
+
+| Depends on | Development path / condition |
+| --- | --- |
+{{range .Dependencies}}| {{.IssueUrl}} | {{condition .Condition}} |
+{{end}}{{range .Dependencies}}{{if stackable .Condition}}
+For {{.IssueUrl}}, choose either:
+
+1. Create a **new worktree** from its implementation branch and **stack these changes on top**.
+2. Wait for its implementation to merge, then develop from the updated base.
+{{end}}{{end}}{{end}}

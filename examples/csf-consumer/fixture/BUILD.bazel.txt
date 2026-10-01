@@ -1,0 +1,5 @@
+alias(
+    name = "csf-consumer",
+    actual = "@csf//app/csf/cmd:cmd",
+    visibility = ["//visibility:public"],
+)

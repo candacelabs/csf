@@ -1,0 +1,4 @@
+# Bazel's convenience symlinks, created in the workspace root on every build.
+/bazel-*
+# Standalone Rust operator build output.
+tools/csf-operator/target/

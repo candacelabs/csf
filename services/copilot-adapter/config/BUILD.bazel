@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+# The service and host composition tests consume the owned trace defaults.
+exports_files(
+    ["traces.defaults.json"],
+    visibility = [
+        "//app/csf/cmd:__pkg__",
+        "//services/copilot-adapter:__pkg__",
+    ],
+)
+
+go_library(
+    name = "config",
+    srcs = ["config.go"],
+    embedsrcs = ["defaults.json"],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/copilot-adapter/proto/candace/copilot/v1:copilot",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)

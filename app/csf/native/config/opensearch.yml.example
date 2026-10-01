@@ -1,0 +1,9 @@
+cluster.name: candace-csf
+node.name: candace-csf
+path.data: /var/lib/candace-csf-opensearch/data
+path.logs: /var/log/candace-csf-opensearch
+network.host: 127.0.0.1
+http.port: 19200
+transport.port: 19300
+discovery.type: single-node
+plugins.security.disabled: true

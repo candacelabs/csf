@@ -1,0 +1,9 @@
+{
+  "pollMillis": 1000,
+  "requestTimeoutMillis": 10000,
+  "leaseSeconds": 60,
+  "maxAttempts": 5,
+  "maxRequestBytes": 1048576,
+  "retryBaseSeconds": 2,
+  "retryMaxSeconds": 60
+}

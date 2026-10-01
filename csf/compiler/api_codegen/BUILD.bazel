@@ -1,0 +1,51 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+ocaml_module(
+    name = "Api_projection",
+    struct = "api_projection.ml",
+    deps = ["@opam.yojson//lib"],
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [
+        ":Api_projection",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_binary(
+    name = "generate_native",
+    main = ":Main",
+)
+
+genrule(
+    name = "generate",
+    srcs = [":generate_native"],
+    outs = ["generate.exe"],
+    cmd = "cp $(location :generate_native) $@",
+    executable = True,
+)
+
+ocaml_module(
+    name = "Api_projection_test",
+    struct = "api_projection_test.ml",
+    deps = [
+        ":Api_projection",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_test(
+    name = "projection_test",
+    size = "small",
+    main = ":Api_projection_test",
+)
+
+test_suite(
+    name = "tests",
+    tests = [":projection_test"],
+)

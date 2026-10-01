@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = [
+        "http.gen.go",
+        "knowledge.gen.go",
+        "opensearch.gen.go",
+        "simulation_local.gen.go",
+        "simulation_traces.gen.go",
+        "simulations.gen.go",
+    ],
+    importpath = "github.com/candacelabs/csf/csf/internal/mocks",
+    visibility = ["//csf:__subpackages__"],
+    deps = [
+        "//proto/candace/brainspine/v1:brainspine",
+        "@com_github_aws_aws_sdk_go_v2_service_batch//:batch",
+        "@com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs//:cloudwatchlogs",
+        "@com_github_moby_moby_client//:client",
+        "@com_github_opensearch_project_opensearch_go_v5//opensearchapi",
+        "@io_opentelemetry_go_proto_otlp//trace/v1:trace",
+        "@org_uber_go_mock//gomock",
+    ],
+)

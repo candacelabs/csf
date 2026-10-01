@@ -1,0 +1,8 @@
+/* Sample overrides for Mantine's light theme. */
+:root[data-mantine-color-scheme="light"] body {
+  background-color: #f4f0e8;
+}
+
+:root[data-mantine-color-scheme="light"] .mantine-AppShell-main {
+  color: #342b22;
+}

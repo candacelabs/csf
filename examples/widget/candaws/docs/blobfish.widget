@@ -1,0 +1,366 @@
+%% ============================================================================
+%% CandaWS — Blobfish
+%%
+%% Category parodied: an object (blob) store.
+%%
+%% Build order 3. The storage-shaped card: a write coordinator, three replica
+%% zones, a write quorum of two and a third acknowledgement that arrives later
+%% or not at all. It is the shape furthest from anything already generated, and
+%% it is where two of the fleet's four strongest v1 asks were found.
+%%
+%% What it demonstrates that the raft card does not: a predicate whose
+%% `requires` name two other composed predicates, two orbits used as tiers
+%% rather than decoration, `atMost` as a consistency bound, four stats, and a
+%% chrome with no `source` slot on a widget that does have a stream.
+%% ============================================================================
+
+
+widget Blobfish
+dialect 0
+region "widget.candaws.blobfish"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% A bucket at runtime is a goroutine owning a map nothing else can reach; a
+%% put is a value sent on a channel carrying its own reply channel. These
+%% fields are the coordinator's published view and no zone writes them.
+
+state
+  field generation type counter
+  field storageClass type text
+  field objects type count
+  field writeAcks type count
+  field laggingZones type count
+  field writable type flag
+  field readable type flag
+  field catchingUp type flag signal slowClient
+end
+
+
+predicates
+  %% The write quorum: two of three. The third acknowledgement is what the
+  %% pricing page calls "eventually consistent".
+  predicate quorumWrites
+    requires writeAcks atLeast 2
+  end
+
+  predicate consistent
+    requires laggingZones atMost 0
+  end
+
+  predicate serving
+    requires readable
+    requires writable
+  end
+
+  %% Two levels of composition in one clause list: `durable` requires
+  %% `serving`, `quorumWrites` and `consistent`, each of which is itself a
+  %% composed predicate. Example 01's `live` composes flag fields only.
+  predicate durable
+    requires serving
+    requires quorumWrites
+    requires consistent
+    forbids catchingUp
+  end
+end
+
+
+bindings
+  binding storeDescriptionText
+    when durable then "A write coordinator and three replica zones; every write is acknowledged by a quorum and repaired into the third."
+    whenNot writable then "A write coordinator and three replica zones; the coordinator is refusing writes."
+    whenNot consistent then "A write coordinator and three replica zones; one zone is behind and is being repaired."
+    otherwise "A write coordinator and three replica zones; the write quorum is not being met."
+  end
+
+  binding coordinatorCaptionText
+    when writable then "accepting"
+    otherwise "read only"
+  end
+
+  %% One bound caption for all three zones. The three replica goroutines are
+  %% interchangeable, so a per-zone caption would be three chances to disagree
+  %% about the same fact.
+  binding zoneCaptionText
+    when consistent then "in sync"
+    otherwise "repairing"
+  end
+
+  binding durabilityStatusText
+    whenNot writable then "writes refused"
+    when catchingUp then "browser catching up"
+    whenNot quorumWrites then "quorum not met"
+    whenNot consistent then "{laggingZones} zones repairing"
+    otherwise "quorum acknowledged"
+  end
+
+  binding objectStatText
+    when serving then "{objects} objects stored"
+    otherwise "catalogue unavailable"
+  end
+
+  binding quorumStatText
+    when quorumWrites then "{writeAcks} of 3 zones acknowledged"
+    otherwise "waiting on the quorum"
+  end
+
+  binding repairStatText
+    when consistent then "no repairs pending"
+    otherwise "{laggingZones} zones behind"
+  end
+end
+
+
+labels
+  label titleLabel text "Blobfish"
+  label sceneDescriptionLabel binds storeDescriptionText
+
+  label coordinatorLabel text "coordinator"
+  label coordinatorCaptionLabel binds coordinatorCaptionText
+  label zoneOneLabel text "zone-a"
+  label zoneTwoLabel text "zone-b"
+  label zoneThreeLabel text "zone-c"
+  label zoneCaptionLabel binds zoneCaptionText
+
+  label writeLegendLabel text "write"
+  label ackLegendLabel text "ack"
+  label repairLegendLabel text "repair"
+
+  label classStatLabel text "storage class {storageClass}"
+  label objectStatLabel binds objectStatText
+  label quorumStatLabel binds quorumStatText
+  label repairStatLabel binds repairStatText
+
+  label durabilityStatusLabel binds durabilityStatusText
+end
+
+
+%% No `source` line, on a widget that does declare a stream — so the absence of
+%% the slot is not a proxy for the absence of a source, and the two are
+%% independent.
+
+chrome
+  title titleLabel
+  stat classStatLabel
+  stat objectStatLabel
+  stat quorumStatLabel
+  stat repairStatLabel
+end
+
+
+%% GAP (dialect v1): a zone that is lagging cannot look different from a zone
+%% that is in sync. A `role` is a static classification chosen at authoring
+%% time, and the only state-dependent appearance in v0 is an indicator's binary
+%% tone. So "the repairing zone" is carried by a shared caption and a stat, and
+%% the picture does not distinguish it. Queuecumber wants the same thing for a
+%% worker that has stopped leasing and Roundabout for an ejected backend.
+
+roles
+  role writeHub
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role replica
+    token positive
+    marker small
+    emphasis forbidden
+  end
+end
+
+
+channels
+  channel write
+    direction forward
+    token accent
+    legend writeLegendLabel
+  end
+
+  channel ack
+    direction reverse
+    token positive
+    legend ackLegendLabel
+  end
+
+  channel repair
+    direction forward
+    token warning
+    legend repairLegendLabel
+  end
+end
+
+
+placements
+  placement hubSpot left 26 top 50
+  placement northSpot left 78 top 14
+  placement eastSpot left 90 top 52
+  placement southSpot left 74 top 88
+end
+
+
+%% GAP (dialect v1): the two orbits are meant to read as durability tiers —
+%% an inner ring for the quorum and an outer one for the eventual third copy.
+%% An orbit declares a name and a token and nothing else; the generator derives
+%% concentric ellipses from the ordinal, so which ring is which is decided by
+%% declaration order and cannot be stated. The existing ruling is that authored
+%% ellipse dimensions would be drawing rather than declaring; a named radius
+%% class is the smaller ask this card actually wants.
+
+scene store
+  description sceneDescriptionLabel
+
+  orbit quorumRing token rule
+  orbit eventualRing token rule
+
+  node coordinator
+    role writeHub
+    at hubSpot
+    title coordinatorLabel
+    caption coordinatorCaptionLabel
+  end
+
+  node zoneOne
+    role replica
+    at northSpot
+    title zoneOneLabel
+    caption zoneCaptionLabel
+  end
+
+  node zoneTwo
+    role replica
+    at eastSpot
+    title zoneTwoLabel
+    caption zoneCaptionLabel
+  end
+
+  node zoneThree
+    role replica
+    at southSpot
+    title zoneThreeLabel
+    caption zoneCaptionLabel
+  end
+
+  edge northPath
+    from coordinator
+    to zoneOne
+    carries write
+    carries ack
+  end
+
+  edge eastPath
+    from coordinator
+    to zoneTwo
+    carries write
+    carries ack
+  end
+
+  %% The third zone is the one the repair channel runs to, because it is the
+  %% one the quorum did not wait for.
+  edge southPath
+    from coordinator
+    to zoneThree
+    carries write
+    carries ack
+    carries repair
+  end
+end
+
+
+%% GAP (dialect v1): a zone wants to show how full it is. Every storage card
+%% ever drawn shows a level, and there is no spelling for one — a node carries
+%% a role, a placement, a title and a caption, and nothing numeric. The fill is
+%% therefore in the stat line and not in the picture. Queuecumber wants the
+%% identical thing for queue depth on its broker node.
+
+motion
+  requires durable
+  restartOn generation
+
+  pulse writeNorth
+    edge northPath
+    channel write
+    duration 560 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse writeEast
+    edge eastPath
+    channel write
+    duration 560 milliseconds
+    delay 60 milliseconds
+  end
+
+  pulse writeSouth
+    edge southPath
+    channel write
+    duration 560 milliseconds
+    delay 120 milliseconds
+  end
+
+  pulse ackNorth
+    edge northPath
+    channel ack
+    duration 560 milliseconds
+    delay 300 milliseconds
+  end
+
+  pulse ackEast
+    edge eastPath
+    channel ack
+    duration 560 milliseconds
+    delay 360 milliseconds
+  end
+
+  %% The third acknowledgement is delayed past the other two on purpose: the
+  %% quorum has already replied by the time it arrives, which is the joke and
+  %% also what the engine does.
+  pulse ackSouth
+    edge southPath
+    channel ack
+    duration 560 milliseconds
+    delay 720 milliseconds
+  end
+
+  emphasis coordinatorBeat
+    node coordinator
+    duration 520 milliseconds
+    delay 0 milliseconds
+  end
+end
+
+
+indicators
+  indicator durabilityIndicator
+    label durabilityStatusLabel
+    positiveWhen durable
+  end
+end
+
+
+%% No `controls` block: an object store you can operate from a status card is
+%% an object store with an undocumented API.
+
+
+events
+  event replicaReport
+    wire "widget.candaws.blobfish.report"
+    field generation writes generation
+    field storage_class writes storageClass
+    field objects writes objects
+    field write_acks writes writeAcks
+    field lagging_zones writes laggingZones
+    field writable writes writable
+    field readable writes readable
+  end
+end
+
+
+data
+  stream replicaWatch
+    source "widget.candaws.blobfish.watch"
+    delivers replicaReport
+    ordering generation
+  end
+end

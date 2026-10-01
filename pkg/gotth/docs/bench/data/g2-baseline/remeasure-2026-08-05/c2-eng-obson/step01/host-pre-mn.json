@@ -1,0 +1,13 @@
+{
+  "uptime": " 22:59:31 up 6 days, 18:37, 10 users, load average: 6.31, 8.04, 9.14",
+  "nproc": 32,
+  "loadavg": {
+    "one": 6.31,
+    "five": 8.04,
+    "fifteen": 9.14
+  },
+  "mem_total_mb": 39136,
+  "mem_available_mb": 30997,
+  "running_containers": 21,
+  "container_names": "qa2-final2,tenant-a-docs-1,dis-gotth-live-dev,tenant-b-indexer-1,tenant-b-gpu-runtime-1,tenant-b-web-1,tenant-b-collector-1,tenant-c-web-1,tenant-d-web-1,tenant-e-web-1,tenant-e-runner-1,tenant-f-web-1,tenant-f-worker-1,tenant-e-docker-1,dis-protobuf-refinement-types-dev,gpu-desktop-steam-1,tenant-g-topology-1,tenant-g-web-1,tenant-h-chat-1,tenant-h-mongodb-1,tenant-h-meilisearch-1"
+}

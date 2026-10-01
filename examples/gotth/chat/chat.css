@@ -1,0 +1,287 @@
+/* The chat example's stylesheet.
+ *
+ * It is plain CSS with no build step, served by the same binary that serves
+ * the page and the client runtime. The connection indicator selects on
+ * data-gotth-status, which the client runtime writes on <html>: no script of
+ * this application's runs on the page at all.
+ */
+
+:root {
+  --bg: #10131a;
+  --card: #171b24;
+  --line: #262c3a;
+  --ink: #e6e9ef;
+  --dim: #8b93a7;
+  --accent: #6ea8fe;
+  --good: #4ade80;
+  --warn: #fbbf24;
+  --bad: #f87171;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem 4rem;
+  background: var(--bg);
+  color: var(--ink);
+  font: 16px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+main {
+  max-width: 46rem;
+  margin: 0 auto;
+  display: grid;
+  gap: 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  letter-spacing: -0.01em;
+}
+
+h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.lede {
+  margin: 0;
+  color: var(--dim);
+  max-width: 40rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  padding: 1rem;
+}
+
+.count {
+  font-variant-numeric: tabular-nums;
+  background: var(--line);
+  color: var(--ink);
+  border-radius: 999px;
+  padding: 0 0.5rem;
+}
+
+.messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.35rem;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.message {
+  display: grid;
+  grid-template-columns: 3.5rem 6rem 1fr;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  border-top: 1px solid transparent;
+}
+
+.message + .message {
+  border-top-color: var(--line);
+}
+
+.message .at {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.message .author {
+  color: var(--accent);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message.mine .author {
+  color: var(--good);
+}
+
+.message .body {
+  overflow-wrap: anywhere;
+}
+
+.empty {
+  margin: 0;
+  color: var(--dim);
+}
+
+.roster ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.member {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  color: var(--dim);
+}
+
+.member.you {
+  color: var(--good);
+  border-color: var(--good);
+}
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+label {
+  flex: 1 0 100%;
+  color: var(--dim);
+  font-size: 0.85rem;
+}
+
+input[type="text"] {
+  flex: 1 1 18rem;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  font: inherit;
+}
+
+input[type="text"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--bad);
+}
+
+input:disabled {
+  opacity: 0.5;
+}
+
+button {
+  background: var(--accent);
+  color: #06101f;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button[data-chat-id="purge"] {
+  background: transparent;
+  color: var(--warn);
+  border: 1px solid var(--warn);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.error {
+  margin: 0.5rem 0 0;
+  color: var(--bad);
+}
+
+.hint {
+  margin: 0.5rem 0 0;
+  color: var(--dim);
+  font-size: 0.85rem;
+}
+
+.notice {
+  margin: 0 0 0.75rem;
+  padding: 0.4rem 0.6rem;
+  border-left: 3px solid var(--warn);
+  background: rgb(251 191 36 / 8%);
+  color: var(--warn);
+}
+
+.login {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.login a {
+  display: block;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.status {
+  margin: 0;
+  color: var(--dim);
+  font-size: 0.85rem;
+}
+
+.dot {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  background: var(--dim);
+  vertical-align: middle;
+}
+
+html[data-gotth-status="connecting"] .dot {
+  background: var(--warn);
+}
+
+html[data-gotth-status="live"] .dot {
+  background: var(--good);
+}
+
+html[data-gotth-status="reconnecting"] .dot {
+  background: var(--warn);
+}
+
+html[data-gotth-status="closed"] .dot {
+  background: var(--bad);
+}
+
+.try {
+  color: var(--dim);
+  font-size: 0.9rem;
+}
+
+.try summary {
+  cursor: pointer;
+}
+
+code {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 0.3rem;
+  padding: 0 0.3rem;
+  color: var(--ink);
+}

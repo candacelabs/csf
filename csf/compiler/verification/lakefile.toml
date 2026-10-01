@@ -1,0 +1,6 @@
+name = "csfc-verifier"
+version = "0.0.0"
+defaultTargets = ["CSFCVerifier"]
+
+[[lean_lib]]
+name = "CSFCVerifier"

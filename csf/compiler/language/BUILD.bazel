@@ -1,0 +1,140 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+load("@rules_python//python:defs.bzl", "py_test")
+
+package(default_visibility = ["//visibility:public"])
+
+ocaml_module(
+    name = "Compiler",
+    struct = "compiler.ml",
+    deps = ["@opam.ocamlsdk//unix/lib"],
+)
+
+ocaml_module(
+    name = "Metric_unicode_cgen",
+    struct = "metric_unicode_cgen.ml",
+)
+
+ocaml_module(
+    name = "Metric_text",
+    sig = "metric_text.mli",
+    struct = "metric_text.ml",
+    deps = [
+        ":Metric_unicode_cgen",
+        "@opam.ocamlsdk//str/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Generation_metrics",
+    sig = "generation_metrics.mli",
+    struct = "generation_metrics.ml",
+    deps = [
+        ":Metric_text",
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.sha//lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [
+        ":Compiler",
+        ":Generation_metrics",
+        ":Metric_text",
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_binary(
+    name = "generate_native",
+    main = ":Main",
+)
+
+# Keep the documented path stable when a build includes other configurations.
+genrule(
+    name = "generate",
+    srcs = [":generate_native"],
+    outs = ["generate.exe"],
+    cmd = "cp $(location :generate_native) $@",
+    executable = True,
+)
+
+ocaml_module(
+    name = "Compiler_test",
+    struct = "compiler_test.ml",
+    deps = [
+        ":Compiler",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_test(
+    name = "compiler_test",
+    size = "small",
+    main = ":Compiler_test",
+)
+
+ocaml_module(
+    name = "Metric_text_test",
+    struct = "metric_text_test.ml",
+    deps = [
+        ":Metric_text",
+        ":Metric_unicode_cgen",
+    ],
+)
+
+ocaml_test(
+    name = "metric_text_test",
+    size = "small",
+    main = ":Metric_text_test",
+)
+
+ocaml_module(
+    name = "Generation_metrics_test",
+    struct = "generation_metrics_test.ml",
+    deps = [
+        ":Generation_metrics",
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.sha//lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_test(
+    name = "generation_metrics_test",
+    size = "small",
+    main = ":Generation_metrics_test",
+)
+
+py_test(
+    name = "metric_parity_test",
+    size = "small",
+    srcs = ["metric_parity_test.py"],
+    args = [
+        "--native",
+        "$(location :generate)",
+        "--oracle",
+        "$(location //csf/compiler/metric_compat:codegen.py)",
+        "--legacy-tests",
+        "$(location //csf/compiler/metric_compat:test_codegen.py)",
+    ],
+    data = [
+        ":generate",
+        "//csf/compiler/metric_compat:archive.py",
+        "//csf/compiler/metric_compat:codegen.py",
+        "//csf/compiler/metric_compat:test_codegen.py",
+    ],
+)
+
+test_suite(
+    name = "tests",
+    tests = [
+        ":compiler_test",
+        ":generation_metrics_test",
+        ":metric_parity_test",
+        ":metric_text_test",
+    ],
+)

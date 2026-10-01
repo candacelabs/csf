@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "xetcasv1",
+    srcs = [
+        "bridge.pb.go",
+        "bridge_liquid.pb.go",
+        "storage.pb.go",
+        "storage_liquid.pb.go",
+        "transfer.pb.go",
+        "transfer_liquid.pb.go",
+    ],
+    importpath = "github.com/candacelabs/csf/xetcas/go/xetcasv1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/liquidproto",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+    ],
+)
+
+go_test(
+    name = "xetcasv1_test",
+    srcs = [
+        "validate_test.go",
+        "xetcasv1_suite_test.go",
+    ],
+    deps = [
+        ":xetcasv1",
+        "//pkg/liquidproto",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

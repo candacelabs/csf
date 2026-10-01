@@ -1,0 +1,18 @@
+{{/*
+  One shipped block, redefined.
+
+  An overlay template file contributes {{define}} blocks into the same namespace
+  the embedded files use, and text outside a define — this comment included — is
+  ignored. So redefining "statusPill" replaces exactly the status chip, in every
+  place the shipped pages render one, and leaves every other block shipping from
+  candace.
+
+  The block receives the status string. This version is the shipped markup plus
+  one data attribute carrying the raw status, which is the kind of thing an
+  embedding product's own tooling reads. The tone class and the label still come
+  from the helpers the shipped block was written against: every template helper
+  stays available to an override.
+*/}}
+{{- define "statusPill" -}}
+<span class="status-pill tone-{{ tone . }}" data-quillfern-status="{{ . }}"><span class="status-dot" aria-hidden="true"></span>{{ statusLabel . }}</span>
+{{- end -}}

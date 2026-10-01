@@ -1,0 +1,445 @@
+%% ============================================================================
+%% 01 — Cluster heartbeats
+%%
+%% The flagship: the live control-plane card, re-expressed in the dialect.
+%% It is the widest document in the examples — every block appears, so read it
+%% as the reference rather than as a template to copy wholesale. Node names
+%% here are generic (node-a, node-b, node-c); a widget document never names a
+%% real host.
+%%
+%% A comment occupies a whole line. There are no trailing comments, so a `%%`
+%% inside quoted text is text.
+%% ============================================================================
+
+
+%% ─── Preamble ───────────────────────────────────────────────────────────────
+%% Four directives, always these four, always in this order.
+%%
+%% `region` is the one identity the author writes rather than derives. It is
+%% named by every patch on the wire, so a widget renamed in source has to be
+%% able to keep the identity a deployed client already knows.
+
+widget ClusterHeartbeats
+dialect 0
+region "widget.cluster-heartbeats"
+palette fieldStation
+
+
+%% ─── 1. state ───────────────────────────────────────────────────────────────
+%% Every field is typed, and every field has a writer. Three kinds of writer
+%% exist and this widget uses all three: an event field assigns (`sequence`),
+%% an event flips (`paused`), and the runtime signals (`degraded`).
+%%
+%% `counter` is monotonic and is the only type `restartOn` may name. `count` is
+%% an ordinary number.
+
+state
+  field sequence type counter
+  field connected type flag
+  field authoritative type flag
+  field leaderKnown type flag
+  field hasQuorum type flag
+  field paused type flag
+  field term type count
+  field voters type count
+  field aliveVoters type count
+  %% `slowClient` is the only runtime signal in v0: true while the browser is
+  %% behind, false once it has caught up. It is here because this field's
+  %% writer is neither the browser nor the data stream.
+  field degraded type flag signal slowClient
+end
+
+
+%% ─── 2. predicates ──────────────────────────────────────────────────────────
+%% A `flag` field is already a predicate under its own name — `connected` is
+%% usable in a `when` clause with no further declaration. This block is only
+%% for compositions.
+%%
+%% A composition is a conjunction: `requires` are ANDed, `forbids` are ANDed
+%% after negation, numeric bounds are ANDed. There is no `or` in v0.
+
+predicates
+  %% The condition under which the picture is allowed to move at all.
+  predicate live
+    requires connected
+    requires authoritative
+    requires leaderKnown
+    requires hasQuorum
+    forbids degraded
+  end
+
+  %% A numeric bound compares a field against an integer literal. Never against
+  %% another field, so there is no evaluation order to get wrong.
+  predicate quorumKnown
+    requires connected
+    requires voters atLeast 1
+  end
+end
+
+
+%% ─── 3. bindings ────────────────────────────────────────────────────────────
+%% An ordered decision from state to text. First match wins, and `otherwise` is
+%% required — a binding is total, which is what lets the generated render have
+%% no fallback path.
+%%
+%% `when` and `whenNot` are two constructs, not two spellings of one.
+
+bindings
+  binding leaderTitleText
+    whenNot connected then "leader unavailable"
+    when leaderKnown then "elected leader"
+    otherwise "leader pending"
+  end
+
+  binding leaderCaptionText
+    whenNot connected then "awaiting the fleet view"
+    when leaderKnown then "term + fleet view"
+    otherwise "election in progress"
+  end
+
+  %% The scene's text alternative. It is bound rather than literal because the
+  %% widget has predicates: a fixed sentence describing a picture that changes
+  %% is wrong the moment it changes.
+  binding sceneDescriptionText
+    whenNot connected then "The stream is unavailable; the stopped diagram shows three generic voters only to illustrate the protocol."
+    when leaderKnown then "Privacy-filtered activity showing one elected leader and two generic voting followers; every pulse follows an accepted stream update."
+    otherwise "Privacy-filtered view showing three generic voters while a leader election is in progress."
+  end
+
+  %% Five guards and a fallback. Written with `forbids`-only predicates instead,
+  %% this needed four extra declarations whose names have no canonical spelling
+  %% — which is exactly why `whenNot` exists.
+  %%
+  %% Guard ORDER is meaning, and this binding is the worked example of getting
+  %% it wrong. A view is authoritative only when it came from a leader, so
+  %% `authoritative` implies `leaderKnown` and every state with no leader is
+  %% also non-authoritative. With `whenNot authoritative` first, the election
+  %% line below it could never be the first match and never rendered at all.
+  %%
+  %% W415 does not catch this and is not meant to: it decides subsumption from
+  %% the document's own predicate structure, and the implication here is a fact
+  %% about the data source that no document states. The narrower guard is
+  %% written first because that is what an ordered decision means.
+  binding connectionStatusText
+    whenNot connected then "stream reconnecting"
+    when degraded then "browser catching up"
+    whenNot leaderKnown then "leader election in progress"
+    whenNot authoritative then "non-authoritative view"
+    whenNot hasQuorum then "quorum degraded"
+    otherwise "live snapshot"
+  end
+
+  binding motionCaptionText
+    when paused then "Resume live pulses"
+    otherwise "Pause live pulses"
+  end
+
+  %% `{term}` interpolates a state field. Only `counter`, `count` and `text`
+  %% fields may be interpolated; a `flag` may not, because rendering a boolean
+  %% as words is a decision for a `when` clause.
+  binding termStatText
+    whenNot connected then "term —"
+    otherwise "term {term}"
+  end
+
+  binding quorumStatText
+    when quorumKnown then "{aliveVoters} / {voters} voters alive"
+    otherwise "quorum —"
+  end
+
+  %% Clause 3's guard is weaker than clause 1's, not stronger, so it is
+  %% reachable: `connected` holds in states where `live` does not. The reverse
+  %% order would make clause 3 dead text and is an error.
+  binding telemetryStatText
+    when live then "Live activity · pulses follow stream updates"
+    when degraded then "Browser catching up · live pulses paused"
+    when connected then "View degraded · live pulses stopped"
+    otherwise "Stream unavailable · live pulses stopped"
+  end
+end
+
+
+%% ─── 4. labels ──────────────────────────────────────────────────────────────
+%% Exactly one source each: `text` or `binds`, never both and never neither.
+%% Text is data — escaped at render, never markup and never CSS.
+%%
+%% Nothing else in the document holds a string. A string that appeared twice
+%% would be one label named twice.
+
+labels
+  label widgetTitleLabel text "Raft-style heartbeats"
+  label widgetSourceLabel text "Read-only protobuf stream"
+  label sceneDescriptionLabel binds sceneDescriptionText
+
+  label nodeALabel text "node-a"
+  label nodeACaptionLabel text "follower"
+  %% node-b's title and caption are bound, so the centre of the picture says
+  %% what the cluster is doing rather than which machine it is.
+  label nodeBLabel binds leaderTitleText
+  label nodeBCaptionLabel binds leaderCaptionText
+  label nodeCLabel text "node-c"
+  label nodeCCaptionLabel text "follower"
+
+  label heartbeatLegendLabel text "heartbeat"
+  label ackLegendLabel text "ack"
+
+  label connectionStatusLabel binds connectionStatusText
+  label motionCaptionLabel binds motionCaptionText
+
+  label termStatLabel binds termStatText
+  label quorumStatLabel binds quorumStatText
+  label telemetryStatLabel binds telemetryStatText
+end
+
+
+%% ─── 5. chrome ──────────────────────────────────────────────────────────────
+%% The slot set is closed: title, source, description, stat. `title` is
+%% required. `stat` lines render in declaration order.
+
+chrome
+  title widgetTitleLabel
+  source widgetSourceLabel
+  stat termStatLabel
+  stat quorumStatLabel
+  stat telemetryStatLabel
+end
+
+
+%% ─── 6. roles ───────────────────────────────────────────────────────────────
+%% A role fixes appearance and animation eligibility for every node it
+%% classifies. All three clauses are required: a role with a defaulted
+%% appearance is a role whose appearance is decided out of sight.
+%%
+%% Emphasis eligibility is declared, never inferred from whether an emphasis
+%% happens to exist — otherwise deleting the last one silently changes what is
+%% permitted.
+
+roles
+  role leader
+    token accent
+    marker large
+    emphasis allowed
+  end
+
+  role voter
+    token positive
+    marker small
+    emphasis forbidden
+  end
+end
+
+
+%% ─── 7. channels ────────────────────────────────────────────────────────────
+%% A channel has exactly one direction. Two directions are two channels, which
+%% is what heartbeat and ack are.
+%%
+%% The footer legend is rendered from these declarations in order. It is never
+%% authored, so it cannot disagree with the picture.
+
+channels
+  channel heartbeat
+    direction forward
+    token accent
+    legend heartbeatLegendLabel
+  end
+
+  channel ack
+    direction reverse
+    token positive
+    legend ackLegendLabel
+  end
+end
+
+
+%% ─── 8. placements ──────────────────────────────────────────────────────────
+%% Integers in [0, 100], read as percentages of the scene box. No arithmetic,
+%% no offsets, no anchors — which is what makes every edge's length and angle
+%% derivable from its two endpoints by one formula.
+
+placements
+  placement west left 21 top 17
+  placement centre left 50 top 50
+  placement east left 81 top 20
+end
+
+
+%% ─── 9. scene ───────────────────────────────────────────────────────────────
+%% One scene per widget, and it is the widget's single accessibility boundary:
+%% it renders as one image with one text alternative, so node titles are
+%% visible text inside an image rather than accessible content.
+%%
+%% Orbits are decorative and can never be labelled or carry traffic.
+
+scene cluster
+  description sceneDescriptionLabel
+
+  orbit outerRing token rule
+  orbit innerRing token rule
+
+  node nodeA
+    role voter
+    at west
+    title nodeALabel
+    caption nodeACaptionLabel
+  end
+
+  node nodeB
+    role leader
+    at centre
+    title nodeBLabel
+    caption nodeBCaptionLabel
+  end
+
+  node nodeC
+    role voter
+    at east
+    title nodeCLabel
+    caption nodeCCaptionLabel
+  end
+
+  %% An edge is a named pair. `from` and `to` must differ, there is at most one
+  %% edge per unordered pair, and its geometry is computed rather than written.
+  edge linkWest
+    from nodeB
+    to nodeA
+    carries heartbeat
+    carries ack
+  end
+
+  edge linkEast
+    from nodeB
+    to nodeC
+    carries heartbeat
+    carries ack
+  end
+end
+
+
+%% ─── 10. motion ─────────────────────────────────────────────────────────────
+%% The gate is the conjunction of every `requires` with the negation of every
+%% `forbids`, and NOTHING animates outside it. The host's own connection status
+%% joins the gate whether or not it is written here, because an animation
+%% running against a dead connection is a lie about liveness.
+%%
+%% Every animation is finite. `restartOn` names the counter that re-arms them,
+%% so the picture moves exactly as often as the data does. There is no repeat.
+%%
+%% A viewer's reduced-motion preference is respected unconditionally; there is
+%% no spelling that overrides it.
+
+motion
+  requires live
+  forbids paused
+  restartOn sequence
+
+  pulse heartbeatWest
+    edge linkWest
+    channel heartbeat
+    duration 820 milliseconds
+    delay 0 milliseconds
+  end
+
+  pulse ackWest
+    edge linkWest
+    channel ack
+    duration 820 milliseconds
+    delay 180 milliseconds
+  end
+
+  pulse heartbeatEast
+    edge linkEast
+    channel heartbeat
+    duration 820 milliseconds
+    delay 80 milliseconds
+  end
+
+  pulse ackEast
+    edge linkEast
+    channel ack
+    duration 820 milliseconds
+    delay 260 milliseconds
+  end
+
+  %% Permitted because the `leader` role declares `emphasis allowed`.
+  emphasis leaderRing
+    node nodeB
+    duration 720 milliseconds
+    delay 0 milliseconds
+  end
+end
+
+
+%% ─── 11. indicators ─────────────────────────────────────────────────────────
+%% Binary tone: the predicate holding selects `positive`, not holding selects
+%% `warning`. No third state, no authored token.
+%%
+%% The label is the accessible carrier and may not be empty — colour alone is
+%% not a signal every viewer receives.
+
+indicators
+  indicator connection
+    label connectionStatusLabel
+    positiveWhen live
+  end
+end
+
+
+%% ─── 12. controls ───────────────────────────────────────────────────────────
+%% One DOM interaction, one declared event. `trigger` is one of click, change,
+%% input, submit. `pressedWhen` is optional and renders aria-pressed.
+
+controls
+  control motionToggle
+    caption motionCaptionLabel
+    trigger click
+    emits toggleMotion
+    pressedWhen paused
+  end
+end
+
+
+%% ─── 13. events ─────────────────────────────────────────────────────────────
+%% The declared set is exhaustive: an event not here is refused by the runtime,
+%% never ignored. A wire name may not be empty and may not contain ':' or ';',
+%% which are structural in the runtime's binding grammar.
+%%
+%% Runtime-minted events — effect failure, slow client, client recovered — are
+%% never declared here. A widget reaches the slow-client one through a `signal`
+%% field instead.
+
+events
+  event toggleMotion
+    wire "widget.cluster.motion-toggle"
+    toggles paused
+  end
+
+  %% A whole event applies or none of it does. Wire field names are
+  %% lower_snake_case; the state fields they write are lowerCamelCase.
+  event snapshot
+    wire "widget.cluster.snapshot"
+    field sequence writes sequence
+    field connected writes connected
+    field authoritative writes authoritative
+    field leader_known writes leaderKnown
+    field has_quorum writes hasQuorum
+    field term writes term
+    field voters writes voters
+    field alive_voters writes aliveVoters
+  end
+end
+
+
+%% ─── 14. data ───────────────────────────────────────────────────────────────
+%% A declaration, never a connection: the widget names what it wants and the
+%% host owns the transport. Started at mount, stopped at unmount.
+%%
+%% `ordering` must name a counter, and it is this widget's tick. A stream
+%% carries a source name and nothing else — no address, no credential.
+
+data
+  stream clusterWatch
+    source "widget.cluster.watch"
+    delivers snapshot
+    ordering sequence
+  end
+end

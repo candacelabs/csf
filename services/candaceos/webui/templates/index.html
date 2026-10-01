@@ -1,0 +1,346 @@
+{{- define "statusPill" -}}
+<span class="status-pill tone-{{ tone . }}"><span class="status-dot" aria-hidden="true"></span>{{ statusLabel . }}</span>
+{{- end -}}
+
+{{- define "primaryNav" -}}
+<nav class="primary-nav" aria-label="Primary">
+{{- range . }}
+        <a class="nav-item{{ if .Active }} is-active{{ end }}" href="{{ .Href }}"{{ if .View }} data-nav="{{ .View }}"{{ end }}{{ if .Active }} aria-current="page"{{ end }}>
+          <span class="nav-glyph" aria-hidden="true">{{ .Glyph }}</span><span>{{ .Label }}</span>{{ if .CountAttribute }}
+          <span class="nav-count" {{ .CountAttribute }}>{{ .Count }}</span>{{ end }}
+        </a>
+{{- end }}
+      </nav>
+{{- end -}}
+
+{{- define "browserRoutes" -}}
+data-route-approval="{{ .Approval }}"
+data-route-claw-chat="{{ .ClawChat }}"
+data-route-claw-messages="{{ .ClawMessages }}"
+data-route-claw-run-abort="{{ .ClawRunAbort }}"
+data-route-current-run-abort="{{ .CurrentRunAbort }}"
+data-route-events="{{ .Events }}"
+data-route-prompts="{{ .Prompts }}"
+data-route-snapshot="{{ .Snapshot }}"
+{{- end -}}
+
+{{- define "browserEnums" -}}
+data-enum-harness-backend-copilot-cli="{{ .HarnessBackendCopilotCLI }}"
+data-enum-harness-backend-demo="{{ .HarnessBackendDemo }}"
+data-enum-harness-backend-embedded="{{ .HarnessBackendEmbedded }}"
+data-enum-harness-backend-ollama="{{ .HarnessBackendOllama }}"
+data-enum-harness-backend-opencode="{{ .HarnessBackendOpenCode }}"
+data-enum-harness-capability-active-turn-steering="{{ .HarnessCapabilityActiveTurnSteering }}"
+data-enum-harness-delivery-enqueue="{{ .HarnessDeliveryEnqueue }}"
+data-enum-harness-delivery-immediate="{{ .HarnessDeliveryImmediate }}"
+{{- end -}}
+
+{{- define "index.html" -}}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="description" content="Tell {{ .Brand.ProductName }} what you want, then watch your private fleet make it happen.">
+  <title>{{ .Brand.ProductName }}</title>
+  <link rel="stylesheet" href="{{ .Routes.AppCSS }}">
+  <link rel="stylesheet" href="{{ .Routes.BrandCSS }}">
+  <script src="{{ .Routes.AppJS }}" defer></script>
+</head>
+<body {{ template "browserRoutes" .Routes }} {{ template "browserEnums" .Enums }}>
+  <a class="skip-link" href="#main-content">Skip to content</a>
+
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="{{ .Brand.ProductName }} navigation">
+      <a class="brand" href="#home" aria-label="{{ .Brand.ProductName }} home">
+        {{ .Brand.Wordmark }}
+      </a>
+
+      {{ template "primaryNav" .Nav }}
+
+      <div class="sidebar-status">
+        <div class="system-line">
+          <span class="connection-light tone-{{ tone .Snapshot.System.Status }}" aria-hidden="true"></span>
+          <span>
+            <strong data-system-status>{{ statusLabel .Snapshot.System.Status }}</strong>
+            <small data-system-summary>{{ if .Snapshot.System.Summary }}{{ .Snapshot.System.Summary }}{{ else }}Local control plane{{ end }}</small>
+          </span>
+        </div>
+        <div class="version"><span data-harness-runtime>{{ harnessRuntime .Snapshot.System }}</span>{{ if .Snapshot.System.Version }}<br><span data-system-version>core {{ .Snapshot.System.Version }}</span>{{ end }}</div>
+      </div>
+    </aside>
+
+    <main id="main-content" class="main-content">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Your private compute fleet</p>
+          <p class="topbar-title" data-system-name>{{ .Snapshot.System.Name }}</p>
+        </div>
+        <div class="live-state" role="status" aria-live="polite">
+          <span class="live-dot" aria-hidden="true"></span>
+          <span data-live-label>{{ if .Unavailable }}Reconnecting{{ else }}Connected{{ end }}</span>
+        </div>
+      </header>
+
+      <noscript>
+        <div class="notice">Live updates and actions need JavaScript. The server-rendered fleet snapshot is still available below.</div>
+      </noscript>
+
+      <section id="home" class="view is-active" data-view="home" aria-labelledby="home-title">
+        <div class="hero">
+          <p class="kicker">{{ .Brand.AgentName }}, across your whole fleet</p>
+          <h1 id="home-title">What do you want?</h1>
+          <p class="hero-copy">Describe the outcome. {{ .Brand.ProductName }} will plan it, pick a node, and stop for you when an action needs approval.</p>
+
+          <form class="prompt-box" action="{{ .Routes.Prompts }}" method="post" data-prompt-form>
+            <label class="visually-hidden" for="prompt">What do you want {{ .Brand.ProductName }} to do?</label>
+            <textarea id="prompt" name="prompt" rows="3" required maxlength="12000" placeholder="{{ if canCreateApps .Snapshot.System }}Build me a tiny app that tracks the tomatoes in my garden…{{ else }}Show me the current fleet status and placement options…{{ end }}"></textarea>
+            <div class="prompt-actions">
+              <span class="prompt-hint">Ctrl Enter to send</span>
+              <button class="send-button" type="submit">
+                <span>Make it happen</span><span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <p class="form-message" data-prompt-message role="status" aria-live="polite"></p>
+          </form>
+          <div class="suggestions" aria-label="Prompt suggestions">
+            <button type="button" data-prompt-suggestion="{{ if canCreateApps .Snapshot.System }}Deploy a private notes app on the least busy node{{ else }}Show me the current fleet status and placement options{{ end }}">{{ if canCreateApps .Snapshot.System }}Deploy a notes app{{ else }}Review fleet status{{ end }}</button>
+            <button type="button" data-prompt-suggestion="Check every app and tell me what needs attention">Check fleet health</button>
+            <button type="button" data-prompt-suggestion="Show me what changed across the fleet today">Summarize today</button>
+          </div>
+        </div>
+
+        <div class="home-grid">
+          <section class="panel attention-panel" aria-labelledby="attention-title">
+            <div class="panel-heading">
+              <div>
+                <p class="section-label">Attention</p>
+                <h2 id="attention-title">Needs you</h2>
+              </div>
+              <span class="count-badge" data-attention-count>{{ len .Snapshot.Attention }}</span>
+            </div>
+            <div class="attention-list" data-attention-list aria-live="polite">
+              {{ range .Snapshot.Attention }}
+              <article class="approval-card" data-approval-id="{{ .Id }}">
+                <div class="approval-topline">
+                  <span class="approval-icon" aria-hidden="true">!</span>
+                  <span class="risk-label">{{ if .Risk }}{{ .Risk }}{{ else }}Approval required{{ end }}</span>
+                  <time datetime="{{ timestampFormat .RequestedAt "2006-01-02T15:04:05Z07:00" }}">{{ relativeTime .RequestedAt }}</time>
+                </div>
+                <h3>{{ .Title }}</h3>
+                {{ if .Detail }}<p>{{ .Detail }}</p>{{ end }}
+                <div class="approval-actions">
+                  <button class="button secondary" type="button" data-approval="{{ .Id }}" data-decision="reject">Not now</button>
+                  <button class="button primary" type="button" data-approval="{{ .Id }}" data-decision="approve">Approve</button>
+                </div>
+              </article>
+              {{ else }}
+              <div class="empty-state compact">
+                <span class="empty-check" aria-hidden="true">✓</span>
+                <div><strong>Nothing waiting on you</strong><p>{{ .Brand.ProductName }} will pause here before consequential actions.</p></div>
+              </div>
+              {{ end }}
+            </div>
+          </section>
+
+          <section class="panel run-panel" aria-labelledby="run-title">
+            <div class="panel-heading run-heading">
+              <div>
+                <p class="section-label">Current run</p>
+                <h2 id="run-title" data-run-heading>{{ if .Snapshot.Run }}{{ if eq .Snapshot.Run.Status "running" }}{{ .Brand.AgentName }} is working{{ else }}Latest {{ .Brand.AgentName }} run{{ end }}{{ else }}{{ .Brand.AgentName }} is ready{{ end }}</h2>
+              </div>
+              <div data-run-status>
+                {{ if .Snapshot.Run }}{{ template "statusPill" .Snapshot.Run.Status }}{{ else }}{{ template "statusPill" "idle" }}{{ end }}
+              </div>
+            </div>
+            <div data-current-run>
+              {{ with .Snapshot.Run }}
+              <div class="run-summary">
+                <div><strong>{{ if .Title }}{{ .Title }}{{ else }}Untitled run{{ end }}</strong><span>{{ len .Entries }} updates · started {{ relativeTime .StartedAt }}</span></div>
+                <div class="run-actions">
+                  {{ if .SessionId }}<a class="run-chat-link" href="{{ clawChatPath .SessionId }}">Open live chat <span aria-hidden="true">→</span></a>{{ end }}
+                  {{ if .CanAbort }}<button class="text-button danger" type="button" data-abort-run>Stop run</button>{{ end }}
+                </div>
+              </div>
+              <ol class="transcript" data-transcript aria-live="polite">
+                {{ range .Entries }}
+                <li class="transcript-entry entry-{{ .Kind }}">
+                  {{ if eq .Kind "tool" }}
+                  <div class="tool-card">
+                    <div class="tool-card-head">
+                      <span class="tool-symbol" aria-hidden="true">›_</span>
+                      <strong>{{ if .Name }}{{ .Name }}{{ else }}Tool{{ end }}</strong>
+                      {{ template "statusPill" .Status }}
+                    </div>
+                    {{ if .Text }}<p>{{ .Text }}</p>{{ end }}
+                    {{ if .Detail }}<pre>{{ .Detail }}</pre>{{ end }}
+                  </div>
+                  {{ else if eq .Kind "error" }}
+                  <div class="tool-card error-card">
+                    <div class="tool-card-head">
+                      <span class="tool-symbol" aria-hidden="true">!</span>
+                      <strong>{{ if .Name }}{{ .Name }}{{ else }}{{ $.Brand.AgentName }}{{ end }}</strong>
+                      {{ template "statusPill" .Status }}
+                    </div>
+                    {{ if .Text }}<p>{{ .Text }}</p>{{ end }}
+                  </div>
+                  {{ else }}
+                  <div class="message-role">{{ if .Name }}{{ .Name }}{{ else if eq .Role "user" }}You{{ else }}{{ $.Brand.AgentName }}{{ end }}</div>
+                  <p>{{ .Text }}</p>
+                  {{ end }}
+                </li>
+                {{ else }}
+                <li class="transcript-waiting">{{ $.Brand.AgentName }} is preparing the first step…</li>
+                {{ end }}
+              </ol>
+              {{ else }}
+              <div class="empty-state run-empty">
+                <span class="empty-orbit" aria-hidden="true"></span>
+                <div><strong>No active run</strong><p>Tell {{ .Brand.ProductName }} what you want above. The plan and every tool call will stream here.</p></div>
+              </div>
+              {{ end }}
+            </div>
+          </section>
+        </div>
+
+        <section class="overview-section" aria-labelledby="fleet-overview-title">
+          <div class="section-heading">
+            <div><p class="section-label">At a glance</p><h2 id="fleet-overview-title">Fleet</h2></div>
+            <a href="#fleet" data-view-link="fleet">See all nodes <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="fleet-strip" data-home-fleet>
+            <article class="fleet-summary-card">
+              <span class="summary-icon" aria-hidden="true">L</span>
+              <div><span>Leader</span><strong data-leader-id>{{ if .Snapshot.Fleet.LeaderId }}{{ .Snapshot.Fleet.LeaderId }}{{ else }}Electing…{{ end }}</strong></div>
+            </article>
+            <article class="fleet-summary-card">
+              <span class="summary-icon quorum {{ if .Snapshot.Fleet.Quorum.Healthy }}healthy{{ end }}" aria-hidden="true">Q</span>
+              <div><span>Quorum</span><strong data-quorum>{{ .Snapshot.Fleet.Quorum.Online }} of {{ .Snapshot.Fleet.Quorum.Required }} required</strong></div>
+            </article>
+            {{ range .Snapshot.Fleet.Nodes }}
+            <article class="node-mini-card">
+              <span class="node-light tone-{{ tone .Status }}" aria-hidden="true"></span>
+              <div><strong>{{ displayName .Name .Id }}</strong><span>{{ statusLabel .Role }} · {{ .Apps }} apps</span></div>
+              {{ if gt .CpuPercent 0.0 }}<span class="node-load">{{ formatPercent .CpuPercent }}</span>{{ end }}
+            </article>
+            {{ else }}
+            <article class="inline-empty">No nodes have reported yet.</article>
+            {{ end }}
+          </div>
+        </section>
+
+        <div class="overview-split">
+          <section class="overview-section" aria-labelledby="apps-overview-title">
+            <div class="section-heading">
+              <div><p class="section-label">Running on {{ .Brand.ProductName }}</p><h2 id="apps-overview-title">Apps</h2></div>
+              <a href="#apps" data-view-link="apps">Manage apps <span aria-hidden="true">→</span></a>
+            </div>
+            <div class="app-preview-grid" data-home-apps>
+              {{ range .Snapshot.Apps }}
+              <article class="app-mini-card">
+                <div class="app-monogram" aria-hidden="true">{{ initial (displayName .Name .Id) }}</div>
+                <div class="app-mini-body"><strong>{{ displayName .Name .Id }}</strong><span>{{ if .NodeId }}{{ .NodeId }}{{ else }}Not placed{{ end }}</span></div>
+                {{ template "statusPill" .Status }}
+              </article>
+              {{ else }}
+              <div class="empty-state compact"><span class="empty-check muted" aria-hidden="true">+</span><div><strong>No apps yet</strong><p>Ask {{ .Brand.AgentName }} about the first one.</p></div></div>
+              {{ end }}
+            </div>
+          </section>
+
+          <section class="overview-section" aria-labelledby="activity-overview-title">
+            <div class="section-heading">
+              <div><p class="section-label">Proof, not promises</p><h2 id="activity-overview-title">Recent receipts</h2></div>
+              <a href="#activity" data-view-link="activity">View activity <span aria-hidden="true">→</span></a>
+            </div>
+            <ol class="receipt-preview" data-home-activity>
+              {{ range .Snapshot.Activity }}
+              <li><span class="receipt-mark tone-{{ tone .Status }}" aria-hidden="true"></span><div><strong>{{ .Title }}</strong><span>{{ relativeTime .At }}{{ if .ReceiptId }} · {{ .ReceiptId }}{{ end }}</span></div></li>
+              {{ else }}
+              <li class="inline-empty">Receipts will appear as work completes.</li>
+              {{ end }}
+            </ol>
+          </section>
+        </div>
+      </section>
+
+      <section id="apps" class="view" data-view="apps" aria-labelledby="apps-title">
+        <div class="view-header">
+          <div><p class="kicker">Build once, place anywhere</p><h1 id="apps-title">Apps</h1><p>Every app and its current deployment across your {{ .Brand.ProductName }} fleet.</p></div>
+          <button class="button primary" type="button" data-fill-prompt="{{ if canCreateApps .Snapshot.System }}Create a new app for {{ else }}Show me the current fleet status and placement options{{ end }}">{{ if canCreateApps .Snapshot.System }}Create an app{{ else }}Check fleet readiness{{ end }}</button>
+        </div>
+        <div class="app-grid" data-app-grid>
+          {{ range .Snapshot.Apps }}
+          <article class="app-card">
+            <div class="app-card-head"><div class="app-monogram large" aria-hidden="true">{{ initial (displayName .Name .Id) }}</div>{{ template "statusPill" .Status }}</div>
+            <h2>{{ displayName .Name .Id }}</h2>
+            <p>{{ if .Summary }}{{ .Summary }}{{ else }}A {{ $.Brand.ProductName }} application.{{ end }}</p>
+            <dl class="app-details">
+              <div><dt>Node</dt><dd>{{ if .NodeId }}{{ .NodeId }}{{ else }}Unassigned{{ end }}</dd></div>
+              <div><dt>Revision</dt><dd class="mono">{{ if .Revision }}{{ .Revision }}{{ else }}—{{ end }}</dd></div>
+              <div><dt>Updated</dt><dd>{{ relativeTime .UpdatedAt }}</dd></div>
+            </dl>
+            <div class="app-card-actions">
+              {{ if .Url }}<a class="button secondary" href="{{ .Url }}" target="_blank" rel="noreferrer">Open app <span aria-hidden="true">↗</span></a>{{ end }}
+              <button class="text-button" type="button" data-fill-prompt="Update {{ displayName .Name .Id }} so that ">Ask {{ $.Brand.AgentName }}</button>
+            </div>
+          </article>
+          {{ else }}
+          <div class="empty-state page-empty"><span class="empty-orbit" aria-hidden="true"></span><div><strong>Your fleet is ready for its first app</strong><p>Use plain language—{{ .Brand.AgentName }} will explain what the selected backend can do and pause before deployment.</p></div></div>
+          {{ end }}
+        </div>
+      </section>
+
+      <section id="fleet" class="view" data-view="fleet" aria-labelledby="fleet-title">
+        <div class="view-header">
+          <div><p class="kicker">One system, several machines</p><h1 id="fleet-title">Fleet</h1><p>Placement, load, leadership, and quorum without logging into every node.</p></div>
+          <div data-fleet-health>{{ if .Snapshot.Fleet.Quorum.Healthy }}{{ template "statusPill" "healthy" }}{{ else }}{{ template "statusPill" "warning" }}{{ end }}</div>
+        </div>
+        <div class="fleet-facts">
+          <article><span>Leader</span><strong data-fleet-leader>{{ if .Snapshot.Fleet.LeaderId }}{{ .Snapshot.Fleet.LeaderId }}{{ else }}No leader{{ end }}</strong><small>term {{ .Snapshot.Fleet.Term }}</small></article>
+          <article><span>Quorum</span><strong data-fleet-quorum>{{ .Snapshot.Fleet.Quorum.Online }} online</strong><small>{{ .Snapshot.Fleet.Quorum.Required }} required</small></article>
+          <article><span>Nodes</span><strong data-fleet-node-total>{{ len .Snapshot.Fleet.Nodes }}</strong><small>known to core</small></article>
+        </div>
+        <div class="node-grid" data-node-grid>
+          {{ range .Snapshot.Fleet.Nodes }}
+          <article class="node-card">
+            <div class="node-card-head"><div><span class="node-light tone-{{ tone .Status }}" aria-hidden="true"></span><strong>{{ displayName .Name .Id }}</strong></div>{{ template "statusPill" .Role }}</div>
+            <p class="mono node-address">{{ if .Address }}{{ .Address }}{{ else }}address unavailable{{ end }}</p>
+            {{ if or (gt .CpuPercent 0.0) (gt .MemoryPercent 0.0) }}
+            <div class="resource-row"><label>CPU <span>{{ formatPercent .CpuPercent }}</span></label><meter min="0" max="100" value="{{ .CpuPercent }}">{{ formatPercent .CpuPercent }}</meter></div>
+            <div class="resource-row"><label>Memory <span>{{ formatPercent .MemoryPercent }}</span></label><meter min="0" max="100" value="{{ .MemoryPercent }}">{{ formatPercent .MemoryPercent }}</meter></div>
+            {{ else }}
+            <p class="metrics-unavailable">Load telemetry unavailable</p>
+            {{ end }}
+            <div class="node-card-foot"><span>{{ .Apps }} apps</span><span>seen {{ relativeTime .LastSeen }}</span></div>
+          </article>
+          {{ else }}
+          <div class="empty-state page-empty"><span class="empty-orbit" aria-hidden="true"></span><div><strong>Waiting for fleet membership</strong><p>Nodes will appear after they report to {{ .Brand.ProductName }} Core.</p></div></div>
+          {{ end }}
+        </div>
+      </section>
+
+      <section id="activity" class="view" data-view="activity" aria-labelledby="activity-title">
+        <div class="view-header">
+          <div><p class="kicker">An inspectable trail</p><h1 id="activity-title">Activity</h1><p>Recent decisions, tool calls, deployments, and their durable receipts.</p></div>
+        </div>
+        <ol class="activity-list" data-activity-list>
+          {{ range .Snapshot.Activity }}
+          <li class="activity-row">
+            <span class="activity-glyph tone-{{ tone .Status }}" aria-hidden="true">{{ if eq .Kind "deploy" }}↑{{ else if eq .Kind "approval" }}✓{{ else if eq .Kind "tool" }}›_{{ else }}·{{ end }}</span>
+            <div class="activity-copy"><div><strong>{{ .Title }}</strong>{{ template "statusPill" .Status }}</div>{{ if .Detail }}<p>{{ .Detail }}</p>{{ end }}<span><time datetime="{{ timestampFormat .At "2006-01-02T15:04:05Z07:00" }}">{{ relativeTime .At }}</time>{{ if .ReceiptId }} · receipt <code>{{ .ReceiptId }}</code>{{ end }}</span></div>
+          </li>
+          {{ else }}
+          <li class="empty-state page-empty"><span class="empty-orbit" aria-hidden="true"></span><div><strong>No activity yet</strong><p>Completed work and decisions will leave a receipt here.</p></div></li>
+          {{ end }}
+        </ol>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" data-toast role="status" aria-live="polite" hidden></div>
+  <script id="initial-snapshot" type="application/json">{{ .InitialJSON }}</script>
+</body>
+</html>
+{{- end -}}

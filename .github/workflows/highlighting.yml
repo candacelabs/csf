@@ -1,0 +1,42 @@
+name: CSF syntax highlighting
+on:
+  pull_request:
+    paths: ['csf/editor/**', 'csf/compiler/architecture/**', 'csf/architecture/architecture.csf', 'csf/compiler/language/architecture.csf', 'MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', 'tools/bazel.sh', 'bazel/**', 'tools/devcontainer/**', '.dis/**', 'install.sh', 'bootstrap.sh', 'tools/csf-operator/**', '.github/workflows/highlighting.yml']
+  push:
+    branches: [main]
+    paths: ['csf/editor/**', 'csf/compiler/architecture/**', 'csf/architecture/architecture.csf', 'csf/compiler/language/architecture.csf', 'MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', 'tools/bazel.sh', 'bazel/**', 'tools/devcontainer/**', '.dis/**', 'install.sh', 'bootstrap.sh', 'tools/csf-operator/**', '.github/workflows/highlighting.yml']
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+permissions:
+  contents: read
+jobs:
+  consumers:
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Prepare pinned highlighting consumers
+        run: bash csf/editor/prepare-tools.sh "$RUNNER_TEMP/csf-highlighting-tools"
+      - name: Verify shipped parser, source archive, Python and Neovim
+        run: |
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --env CSF_HIGHLIGHT_PYTHON=/tmp/venv/bin/python \
+            --env TREE_SITTER=/test-tools/tree-sitter \
+            --env NVIM=/test-tools/nvim-linux-x86_64/bin/nvim \
+            --volume "$PWD/:/src" \
+            --volume "$RUNNER_TEMP/csf-highlighting-tools:/test-tools:ro" \
+            --workdir /src \
+            python:3.12.11-bookworm@sha256:13c9584604a99ca134c4f41800f74ffc64ee6ac8cf555cf1e704a6087fc84f12 \
+            bash csf/editor/check-container.sh
+      - name: Verify the single CSF installation and automatic editor discovery
+        run: NVIM="$RUNNER_TEMP/csf-highlighting-tools/nvim-linux-x86_64/bin/nvim" bash csf/editor/test-install.sh
+      - name: Test the native OCaml environment generator
+        run: bash tools/bazel.sh test //tools/devcontainer:codegen_test
+      - name: Check generated dis environment
+        run: bash tools/devcontainer/generate.sh check

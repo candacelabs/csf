@@ -1,0 +1,116 @@
+# The shared TLS-terminating proxy (equivalence-spec §3.6).
+#
+# ONE configuration file, fronting EITHER stack. §5.2: "The proxy container is
+# part of the topology on both sides and is identical on both sides: same image
+# by digest, same configuration file, same container constraints, same cpuset,
+# started and stopped with the stack under test." So there is no gotth-live
+# Caddyfile and no Next.js Caddyfile — there is this one, and the upstream it
+# points at is the only thing that changes, through an environment variable the
+# run manifest records.
+#
+# This is a bench-project container only. It is NOT the edge, it does not read
+# the production Caddyfile, it binds 127.0.0.1 only, it adds no host or network
+# policy, and it touches nothing in caddy/ (docs/OPERATOR-QUESTIONS.md Q-6).
+
+{
+	# No admin API: it is a second listener with a second attack surface on a
+	# container whose whole purpose is to be one predictable hop.
+	admin off
+
+	# No ACME, no public DNS (§5.3). The certificate is generated locally by
+	# docker/gen-cert.sh and the harness trusts exactly its SPKI.
+	auto_https off
+
+	# Access logs off by default: the proxy is in the measured path and a log
+	# write per request is a cost that is not the stack's. Turned on only when
+	# debugging the harness, and the manifest records which.
+	log {
+		output discard
+	}
+}
+
+:8443 {
+	tls /etc/caddy/tls/bench.crt /etc/caddy/tls/bench.key
+
+	# §3.5: "Both servers serve the comparison figure with gzip level 6 ...
+	# Serving one stack with brotli and the other with gzip is a disqualifying
+	# method error."
+	#
+	# Compression lives HERE and only here. Both application containers serve
+	# identity-encoded bytes (Next's `compress: false`, and the gotth-live
+	# container likewise), so the level applied to both stacks is this number
+	# and there is no second compressor whose settings could disagree.
+	#
+	# The match list is explicit rather than defaulted, because the default set
+	# would sweep in text/event-stream: compressing a push stream makes the
+	# encoder hold bytes until it has a block worth emitting, and a push-latency
+	# measurement would silently become a measurement of the compressor's
+	# buffer.
+	encode {
+		gzip 6
+		match {
+			header Content-Type text/html*
+			header Content-Type text/css*
+			header Content-Type text/plain*
+			header Content-Type application/javascript*
+			header Content-Type text/javascript*
+			header Content-Type application/json*
+			header Content-Type text/x-component*
+			header Content-Type image/svg+xml*
+		}
+	}
+
+	# §3.1: "Both apps are served with identical COOP/COEP headers so both get
+	# the identical clamp" on performance.now(). Set here, once, for both
+	# stacks — which is why §3.1 can say the header set the browser sees is
+	# "identical by construction rather than by two configurations agreeing".
+	#
+	# These two headers cross-origin-isolate the page, which moves
+	# performance.now()'s resolution from 100 us to 5 us. The harness records
+	# the resolution it actually observed in the manifest rather than assuming
+	# the headers took effect.
+	header {
+		Cross-Origin-Opener-Policy same-origin
+		Cross-Origin-Embedder-Policy require-corp
+		Cross-Origin-Resource-Policy same-origin
+		-Server
+	}
+
+	# The push channels. flush_interval -1 disables response buffering, which
+	# is required for SSE and harmless for a WebSocket. It is scoped to the
+	# stream paths rather than applied globally, because unbuffering the HTML
+	# document would change D4's throughput characteristics for a reason that
+	# has nothing to do with either stack.
+	@stream path_regexp ^/(api/[^/]+/stream|live|events)$
+	handle @stream {
+		reverse_proxy {$BENCH_UPSTREAM_HTTP} {
+			flush_interval -1
+		}
+	}
+
+	# §5.4's secondary variant runs a dedicated `ws` server beside the
+	# standalone Next server. Both are inside the measured container, and the
+	# browser sees ONE origin — which is what lets §4 say the harness has no
+	# per-stack branch beyond the ready wiring, not even the URL.
+	handle /ws* {
+		reverse_proxy {$BENCH_UPSTREAM_WS} {
+			flush_interval -1
+		}
+	}
+
+	handle {
+		reverse_proxy {$BENCH_UPSTREAM_HTTP}
+	}
+}
+
+# §3.7: "its own saturation rate is measured once against a static response
+# served by the proxy itself, and any discovered rate within 20 % of that
+# saturation rate is marked proxy-limited in the manifest and is reported as a
+# bound on the harness, not as a stack's throughput."
+#
+# This is that static response. It is served by the proxy with no upstream at
+# all, so saturating it measures the proxy and nothing else.
+:8444 {
+	tls /etc/caddy/tls/bench.crt /etc/caddy/tls/bench.key
+	respond "proxy-ceiling" 200
+}

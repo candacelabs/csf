@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "yakshave",
+    srcs = [
+        "config.go",
+        "pipeline.go",
+        "seam.go",
+        "stage.go",
+        "view.go",
+        "view_templ.go",
+        "widget.gen.go",
+    ],
+    importpath = "github.com/candacelabs/csf/examples/widget/candaws/yakshave",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//examples/widget/candaws/fleet",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_a_h_templ//runtime",
+    ],
+)
+
+go_test(
+    name = "yakshave_test",
+    srcs = [
+        "card_test.go",
+        "pipeline_test.go",
+        "view_test.go",
+        "yakshave_suite_test.go",
+    ],
+    embed = [":yakshave"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "//pkg/widget/widgettest",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

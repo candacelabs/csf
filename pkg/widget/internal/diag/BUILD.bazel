@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# catalogue_test in internal/validate compares the class constants declared here
+# against docs/errors.md and against its own table, so it reads this file.
+exports_files(
+    ["diag.go"],
+    visibility = ["//pkg/widget:__subpackages__"],
+)
+
+go_library(
+    name = "diag",
+    srcs = ["diag.go"],
+    importpath = "github.com/candacelabs/csf/pkg/widget/internal/diag",
+    visibility = ["//pkg/widget:__subpackages__"],
+)
+
+go_test(
+    name = "diag_test",
+    srcs = [
+        "diag_suite_test.go",
+        "diag_test.go",
+    ],
+    deps = [
+        ":diag",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

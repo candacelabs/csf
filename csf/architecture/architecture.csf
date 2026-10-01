@@ -1,0 +1,52 @@
+// Bounded serve-mode composition. Existing means checked-in implementation,
+// not deployed, verified cleanup, or complete coverage of the dependency closure.
+architecture csf version 1 {
+  process host kind go entrypoint "app/csf/cmd/main.go";
+  process shell kind external;
+  process git_cli kind external;
+  scope application under host;
+  scope shell_lifetime under shell;
+  scope git_invocation under git_cli;
+
+  manager composition in host scope application source "app/csf/cmd" state existing lifecycle borrowed verification pending;
+  service csf_services in host scope application source "csf" state existing lifecycle scoped verification pending;
+  service workbench in host scope application source "services/copilot-adapter/workbench" state existing lifecycle scoped verification pending;
+  library kanban_widgets in host scope application source "services/copilot-adapter/kanban" state existing lifecycle borrowed verification test "services/copilot-adapter/integration/workspace_test.go";
+  gateway terminals in host scope application source "services/copilot-adapter/terminaladapter/manager.go" state existing lifecycle scoped verification test "services/copilot-adapter/terminaladapter/manager_test.go";
+  gateway repository_probe in host scope application source "services/copilot-adapter/workbench/ui.go" state existing lifecycle borrowed verification pending;
+  gateway worktrees in host scope application source "services/copilot-adapter/worktreeadapter/manager.go" state existing lifecycle borrowed verification pending;
+  resource terminal_shell in shell scope shell_lifetime state existing lifecycle borrowed verification pending;
+  resource git in git_cli scope git_invocation state existing lifecycle borrowed verification pending;
+
+  requires composition -> csf_services;
+  requires composition -> workbench;
+  requires workbench -> terminals;
+  requires workbench -> worktrees;
+  requires workbench -> repository_probe;
+  requires workbench -> kanban_widgets;
+  connect composition -> csf_services via call state existing;
+  connect composition -> workbench via call state existing;
+  connect workbench -> repository_probe via call state existing;
+  connect workbench -> terminals via call state existing;
+  connect workbench -> worktrees via call state existing;
+  connect workbench -> kanban_widgets via call state existing;
+  connect terminals -> terminal_shell via subprocess boundary terminals state existing;
+  connect repository_probe -> git via subprocess boundary repository_probe state existing;
+  connect worktrees -> git via subprocess boundary worktrees state existing;
+
+  scan "app/csf";
+  scan "csf";
+  scan "services/copilot-adapter/workbench";
+  scan "services/copilot-adapter/kanban";
+  scan "services/copilot-adapter/terminaladapter";
+  scan "services/copilot-adapter/worktreeadapter";
+  generated "proto/candace/brainspine";
+  generated "csf/api_cgen.go";
+  generated "csf/opensearch_client_cgen.go";
+  generated "csf/simulation_views_gen.go";
+  generated "csf/architecture/generated";
+  generated "csf/docs/generated";
+  generated "csf/internal/brainspinedb";
+  generated "csf/internal/mocks";
+  generated "csf/tools/codegen/generated";
+}

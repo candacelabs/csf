@@ -1,0 +1,51 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "conformance_test",
+    srcs = [
+        "browser_test.go",
+        "cdp_test.go",
+        "contributing_test.go",
+        "counter_e2e_test.go",
+        "determinism_test.go",
+        "dev_reload_test.go",
+        "dom_preservation_test.go",
+        "harness_test.go",
+        "hostile_wire_test.go",
+        "htmx_test.go",
+        "inspector_test.go",
+        "keybinding_modifiers_test.go",
+        "keybinding_test.go",
+        "latency_test.go",
+        "limits_test.go",
+        "provenance_test.go",
+        "reflected_attribute_test.go",
+        "semantics_test.go",
+        "suite_test.go",
+        "trace_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        "//pkg/gotth/internal/obs",
+        "//pkg/gotth/internal/obstest",
+        "//pkg/gotth/internal/protocol",
+        "//pkg/gotth/internal/protocol/gotthlivepb",
+        "//pkg/gotth/internal/session",
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "//pkg/patience",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_coder_websocket//:websocket",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@io_opentelemetry_go_otel_trace//:trace",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+# The dashboard example serves this exact recorded artifact and asserts it byte
+# for byte, so it is an input to that example's test too.
+exports_files(
+    ["testdata/htmx-2.0.10.min.js"],
+    visibility = ["//examples/gotth:__subpackages__"],
+)

@@ -1,0 +1,9 @@
+// Package thirdparty stands in for a dependency this repository does not own.
+// Its interface is not declared in the corpus, so the lexical CS-8 gate cannot
+// see it; the type-aware lane can.
+package thirdparty
+
+// Sink accepts values. A third-party interface, for the fixture's purposes.
+type Sink interface {
+	Put(value string) error
+}

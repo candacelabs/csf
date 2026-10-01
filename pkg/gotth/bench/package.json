@@ -1,0 +1,28 @@
+{
+  "name": "gotth-live-bench",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Quarantined benchmark workspace (FR-74). Nothing here is on the consumer path of the gotth-live library or its examples.",
+  "workspaces": [
+    "apps/counter/next",
+    "apps/chat/next",
+    "apps/dashboard/next"
+  ],
+  "engines": {
+    "node": "24.19.0"
+  },
+  "scripts": {
+    "fixtures": "node fixtures/generate.mjs",
+    "fixtures:verify": "node fixtures/generate.mjs --verify",
+    "sync:ready": "node scripts/sync-ready.mjs",
+    "verify:shim": "node scripts/sync-shim.mjs --verify",
+    "verify:ready": "sh scripts/verify-ready.sh",
+    "verify": "npm run verify:shim && npm run verify:ready",
+    "test": "node --test harness/*.test.mjs",
+    "smoke": "node harness/smoke.mjs",
+    "audit": "node scripts/audit.mjs"
+  },
+  "devDependencies": {
+    "depcheck": "1.4.7"
+  }
+}

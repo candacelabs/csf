@@ -1,0 +1,84 @@
+// Typed projections at a transport boundary; controller semantics stay in brainspine.proto.
+syntax = "proto3";
+
+package candace.brainspine.v1;
+
+import "candace/brainspine/v1/brainspine.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/brainspine/v1;brainspinev1";
+
+enum DongleTarget {
+  DONGLE_TARGET_UNSPECIFIED = 0;
+  DONGLE_TARGET_ROS1 = 1;
+  DONGLE_TARGET_ROS2 = 2;
+  // Reserved projections: a generator must reject these until implemented.
+  DONGLE_TARGET_CARLA = 3;
+  DONGLE_TARGET_ISAAC = 4;
+}
+
+enum DongleDropPolicy {
+  DONGLE_DROP_POLICY_UNSPECIFIED = 0;
+  DONGLE_DROP_POLICY_DROP_OLDEST = 1;
+  DONGLE_DROP_POLICY_REJECT_NEWEST = 2;
+}
+
+enum DongleClockSource {
+  DONGLE_CLOCK_SOURCE_UNSPECIFIED = 0;
+  DONGLE_CLOCK_SOURCE_ROS_TIME = 1;
+  DONGLE_CLOCK_SOURCE_UNIX_TIME = 2;
+  DONGLE_CLOCK_SOURCE_MONOTONIC = 3;
+}
+
+enum DongleReliability {
+  DONGLE_RELIABILITY_UNSPECIFIED = 0;
+  DONGLE_RELIABILITY_RELIABLE = 1;
+  DONGLE_RELIABILITY_BEST_EFFORT = 2;
+}
+
+enum DongleDurability {
+  DONGLE_DURABILITY_UNSPECIFIED = 0;
+  DONGLE_DURABILITY_VOLATILE = 1;
+  DONGLE_DURABILITY_TRANSIENT_LOCAL = 2;
+}
+
+// A dongle is a grammar node with a declared projection, not another controller.
+// v1 accepts reliable/volatile/keep-last, ROS time in one named clock domain,
+// numeric profile 1, and lossless transport of already-normalized integer fields.
+// Transport reliability does not imply deadlines, delivery during disconnect,
+// or equivalence of DDS and TCPROS. Stale frames are rejected by the adapter.
+message DongleSpec {
+  uint32 schema_version = 1 [(candace.liquid.v1.field) = {expr: "this == 1"}];
+  DongleTarget target = 2;
+  string observation_topic = 3;
+  string action_topic = 4;
+  string observation_message_type = 5;
+  string action_message_type = 6;
+  uint32 numeric_profile_version = 7 [(candace.liquid.v1.field) = {expr: "this == 1"}];
+  uint32 queue_capacity = 8 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 1024"}];
+  DongleDropPolicy drop_policy = 9;
+  DongleClockSource clock_source = 10;
+  DongleReliability reliability = 11;
+  DongleDurability durability = 12;
+  uint64 stale_after_nanoseconds = 13 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 60000000000"}];
+  // Never silently permit a lossy projection. v1 rejects true.
+  bool allow_lossy_translation = 14;
+  string clock_domain = 15 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+}
+
+message ObservationFrame {
+  uint64 timestamp_nanoseconds = 1;
+  DongleClockSource clock_source = 2;
+  uint32 numeric_profile_version = 3;
+  string clock_domain = 4;
+  // Sequence, epoch, tick, and normalized features have one owner.
+  Observation observation = 5;
+}
+
+message ActionFrame {
+  uint64 timestamp_nanoseconds = 1;
+  DongleClockSource clock_source = 2;
+  uint32 numeric_profile_version = 3;
+  string clock_domain = 4;
+  Action action = 5;
+}

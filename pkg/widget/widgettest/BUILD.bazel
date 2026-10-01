@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "widgettest",
+    srcs = [
+        "card.go",
+        "doc.go",
+        "rendered.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/widget/widgettest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/live",
+        "//pkg/widget",
+    ],
+)
+
+go_test(
+    name = "widgettest_test",
+    srcs = [
+        "card_test.go",
+        "widgettest_suite_test.go",
+    ],
+    deps = [
+        ":widgettest",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

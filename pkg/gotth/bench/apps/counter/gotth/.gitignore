@@ -1,0 +1,5 @@
+# The compiled binary. `go build .` inside a module named .../<app>/gotth names
+# its output after the directory, so it is `gotth` and not the app name — which
+# is why the repository-root ignore list, which names the three examples, does
+# not already cover it.
+/gotth

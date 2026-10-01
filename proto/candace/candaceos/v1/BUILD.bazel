@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "candaceos",
+    srcs = [
+        "app_source.pb.go",
+        "app_source_liquid.pb.go",
+        "control_runtime.pb.go",
+        "control_runtime_liquid.pb.go",
+        "doc.go",
+        "harness.pb.go",
+        "harness_liquid.pb.go",
+        "node_control.pb.go",
+        "node_control_liquid.pb.go",
+        "webui.pb.go",
+        "webui_liquid.pb.go",
+    ],
+    importpath = "github.com/candacelabs/csf/proto/candace/candaceos/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/liquidproto",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/structpb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

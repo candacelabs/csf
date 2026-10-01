@@ -1,0 +1,19 @@
+# Build context hygiene for docker/next.Dockerfile, whose context is the bench
+# root (the workspace lockfile and harness/shim.js both belong in the image).
+#
+# The fixtures are excluded on purpose: they are ~13 MB of derived JSONL and
+# they are MOUNTED read-only into the measured container by docker/compose.yaml
+# rather than baked in, so both stacks' containers read the same bytes from the
+# same path and "both servers read the same bytes" (§2.5) is a property of the
+# topology instead of two Dockerfiles agreeing.
+
+node_modules
+**/node_modules
+**/.next
+**/.next-*
+data
+analyze
+fixtures/*/ticks.jsonl
+docker/tls
+.git
+*.log

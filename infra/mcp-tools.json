@@ -1,0 +1,19 @@
+{
+  "tools": [
+    {
+      "name": "ListIndexTool", "type": "ListIndexTool",
+      "description": "List indices in the isolated brain research search cluster.",
+      "attributes": {"input_schema": {"type": "object", "properties": {"indices": {"type": "array", "items": {"type": "string"}}}, "additionalProperties": false}}
+    },
+    {
+      "name": "SearchIndexTool", "type": "SearchIndexTool",
+      "description": "Search a brain research index with an OpenSearch JSON query string, including neural queries.",
+      "attributes": {"input_schema": {"type": "object", "properties": {"index": {"type": "string"}, "query": {"type": "string"}}, "required": ["index", "query"], "additionalProperties": false}}
+    },
+    {
+      "name": "IndexMappingTool", "type": "IndexMappingTool",
+      "description": "Inspect mappings of the isolated brain research indices.",
+      "attributes": {"input_schema": {"type": "object", "properties": {"index": {"type": "array", "items": {"type": "string"}}}, "required": ["index"], "additionalProperties": false}}
+    }
+  ]
+}

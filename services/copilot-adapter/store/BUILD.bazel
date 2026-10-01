@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "store",
+    srcs = [
+        "migrate.go",
+        "store.go",
+    ],
+    embedsrcs = ["migrations/000001_copilot_adapter.up.sql"],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/store",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/sqlmigrate",
+        "//services/copilot-adapter",
+        "//services/copilot-adapter/storedb",
+    ],
+)
+
+go_test(
+    name = "store_test",
+    srcs = [
+        "migrate_test.go",
+        "queries_test.go",
+        "store_suite_test.go",
+    ],
+    embed = [":store"],
+    deps = [
+        "//pkg/pgmem",
+        "//services/copilot-adapter/storedb",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_guregu_null_v5//:null",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)
