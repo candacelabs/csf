@@ -23,9 +23,9 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/gotth/live"
 	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
-	"github.com/candacelabs/csf/pkg/patience"
 )
 
 // FR-62's five properties, measured on the frames.
@@ -53,7 +53,7 @@ const (
 	settleIdle = 250 * time.Millisecond
 )
 
-var actorAppliedBudget = patience.Budget{Within: 5 * time.Second}
+var actorAppliedBudget = eventually.Budget{Within: 5 * time.Second}
 
 // ---------------------------------------------------------------------------
 // The harness
@@ -254,7 +254,7 @@ func (m *mounted) ackAndAwait(b *browser, serverSeq uint64) {
 
 	before := m.meters.Histogram(MetricWindowDepth).Count
 	b.Ack(serverSeq)
-	patience.Await(GinkgoTB(), "the actor to apply the acknowledgement", actorAppliedBudget,
+	eventually.Await(GinkgoTB(), "the actor to apply the acknowledgement", actorAppliedBudget,
 		func() Distribution { return m.meters.Histogram(MetricWindowDepth) },
 		func(observed Distribution) bool {
 			return observed.Count > before && observed.Last == 0
@@ -971,7 +971,7 @@ var _ = Describe("The FR-34 backpressure metrics", func() {
 
 		Expect(m.meters.Histogram(MetricWindowDepth).Count).To(BeNumerically(">", 0))
 		Expect(m.meters.CounterWith(MetricWireBytes, "direction", "out")).To(BeNumerically(">", 0))
-		patience.Await(GinkgoTB(), "all five patch writes to reach the sent-frame counter", actorAppliedBudget,
+		eventually.Await(GinkgoTB(), "all five patch writes to reach the sent-frame counter", actorAppliedBudget,
 			func() float64 { return m.meters.CounterWith(MetricFramesSent, "kind", "patch") },
 			func(observed float64) bool { return observed >= 5 })
 	})

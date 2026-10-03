@@ -1,0 +1,34 @@
+// Case 001 fixture — CLEAN. The same three interfaces, renamed. This is the
+// exemplar: what an agent should have written the first time. A gate run over
+// this file must report nothing at all.
+//
+// Note the unexported one. CS-1 preserves visibility — `iDispatcher`, not
+// `IDispatcher`; renaming it to an exported name to satisfy the prefix would
+// be a worse bug than the one being fixed.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "context"
+
+// INotifier delivers one rendered message to a downstream channel.
+type INotifier interface {
+	Notify(ctx context.Context, message string) error
+}
+
+// IStore keeps widget state between renders.
+type IStore interface {
+	Load(ctx context.Context, key string) ([]byte, error)
+	Save(ctx context.Context, key string, payload []byte) error
+}
+
+// iDispatcher stays unexported and takes the lower-case prefix.
+type iDispatcher interface {
+	Dispatch(ctx context.Context, target string) error
+}
+
+// relayEndpoint is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const relayEndpoint = "203.0.113.10:8080"

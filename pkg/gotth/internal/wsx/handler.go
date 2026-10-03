@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/coder/websocket"
 
 	"github.com/candacelabs/csf/pkg/gotth/internal/obs"
 	"github.com/candacelabs/csf/pkg/gotth/internal/protocol"
 	"github.com/candacelabs/csf/pkg/gotth/internal/session"
+	"github.com/candacelabs/csf/runtime"
 )
 
 // AnyOrigin is the sentinel that disables origin validation. It is a
@@ -67,6 +69,12 @@ type Options[I session.IIdentity] struct {
 	MaxSessions int
 	// MaxSessionsPerIdentity bounds one subject's concurrent connections.
 	MaxSessionsPerIdentity int
+
+	// Scope is the runtime scope every session goroutine starts in: the
+	// connection's read pump, its actor and its effects. The handler borrows
+	// it; the live UI service that owns it joins it after Close has drained
+	// every session. It is required.
+	Scope *runtime.Scope
 }
 
 // Handler serves the live connection.
@@ -95,6 +103,10 @@ type Handler[I session.IIdentity] struct {
 	// upgrades all passed a limit of 1 (BR-8). MaxSessionsPerIdentity was
 	// reserved correctly and was the only one of the two that held.
 	pending int
+
+	// sessionGoroutines totals the goroutines every ended session started in
+	// its own scope. Atomic: sessions end on their own goroutines.
+	sessionGoroutines atomic.Int64
 }
 
 // NewHandler validates the options and returns a handler.
@@ -108,6 +120,8 @@ func NewHandler[I session.IIdentity](o Options[I]) (*Handler[I], error) {
 		return nil, fmt.Errorf("gotth-live: no application: this is a library bug")
 	case len(o.Origins) == 0:
 		return nil, fmt.Errorf("gotth-live: no allowed origins: set them, or opt out explicitly")
+	case o.Scope == nil:
+		return nil, fmt.Errorf("gotth-live: no sessions scope: this is a library bug")
 	}
 	o.Limits = o.Limits.Normalize()
 
@@ -119,7 +133,7 @@ func NewHandler[I session.IIdentity](o Options[I]) (*Handler[I], error) {
 }
 
 // ServeHTTP performs the handshake and then RETURNS, leaving the session
-// running on a goroutine this handler owns.
+// running on a goroutine of the sessions scope (Options.Scope).
 //
 // The order is the security property rather than an implementation detail:
 // origin, then authentication against the HTTP request, then the CSRF token,
@@ -286,11 +300,48 @@ func (h *Handler[I]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		defer h.release(identity)
-		h.serve(sessionCtx, sess, app)
-	}()
+	// Each session gets its own child of the sessions scope. Its read pump,
+	// actor and effects start in it, and when the session ends the child is
+	// cancelled, which is what lets the child's join — a goroutine of the
+	// sessions scope — collect every one of them and return. One long-lived
+	// scope shared by every connection would instead keep each goroutine it
+	// ever ran parked as an idle worker until the service stopped.
+	sessionScope, err := h.opts.Scope.Child(sessionOwner + id.String())
+	if err == nil {
+		sess.scope = sessionScope
+		err = sessionScope.Go(func(_ context.Context) error {
+			defer sessionScope.Cancel()
+			// Counted as the session ends: serve is the last of its
+			// goroutines to return, so nothing more starts in its scope.
+			defer func() { h.sessionGoroutines.Add(sessionScope.Goroutines()) }()
+			defer h.release(identity)
+			h.serve(sessionCtx, sess, app)
+			return nil
+		})
+		if err != nil {
+			sessionScope.Cancel()
+		}
+	}
+	if err != nil {
+		// The sessions scope is joined only after Close has drained every
+		// registered session, and this one is registered, so the scope
+		// refusing it is a library bug. It is still torn down exactly as
+		// serve would have: closed, deregistered and released, so Close's
+		// wait on it ends.
+		h.opts.Logger.Error(ctx, "gotth-live: a registered session could not start because the sessions scope is closed: this is a library bug",
+			obs.Str("session_id", id.String()),
+			obs.Err(err))
+		sess.close(protocol.CloseGoingAway, "the server is shutting down")
+		h.opts.Metrics.ConnectionClosed(ctx, protocol.CloseGoingAway.Label())
+		h.deregister(ctx, sess)
+		close(sess.done)
+		h.release(identity)
+	}
 }
+
+// sessionOwner prefixes the session identifier in the name of each session's
+// child scope.
+const sessionOwner = "session "
 
 // originAllowed applies the allowlist. Deny by default, and an absent Origin
 // is a denial rather than a pass: a request with no Origin is not a request
@@ -440,7 +491,9 @@ func (h *Handler[I]) deregister(ctx context.Context, c *conn[I]) {
 }
 
 // Close drains every live session, closing each with the going-away code, and
-// waits for in-flight work up to the context's deadline.
+// waits until each has ended — its read pump, actor and effects joined — or
+// the context's deadline passes. Joining the sessions scope itself is the
+// owner's: Close does not cancel it.
 func (h *Handler[I]) Close(ctx context.Context) error {
 	h.mu.Lock()
 	h.draining = true
@@ -455,16 +508,11 @@ func (h *Handler[I]) Close(ctx context.Context) error {
 	// that has stopped reading costs the transport's handshake timeout. Issued
 	// in series, one such client would serialize the whole drain behind itself;
 	// issued together, the drain's only bound is the caller's deadline, which
-	// is the operator's to set.
-	var closing sync.WaitGroup
-	for _, c := range live {
-		closing.Add(1)
-		go func(c *conn[I]) {
-			defer closing.Done()
-			c.close(protocol.CloseGoingAway, "the server is shutting down")
-		}(c)
+	// is the operator's to set. The fan-out runs in a child of the sessions
+	// scope and is joined before the wait below.
+	if err := h.closeConcurrently(live); err != nil {
+		return err
 	}
-	closing.Wait()
 
 	for _, c := range live {
 		select {
@@ -473,8 +521,41 @@ func (h *Handler[I]) Close(ctx context.Context) error {
 			return fmt.Errorf("gotth-live: %d sessions had not finished draining: raise the deadline or investigate a stuck effect", len(live))
 		}
 	}
+	h.opts.Logger.Lifecycle(ctx, "gotth-live: drained every live session", obs.Int("sessions", len(live)))
 	return nil
 }
+
+// closeConcurrently sends every session in live the going-away close at once
+// and returns when every close has been issued. If the sessions scope is
+// already joining — a second Close after the owner joined it — the closes are
+// issued in series instead, because nothing may start in a joined scope.
+func (h *Handler[I]) closeConcurrently(live []*conn[I]) error {
+	fanout, err := h.opts.Scope.Child(drainOwner)
+	if err != nil {
+		for _, c := range live {
+			c.close(protocol.CloseGoingAway, "the server is shutting down")
+		}
+		return nil
+	}
+	for _, c := range live {
+		if err := fanout.Go(func(_ context.Context) error {
+			c.close(protocol.CloseGoingAway, "the server is shutting down")
+			return nil
+		}); err != nil {
+			c.close(protocol.CloseGoingAway, "the server is shutting down")
+		}
+	}
+	return fanout.Close()
+}
+
+// drainOwner names the child scope Close's close fan-out runs in.
+const drainOwner = "drain"
+
+// SessionGoroutines reports how many goroutines ended sessions started in
+// their own scopes — read pump, actor, effects — which the sessions scope's
+// join has collected or is collecting. It is what the live UI service logs as
+// joined at shutdown.
+func (h *Handler[I]) SessionGoroutines() int64 { return h.sessionGoroutines.Load() }
 
 // Sessions reports how many sessions are live. It exists for tests and for the
 // leak check, and reads the registry rather than a counter that could drift

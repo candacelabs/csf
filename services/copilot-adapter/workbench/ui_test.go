@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 
+	"github.com/candacelabs/csf/ipc/proc"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
@@ -17,11 +17,12 @@ import (
 var _ = Describe("repository root resolution", func() {
 	It("normalizes a nested configured directory to the git worktree top level", func() {
 		repository := GinkgoT().TempDir()
-		Expect(exec.Command("git", "init", "--quiet", repository).Run()).To(Succeed())
+		_, err := hostLauncher().Run(context.Background(), proc.Command{Executable: "git", Arguments: []string{"init", "--quiet", repository}})
+		Expect(err).NotTo(HaveOccurred())
 		nested := filepath.Join(repository, "go", "app")
 		Expect(os.MkdirAll(nested, 0o750)).To(Succeed())
 
-		root, err := CanonicalRepositoryRoot(context.Background(), nested)
+		root, err := CanonicalRepositoryRoot(context.Background(), hostLauncher(), nested)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(root).To(Equal(repository))
 	})

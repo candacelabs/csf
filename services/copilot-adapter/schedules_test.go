@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -10,8 +9,11 @@ import (
 	"time"
 
 	"github.com/candacelabs/csf/pkg/cron"
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
+	cronservice "github.com/candacelabs/csf/services/cron"
+	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -40,15 +42,15 @@ type schedulePauseRaceStore struct {
 }
 
 type dueScheduleStore struct {
-	*cron.MemoryStore
+	cronservice.IStore
 }
 
 func (store *dueScheduleStore) Reconcile(
 	ctx context.Context,
-	definitions []cron.JobDefinition,
+	definitions []cron.TriggerDefinition,
 	now time.Time,
-) ([]cron.JobState, error) {
-	return store.MemoryStore.Reconcile(ctx, definitions, now.Add(-24*time.Hour))
+) ([]cron.TriggerState, error) {
+	return store.IStore.Reconcile(ctx, definitions, now.Add(-24*time.Hour))
 }
 
 func (store *schedulePauseRaceStore) GetChatSchedule(ctx context.Context, identifier uuid.UUID) (storedb.ChatSchedule, error) {
@@ -59,7 +61,7 @@ func (store *schedulePauseRaceStore) GetChatSchedule(ctx context.Context, identi
 	deleted := store.deleted
 	store.mutex.Unlock()
 	if identifier != row.ID {
-		return storedb.ChatSchedule{}, sql.ErrNoRows
+		return storedb.ChatSchedule{}, pgx.ErrNoRows
 	}
 	switch lookup {
 	case 2:
@@ -78,7 +80,7 @@ func (store *schedulePauseRaceStore) GetChatSchedule(ctx context.Context, identi
 		}
 	}
 	if deleted {
-		return storedb.ChatSchedule{}, sql.ErrNoRows
+		return storedb.ChatSchedule{}, pgx.ErrNoRows
 	}
 	return row, nil
 }
@@ -111,7 +113,7 @@ func (store *schedulePauseRaceStore) DeleteChatSchedule(
 	store.mutex.Lock()
 	defer store.mutex.Unlock()
 	if parameters.ID != store.row.ID || store.deleted {
-		return uuid.Nil, sql.ErrNoRows
+		return uuid.Nil, pgx.ErrNoRows
 	}
 	store.deleted = true
 	return parameters.ID, nil
@@ -143,7 +145,7 @@ func mutationReferences(adapter *CopilotAdapter, identifier uuid.UUID) int {
 func (store *schedulePatchStore) GetChatSchedule(ctx context.Context, identifier uuid.UUID) (storedb.ChatSchedule, error) {
 	store.lookups++
 	if identifier != store.row.ID {
-		return storedb.ChatSchedule{}, sql.ErrNoRows
+		return storedb.ChatSchedule{}, pgx.ErrNoRows
 	}
 	return store.row, nil
 }
@@ -174,7 +176,7 @@ var _ = Describe("schedule patches", func() {
 			Status: string(api.ChatScheduleStatusPaused), CreatedAt: now, UpdatedAt: now,
 		}}
 		adapter = &CopilotAdapter{
-			store: persisted, scheduleStore: cron.NewMemoryStore(), logger: slog.Default(), config: DefaultAdapterConfig(),
+			store: persisted, scheduleStore: crontest.OpenStore(GinkgoT()), logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
 		}
@@ -213,7 +215,7 @@ var _ = Describe("schedule patches", func() {
 		Expect(adapter.scheduleReload).To(HaveLen(0))
 	})
 
-	It("fences a captured job behind the same lock before acknowledging a pause", func() {
+	It("fences a captured operation behind the same lock before acknowledging a pause", func() {
 		now := time.Date(2026, time.September, 6, 12, 0, 0, 0, time.UTC)
 		raceStore := &schedulePauseRaceStore{
 			row: storedb.ChatSchedule{
@@ -228,7 +230,7 @@ var _ = Describe("schedule patches", func() {
 			continueScheduled:      make(chan struct{}),
 		}
 		adapter := &CopilotAdapter{
-			store: raceStore, scheduleStore: cron.NewMemoryStore(), logger: slog.Default(), config: DefaultAdapterConfig(),
+			store: raceStore, scheduleStore: crontest.OpenStore(GinkgoT()), logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
 		}
@@ -253,9 +255,9 @@ var _ = Describe("schedule patches", func() {
 
 		jobFinished := make(chan error, 1)
 		go func() {
-			jobFinished <- adapter.chatScheduleJob(captured)(context.Background(), cron.Invocation{ID: "occurrence"})
+			jobFinished <- adapter.chatScheduleOperation(captured)(context.Background(), cronservice.Occurrence{ID: "occurrence"})
 		}()
-		patience.Await(GinkgoT(), "the captured job waiting on the pause mutation", patience.Budget{
+		eventually.Await(GinkgoT(), "the captured operation waiting on the pause mutation", eventually.Budget{
 			Within: time.Second, Interval: time.Millisecond,
 		}, func() int {
 			return mutationReferences(adapter, captured.SessionID)
@@ -268,7 +270,7 @@ var _ = Describe("schedule patches", func() {
 		Eventually(raceStore.scheduledLookupEntered).Should(BeClosed())
 		close(raceStore.continueScheduled)
 		Eventually(jobFinished).Should(Receive(Succeed()))
-		Expect(raceStore.observedSessionLookups()).To(Equal(1), "the pause must verify its session is mutable before stopping the job")
+		Expect(raceStore.observedSessionLookups()).To(Equal(1), "the pause must verify its session is mutable before stopping the operation")
 		Expect(adapter.scheduleReload).To(HaveLen(0))
 	})
 
@@ -287,7 +289,7 @@ var _ = Describe("schedule patches", func() {
 			continueScheduled:      make(chan struct{}),
 		}
 		adapter := &CopilotAdapter{
-			store: raceStore, scheduleStore: &dueScheduleStore{MemoryStore: cron.NewMemoryStore()},
+			store: raceStore, scheduleStore: &dueScheduleStore{IStore: crontest.OpenStore(GinkgoT())},
 			logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
@@ -318,7 +320,7 @@ var _ = Describe("schedule patches", func() {
 			cancelRun()
 			Eventually(runFinished).Should(Receive(Succeed()))
 		})
-		patience.Await(GinkgoT(), "the due worker waiting behind the delete mutation", patience.Budget{
+		eventually.Await(GinkgoT(), "the due worker waiting behind the delete mutation", eventually.Budget{
 			Within: time.Second, Interval: time.Millisecond,
 		}, func() int {
 			return mutationReferences(adapter, raceStore.row.SessionID)
@@ -335,7 +337,7 @@ var _ = Describe("schedule patches", func() {
 		Expect(result.response).To(BeAssignableToTypeOf(api.DeleteChatSchedule204Response{}))
 		snapshot, err := adapter.scheduleStore.Snapshot(context.Background())
 		Expect(err).NotTo(HaveOccurred())
-		Expect(snapshot.Jobs).To(BeEmpty())
+		Expect(snapshot.Triggers).To(BeEmpty())
 		Expect(raceStore.observedSessionLookups()).To(Equal(1))
 	})
 
@@ -349,7 +351,7 @@ var _ = Describe("schedule patches", func() {
 		}
 		raceStore := &schedulePauseRaceStore{row: current}
 		adapter := &CopilotAdapter{
-			store: raceStore, scheduleStore: cron.NewMemoryStore(), logger: slog.Default(), config: DefaultAdapterConfig(),
+			store: raceStore, scheduleStore: crontest.OpenStore(GinkgoT()), logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
 		}
@@ -358,7 +360,7 @@ var _ = Describe("schedule patches", func() {
 		captured.CronExpression = "0 9 * * *"
 		captured.UpdatedAt = now
 
-		Expect(adapter.chatScheduleJob(captured)(context.Background(), cron.Invocation{ID: "stale-occurrence"})).To(Succeed())
+		Expect(adapter.chatScheduleOperation(captured)(context.Background(), cronservice.Occurrence{ID: "stale-occurrence"})).To(Succeed())
 		Expect(raceStore.observedSessionLookups()).To(BeZero(), "a stale revision must stop before turn submission")
 	})
 })

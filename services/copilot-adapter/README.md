@@ -187,7 +187,7 @@ Generated first, in this order, each with a `check` mode that regenerates into a
 temp dir and diffs: `generate.sh` (oapi-codegen v2.8.0 → `gen/api/api.gen.go`:
 models, Gin router, strict server, client, embedded spec), `store/generate.sh`
 (sqlc 1.31.1 over `store/migrations` + `store/queries.sql` → `storedb`,
-database/sql flavour so `pkg/pgmem` can back it in tests), the
+pgx flavour over the `csfpg.IDB` capability, which `pkg/pgmem` also serves in tests), the
 mockgen `//go:generate` sites for the two seams in `seams.go`, and goverter
 (`views.go` → `views_gen.go`: the projection from sqlc's rows to the contract's
 models, so the mapping between two generated types is generated too).
@@ -214,12 +214,19 @@ maintained reference composition. It supplies every required option and is
 compiled in CI, so consumers should follow that source instead of copying a
 partial constructor example that can drift out of date.
 
-Migrations: `store.ApplyMigrations(ctx, db)` (the shared `pkg/sqlmigrate`
-over the embedded `.sql` files) before `Register`.
+Capabilities: the service does no I/O of its own. The binary opens the pool
+with `csfpg.OpenPool`, applies `store.Migrations` with the shared
+`pkg/sqlmigrate` on the pool's `OpenSQL` handle, and grants the pool to
+`store.NewPostgresStore` (or `workbench.NewWorkbench`) as a `csfpg.IDB`. The
+trace exporter dials its collector through the socket capability granted with
+`WithTraceNetwork`.
 
 Tests: `go test -race ./services/copilot-adapter/...` — unit specs in-package
 over gomock seams through the generated client; integration specs under
 `integration/` on `pgmem` with the real migrations and a mocked CLI.
+`adaptertest` grants the specs both capabilities without leaving the process:
+`OpenStore` is the store on `pgmem`, and `Serve` serves a handler through the
+`ipc/net/http` listener and client over an in-memory connection.
 <!-- END BACKEND STAGE -->
 
 <!-- BEGIN UI STAGE -->

@@ -2,51 +2,66 @@ package csf
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/candacelabs/csf/ipc/model"
+	"github.com/candacelabs/csf/ipc/model/copilot"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
-	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 )
 
 const workbenchSessionURLPrefix = "/ui/#/sessions/"
 
-// SubmitAgentAssignmentHTTP is a consumer-side example of executing a plan
-// through the existing generated Workbench client. Hosts composing in process
-// can pass NewAgentWorkbenchRequests directly to their adapter instead.
-// A partial receipt is returned if session creation succeeds but prompt
-// acceptance is unconfirmed. Retry the original plan to recover its identities.
-func SubmitAgentAssignmentHTTP(ctx context.Context, client *api.ClientWithResponses, endpoint string, plan *pb.AgentAssignmentPlan) (*pb.AgentAssignmentReceipt, error) {
+// IAgentAssignmentBrain is the brain an agent assignment is handed to: given
+// the prepared Workbench requests it proposes one agent turn. Production wires
+// copilot.NewCopilotBrain over the adapter's generated client; specs wire
+// stub.NewCannedBrain and need no model at all.
+type IAgentAssignmentBrain = model.IBrain[*AgentWorkbenchRequests, copilot.Turn]
+
+// SubmitAgentAssignment asks brain to take up a prepared plan and links the
+// proposed turn to the plan in a receipt. endpoint is the Workbench URL the
+// receipt's session link points at. A partial receipt is returned if the
+// session exists but prompt acceptance is unconfirmed. Retry the original plan
+// to recover its identities. A receipt records a proposal that was accepted;
+// it does not prove the work completed.
+func SubmitAgentAssignment(ctx context.Context, brain IAgentAssignmentBrain, endpoint string, plan *pb.AgentAssignmentPlan) (*pb.AgentAssignmentReceipt, error) {
 	requests, err := NewAgentWorkbenchRequests(plan)
 	if err != nil {
 		return nil, err
 	}
-	if client == nil {
-		return nil, fmt.Errorf("Workbench client is required")
+	if brain == nil {
+		return nil, fmt.Errorf("agent assignment brain is required")
 	}
-	created, err := client.CreateSessionWithResponse(ctx, requests.Session)
+	proposal, err := brain.Propose(ctx, requests)
+	if unconfirmed, ok := errors.AsType[*copilot.UnconfirmedTurnError](err); ok {
+		return agentAssignmentReceipt(endpoint, plan, unconfirmed.Turn), err
+	}
 	if err != nil {
-		return nil, fmt.Errorf("create agent session; retry the original plan: %w", err)
+		return nil, err
 	}
-	if created.JSON201 == nil || created.JSON201.Id == nil || created.JSON201.WorktreeId == nil {
-		return nil, fmt.Errorf("create agent session: HTTP %d", created.StatusCode())
+	turn, err := proposal.Only()
+	if err != nil {
+		return nil, fmt.Errorf("agent assignment: %w", err)
 	}
-	session := created.JSON201
+	if turn.TurnID == uuid.Nil {
+		return agentAssignmentReceipt(endpoint, plan, turn), fmt.Errorf("agent assignment: brain %q proposed no accepted turn; retry the original plan", proposal.Provider)
+	}
+	return agentAssignmentReceipt(endpoint, plan, turn), nil
+}
+
+func agentAssignmentReceipt(endpoint string, plan *pb.AgentAssignmentPlan, turn copilot.Turn) *pb.AgentAssignmentReceipt {
 	receipt := &pb.AgentAssignmentReceipt{
-		Plan: proto.CloneOf(plan), SessionId: session.Id.String(),
-		WorktreeId: session.WorktreeId.String(),
-		SessionUrl: strings.TrimRight(endpoint, "/") + workbenchSessionURLPrefix + url.PathEscape(session.Id.String()),
+		Plan: proto.CloneOf(plan), SessionId: turn.SessionID.String(),
+		WorktreeId: turn.WorktreeID.String(),
+		SessionUrl: strings.TrimRight(endpoint, "/") + workbenchSessionURLPrefix + url.PathEscape(turn.SessionID.String()),
 	}
-	prompted, err := client.SubmitPromptWithResponse(ctx, *session.Id, requests.Prompt)
-	if err != nil {
-		return receipt, fmt.Errorf("submit agent prompt; retry the original plan: %w", err)
+	if turn.TurnID != uuid.Nil {
+		receipt.TurnId = turn.TurnID.String()
 	}
-	if prompted.JSON202 == nil || prompted.JSON202.Id == nil {
-		return receipt, fmt.Errorf("submit agent prompt: HTTP %d", prompted.StatusCode())
-	}
-	receipt.TurnId = prompted.JSON202.Id.String()
-	return receipt, nil
+	return receipt
 }

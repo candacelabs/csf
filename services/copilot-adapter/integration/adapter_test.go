@@ -3,28 +3,28 @@ package integration_test
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
 	"github.com/candacelabs/csf/pkg/cron"
-	"github.com/candacelabs/csf/pkg/pgmem"
+	cronservice "github.com/candacelabs/csf/services/cron"
+	"github.com/candacelabs/csf/services/cron/crontest"
 
 	"github.com/candacelabs/csf/pkg/httpserver"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
-	"github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
 
@@ -36,21 +36,21 @@ const (
 )
 
 type observedScheduleStore struct {
-	*cron.MemoryStore
+	cronservice.IStore
 	reconciled     chan struct{}
 	reconciledOnce sync.Once
 }
 
 func newObservedScheduleStore() *observedScheduleStore {
-	return &observedScheduleStore{MemoryStore: cron.NewMemoryStore(), reconciled: make(chan struct{})}
+	return &observedScheduleStore{IStore: crontest.OpenStore(GinkgoT()), reconciled: make(chan struct{})}
 }
 
 func (store *observedScheduleStore) Reconcile(
 	ctx context.Context,
-	definitions []cron.JobDefinition,
+	definitions []cron.TriggerDefinition,
 	now time.Time,
-) ([]cron.JobState, error) {
-	states, err := store.MemoryStore.Reconcile(ctx, definitions, now)
+) ([]cron.TriggerState, error) {
+	states, err := store.IStore.Reconcile(ctx, definitions, now)
 	if err == nil {
 		store.reconciledOnce.Do(func() { close(store.reconciled) })
 	}
@@ -80,7 +80,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 		bridge    *MockICopilotBridge
 		worktrees *MockIWorktreeManager
 		terminals *MockITerminalManager
-		server    *httptest.Server
+		server    *adaptertest.Server
 		client    *api.ClientWithResponses
 		events    chan copilotadapter.BridgeEvent
 		sent      chan copilotadapter.BridgePrompt
@@ -90,11 +90,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
+		postgresStore := adaptertest.OpenStore(GinkgoT())
 
 		controller := gomock.NewController(GinkgoT())
 		bridge = NewMockICopilotBridge(controller)
@@ -109,9 +105,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 			}).AnyTimes()
 		terminals = NewMockITerminalManager(controller)
 		terminals.EXPECT().Close().Return(nil).AnyTimes()
-		queries = storedb.New(db)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
+		queries = postgresStore.Queries
 		scheduleStore := newObservedScheduleStore()
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge),
@@ -125,9 +119,8 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 		startScheduleRuntime(ctx, service, scheduleStore)
 		engine := httpserver.NewEngine("copilot-adapter-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server = httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err = api.NewClientWithResponses(server.URL)
+		server = adaptertest.Serve(GinkgoT(), engine)
+		client, err = api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 
 		events = make(chan copilotadapter.BridgeEvent, 16)
@@ -313,7 +306,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(conflicting.StatusCode()).To(Equal(http.StatusConflict), string(conflicting.Body))
 
-		frames := readEventFrames(ctx, server.URL, sessionID, "2")
+		frames := readEventFrames(ctx, client, sessionID, 2)
 		Expect(frames).NotTo(BeEmpty())
 		Expect(frames[0]).To(HavePrefix("id:3"))
 
@@ -888,7 +881,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 		}()
 		Eventually(observed).Should(BeClosed())
 		_, err = queries.GetSessionRequest(ctx, requestID)
-		Expect(err).To(MatchError(sql.ErrNoRows))
+		Expect(err).To(MatchError(pgx.ErrNoRows))
 		subagents, err := queries.ListSubagents(ctx, sessionID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(subagents).To(BeEmpty())
@@ -1010,7 +1003,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 			HaveField("FailureReason", PointTo(Equal(reason))),
 		)))
 
-		frames := readEventFrames(ctx, server.URL, sessionID, "0")
+		frames := readEventFrames(ctx, client, sessionID, 0)
 		Expect(frames).NotTo(BeEmpty())
 		Expect(frames[0]).To(ContainSubstring(`"kind":"sessionUpdated"`))
 		// This numeric wire identity stays stable when diagnostic prose changes.
@@ -1019,7 +1012,7 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 	})
 
 	It("rejects a malformed session id before any handler runs", func() {
-		response, err := http.Get(server.URL + "/v1/sessions/not-a-uuid")
+		response, err := server.Client.Get(server.URL + "/v1/sessions/not-a-uuid")
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { _ = response.Body.Close() }()
 		Expect(response.StatusCode).To(Equal(http.StatusBadRequest))
@@ -1028,14 +1021,14 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 
 // readEventFrames opens the SSE stream with Last-Event-ID and returns the
 // frames it receives until the first blank line after an id, then hangs up.
-func readEventFrames(ctx context.Context, base string, sessionID uuid.UUID, lastEventID string) []string {
+func readEventFrames(ctx context.Context, client *api.ClientWithResponses, sessionID uuid.UUID, lastEventID api.LastEventId) []string {
 	streamCtx, cancel := context.WithTimeout(ctx, projectionBudget)
 	defer cancel()
-	request, err := http.NewRequestWithContext(streamCtx, http.MethodGet, base+"/v1/sessions/"+sessionID.String()+"/events", nil)
-	Expect(err).NotTo(HaveOccurred())
-	request.Header.Set("Last-Event-ID", lastEventID)
-	request.Header.Set("Accept", "text/event-stream")
-	response, err := http.DefaultClient.Do(request)
+	response, err := client.StreamSessionEvents(streamCtx, sessionID, &api.StreamSessionEventsParams{LastEventID: &lastEventID},
+		func(_ context.Context, request *http.Request) error {
+			request.Header.Set("Accept", "text/event-stream")
+			return nil
+		})
 	Expect(err).NotTo(HaveOccurred())
 	defer func() { _ = response.Body.Close() }()
 	Expect(response.StatusCode).To(Equal(http.StatusOK))

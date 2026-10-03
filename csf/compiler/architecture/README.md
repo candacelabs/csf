@@ -41,7 +41,9 @@ flowchart LR
 | [symbol_codegen.ml](symbol_codegen.ml) → `Syntax_cgen` | The one generated vocabulary mapping grammar spellings to typed rules, terminals and enum values, including inverse mappings for emitters |
 | [typed_tree.ml](typed_tree.ml), [decode.ml](decode.ml) | Resolve vocabulary once, consume every field and construct the semantic model |
 | [model.ml](model.ml) | Named types for roles, ownership, lifetimes, references and crossings |
-| [validate.ml](validate.ml) | Resolve references, reject incompatible relationships and derive dependency order |
+| [rules.dl](rules.dl) | Every relational check (join, closure or count) as a Datalog finding relation, each with its formal predicate |
+| [facts.ml](facts.ml) | The base relations those rules read, extracted from the typed model |
+| [validate.ml](validate.ml) | Single-record checks, findings into diagnostics, the resolved graph and dependency order; the engine is [pinned third-party code](../third_party/datalog/README.md) |
 | [architecture.csf](../../architecture/architecture.csf) | Selected serve-mode composition and source roots |
 | [Generated review](../../architecture/generated/review_cgen.md) | Declared graph and unresolved obligations; never observed runtime state |
 | [cli.ml](cli.ml) | Declarative Cmdliner options and typed subcommand dispatch |
@@ -72,7 +74,7 @@ updating their CSF pin.
 | Change | Source to edit | Result |
 |---|---|---|
 | Accepted syntax and vocabulary | `language.ebnf` | Rebuilding regenerates and compiles `Syntax_cgen`; no handwritten vocabulary catalogue needs updating. |
-| Meaning of a new construct | `model.ml`, `decode.ml`, `validate.ml` | Typed decoding and semantic checks implement the construct. Syntax alone does not supply its behavior. |
+| Meaning of a new construct | `model.ml`, `decode.ml`, `facts.ml`, `rules.dl`, `validate.ml` | Typed decoding and semantic checks implement the construct. Syntax alone does not supply its behavior. |
 | Source policy | `go_policy.ml`, `generated_policy.ml`, `source_check.ml` | The rebuilt checker applies the consumer's policy. |
 | Generated projections | `emit.ml`, `symbol_codegen.ml`, `codegen_header.ml` | Rebuilding and running `csfc emit` produces the consumer's outputs. |
 | Human vocabulary and documentation diagrams | [Documentation compiler](../language/README.md) | Its source definition and generator produce the accompanying documentation. |
@@ -149,6 +151,24 @@ bash tools/bazel.sh --batch build \
 ```
 
 `--source`, `--grammar`, `--root` and `--output` select inputs and projections.
+
+`csfc emit --format json` runs the same checks as `emit`, then prints the
+checked architecture as one JSON document on standard output and writes
+nothing. It is for tools in other languages that need the declarations
+without linking OCaml or re-implementing this grammar. The document carries
+`"format": "csf-architecture"` and `"format_version": 1`; its fields are the
+processes, scopes (with their owning process), components (`kind` is the role
+keyword, plus `process`, `scope`, `source`, `state`, `lifecycle` and
+`verification`), dependencies, connections, `scan_roots`, `generated_roots`
+and outstanding `obligations`, each with its declaration location. Paths stay
+relative to `--root`. A failed check prints diagnostics on standard error,
+exits 1 and prints no JSON. Like every projection, it describes declarations,
+not observed running state; a test reference is not a passed test.
+
+```sh
+./bazel-bin/csf/compiler/architecture/csfc.exe emit --format json > architecture.json
+```
+
 Paths in declarations are normalized repository-relative paths. Missing source
 roots, escaping paths and symlinks in any relative path component fail the gate.
 Coverage comes from the files actually selected after traversal exclusions

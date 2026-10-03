@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"time"
 
@@ -16,35 +14,38 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
+	"github.com/candacelabs/csf/ipc/proc"
 	"github.com/candacelabs/csf/pkg/cron"
-	"github.com/candacelabs/csf/pkg/pgmem"
+	cronservice "github.com/candacelabs/csf/services/cron"
+	"github.com/candacelabs/csf/services/cron/crontest"
 
 	"github.com/candacelabs/csf/pkg/httpserver"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
-	"github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 	"github.com/candacelabs/csf/services/copilot-adapter/worktreeadapter"
 )
 
 type shutdownReconcileStore struct {
-	*cron.MemoryStore
+	cronservice.IStore
 	zeroReconciled chan struct{}
 }
 
 func runRestorationGit(directory string, arguments ...string) string {
-	command := exec.Command("git", append([]string{"-C", directory}, arguments...)...)
-	output, err := command.CombinedOutput()
-	ExpectWithOffset(1, err).NotTo(HaveOccurred(), string(output))
-	return string(output)
+	result, err := hostLauncher().Run(context.Background(), proc.Command{
+		Executable: "git", Arguments: append([]string{"-C", directory}, arguments...),
+	})
+	ExpectWithOffset(1, err).NotTo(HaveOccurred())
+	return string(result.Stdout)
 }
 
 func (store *shutdownReconcileStore) Reconcile(
 	ctx context.Context,
-	definitions []cron.JobDefinition,
+	definitions []cron.TriggerDefinition,
 	now time.Time,
-) ([]cron.JobState, error) {
-	states, err := store.MemoryStore.Reconcile(ctx, definitions, now)
+) ([]cron.TriggerState, error) {
+	states, err := store.IStore.Reconcile(ctx, definitions, now)
 	if err != nil || len(definitions) != 0 {
 		return states, err
 	}
@@ -57,12 +58,8 @@ var _ = Describe("process restart restoration", func() {
 	DescribeTable("recovers an incomplete creation receipt through the deterministic worktree identity",
 		func(precreateResidue bool) {
 			ctx := context.Background()
-			database := pgmem.MustNew()
-			DeferCleanup(database.Close)
-			db := database.Open()
-			DeferCleanup(db.Close)
-			Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-			queries := storedb.New(db)
+			postgresStore := adaptertest.OpenStore(GinkgoT())
+			queries := postgresStore.Queries
 
 			root := GinkgoT().TempDir()
 			repositoryRoot := filepath.Join(root, "repository")
@@ -88,7 +85,7 @@ var _ = Describe("process restart restoration", func() {
 				runRestorationGit(repositoryRoot, "worktree", "add", "-b", expectedBranch, expectedPath, "HEAD")
 			}
 
-			manager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{
+			manager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{Launcher: hostLauncher(),
 				Repositories: []copilotadapter.Repository{{
 					ID: "repo", DisplayName: "Repo", Root: repositoryRoot, DefaultRef: "HEAD",
 				}},
@@ -106,12 +103,10 @@ var _ = Describe("process restart restoration", func() {
 					return copilotadapter.BridgeSession{Close: func(_ context.Context) error { return nil }}, nil
 				},
 			).Times(1)
-			postgresStore, err := store.NewPostgresStore(db)
-			Expect(err).NotTo(HaveOccurred())
 			service, err := copilotadapter.NewCopilotAdapter(
 				copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 				copilotadapter.WithWorktreeManager(manager), copilotadapter.WithTerminalManager(terminals),
-				copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+				copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 			)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(service.Close)
@@ -143,12 +138,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("resumes a starting receipt with a durable SDK attempt without creating again", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		sessionID, idempotencyKey, attemptID := uuid.New(), uuid.New(), uuid.New()
 		receipt, err := queries.ClaimSessionCreation(ctx, storedb.ClaimSessionCreationParams{
@@ -206,12 +197,10 @@ var _ = Describe("process restart restoration", func() {
 				return copilotadapter.BridgeSession{Close: func(_ context.Context) error { return nil }}, nil
 			},
 		).Times(1)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -230,12 +219,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("replays one completed failed creation unchanged across process restart", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		controller := gomock.NewController(GinkgoT())
 		bridge := NewMockICopilotBridge(controller)
 		bridge.EXPECT().ListModels(gomock.Any()).Return([]copilotadapter.BridgeModel{{ID: "gpt-5"}}, nil).Times(1)
@@ -254,30 +239,28 @@ var _ = Describe("process restart restoration", func() {
 		bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).Return(
 			copilotadapter.BridgeSession{}, copilotadapter.ErrBridgeSessionMissing,
 		).Times(1)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		newService := func() *copilotadapter.CopilotAdapter {
 			service, serviceErr := copilotadapter.NewCopilotAdapter(
 				copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 				copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-				copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+				copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 			)
 			Expect(serviceErr).NotTo(HaveOccurred())
 			return service
 		}
-		newClient := func(service *copilotadapter.CopilotAdapter) (*api.ClientWithResponses, *httptest.Server) {
+		newClient := func(service *copilotadapter.CopilotAdapter) *api.ClientWithResponses {
 			engine := httpserver.NewEngine("copilot-adapter-failed-create-replay-test")
 			Expect(service.Register(engine)).To(Succeed())
-			server := httptest.NewServer(engine)
-			client, clientErr := api.NewClientWithResponses(server.URL)
+			server := adaptertest.Serve(GinkgoT(), engine)
+			client, clientErr := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 			Expect(clientErr).NotTo(HaveOccurred())
-			return client, server
+			return client
 		}
 
 		idempotencyKey := uuid.New()
 		body := newWorktreeSessionBodyWithKey("gpt-5", "repo", idempotencyKey)
 		firstService := newService()
-		firstClient, firstServer := newClient(firstService)
+		firstClient := newClient(firstService)
 		first, err := firstClient.CreateSessionWithResponse(ctx, body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(first.StatusCode()).To(Equal(http.StatusCreated), string(first.Body))
@@ -286,7 +269,6 @@ var _ = Describe("process restart restoration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(exact.StatusCode()).To(Equal(first.StatusCode()), string(exact.Body))
 		Expect(exact.JSON201).To(Equal(first.JSON201))
-		firstServer.Close()
 		Expect(firstService.Close()).To(Succeed())
 
 		restartedService := newService()
@@ -294,8 +276,7 @@ var _ = Describe("process restart restoration", func() {
 		restoreContext, cancelRestore := context.WithTimeout(ctx, 3*time.Second)
 		defer cancelRestore()
 		Expect(restartedService.RestoreSessions(restoreContext)).To(Succeed())
-		restartedClient, restartedServer := newClient(restartedService)
-		DeferCleanup(restartedServer.Close)
+		restartedClient := newClient(restartedService)
 		restarted, err := restartedClient.CreateSessionWithResponse(ctx, body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(restarted.StatusCode()).To(Equal(first.StatusCode()), string(restarted.Body))
@@ -308,12 +289,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("quarantines a starting session with an invalid worktree without deadlocking", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		sessionID, idempotencyKey := uuid.New(), uuid.New()
 		_, err := queries.ClaimSessionCreation(ctx, storedb.ClaimSessionCreationParams{
@@ -341,12 +318,10 @@ var _ = Describe("process restart restoration", func() {
 		worktrees.EXPECT().Reuse(gomock.Any(), "repo", "/tmp/invalid-starting").Return(
 			copilotadapter.PreparedWorktree{}, copilotadapter.ErrInvalidWorktree,
 		).Times(2)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -367,12 +342,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("reattaches a validated persisted session before accepting new work", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		worktreeID, sessionID := uuid.New(), uuid.New()
 		activeTurnID, queuedTurnID := uuid.New(), uuid.New()
@@ -489,12 +460,10 @@ var _ = Describe("process restart restoration", func() {
 					Close: func(_ context.Context) error { return nil },
 				}, nil
 			})
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -514,9 +483,8 @@ var _ = Describe("process restart restoration", func() {
 
 		engine := httpserver.NewEngine("copilot-adapter-restoration-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err := api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		response, err := client.SubmitPromptWithResponse(ctx, sessionID, api.SubmitPromptJSONRequestBody{
 			IdempotencyKey: uuid.New(), Text: "after restart", Mode: api.Queue,
@@ -528,12 +496,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("abandons a request with no turn before resume and keeps the idle session usable", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		worktreeID, sessionID, requestID := uuid.New(), uuid.New(), uuid.New()
 		_, err := queries.CreateWorktree(ctx, storedb.CreateWorktreeParams{
@@ -597,12 +561,10 @@ var _ = Describe("process restart restoration", func() {
 					Close: func(_ context.Context) error { return nil },
 				}, nil
 			})
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -610,9 +572,8 @@ var _ = Describe("process restart restoration", func() {
 
 		engine := httpserver.NewEngine("copilot-adapter-request-only-restoration-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err := api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		response, err := client.SubmitPromptWithResponse(ctx, sessionID, api.SubmitPromptJSONRequestBody{
 			IdempotencyKey: uuid.New(), Text: "after request-only restart", Mode: api.Queue,
@@ -624,12 +585,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("terminalizes a missing SDK session once and continues restoring later sessions", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		missingWorktreeID, validWorktreeID := uuid.New(), uuid.New()
 		missingSessionID, validSessionID := uuid.New(), uuid.New()
@@ -692,8 +649,6 @@ var _ = Describe("process restart restoration", func() {
 				Repository: copilotadapter.Repository{ID: "repo", Root: "/tmp/valid", DefaultRef: "HEAD"}, Path: "/tmp/valid", BaseRef: "HEAD",
 			}, nil),
 		)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		storeWithAmbiguousCommit := &ambiguousCommitStore{IStore: postgresStore}
 		sent := make(chan copilotadapter.BridgePrompt, 1)
 		gomock.InOrder(
@@ -720,7 +675,7 @@ var _ = Describe("process restart restoration", func() {
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(storeWithAmbiguousCommit),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -798,9 +753,8 @@ var _ = Describe("process restart restoration", func() {
 
 		engine := httpserver.NewEngine("copilot-adapter-missing-session-restoration-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err := api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		response, err := client.SubmitPromptWithResponse(ctx, validSessionID, api.SubmitPromptJSONRequestBody{
 			IdempotencyKey: uuid.New(), Text: "after missing session", Mode: api.Queue,
@@ -812,12 +766,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("aborts restoration without terminalizing an unclassified resume failure", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		worktreeID, sessionID := uuid.New(), uuid.New()
 		_, err := queries.CreateWorktree(ctx, storedb.CreateWorktreeParams{
@@ -845,12 +795,10 @@ var _ = Describe("process restart restoration", func() {
 			bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).Return(copilotadapter.BridgeSession{}, resumeErr),
 			bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).Return(copilotadapter.BridgeSession{Close: func(_ context.Context) error { return nil }}, nil),
 		)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -866,12 +814,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("quarantines an invalid legacy path without blocking valid restored sessions or the worktree list", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		validWorktreeID, invalidWorktreeID := uuid.New(), uuid.New()
 		validSessionID, invalidSessionID := uuid.New(), uuid.New()
@@ -906,13 +850,11 @@ var _ = Describe("process restart restoration", func() {
 			Branch: "main", HeadSHA: "abc", Clean: true, State: "active",
 		}, nil)
 		bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).Return(copilotadapter.BridgeSession{Close: func(_ context.Context) error { return nil }}, nil)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		scheduleStore := &shutdownReconcileStore{
-			MemoryStore:    cron.NewMemoryStore(),
+			IStore:         crontest.OpenStore(GinkgoT()),
 			zeroReconciled: make(chan struct{}, 1),
 		}
-		_, err = queries.CreateChatSchedule(ctx, storedb.CreateChatScheduleParams{
+		_, err := queries.CreateChatSchedule(ctx, storedb.CreateChatScheduleParams{
 			ID: uuid.New(), SessionID: invalidSessionID, DisplayName: "invalid worktree schedule",
 			Prompt: "must stop", CronExpression: "0 0 1 1 *", Timezone: "UTC",
 			Status: string(api.ChatScheduleStatusActive), CreatedAt: now, UpdatedAt: now,
@@ -937,7 +879,7 @@ var _ = Describe("process restart restoration", func() {
 			if snapshotErr != nil {
 				return 0
 			}
-			return len(snapshot.Jobs)
+			return len(snapshot.Triggers)
 		}, 10*time.Second, 25*time.Millisecond).Should(Equal(1))
 		restored := make(chan error, 1)
 		go func() { restored <- service.RestoreSessions(ctx) }()
@@ -948,7 +890,7 @@ var _ = Describe("process restart restoration", func() {
 			if snapshotErr != nil {
 				return -1
 			}
-			return len(snapshot.Jobs)
+			return len(snapshot.Triggers)
 		}, 10*time.Second, 25*time.Millisecond).Should(Equal(0))
 		invalid, err := queries.GetSession(ctx, invalidSessionID)
 		Expect(err).NotTo(HaveOccurred())
@@ -956,9 +898,8 @@ var _ = Describe("process restart restoration", func() {
 
 		engine := httpserver.NewEngine("copilot-adapter-quarantine-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err := api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		response, err := client.ListWorktreesWithResponse(ctx)
 		Expect(err).NotTo(HaveOccurred())
@@ -970,12 +911,8 @@ var _ = Describe("process restart restoration", func() {
 
 	It("leaves sessions untouched when worktree validation cannot complete", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries := postgresStore.Queries
 		now := time.Now().UTC()
 		worktreeID, sessionID := uuid.New(), uuid.New()
 		_, err := queries.CreateWorktree(ctx, storedb.CreateWorktreeParams{
@@ -998,12 +935,10 @@ var _ = Describe("process restart restoration", func() {
 		worktrees.EXPECT().Reuse(gomock.Any(), "repo", "/tmp/work").Return(
 			copilotadapter.PreparedWorktree{}, errors.New("git validation temporarily unavailable"),
 		).Times(2)
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -1016,9 +951,8 @@ var _ = Describe("process restart restoration", func() {
 
 		engine := httpserver.NewEngine("copilot-adapter-validation-error-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err := api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		response, err := client.ListWorktreesWithResponse(ctx)
 		Expect(err).NotTo(HaveOccurred())

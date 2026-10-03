@@ -1,0 +1,198 @@
+name: Ontology alignment score
+
+# Two uses of one procedure (tools/ontology-score.sh):
+#
+# - score: every main push records one receipt (JSON plus timestamped
+#   OpenMetrics for Prometheus backfill). A measurement, not a gate: a worse
+#   score never fails it, but a failed or incomplete scan does. No path filter,
+#   because every file can move the score.
+# - ratchet: every pull request that can move the score measures its head and
+#   its merge base with the same checkers and fails if the comparable penalty
+#   or a blocking signal rose. The `ontology-regression-accepted` label turns a
+#   regression into a pass and the table still prints.
+#
+# The pull_request paths name every input the score reads
+# (tools/house_lint/score.ml): tracked Go and Python anywhere (the native
+# scan), go.mod/go.sum/go.work records (the dependency rule), every README.md
+# and the generated glossary (the vocabulary lint), csf/ (architecture.csf,
+# csfc, the language generator, the generated dictionary), the house runner,
+# the launcher, the Bazel inputs that build them, the inventory's ignore rules,
+# and this workflow with the toolchain action it calls. tools/gates/ holds the
+# spec that keeps this list honest. Private staging allocates no hosted runner
+# (see README.md here); the local command is the same launcher.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+    paths:
+      - '**/*.go'
+      - '**/*.py'
+      - '**/go.mod'
+      - '**/go.sum'
+      - '**/go.work'
+      - '**/go.work.sum'
+      - '**/README.md'
+      - '**/.gitignore'
+      - 'docs/GLOSSARY.md'
+      - 'csf/**'
+      - 'tools/house_lint/**'
+      - 'tools/gorilla_mux_lint/**'
+      - 'tools/ontology-score.sh'
+      - 'tools/bazel.sh'
+      - 'bazel/**'
+      - 'BUILD.bazel'
+      - 'MODULE.bazel'
+      - 'MODULE.bazel.lock'
+      - '.bazelrc'
+      - '.bazelversion'
+      - '.bazelignore'
+      - '.gitattributes'
+      - '.github/workflows/ontology-alignment.yml'
+      - '.github/actions/ocaml-toolchain/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ocaml_repository:
+    name: Prepare pinned tooling and opam metadata
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: repository
+
+  ocaml_bytecode:
+    needs: ocaml_repository
+    name: Prepare the OCaml bytecode bootstrap
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: bytecode
+
+  ocaml_compiler:
+    needs: ocaml_bytecode
+    name: Prepare the pinned OCaml compiler
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: compiler
+
+  ocaml_toolchain:
+    name: Prepare the locked OCaml libraries
+    needs: ocaml_compiler
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: prepare
+
+  score:
+    if: ${{ github.event_name != 'pull_request' && github.event.repository.private == false }}
+    needs: ocaml_toolchain
+    name: Record the ontology alignment score
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: restore
+
+      - name: Measure this commit
+        run: bash tools/ontology-score.sh --receipt ontology-alignment
+
+      - name: Publish the score summary
+        if: always()
+        run: |
+          if [ -f ontology-alignment/ontology-alignment.json ]; then
+            { echo '## Ontology alignment'; echo; echo '```json'
+              cat ontology-alignment/ontology-alignment.json; echo '```'; } >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo 'No ontology alignment receipt: the scan failed; inspect the measure step.' >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Retain the receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ontology-alignment-${{ github.sha }}
+          path: ontology-alignment/
+          if-no-files-found: warn
+          retention-days: 90
+
+  ratchet:
+    if: ${{ github.event_name == 'pull_request' && github.event.repository.private == false }}
+    needs: ocaml_toolchain
+    name: Ontology alignment does not regress
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      ACCEPTED: ${{ contains(github.event.pull_request.labels.*.name, 'ontology-regression-accepted') }}
+      BASE_REF: ${{ github.base_ref }}
+    steps:
+      - name: Check out the pull request head with history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: restore
+
+      # The table reaches the summary whether the ratchet passes or fails; the
+      # step's own status is the ratchet's.
+      - name: Compare the head with its merge base
+        run: |
+          set -euo pipefail
+          accept=()
+          if [ "$ACCEPTED" = true ]; then accept=(--accept-regression); fi
+          status=0
+          bash tools/ontology-score.sh --ratchet --base "origin/$BASE_REF" --receipt ontology-ratchet \
+            "${accept[@]}" > ontology-ratchet.md || status=$?
+          cat ontology-ratchet.md
+          cat ontology-ratchet.md >>"$GITHUB_STEP_SUMMARY"
+          exit "$status"
+
+      - name: Retain both receipts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ontology-ratchet-${{ github.event.pull_request.head.sha }}
+          path: |
+            ontology-ratchet/
+            ontology-ratchet.md
+          if-no-files-found: warn
+          retention-days: 30

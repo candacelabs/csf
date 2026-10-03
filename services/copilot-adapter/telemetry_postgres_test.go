@@ -1,20 +1,18 @@
-//go:build integration
+//go:build acceptance
 
 package copilotadapter_test
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
-	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gstruct"
@@ -23,11 +21,14 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/candacelabs/csf/pkg/cron"
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/pkg/eventually"
+	"github.com/candacelabs/csf/pkg/sqlmigrate"
+	"github.com/candacelabs/csf/services/cron/crontest"
 
 	"github.com/candacelabs/csf/pkg/httpserver"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
 	"github.com/candacelabs/csf/services/copilot-adapter/store"
@@ -39,14 +40,20 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		// This fixed endpoint is the disposable CI database's shared container
 		// network namespace. No environment override can select a live database.
 		const fixtureDSN = "postgres://telemetry-test:telemetry-test@localhost:5432/telemetry-test?sslmode=disable"
-		projectionBudget := patience.Budget{Within: 30 * time.Second, Interval: 25 * time.Millisecond}
-		db, err := sql.Open("pgx", fixtureDSN)
-		Expect(err).NotTo(HaveOccurred())
-		DeferCleanup(db.Close)
-		Expect(patience.Await(GinkgoTB(), "disposable PostgreSQL readiness", projectionBudget,
-			func() error { return db.PingContext(ctx) }, func(err error) bool { return err == nil })).To(Succeed())
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		persistence, err := store.NewPostgresStore(db)
+		projectionBudget := eventually.Budget{Within: 30 * time.Second, Interval: 25 * time.Millisecond}
+		settings := csfpg.Settings{URL: fixtureDSN}
+		var pool *csfpg.Pool
+		Expect(eventually.Await(GinkgoTB(), "disposable PostgreSQL readiness", projectionBudget,
+			func() error {
+				var openErr error
+				pool, openErr = csfpg.OpenPool(ctx, settings)
+				return openErr
+			}, func(err error) bool { return err == nil })).To(Succeed())
+		DeferCleanup(pool.Close)
+		handle := pool.OpenSQL()
+		Expect(sqlmigrate.Apply(ctx, handle, store.Migrations, store.MigrationsDirectory)).To(Succeed())
+		Expect(handle.Close()).To(Succeed())
+		persistence, err := store.NewPostgresStore(pool)
 		Expect(err).NotTo(HaveOccurred())
 		queries := persistence.Queries
 
@@ -84,14 +91,13 @@ var _ = Describe("PostgreSQL telemetry", func() {
 			Close: func(_ context.Context) error { return nil },
 		}, nil)
 		adapter, err := copilotadapter.NewCopilotAdapter(copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence),
-			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(cron.NewMemoryStore()))
+			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(adapter.Close)
 		engine := httpserver.NewEngine("telemetry-postgres-fixture")
 		Expect(adapter.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err := api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		var body api.CreateSessionJSONRequestBody
 		Expect(body.FromNewWorktreeSessionRequest(api.NewWorktreeSessionRequest{
@@ -136,7 +142,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		unknown := copilotadapter.BridgeEvent{ID: "usage-unknown", Kind: copilotadapter.BridgeEventUsage, TurnID: &prompt.TurnID, OccurredAt: start.Add(time.Second),
 			Usage: &api.UsageObservation{Kind: api.ModelCall}, UsagePayload: json.RawMessage(`{"id":"usage-unknown","type":"assistant.usage","data":{}}`)}
 		events <- unknown
-		observedUnknown := patience.Await(GinkgoTB(), "unknown provider observation", projectionBudget, readTelemetry,
+		observedUnknown := eventually.Await(GinkgoTB(), "unknown provider observation", projectionBudget, readTelemetry,
 			func(row api.SessionTelemetry) bool { return row.ObservedModelCallCount == 1 })
 		Expect(observedUnknown.KnownStartedTurnCount).To(Equal(int64(1)))
 		Expect(observedUnknown.LatestStartedAt).To(gstruct.PointTo(BeTemporally("==", start)))
@@ -148,7 +154,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 			Usage:        &api.UsageObservation{Kind: api.ModelCall, InputTokens: &zeroCount, OutputTokens: &zeroCount, CacheWriteTokens: &zeroCount, BillingMultiplier: &multiplier},
 			UsagePayload: json.RawMessage(`{"id":"usage-zero","type":"assistant.usage","data":{"inputTokens":0,"outputTokens":0,"cost":2}}`)}
 		events <- zero
-		observedZero := patience.Await(GinkgoTB(), "measured zero provider observation", projectionBudget, readTelemetry,
+		observedZero := eventually.Await(GinkgoTB(), "measured zero provider observation", projectionBudget, readTelemetry,
 			func(row api.SessionTelemetry) bool { return row.ObservedModelCallCount == 2 })
 		Expect(observedZero.InputTokens).To(gstruct.PointTo(BeZero()))
 		Expect(observedZero.OutputTokens).To(gstruct.PointTo(BeZero()))
@@ -158,7 +164,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		events <- copilotadapter.BridgeEvent{ID: "tool-result", Kind: copilotadapter.BridgeEventToolResult, TurnID: &prompt.TurnID, OccurredAt: start.Add(3 * time.Second), ToolName: "fixture-tool", ToolCallID: "fixture-call", Text: "retained tool result"}
 		completed := start.Add(4 * time.Second)
 		events <- copilotadapter.BridgeEvent{ID: "completed", Kind: copilotadapter.BridgeEventTurnCompleted, TurnID: &prompt.TurnID, OccurredAt: completed}
-		patience.Await(GinkgoTB(), "completed turn projection", projectionBudget, readTelemetry,
+		eventually.Await(GinkgoTB(), "completed turn projection", projectionBudget, readTelemetry,
 			func(row api.SessionTelemetry) bool { return row.KnownCompletedTurnCount == 1 })
 		input, output, cacheRead, duration := int64(11), int64(7), int64(4), int64(1200)
 		late := copilotadapter.BridgeEvent{ID: "usage-late", Kind: copilotadapter.BridgeEventUsage, OccurredAt: start.Add(5 * time.Second),
@@ -179,7 +185,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		events <- conflicting
 		events <- checkpoints[2]
 		latest := checkpoints[2].OccurredAt
-		totals := patience.Await(GinkgoTB(), "late usage and checkpoint replay", projectionBudget, readTelemetry,
+		totals := eventually.Await(GinkgoTB(), "late usage and checkpoint replay", projectionBudget, readTelemetry,
 			func(row api.SessionTelemetry) bool {
 				return row.LatestUsageAt != nil && row.LatestUsageAt.Equal(latest)
 			})
@@ -231,7 +237,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 			delivered[deliveryID] = span
 			if deliveryID == firstLease.DeliveryID {
 				_, staleErr := queries.CompleteTraceDelivery(uploadContext, storedb.CompleteTraceDeliveryParams{DeliveryID: deliveryID, Generation: firstLease.Generation})
-				Expect(errors.Is(staleErr, sql.ErrNoRows)).To(BeTrue())
+				Expect(errors.Is(staleErr, pgx.ErrNoRows)).To(BeTrue())
 			}
 			if deliveryID == "turn:"+prompt.TurnID.String() {
 				Expect(span.EndTimeUnixNano - span.StartTimeUnixNano).To(Equal(uint64(4 * time.Second)))
@@ -256,7 +262,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		configuration.EndpointUrl, configuration.PublicKey, configuration.SecretKey = "http://collector.invalid/v1/traces", "fixture-public", "fixture-secret"
 		exporter, err := copilotadapter.NewTraceExporter(queries, configuration, copilotadapter.WithTraceClient(transport))
 		Expect(err).NotTo(HaveOccurred())
-		patience.Await(GinkgoTB(), "all seven retained trace deliveries accepted", projectionBudget, func() int64 {
+		eventually.Await(GinkgoTB(), "all seven retained trace deliveries accepted", projectionBudget, func() int64 {
 			_, deliveryErr := exporter.DeliverNext(ctx)
 			Expect(deliveryErr).NotTo(HaveOccurred())
 			counts, countErr := queries.CountTraceDeliveries(ctx)
@@ -280,12 +286,12 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		// through a real PostgreSQL commit, including the event replay snapshot.
 		// The buffered bridge channel is drained by the session-owned projector
 		// goroutine; this HTTP poll reads its committed view. Projection and read
-		// SQL calls remain synchronous, while patience.Await and SpecTimeout bound
+		// SQL calls remain synchronous, while eventually.Await and SpecTimeout bound
 		// this test's observation rather than claiming those calls cannot block.
 		const providerFailure = "fixture provider shutdown: requested model became unavailable"
 		events <- copilotadapter.BridgeEvent{ID: "provider-failed", Kind: copilotadapter.BridgeEventFailed,
 			OccurredAt: latest.Add(time.Second), Text: providerFailure}
-		failed := patience.Await(GinkgoTB(), "provider failure API projection", projectionBudget, func() api.Session {
+		failed := eventually.Await(GinkgoTB(), "provider failure API projection", projectionBudget, func() api.Session {
 			response, readErr := client.GetSessionWithResponse(ctx, sessionID)
 			Expect(readErr).NotTo(HaveOccurred())
 			Expect(response.StatusCode()).To(Equal(http.StatusOK), string(response.Body))
@@ -297,7 +303,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 		Expect(failed.Permissions).To(Equal(policyMode))
 		Expect(failed.ToolAllowlist).To(Equal(toolAllowlist))
 		Expect(failed.ShellAllowlist).To(Equal(shellAllowlist))
-		reopened, err := sql.Open("pgx", fixtureDSN)
+		reopened, err := csfpg.OpenPool(ctx, settings)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(reopened.Close)
 		retainedQueries := storedb.New(reopened)

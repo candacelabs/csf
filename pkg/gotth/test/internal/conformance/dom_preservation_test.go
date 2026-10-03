@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/candacelabs/csf/pkg/gotth/live"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -504,16 +506,16 @@ window.__qa = {
 // only the first would let a spec run against a page that can never be
 // patched, which would make every preservation assertion below vacuous in the
 // most embarrassing possible way — nothing to preserve state ACROSS.
-func waitLivePanel(c *chrome) {
+func waitLivePanel(c *livetest.Browser) {
 	GinkgoHelper()
 
 	Eventually(func() string {
-		return c.evalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
+		return c.EvalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
 	}, 30*time.Second, 100*time.Millisecond).Should(Equal("live"),
 		"the client runtime never reported a live connection")
 
 	Eventually(func() bool {
-		return c.evalBool(`!!document.querySelector("#tickline")`)
+		return c.EvalBool(`!!document.querySelector("#tickline")`)
 	}, 30*time.Second, 100*time.Millisecond).Should(BeTrue())
 }
 
@@ -558,7 +560,7 @@ var _ = Describe("The fixtures in this suite use the library's own attribute voc
 
 var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -568,12 +570,12 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 		browserOnly()
 		ts = startDOMApp()
 		c = launchChrome()
-		c.onNewDocument(qaHelpers)
+		c.OnNewDocument(qaHelpers)
 	})
 
 	BeforeEach(func() {
 		browserOnly()
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitLivePanel(c)
 	})
 
@@ -581,7 +583,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 		// The focused element's own attributes change on every tick
 		// (data-qa-tick), and a pip is inserted immediately before it, so the
 		// morph both rewrites the neighbourhood and touches the node itself.
-		c.evalJSON(`(() => {
+		c.EvalJSON(`(() => {
 			window.__qa.mark("#draft", "draft-node");
 			const d = document.querySelector("#draft");
 			d.focus();
@@ -590,7 +592,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			return null;
 		})()`, nil)
 
-		Expect(c.evalString(`document.activeElement.id`)).To(Equal("draft"))
+		Expect(c.EvalString(`document.activeElement.id`)).To(Equal("draft"))
 
 		var got struct {
 			Active string `json:"active"`
@@ -601,7 +603,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			Tick   string `json:"tick"`
 			Pips   int    `json:"pips"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			await window.__qa.tick(2);
 			const d = document.querySelector("#draft");
 			return {
@@ -632,7 +634,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 		AddReportEntry("FR-25 focus, caret, uncontrolled value", fmt.Sprintf(
 			"browser %s\nfocus %q  caret [%d,%d)  value %q  node identity preserved: yes\n"+
 				"pips inserted around it: %d  attribute resync on the focused node: data-qa-tick=%s",
-			c.version, got.Active, got.Start, got.End, got.Value, got.Pips, got.Tick))
+			c.Version(), got.Active, got.Start, got.End, got.Value, got.Pips, got.Tick))
 	})
 
 	It("replaces an uncommitted value where the server rendered one, and only there", func() {
@@ -640,7 +642,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 		// leave out. FR-25 preserves UNCONTROLLED values; an input the server
 		// renders a value attribute for is controlled, and a server that
 		// cannot overwrite it cannot implement a form reset.
-		c.evalJSON(`(() => {
+		c.EvalJSON(`(() => {
 			window.__qa.mark("#controlled", "controlled-node");
 			const el = document.querySelector("#controlled");
 			el.value = "user edit not yet sent";
@@ -654,7 +656,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			Draft      string `json:"draft"`
 			Freeform   string `json:"freeform"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			document.querySelector("#draft").value = "still mine";
 			document.querySelector("#freeform").value = "also still mine";
 			await window.__qa.tick(1);
@@ -698,7 +700,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			WantScroll  float64 `json:"wantScroll"`
 			WantDocking float64 `json:"wantDoc"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#scroller", "scroller-node");
 			const sc = document.querySelector("#scroller");
 			sc.scrollTop = 240;
@@ -747,7 +749,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			Selected string `json:"selected"`
 			SelIndex int    `json:"selIndex"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#box", "box-node");
 			window.__qa.mark("#sel", "sel-node");
 			document.querySelector("#box").checked = true;
@@ -789,7 +791,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			Duration  float64 `json:"duration"`
 			NetworkOK bool    `json:"networkOk"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const clip = document.querySelector("#clip");
 			window.__qa.mark("#clip", "clip-node");
 			// Wait for enough of the media to exist for a seek to mean
@@ -844,7 +846,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			PlayState   string  `json:"playState"`
 			MarkSurvive string  `json:"mark"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			// Tick once: the server adds class="on", which is what starts the
 			// eight-second opacity transition. Then mark the node and the
 			// Animation object, and tick again while it is still running.
@@ -908,7 +910,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			Attr bool   `json:"attr"`
 			Tick string `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#det", "det-node");
 			const det = document.querySelector("#det");
 			det.open = true;
@@ -933,7 +935,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 		AddReportEntry("FR-25 <details> open state (D-15)", fmt.Sprintf(
 			"browser %s\n#det opened by the user, never mentioned by the server, and still open "+
 				"after two patches: open=%v attribute=%v, node identity preserved",
-			c.version, got.Open, got.Attr))
+			c.Version(), got.Open, got.Attr))
 	})
 
 	// The other half of the same rule, and the reason the fix for D-15 is not
@@ -952,7 +954,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			AfterWithdr bool   `json:"afterWithdraw"`
 			Tick        string `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#serverdet", "serverdet-node");
 			document.querySelector("#serverdet").open = true;   // the user opens it first
 
@@ -1016,7 +1018,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			ScrollTop  float64 `json:"scrollTop"`
 			WantScroll float64 `json:"wantScroll"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#wrap", "wrap-node");
 			window.__qa.mark("#draft2", "draft2-node");
 			window.__qa.mark("#scroller2", "scroller2-node");
@@ -1084,7 +1086,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 			"browser %s\n#wrap <%s id=wrap> -> <%s id=wrap>: REPLACED, and #draft2 and #scroller2 "+
 				"with it (page expandos gone on all three)\nfocus %q  caret [%d,%d)  "+
 				"#scroller2 scrollTop %.0f -> %.0f",
-			c.version, strings.ToLower(got.TagBefore), strings.ToLower(got.TagAfter),
+			c.Version(), strings.ToLower(got.TagBefore), strings.ToLower(got.TagAfter),
 			got.Active, got.Start, got.End, got.WantScroll, got.ScrollTop))
 	})
 })
@@ -1095,7 +1097,7 @@ var _ = Describe("DOM state a morph must preserve (FR-25)", Ordered, ContinueOnF
 
 var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c       *chrome
+		c       *livetest.Browser
 		ts      *httptest.Server
 		ticking *httptest.Server
 	)
@@ -1110,7 +1112,7 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 		ticking = startDOMTickingApp(300 * time.Millisecond)
 		ts = startDOMApp()
 		c = launchChrome()
-		c.onNewDocument(qaHelpers)
+		c.OnNewDocument(qaHelpers)
 	})
 
 	// The composition is driven through CDP's Input.imeSetComposition, which
@@ -1121,10 +1123,10 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 	// page script would be checking that the runtime listens to what the spec
 	// dispatches, which is a tautology.
 	It("does not overwrite the value of an input with an active composition", func() {
-		c.navigate(ticking.URL + "/")
+		c.Navigate(ticking.URL + "/")
 		waitLivePanel(c)
 
-		c.evalJSON(`(() => {
+		c.EvalJSON(`(() => {
 			window.__qaComposition = [];
 			document.addEventListener("compositionstart", e => window.__qaComposition.push("start"));
 			document.addEventListener("compositionend", e => window.__qaComposition.push("end"));
@@ -1133,10 +1135,10 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 			return null;
 		})()`, nil)
 
-		Expect(c.evalString(`document.activeElement.id`)).To(Equal("controlled"))
+		Expect(c.EvalString(`document.activeElement.id`)).To(Equal("controlled"))
 
 		// A four-character composition, uncommitted.
-		c.call(c.sessionID, "Input.imeSetComposition", map[string]any{
+		c.Call("Input.imeSetComposition", map[string]any{
 			"text":           "にほんご",
 			"selectionStart": 4,
 			"selectionEnd":   4,
@@ -1144,7 +1146,7 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 
 		var events []string
 		Eventually(func() []string {
-			c.evalJSON(`window.__qaComposition`, &events)
+			c.EvalJSON(`window.__qaComposition`, &events)
 			return events
 		}, 10*time.Second, 100*time.Millisecond).Should(ContainElement("start"),
 			"the browser raised no compositionstart, so no composition is active and FR-26 is unexercised")
@@ -1158,7 +1160,7 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 			Events     []string `json:"events"`
 			Tick       string   `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const attrBefore = document.querySelector("#controlled").getAttribute("value");
 			// Two server-initiated patches, neither of them asked for by this
 			// page, landing while the composition is open.
@@ -1193,7 +1195,7 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 			"browser %s\ncomposition driven by CDP Input.imeSetComposition (a real composition, not a synthetic event)\n"+
 				"events seen by the page: %v\ntwo server-initiated patches landed mid-composition (%s)\n"+
 				"server value attribute %q -> %q\ninput value after the patches: %q  node identity preserved: yes",
-			c.version, got.Events, got.Tick, got.AttrBefore, got.AttrAfter, got.Value))
+			c.Version(), got.Events, got.Tick, got.AttrBefore, got.AttrAfter, got.Value))
 	})
 
 	// The other half of FR-26: the runtime must not SEND mid-composition
@@ -1201,15 +1203,15 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 	// value the user has not committed. runtime.js's dispatch returns early
 	// while composing; this is that line, checked from outside.
 	It("raises no event while a composition is active", func() {
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitLivePanel(c)
 
-		c.evalJSON(`(() => {
+		c.EvalJSON(`(() => {
 			document.querySelector("#controlled").focus();
 			return null;
 		})()`, nil)
 
-		c.call(c.sessionID, "Input.imeSetComposition", map[string]any{
+		c.Call("Input.imeSetComposition", map[string]any{
 			"text": "にほ", "selectionStart": 2, "selectionEnd": 2,
 		}, nil)
 
@@ -1217,7 +1219,7 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 			Before string `json:"before"`
 			After  string `json:"after"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const line = () => document.querySelector("#tickline").textContent.trim();
 			const before = line();
 			document.querySelector("#tick").click();
@@ -1232,12 +1234,12 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 		// And the suppression is temporary, not a wedged session: end the
 		// composition and the same click works. Without this arm the spec
 		// above would pass on a runtime whose event path was simply broken.
-		c.call(c.sessionID, "Input.imeSetComposition", map[string]any{
+		c.Call("Input.imeSetComposition", map[string]any{
 			"text": "", "selectionStart": 0, "selectionEnd": 0,
 		}, nil)
 
 		var after string
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			await new Promise(r => setTimeout(r, 200));
 			return await window.__qa.tick(1);
 		})()`, &after)
@@ -1256,7 +1258,7 @@ var _ = Describe("IME composition safety (FR-26)", Ordered, ContinueOnFailure, L
 
 var _ = Describe("Preserve and delegation across a morph (FR-27, FR-28)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -1264,12 +1266,12 @@ var _ = Describe("Preserve and delegation across a morph (FR-27, FR-28)", Ordere
 		browserOnly()
 		ts = startDOMApp()
 		c = launchChrome()
-		c.onNewDocument(qaHelpers)
+		c.OnNewDocument(qaHelpers)
 	})
 
 	BeforeEach(func() {
 		browserOnly()
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitLivePanel(c)
 	})
 
@@ -1280,7 +1282,7 @@ var _ = Describe("Preserve and delegation across a morph (FR-27, FR-28)", Ordere
 			Child string `json:"childMark"`
 			Sib   string `json:"sibling"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#vault", "vault-node");
 			const vault = document.querySelector("#vault");
 			// Third-party-owned content: the server has never rendered this
@@ -1323,7 +1325,7 @@ var _ = Describe("Preserve and delegation across a morph (FR-27, FR-28)", Ordere
 			TickMark   string `json:"tickMark"`
 			TickWorks  bool   `json:"tickWorks"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__qa.mark("#tick", "tick-node");
 			const altAtLoad = !!document.querySelector("#alt");
 			await window.__qa.tick(2);

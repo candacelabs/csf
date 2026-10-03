@@ -1,0 +1,15 @@
+{
+  "case_id": "035-magic-strings",
+  "tier": 1,
+  "rule_under_test": "CS-13",
+  "summary": "A handler spells its status values, its error codes and its header names inline, so \"idle\" and \"store_error\" exist in as many places as they are written and nothing ties them to the contract. The fix takes the status values from the generated enum, which cannot drift from openapi.yaml, and declares the error codes and header names once as named constants in the package that owns them. The empty-string comparison stays: a separator carries no meaning a name could add. Operator directive of 2026-09-04, verbatim in go-rules.md § CS-13.",
+  "dirty_must_fire": [
+    "CS-13"
+  ],
+  "dirty_min_findings": {
+    "CS-13": 8
+  },
+  "clean_must_not_fire": [
+    "CS-13"
+  ]
+}

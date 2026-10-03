@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "routing",
+    srcs = [
+        "measure.go",
+        "router.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/routing",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/harness/session",
+        "@com_github_prometheus_client_golang//prometheus",
+    ],
+)
+
+go_test(
+    name = "routing_test",
+    srcs = [
+        "measure_test.go",
+        "router_test.go",
+        "routing_suite_test.go",
+    ],
+    deps = [
+        ":routing",
+        "//services/harness/session",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_onsi_gomega//gstruct",
+        "@com_github_prometheus_client_golang//prometheus",
+    ],
+)

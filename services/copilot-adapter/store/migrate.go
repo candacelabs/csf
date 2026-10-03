@@ -1,25 +1,21 @@
 // Package store carries the adapter's schema. The .sql files are the only
-// schema source; nothing in Go declares a domain table, and the runner that
-// applies them is the shared candace/pkg/sqlmigrate.
+// schema source; nothing in Go declares a domain table. The binary that owns
+// the pool applies them with the shared candace/pkg/sqlmigrate, beside CSF's
+// own schema:
+//
+//	handle := pool.OpenSQL()
+//	defer handle.Close()
+//	err := sqlmigrate.Apply(ctx, handle, store.Migrations, store.MigrationsDirectory)
 package store
 
-import (
-	"context"
-	"database/sql"
-	"embed"
+import "embed"
 
-	"github.com/candacelabs/csf/pkg/sqlmigrate"
-)
-
+// Migrations holds the adapter's schema. Specs apply the very same bytes
+// production does.
+//
 //go:embed migrations/*.up.sql
-var migrationFiles embed.FS
+var Migrations embed.FS
 
-// migrationsDirectory is the path the embedded schema lives at inside
-// migrationFiles; the //go:embed pattern above names the same directory.
-const migrationsDirectory = "migrations"
-
-// ApplyMigrations brings db up to the embedded schema. Tests apply the very
-// same bytes production does.
-func ApplyMigrations(ctx context.Context, db *sql.DB) error {
-	return sqlmigrate.Apply(ctx, db, migrationFiles, migrationsDirectory)
-}
+// MigrationsDirectory is the path the schema lives at inside Migrations; the
+// //go:embed pattern above names the same directory.
+const MigrationsDirectory = "migrations"

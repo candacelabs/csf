@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
 )
 
 // harborLogPath is where this example's own page is served. It is a path Core

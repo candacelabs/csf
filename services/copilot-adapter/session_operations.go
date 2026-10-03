@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 
 	adapterconfig "github.com/candacelabs/csf/services/copilot-adapter/config"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
@@ -236,7 +236,7 @@ func (adapter *CopilotAdapter) createSession(ctx context.Context, submission cre
 		}
 		return createdSessionView(row, submission.PermissionPolicy), nil
 	}
-	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return api.Session{}, storeFailure(lookupErr)
 	}
 	row, err = adapter.createSessionUnderWorktreeFence(ctx, submission, receipt)
@@ -253,7 +253,7 @@ func (adapter *CopilotAdapter) validateNewSessionModel(ctx context.Context, subm
 		// its catalog or is unavailable. ClaimSessionCreation checks body equality.
 		return nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return storeFailure(err)
 	}
 	models, err := adapter.bridge.ListModels(ctx)
@@ -299,7 +299,7 @@ func (adapter *CopilotAdapter) createSessionUnderWorktreeFence(
 				if lookupErr == nil {
 					return persisted, nil
 				}
-				if !errors.Is(lookupErr, sql.ErrNoRows) {
+				if !errors.Is(lookupErr, pgx.ErrNoRows) {
 					return storedb.Session{}, storeFailure(lookupErr)
 				}
 				return storedb.Session{}, fail(http.StatusNotFound, errorCodeWorktreeNotFound, "the worktree path is missing")
@@ -333,7 +333,7 @@ func (adapter *CopilotAdapter) createSessionUnderWorktreeFence(
 		(receipt.CompletedAt.Valid || row.Status != string(api.SessionStatusStarting)) {
 		return row, nil
 	}
-	if lookupErr != nil && !errors.Is(lookupErr, sql.ErrNoRows) {
+	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return storedb.Session{}, storeFailure(lookupErr)
 	}
 	row, preparedWorktree, err := adapter.ensureStartingSessionWithWorktree(ctx, submission, receipt, *prepared)
@@ -360,7 +360,7 @@ func (adapter *CopilotAdapter) sessionCreationWorktreePath(
 		}
 		return worktree.Path, &worktree, nil, nil
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if !errors.Is(err, pgx.ErrNoRows) {
 		return "", nil, nil, storeFailure(err)
 	}
 	if submission.WorktreeMode == api.ReuseExistingWorktree {
@@ -381,7 +381,7 @@ func (adapter *CopilotAdapter) sessionCreationWorktreePath(
 	if lookupErr == nil {
 		return prepared.Path, &worktree, &prepared, nil
 	}
-	if !errors.Is(lookupErr, sql.ErrNoRows) {
+	if !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return "", nil, nil, storeFailure(lookupErr)
 	}
 	return prepared.Path, nil, &prepared, nil
@@ -424,7 +424,7 @@ func (adapter *CopilotAdapter) ensureStartingSessionWithWorktree(
 		}
 		return existing, prepared, nil
 	}
-	if !errors.Is(lookupErr, sql.ErrNoRows) {
+	if !errors.Is(lookupErr, pgx.ErrNoRows) {
 		return storedb.Session{}, PreparedWorktree{}, storeFailure(lookupErr)
 	}
 	displayName := submission.Model
@@ -474,7 +474,7 @@ func (adapter *CopilotAdapter) ensureStartingSessionWithWorktree(
 		switch {
 		case reconcileErr == nil:
 			row = persisted
-		case errors.Is(reconcileErr, sql.ErrNoRows):
+		case errors.Is(reconcileErr, pgx.ErrNoRows):
 			return storedb.Session{}, PreparedWorktree{}, storeFailure(transactionErr)
 		default:
 			return storedb.Session{}, PreparedWorktree{}, storeFailure(errors.Join(transactionErr,
@@ -869,7 +869,7 @@ func (adapter *CopilotAdapter) claimSessionCreation(ctx context.Context, submiss
 	lookupContext, cancelLookup := adapter.durableTransitionContext()
 	defer cancelLookup()
 	receipt, lookupErr := adapter.store.GetSessionCreation(lookupContext, submission.IdempotencyKey)
-	if errors.Is(lookupErr, sql.ErrNoRows) {
+	if errors.Is(lookupErr, pgx.ErrNoRows) {
 		return storedb.SessionCreation{}, storeFailure(claimErr)
 	}
 	if lookupErr != nil {
@@ -1036,7 +1036,7 @@ func (adapter *CopilotAdapter) prepareSessionWorktree(
 // GetSession returns one session.
 func (adapter *CopilotAdapter) getSession(ctx context.Context, sessionID uuid.UUID) (api.Session, error) {
 	row, err := adapter.store.GetSession(ctx, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.Session{}, fail(http.StatusNotFound, errorCodeSessionNotFound, "no session with that id")
 	}
 	if err != nil {
@@ -1056,7 +1056,7 @@ func (adapter *CopilotAdapter) activeTurn(ctx context.Context, sessionID uuid.UU
 		return api.Turn{}, err
 	}
 	turn, err := adapter.store.GetRunningTurn(ctx, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.Turn{}, fail(http.StatusNotFound, errorCodeNoTurnInFlight, "the session has no running turn")
 	}
 	if err != nil {
@@ -1070,7 +1070,7 @@ func (adapter *CopilotAdapter) updateSession(ctx context.Context, sessionID uuid
 	unlock := adapter.mutations.lock(sessionID)
 	defer unlock()
 	existing, err := adapter.store.GetSession(ctx, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.Session{}, fail(http.StatusNotFound, errorCodeSessionNotFound, "no session with that id")
 	}
 	if err != nil {
@@ -1149,7 +1149,7 @@ func (adapter *CopilotAdapter) updateSession(ctx context.Context, sessionID uuid
 				err = errors.Join(err, fmt.Errorf("restore previous model: %w", rollbackErr))
 			}
 		}
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return api.Session{}, fail(http.StatusConflict, errorCodeSessionTerminal, "the session has ended")
 		}
 		return api.Session{}, storeFailure(err)
@@ -1167,7 +1167,7 @@ func (adapter *CopilotAdapter) reconcileSessionEvent(eventSeq int64, expected st
 	version, err := adapter.store.GetSessionEventVersion(ctx, storedb.GetSessionEventVersionParams{
 		SessionID: expected.ID, EventSeq: eventSeq,
 	})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return storedb.Session{}, false, nil
 	}
 	if err != nil {
@@ -1195,7 +1195,7 @@ func (adapter *CopilotAdapter) endSession(ctx context.Context, sessionID uuid.UU
 	durableContext, cancelDurableTransition := adapter.durableTransitionContext()
 	defer cancelDurableTransition()
 	existing, err := adapter.store.GetSession(durableContext, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.Session{}, fail(http.StatusNotFound, errorCodeSessionNotFound, "no session with that id")
 	}
 	if err != nil {
@@ -1320,7 +1320,7 @@ func (adapter *CopilotAdapter) submitPromptLocked(ctx context.Context, sessionID
 		}
 	}
 	session, err := adapter.store.GetSession(ctx, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return storedb.Turn{}, false, fail(http.StatusNotFound, errorCodeSessionNotFound, "no session with that id")
 	}
 	if err != nil {
@@ -1369,7 +1369,7 @@ func (adapter *CopilotAdapter) submitPromptLocked(ctx context.Context, sessionID
 			_, err = queries.ClaimScheduledTurnOccurrence(ctx, storedb.ClaimScheduledTurnOccurrenceParams{
 				ScheduleOccurrenceID: submission.ScheduleOccurrenceID, TurnID: parameters.ID,
 			})
-			if errors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, pgx.ErrNoRows) {
 				turn, err = queries.GetTurnByScheduleOccurrence(ctx, submission.ScheduleOccurrenceID)
 				created = false
 			} else if err == nil {
@@ -1379,7 +1379,7 @@ func (adapter *CopilotAdapter) submitPromptLocked(ctx context.Context, sessionID
 			_, err = queries.ClaimPromptSubmission(ctx, storedb.ClaimPromptSubmissionParams{
 				SessionID: sessionID, IdempotencyKey: submission.IdempotencyKey, TurnID: parameters.ID,
 			})
-			if errors.Is(err, sql.ErrNoRows) {
+			if errors.Is(err, pgx.ErrNoRows) {
 				turn, err = queries.GetTurnByPromptIdempotencyKey(ctx, storedb.GetTurnByPromptIdempotencyKeyParams{
 					SessionID: sessionID, IdempotencyKey: submission.IdempotencyKey,
 				})
@@ -1437,7 +1437,7 @@ func (adapter *CopilotAdapter) submitPromptLocked(ctx context.Context, sessionID
 		reconcileContext, cancelReconciliation := adapter.durableTransitionContext()
 		turn, err = adapter.store.GetTurnByScheduleOccurrence(reconcileContext, submission.ScheduleOccurrenceID)
 		cancelReconciliation()
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return storedb.Turn{}, false, storeFailure(transactionErr)
 		}
 		if err != nil {
@@ -1553,7 +1553,7 @@ func (adapter *CopilotAdapter) replayPromptSubmission(
 	turn, err := adapter.store.GetTurnByPromptIdempotencyKey(ctx, storedb.GetTurnByPromptIdempotencyKeyParams{
 		SessionID: sessionID, IdempotencyKey: submission.IdempotencyKey,
 	})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return storedb.Turn{}, false, nil
 	}
 	if err != nil {
@@ -1608,7 +1608,7 @@ func (adapter *CopilotAdapter) abortTurn(ctx context.Context, sessionID uuid.UUI
 		return views.Turn(replay), nil
 	}
 	session, err := adapter.store.GetSession(ctx, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.Turn{}, fail(http.StatusNotFound, errorCodeSessionNotFound, "no session with that id")
 	}
 	if err != nil {
@@ -1618,7 +1618,7 @@ func (adapter *CopilotAdapter) abortTurn(ctx context.Context, sessionID uuid.UUI
 		return api.Turn{}, err
 	}
 	target, err := adapter.store.GetTurn(ctx, targetTurnID)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && target.SessionID != sessionID) {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && target.SessionID != sessionID) {
 		return api.Turn{}, fail(http.StatusConflict, errorCodeAbortTargetChanged, "turnId is not a turn in this session")
 	}
 	if err != nil {
@@ -1727,7 +1727,7 @@ func finalizeAbortedTurn(
 		ID: *targetTurnID, Status: string(api.TurnStatusAborted), CompletedAt: null.TimeFrom(occurredAt),
 	})
 	newlyAborted := err == nil
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		aborted, err = queries.GetTurn(ctx, *targetTurnID)
 		if err != nil {
 			return storedb.Turn{}, false, err
@@ -1795,7 +1795,7 @@ func (adapter *CopilotAdapter) replayAbortSubmission(
 	turn, err := adapter.store.GetTurnByAbortIdempotencyKey(ctx, storedb.GetTurnByAbortIdempotencyKeyParams{
 		SessionID: sessionID, IdempotencyKey: idempotencyKey,
 	})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return storedb.Turn{}, false, nil
 	}
 	if err != nil {
@@ -1835,7 +1835,7 @@ func (adapter *CopilotAdapter) claimAbortSubmission(
 	turn, lookupErr := adapter.store.GetTurnByAbortIdempotencyKey(lookupContext, storedb.GetTurnByAbortIdempotencyKeyParams{
 		SessionID: sessionID, IdempotencyKey: idempotencyKey,
 	})
-	if errors.Is(lookupErr, sql.ErrNoRows) {
+	if errors.Is(lookupErr, pgx.ErrNoRows) {
 		return storeFailure(claimErr)
 	}
 	if lookupErr != nil {
@@ -1898,7 +1898,7 @@ func (adapter *CopilotAdapter) resolveSessionRequest(ctx context.Context, sessio
 	unlock := adapter.mutations.lock(sessionID)
 	defer unlock()
 	pending, err := adapter.store.GetSessionRequest(ctx, requestID)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && pending.SessionID != sessionID) {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && pending.SessionID != sessionID) {
 		return api.SessionRequest{}, fail(http.StatusNotFound, errorCodeRequestNotFound, "no pending request with that id in this session")
 	}
 	if err != nil {
@@ -1908,7 +1908,7 @@ func (adapter *CopilotAdapter) resolveSessionRequest(ctx context.Context, sessio
 		return api.SessionRequest{}, err
 	}
 	session, err := adapter.store.GetSession(ctx, sessionID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.SessionRequest{}, fail(http.StatusNotFound, errorCodeSessionNotFound, "no session with that id")
 	}
 	if err != nil {
@@ -1936,7 +1936,7 @@ func (adapter *CopilotAdapter) resolveSessionRequest(ctx context.Context, sessio
 	prepared, err := adapter.store.PrepareSessionRequestResolution(ctx, storedb.PrepareSessionRequestResolutionParams{
 		ID: requestID, Decision: decisionText, Answer: "",
 	})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		current, lookupErr := adapter.store.GetSessionRequest(ctx, requestID)
 		if lookupErr == nil && sameRequestResolution(current, decisionText, status) {
 			return views.SessionRequest(current), nil

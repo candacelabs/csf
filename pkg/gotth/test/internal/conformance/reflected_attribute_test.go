@@ -17,6 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/candacelabs/csf/pkg/gotth/live"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -260,10 +262,10 @@ type reflectSubject struct {
 	// interaction is a CLOSE. A dialog is the only one: it is opened by script
 	// in every application there is, and the browser's own write of the
 	// attribute is the close, so the row has to start from open.
-	arrange func(c *chrome)
+	arrange func(c *livetest.Browser)
 	// interact performs the user's half and returns nothing; it must leave the
 	// element in a state a spec can observe.
-	interact func(c *chrome)
+	interact func(c *livetest.Browser)
 	// live is a JS expression reading the LIVE state the interaction changed —
 	// the property, not the attribute. It is the row's own vacuity check: if
 	// this did not move, the interaction did nothing and the attribute reading
@@ -277,7 +279,7 @@ type reflectSubject struct {
 var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's general shape)",
 	Ordered, ContinueOnFailure, Label("browser"), func() {
 		var (
-			c  *chrome
+			c  *livetest.Browser
 			ts *httptest.Server
 		)
 
@@ -285,26 +287,26 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 			browserOnly()
 			ts = startReflectApp()
 			c = launchChrome()
-			c.onNewDocument(raHelpers)
-			c.navigate(ts.URL + "/")
+			c.OnNewDocument(raHelpers)
+			c.Navigate(ts.URL + "/")
 
 			Eventually(func() string {
-				return c.evalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
+				return c.EvalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
 			}, 30*time.Second, 100*time.Millisecond).Should(Equal("live"),
 				"the client runtime never reported a live connection")
 			Eventually(func() bool {
-				return c.evalBool(`!!document.querySelector("#rline")`)
+				return c.EvalBool(`!!document.querySelector("#rline")`)
 			}, 30*time.Second, 100*time.Millisecond).Should(BeTrue())
 		})
 
 		attrOf := func(sel, name string) string {
 			GinkgoHelper()
-			return c.evalString(fmt.Sprintf(`window.__ra.attr(%q, %q)`, sel, name))
+			return c.EvalString(fmt.Sprintf(`window.__ra.attr(%q, %q)`, sel, name))
 		}
 
 		click := func(sel string) {
 			GinkgoHelper()
-			Expect(c.evalBool(fmt.Sprintf(
+			Expect(c.EvalBool(fmt.Sprintf(
 				`(() => { document.querySelector(%q).click(); return true; })()`, sel))).To(BeTrue())
 		}
 
@@ -314,24 +316,24 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 		subjects := []reflectSubject{
 			{
 				name: "an input's checkedness", sel: "#rbox", attr: "checked", tag: "INPUT",
-				interact: func(c *chrome) { click("#rbox") },
+				interact: func(c *livetest.Browser) { click("#rbox") },
 				live:     `document.querySelector("#rbox").checked`,
 				reflects: false,
 			},
 			{
 				name: "an input's value", sel: "#rtext", attr: "value", tag: "INPUT",
-				interact: func(c *chrome) {
-					Expect(c.evalBool(`(() => { document.querySelector("#rtext").focus(); return true; })()`)).To(BeTrue())
-					c.call(c.sessionID, "Input.insertText", map[string]any{"text": "typed"}, nil)
+				interact: func(c *livetest.Browser) {
+					Expect(c.EvalBool(`(() => { document.querySelector("#rtext").focus(); return true; })()`)).To(BeTrue())
+					c.Call("Input.insertText", map[string]any{"text": "typed"}, nil)
 				},
 				live:     `document.querySelector("#rtext").value !== ""`,
 				reflects: false,
 			},
 			{
 				name: "a textarea's value", sel: "#rarea", attr: "", tag: "TEXTAREA",
-				interact: func(c *chrome) {
-					Expect(c.evalBool(`(() => { document.querySelector("#rarea").focus(); return true; })()`)).To(BeTrue())
-					c.call(c.sessionID, "Input.insertText", map[string]any{"text": "typed"}, nil)
+				interact: func(c *livetest.Browser) {
+					Expect(c.EvalBool(`(() => { document.querySelector("#rarea").focus(); return true; })()`)).To(BeTrue())
+					c.Call("Input.insertText", map[string]any{"text": "typed"}, nil)
 				},
 				live:     `document.querySelector("#rarea").value !== ""`,
 				reflects: false,
@@ -342,8 +344,8 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 				// popup, which headless Chromium does not open. It is the same
 				// second author either way: the question the census asks is
 				// whether changing the live state writes the content attribute.
-				interact: func(c *chrome) {
-					Expect(c.evalBool(
+				interact: func(c *livetest.Browser) {
+					Expect(c.EvalBool(
 						`(() => { document.querySelector("#roptb").selected = true; return true; })()`)).To(BeTrue())
 				},
 				live:     `document.querySelector("#roptb").selected`,
@@ -351,7 +353,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 			},
 			{
 				name: "a disclosure's open state", sel: "#rdet", attr: "open", tag: "DETAILS",
-				interact: func(c *chrome) { click("#rdet summary") },
+				interact: func(c *livetest.Browser) { click("#rdet summary") },
 				live:     `document.querySelector("#rdet").open`,
 				reflects: true,
 			},
@@ -361,17 +363,17 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 				// user through the dialog's own form. That close is the
 				// browser's own write of the attribute, with no script in it,
 				// which is why the row is arranged this way round.
-				arrange: func(c *chrome) {
-					Expect(c.evalBool(
+				arrange: func(c *livetest.Browser) {
+					Expect(c.EvalBool(
 						`(() => { document.querySelector("#rdlg").show(); return true; })()`)).To(BeTrue())
 				},
-				interact: func(c *chrome) { click("#rdlgclose") },
+				interact: func(c *livetest.Browser) { click("#rdlgclose") },
 				live:     `document.querySelector("#rdlg").open === false`,
 				reflects: true,
 			},
 			{
 				name: "a custom element reflecting internal state", sel: "#rtog", attr: "pressed", tag: "",
-				interact: func(c *chrome) { click("#rtog") },
+				interact: func(c *livetest.Browser) { click("#rtog") },
 				live:     `document.querySelector("#rtog").pressed`,
 				reflects: true,
 			},
@@ -387,7 +389,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 				// attribute, so that row reads the child text.
 				readAttr := func() string {
 					if s.attr == "" {
-						return c.evalString(`(() => {
+						return c.EvalString(`(() => {
 							const el = document.querySelector("#rarea");
 							return el.firstChild ? el.firstChild.nodeValue : "` + absent + `";
 						})()`)
@@ -400,12 +402,12 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 				}
 
 				before := readAttr()
-				Expect(c.evalBool(s.live)).To(BeFalse(),
+				Expect(c.EvalBool(s.live)).To(BeFalse(),
 					"the subject already held the state this row is about to establish, so nothing is measured")
 
 				s.interact(c)
 
-				Expect(c.evalBool(s.live)).To(BeTrue(),
+				Expect(c.EvalBool(s.live)).To(BeTrue(),
 					"the interaction changed nothing, so what the attribute did afterwards says nothing")
 				after := readAttr()
 
@@ -425,7 +427,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 
 				AddReportEntry("reflection census", fmt.Sprintf(
 					"browser %s: %s — attribute %q %s after the user's interaction (%q -> %q)",
-					c.version, s.name, s.attr,
+					c.Version(), s.name, s.attr,
 					map[bool]string{true: "CHANGED", false: "unchanged"}[before != after], before, after))
 			})
 		}
@@ -480,7 +482,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 			wired := s.tag == "DETAILS"
 
 			It(fmt.Sprintf("says what a patch does to %s the server never mentioned", s.name), func() {
-				Expect(c.evalBool(fmt.Sprintf(`window.__ra.mark(%q)`, s.sel))).To(BeTrue())
+				Expect(c.EvalBool(fmt.Sprintf(`window.__ra.mark(%q)`, s.sel))).To(BeTrue())
 
 				// Establish the user's state. The dialog row's census
 				// interaction ends CLOSED, so each row states its own "the
@@ -490,14 +492,14 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 					"#rdlg": `document.querySelector("#rdlg").show()`,
 					"#rtog": `document.querySelector("#rtog").pressed = true`,
 				}[s.sel]
-				Expect(c.evalBool(`(() => { ` + set + `; return true; })()`)).To(BeTrue())
+				Expect(c.EvalBool(`(() => { ` + set + `; return true; })()`)).To(BeTrue())
 				Expect(attrOf(s.sel, s.attr)).NotTo(Equal(absent),
 					"the user's own state did not reach the attribute, so this spec is about nothing")
 
 				var tick string
-				c.evalJSON(`window.__ra.tick(2)`, &tick)
+				c.EvalJSON(`window.__ra.tick(2)`, &tick)
 
-				Expect(c.evalString(fmt.Sprintf(`window.__ra.markOf(%q)`, s.sel))).To(Equal("marked"),
+				Expect(c.EvalString(fmt.Sprintf(`window.__ra.markOf(%q)`, s.sel))).To(Equal("marked"),
 					"the element was REPLACED rather than morphed, so nothing here is about the rule")
 
 				held := attrOf(s.sel, s.attr) != absent
@@ -540,7 +542,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 			// it, and a spec that waited for one absolute tick would wait for
 			// ever — as the first draft of this one did, ticking two thousand
 			// times into a CDP timeout.
-			c.evalJSON(`(async () => {
+			c.EvalJSON(`(async () => {
 				const at = () => +document.querySelector("#rline").textContent.trim().split(" ")[1];
 				window.__ra.mark("#rdecl");
 				document.querySelector("#rdecl").open = true;   // the user opens it first
@@ -581,7 +583,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 				Toggle bool   `json:"toggle"`
 				Tick   string `json:"tick"`
 			}
-			c.evalJSON(`(async () => {
+			c.EvalJSON(`(async () => {
 				window.__ra.mark("#rdlgkept");
 				document.querySelector("#rdlgkept").show();
 				document.querySelector("#rtogkept").pressed = true;
@@ -603,7 +605,7 @@ var _ = Describe("Reflected attributes: two authors and one bit (FR-25, D-15's g
 
 			AddReportEntry("the remedy", fmt.Sprintf(
 				"browser %s: <dialog open> and a reflecting custom element both survive two patches "+
-					"under data-gotth-preserve (%s)", c.version, got.Tick))
+					"under data-gotth-preserve (%s)", c.Version(), got.Tick))
 		})
 	})
 

@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/candacelabs/csf/pkg/gotth/live"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -235,7 +237,7 @@ window.__kb = {
 //
 // Both halves are sent. A keyDown alone leaves the browser believing the key is
 // held, and the next press of the same key would arrive as an auto-repeat.
-func (c *chrome) press(key, code, text string) {
+func press(c *livetest.Browser, key, code, text string) {
 	GinkgoHelper()
 	down := map[string]any{"type": "keyDown", "key": key, "code": code}
 	if text != "" {
@@ -244,8 +246,8 @@ func (c *chrome) press(key, code, text string) {
 		// only being seen by a listener.
 		down["text"] = text
 	}
-	c.call(c.sessionID, "Input.dispatchKeyEvent", down, nil)
-	c.call(c.sessionID, "Input.dispatchKeyEvent",
+	c.Call("Input.dispatchKeyEvent", down, nil)
+	c.Call("Input.dispatchKeyEvent",
 		map[string]any{"type": "keyUp", "key": key, "code": code}, nil)
 }
 
@@ -259,7 +261,7 @@ type kbRead struct {
 
 var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -267,11 +269,11 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 		browserOnly()
 		ts = startKeyApp()
 		c = launchChrome()
-		c.onNewDocument(kbHelpers)
-		c.navigate(ts.URL + "/")
+		c.OnNewDocument(kbHelpers)
+		c.Navigate(ts.URL + "/")
 
 		Eventually(func() string {
-			return c.evalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
+			return c.EvalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
 		}, 30*time.Second, 100*time.Millisecond).Should(Equal("live"),
 			"the client runtime never reported a live connection")
 	})
@@ -280,7 +282,7 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 	read := func() kbRead {
 		GinkgoHelper()
 		var got kbRead
-		c.evalJSON(`window.__kb.read()`, &got)
+		c.EvalJSON(`window.__kb.read()`, &got)
 		return got
 	}
 
@@ -288,12 +290,12 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 	waitEvents := func(n int) {
 		GinkgoHelper()
 		var seen int
-		c.evalJSON(fmt.Sprintf(`window.__kb.waitEvents(%d)`, n), &seen)
+		c.EvalJSON(fmt.Sprintf(`window.__kb.waitEvents(%d)`, n), &seen)
 	}
 
 	focus := func(sel string) {
 		GinkgoHelper()
-		Expect(c.evalBool(`window.__kb.focus(` + strconv.Quote(sel) + `)`)).To(BeTrue())
+		Expect(c.EvalBool(`window.__kb.focus(` + strconv.Quote(sel) + `)`)).To(BeTrue())
 	}
 
 	// This is F-3 itself. Before the filter, every one of the four keys below
@@ -316,11 +318,11 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 			{"a", "KeyA", "a"},
 		} {
 			focus("#counter") // Tab moves focus; every press starts from the same place
-			c.press(k[0], k[1], k[2])
+			press(c, k[0], k[1], k[2])
 		}
 
 		focus("#counter")
-		c.press("+", "Equal", "+")
+		press(c, "+", "Equal", "+")
 		waitEvents(before.Events + 1)
 
 		after := read()
@@ -332,7 +334,7 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 
 		AddReportEntry("F-3 key filter", fmt.Sprintf(
 			"browser %s: Tab, Shift, ArrowLeft and \"a\" raised nothing on a keydown binding "+
-				"filtered to + and =; the following + raised %s", c.version, eventInc))
+				"filtered to + and =; the following + raised %s", c.Version(), eventInc))
 	})
 
 	// F-CTR-6, and the reason the filter is part of the binding rather than an
@@ -343,9 +345,9 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 		before := read()
 		focus("#counter")
 
-		c.press("+", "Equal", "+")
+		press(c, "+", "Equal", "+")
 		waitEvents(before.Events + 1)
-		c.press("-", "Minus", "-")
+		press(c, "-", "Minus", "-")
 		waitEvents(before.Events + 2)
 
 		after := read()
@@ -361,7 +363,7 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 		before := read()
 		focus("#counter")
 
-		c.press("=", "Equal", "=")
+		press(c, "=", "Equal", "=")
 		waitEvents(before.Events + 1)
 
 		after := read()
@@ -384,7 +386,7 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 			{"a", "KeyA", "a"},
 		} {
 			focus("#any")
-			c.press(k[0], k[1], k[2])
+			press(c, k[0], k[1], k[2])
 		}
 		waitEvents(before.Events + 3)
 
@@ -403,12 +405,12 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 		before := read()
 		focus("#draft")
 
-		c.call(c.sessionID, "Input.insertText", map[string]any{"text": "hello"}, nil)
+		c.Call("Input.insertText", map[string]any{"text": "hello"}, nil)
 		waitEvents(before.Events + 1)
 		Expect(read().Draft).To(Equal("hello"),
 			"the input binding on a key-filtered element stopped sending the draft")
 
-		c.press("Escape", "Escape", "")
+		press(c, "Escape", "Escape", "")
 		waitEvents(before.Events + 2)
 
 		after := read()
@@ -424,10 +426,10 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 	It("never fires a key-filtered binding for an event that carries no key", func() {
 		before := read()
 
-		Expect(c.evalBool(`(() => { document.querySelector("#never").click(); return true; })()`)).To(BeTrue())
+		Expect(c.EvalBool(`(() => { document.querySelector("#never").click(); return true; })()`)).To(BeTrue())
 
 		focus("#counter")
-		c.press("+", "Equal", "+")
+		press(c, "+", "Equal", "+")
 		waitEvents(before.Events + 1)
 
 		after := read()
@@ -487,7 +489,7 @@ var _ = Describe("A keyboard binding names its key (FR-54, FRICTION F-3)", Order
 		before := read()
 		focus("#draft")
 
-		c.press("Enter", "Enter", "\r")
+		press(c, "Enter", "Enter", "\r")
 		waitEvents(before.Events + 2) // the keydown binding, and the input the newline caused
 
 		after := read()

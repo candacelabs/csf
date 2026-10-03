@@ -1,0 +1,45 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "claudecode",
+    srcs = [
+        "address.go",
+        "brain.go",
+        "session.go",
+    ],
+    importpath = "github.com/candacelabs/csf/ipc/model/claudecode",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc",
+        "//ipc/model",
+        "//ipc/proc",
+        "//pkg/mailbox",
+        "//pkg/telemetry",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "claudecode_test",
+    srcs = [
+        "address_test.go",
+        "brain_helpers_test.go",
+        "brain_test.go",
+        "brain_unit_test.go",
+        "claudecode_suite_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+        "session_test.go",
+    ],
+    embed = [":claudecode"],
+    deps = [
+        "//ipc/proc",
+        "//pkg/eventually",
+        "//pkg/telemetry",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

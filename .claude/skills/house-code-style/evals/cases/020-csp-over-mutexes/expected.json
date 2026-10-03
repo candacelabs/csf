@@ -1,0 +1,10 @@
+{
+  "case_id": "020-csp-over-mutexes",
+  "tier": 1,
+  "rule_under_test": "CS-5",
+  "summary": "A worker-pool state machine that three goroutines negotiate over is guarded by one RWMutex; the clean version gives the state a single owning goroutine and turns every transition into a message, leaving nothing to lock.",
+  "dirty_must_fire": ["CS-5"],
+  "dirty_min_findings": {"CS-5": 1},
+  "clean_must_not_fire": ["CS-1", "CS-2", "CS-5"],
+  "notes": "The clean fixture deliberately contains NO mutex at all, not even the leaf mutex CS-5 permits. The CS-5 heuristic flags every sync.Mutex/sync.RWMutex declaration, so a leaf mutex in this fixture would fire and fail the runner's 'nothing fires on clean' invariant — the invariant is right and the heuristic is right, and the honest conclusion is that tier 1 cannot express this exemption. Narrowing the heuristic to auto-detect 'leaf' was rejected: no lexer can tell a counter's lock from a state machine's lock, and an opt-out marker comment would be an escape hatch the gate would then be graded on rather than the code. So CS-5 splits across the tiers: the shape is tier 1 (here), the judgment is tier 2 (case 021-csp-judgment, whose rubric requires keeping an honest leaf mutex). See ../../README.md § 'When a rule's exemption cannot live in a fixture'."
+}

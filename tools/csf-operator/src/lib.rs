@@ -687,7 +687,7 @@ impl<R: ProcessRunner> Operator<R> {
                 "-d",
                 "brain",
                 "-Atqc",
-                "SELECT to_regclass('public.brainspine_runs') IS NOT NULL",
+                "SELECT to_regclass('public.csf_runs') IS NOT NULL",
             ],
             values,
             true,

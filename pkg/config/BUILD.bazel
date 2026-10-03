@@ -3,7 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "config",
     srcs = [
-        "environment.go",
+        "doc.go",
         "origin.go",
         "provider_model.go",
         "refinement.go",
@@ -21,7 +21,6 @@ go_test(
     name = "config_test",
     srcs = [
         "config_suite_test.go",
-        "environment_test.go",
         "origin_test.go",
         "provider_model_test.go",
     ],

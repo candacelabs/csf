@@ -8,13 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var watchBudget = patience.Budget{Within: 5 * time.Second, Interval: 10 * time.Millisecond}
+var watchBudget = eventually.Budget{Within: 5 * time.Second, Interval: 10 * time.Millisecond}
 var _ = Describe("bounded source observer", func() {
 	It("hashes preserved-time edits and records failure, repair, deletion and recreation", func() {
 		root := GinkgoT().TempDir()
@@ -45,7 +45,7 @@ var _ = Describe("bounded source observer", func() {
 			digest := fmt.Sprintf("%x", sha256.Sum256(content))
 			// An in-place write can expose an empty or partial snapshot. Match the
 			// receipt to the intended bytes, consuming its corresponding result.
-			receipt := patience.Await(GinkgoTB(), "source receipt", watchBudget, func() *pb.CommandReceipt {
+			receipt := eventually.Await(GinkgoTB(), "source receipt", watchBudget, func() *pb.CommandReceipt {
 				select {
 				case result := <-results:
 					Expect(result.Changes).To(HaveLen(1))
@@ -87,7 +87,7 @@ var _ = Describe("bounded source observer", func() {
 		results, err := watch.Start(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(os.WriteFile(a, []byte("one"), 0600)).To(Succeed())
-		patience.Await(GinkgoTB(), "first callback", watchBudget, func() CheckRequest {
+		eventually.Await(GinkgoTB(), "first callback", watchBudget, func() CheckRequest {
 			select {
 			case request := <-entered:
 				return request
@@ -100,7 +100,7 @@ var _ = Describe("bounded source observer", func() {
 		}
 		Expect(os.WriteFile(b, []byte("last"), 0600)).To(Succeed())
 		close(release)
-		request := patience.Await(GinkgoTB(), "coalesced snapshot", watchBudget, func() CheckRequest {
+		request := eventually.Await(GinkgoTB(), "coalesced snapshot", watchBudget, func() CheckRequest {
 			select {
 			case request := <-entered:
 				return request
@@ -110,7 +110,7 @@ var _ = Describe("bounded source observer", func() {
 		}, func(request CheckRequest) bool { return len(request.Changes) == 2 })
 		Expect(string(request.Files[0].Content)).To(Equal("four"))
 		cancel()
-		patience.Await(GinkgoTB(), "observer closed", watchBudget, func() bool {
+		eventually.Await(GinkgoTB(), "observer closed", watchBudget, func() bool {
 			select {
 			case _, open := <-results:
 				return !open
@@ -129,7 +129,7 @@ var _ = Describe("bounded source observer", func() {
 		results, err := watch.Start(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(os.WriteFile(filepath.Join(root, "owned.go"), []byte("package fixture"), 0600)).To(Succeed())
-		patience.Await(GinkgoTB(), "occupied callback", watchBudget, func() bool {
+		eventually.Await(GinkgoTB(), "occupied callback", watchBudget, func() bool {
 			select {
 			case <-entered:
 				return true
@@ -138,7 +138,7 @@ var _ = Describe("bounded source observer", func() {
 			}
 		}, func(value bool) bool { return value })
 		cancel()
-		patience.Await(GinkgoTB(), "cancelled callback and observer", watchBudget, func() bool {
+		eventually.Await(GinkgoTB(), "cancelled callback and observer", watchBudget, func() bool {
 			select {
 			case _, open := <-results:
 				return !open

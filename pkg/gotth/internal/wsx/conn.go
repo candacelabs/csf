@@ -15,6 +15,7 @@ import (
 	"github.com/candacelabs/csf/pkg/gotth/internal/obs"
 	"github.com/candacelabs/csf/pkg/gotth/internal/protocol"
 	"github.com/candacelabs/csf/pkg/gotth/internal/session"
+	"github.com/candacelabs/csf/runtime"
 )
 
 // conn is one connection: two goroutines, both owned and both waited for.
@@ -25,6 +26,11 @@ type conn[I session.IIdentity] struct {
 	actor *session.Actor[I]
 	fr    *protocol.Framer
 	done  chan struct{}
+
+	// scope is this session's child of the sessions scope: the read pump,
+	// the actor and every effect start in it, and it is cancelled when the
+	// session ends so its join returns. Set before serve is entered.
+	scope *runtime.Scope
 
 	// idStr and idAttr are this session's identifier rendered once, for the
 	// same reason session.Actor holds them: session.Peer.ID.String() hex-encodes into a
@@ -77,10 +83,18 @@ func (h *Handler[I]) newConn(ws *websocket.Conn, peer session.Peer[I]) *conn[I] 
 func (h *Handler[I]) serve(ctx context.Context, c *conn[I], app session.IApp[I]) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+	// The session also ends when the sessions scope is cancelled: the live UI
+	// service cancels it only after Close has sent every session its
+	// going-away close, so this is the backstop that makes the scope's join
+	// finite, not the ordinary way a session ends.
+	stopFollowingScope := context.AfterFunc(c.scope.Context(), cancel)
+	defer stopFollowingScope()
 
 	ws, peer := c.ws, c.peer
 
-	var actorDone sync.WaitGroup
+	// actorDone is closed when the actor goroutine has returned; nil until
+	// that goroutine has been started, so the teardown joins only what exists.
+	var actorDone chan struct{}
 	var ticker *time.Ticker
 
 	// The whole teardown, and the panic guard, in one deferred function
@@ -108,7 +122,9 @@ func (h *Handler[I]) serve(ctx context.Context, c *conn[I], app session.IApp[I])
 		}
 
 		cancel()
-		actorDone.Wait()
+		if actorDone != nil {
+			<-actorDone
+		}
 		if ticker != nil {
 			ticker.Stop()
 		}
@@ -164,6 +180,7 @@ func (h *Handler[I]) serve(ctx context.Context, c *conn[I], app session.IApp[I])
 		Logger:  h.opts.Logger,
 		Dev:     h.opts.Dev,
 		Ticks:   ticker.C,
+		Scope:   c.scope,
 	})
 
 	// Registration already happened, on the handler's goroutine, before this
@@ -171,11 +188,18 @@ func (h *Handler[I]) serve(ctx context.Context, c *conn[I], app session.IApp[I])
 	// is that a session is in the registry from before `Close` could have
 	// snapshotted without it.
 
-	actorDone.Add(1)
-	go func() {
-		defer actorDone.Done()
+	started := make(chan struct{})
+	if err := c.scope.Go(func(_ context.Context) error {
+		defer close(started)
 		c.actor.Run(ctx)
-	}()
+		return nil
+	}); err != nil {
+		h.opts.Logger.Error(ctx, "gotth-live: the session actor could not start because the sessions scope is closed: this is a library bug",
+			obs.Str("session_id", c.idStr), obs.Err(err))
+		c.close(protocol.CloseGoingAway, "the server is shutting down")
+		return
+	}
+	actorDone = started
 
 	if err := c.actor.Ready(ctx); err == nil {
 		c.readPump(ctx)

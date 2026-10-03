@@ -7,7 +7,7 @@ import (
 	"math"
 	"time"
 
-	db "github.com/candacelabs/csf/csf/internal/brainspinedb"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/jackc/pgx/v5"
 )
@@ -29,7 +29,7 @@ func (store *Postgres) PutAgentConfiguration(ctx context.Context, agentID string
 	if configuration == nil || configuration.Langfuse == nil || configuration.Opensearch == nil {
 		return nil, fmt.Errorf(agentConfigurationRequiredMessage)
 	}
-	parameters := db.CreateAgentConfigurationParams{
+	parameters := csfpg.CreateAgentConfigurationParams{
 		AgentID:                        agentID,
 		LangfuseEndpointUrl:            configuration.Langfuse.EndpointUrl,
 		LangfusePublicKeySecretRef:     configuration.Langfuse.PublicKeySecretRef,
@@ -49,7 +49,7 @@ func (store *Postgres) PutAgentConfiguration(ctx context.Context, agentID string
 		}
 		return agentConfigurationMessage(created)
 	}
-	updated, err := store.queries.UpdateAgentConfiguration(ctx, db.UpdateAgentConfigurationParams{
+	updated, err := store.queries.UpdateAgentConfiguration(ctx, csfpg.UpdateAgentConfigurationParams{
 		LangfuseEndpointUrl:            parameters.LangfuseEndpointUrl,
 		LangfusePublicKeySecretRef:     parameters.LangfusePublicKeySecretRef,
 		LangfuseSecretKeySecretRef:     parameters.LangfuseSecretKeySecretRef,
@@ -69,7 +69,7 @@ func (store *Postgres) PutAgentConfiguration(ctx context.Context, agentID string
 	return agentConfigurationMessage(updated)
 }
 
-func agentConfigurationMessage(configuration db.CsfAgentConfiguration) (*pb.AgentConfiguration, error) {
+func agentConfigurationMessage(configuration csfpg.CsfAgentConfiguration) (*pb.AgentConfiguration, error) {
 	if configuration.Revision < 1 || configuration.Revision > math.MaxUint32 || !configuration.UpdatedAt.Valid {
 		return nil, fmt.Errorf("invalid stored agent configuration")
 	}

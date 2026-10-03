@@ -224,7 +224,7 @@ policy for being hit. **Blocking is never the policy.**
 | `HeartbeatInterval` / `HeartbeatTimeout` | 20 s / 50 s | close 4010 |
 | `IdleTimeout` | 30 min | close 4011 |
 | `PanicBudget` | 3 per site per session | close 4012 |
-| `EffectDrainTimeout` | 5 s | abandon the effect, counted, at shutdown |
+| `EffectDrainTimeout` | 5 s | count and log the overrun at shutdown; the effect is still joined |
 
 Two of those are worth internalising rather than looking up.
 

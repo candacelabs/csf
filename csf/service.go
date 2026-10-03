@@ -1,3 +1,8 @@
+// Package csf composes the brain-spine harness's capabilities and their
+// generated HTTP/MCP operations in one Go process. The low-level spine
+// controller is external and ROS-side: CSF reaches it only through the
+// ipc/ros capability and interprets no controller program itself. It makes
+// no hard-real-time or physical-safety guarantee.
 package csf
 
 import (
@@ -13,6 +18,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/candacelabs/csf/ipc/ros"
 	"github.com/candacelabs/csf/pkg/liquidproto"
 	"github.com/gin-gonic/gin"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -96,8 +102,11 @@ type Service struct {
 	wake                chan struct{}
 	workersStarted      atomic.Bool
 	dashboard           *Dashboard
+	spine               ros.ISpine
 	theme               *workbenchTheme
 	agentConfigurations IAgentConfigurationStore
+	agentSessions       IAgentSessions
+	dispatch            IDispatch
 	email               IEmailSender
 	onboarding          *OnboardingConfig
 	mcp                 *mcp.Server
@@ -122,6 +131,13 @@ func WithKnowledge(store IKnowledgeStore, index IKnowledgeIndex, artifacts *Arti
 
 func WithDashboard(dashboard *Dashboard) Option {
 	return func(service *Service) { service.dashboard = dashboard }
+}
+
+// WithSpine grants the low-level spine controller capability. Without it the
+// service holds ros.DisconnectedSpine and its views report "no spine
+// connected".
+func WithSpine(spine ros.ISpine) Option {
+	return func(service *Service) { service.spine = spine }
 }
 
 func WithAgentConfigurations(store IAgentConfigurationStore) Option {
@@ -154,7 +170,7 @@ func WithMCPTool[In, Out any](tool mcp.Tool, handler mcp.ToolHandlerFor[In, Out]
 }
 
 func New(options ...Option) (*Service, error) {
-	service := &Service{wake: make(chan struct{}, projectionWorkerCount), theme: &workbenchTheme{}, mcpToolNames: make(map[string]struct{})}
+	service := &Service{wake: make(chan struct{}, projectionWorkerCount), spine: ros.NewDisconnectedSpine(), theme: &workbenchTheme{}, mcpToolNames: make(map[string]struct{})}
 	for _, option := range options {
 		if option != nil {
 			option(service)

@@ -1,0 +1,13 @@
+package widget
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gstruct"
+)
+
+var _ = Describe("a widget", func() {
+	It("builds a value of the right shape", func() {
+		Expect(build()).To(gstruct.MatchFields(gstruct.IgnoreExtras, gstruct.Fields{}))
+	})
+})

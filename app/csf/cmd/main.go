@@ -1,11 +1,12 @@
-// The JSONL adapter is a disposable simulator boundary. Go applications should
-// compose csf.NewRuntime directly and keep calls in-process.
+// The JSONL adapter is a disposable simulator boundary. CSF interprets no
+// controller: the low-level spine is external and ROS-side, reached through
+// ipc/ros, and while none is connected every step answers with the fail-closed
+// fallback action whose reason is "no_spine_connected".
 package main
 
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"flag"
@@ -29,23 +30,32 @@ import (
 	"github.com/gin-gonic/gin"
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/guregu/null/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	dockerclient "github.com/moby/moby/client"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/prometheus/client_golang/prometheus"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/candacelabs/csf/csf"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
+	ipcdocker "github.com/candacelabs/csf/ipc/docker"
+	ipcnet "github.com/candacelabs/csf/ipc/net"
+	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/ipc/ros"
 	"github.com/candacelabs/csf/pkg/httpserver"
+	"github.com/candacelabs/csf/pkg/sqlmigrate"
+	agentv1 "github.com/candacelabs/csf/proto/candace/agent/v1"
 	brainspinev1 "github.com/candacelabs/csf/proto/candace/brainspine/v1"
+	"github.com/candacelabs/csf/runtime"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/copilotbridge"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
+	adapterstore "github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 	"github.com/candacelabs/csf/services/copilot-adapter/workbench"
+	cronservice "github.com/candacelabs/csf/services/cron"
+	jobledger "github.com/candacelabs/csf/services/jobs"
+	"github.com/candacelabs/csf/services/relay"
 )
 
 const maxRequestBytes = 256 * 1024
@@ -159,8 +169,24 @@ func run() error {
 	return runWithStreams(os.Stdin, os.Stdout)
 }
 
+// Fail-closed fallback for the simulator boundary in numeric profile v1: no
+// steering and full braking. The spine owns actuator conversion.
+const fallbackAcceleration = int64(-1000)
+
+// noSpineProgramError answers controller-program requests. Compiling,
+// activating, resetting and evaluating a controller belong to the external
+// ROS-side spine, not to CSF.
+const noSpineProgramError = ros.NotConnectedStatus + ": controller programs belong to the external ROS-side spine"
+
 func runWithStreams(input io.Reader, output io.Writer) error {
-	runtime := csf.NewRuntime()
+	return answerSpineRequests(context.Background(), ros.NewDisconnectedSpine(), input, output)
+}
+
+// answerSpineRequests serves the JSONL simulator boundary. CSF interprets no
+// controller: each STEP observation is answered with the fail-closed fallback
+// action, proposed to spine, and a missing spine is rendered as the action's
+// reason rather than as a failure.
+func answerSpineRequests(ctx context.Context, spine ros.ISpine, input io.Reader, output io.Writer) error {
 	scanner := bufio.NewScanner(input)
 	scanner.Buffer(make([]byte, 4096), maxRequestBytes)
 	writer := bufio.NewWriter(output)
@@ -170,7 +196,7 @@ func runWithStreams(input io.Reader, output io.Writer) error {
 		if err := (protojson.UnmarshalOptions{DiscardUnknown: false}).Unmarshal(scanner.Bytes(), request); err != nil {
 			response = &brainspinev1.RuntimeResponse{Error: err.Error()}
 		} else {
-			response = runtime.Handle(request)
+			response = answerSpineRequest(ctx, spine, request)
 		}
 		encoded, err := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
 		if err != nil {
@@ -184,6 +210,33 @@ func runWithStreams(input io.Reader, output io.Writer) error {
 		}
 	}
 	return scanner.Err()
+}
+
+func answerSpineRequest(ctx context.Context, spine ros.ISpine, request *brainspinev1.RuntimeRequest) *brainspinev1.RuntimeResponse {
+	response := &brainspinev1.RuntimeResponse{Epoch: request.GetObservation().GetEpoch()}
+	if len(request.ProtoReflect().GetUnknown()) != 0 {
+		response.Error = "request must have no unknown fields"
+		return response
+	}
+	if request.GetKind() != brainspinev1.RequestKind_REQUEST_KIND_STEP {
+		response.Error = noSpineProgramError
+		return response
+	}
+	observation := request.GetObservation()
+	if observation == nil {
+		response.Error = "observation is required"
+		return response
+	}
+	action := &brainspinev1.Action{Acceleration: fallbackAcceleration, Epoch: observation.GetEpoch(), Sequence: observation.GetSequence(), Fallback: true}
+	if err := spine.Submit(ctx, action); err != nil {
+		if !ros.IsNotConnected(err) {
+			response.Error = err.Error()
+			return response
+		}
+		action.Reason = ros.NotConnectedReason
+	}
+	response.Action = action
+	return response
 }
 
 func serve(mode string, arguments []string) error {
@@ -205,8 +258,25 @@ func serve(mode string, arguments []string) error {
 		}
 	}
 	onboardingConfig := csf.OnboardingConfig{ConsumerRoot: settings.consumerRoot, ConsumerRevision: settings.consumerRevision}
-	options := []csf.Option{csf.WithDashboard(csf.NewDashboard(settings.events))}
+	// No ROS transport ships yet: the binary grants the stub spine, and the
+	// snapshot reports "no spine connected".
+	options := []csf.Option{csf.WithDashboard(csf.NewDashboard(settings.events)), csf.WithSpine(ros.NewDisconnectedSpine())}
 	registry := prometheus.NewRegistry()
+	// Agent messaging: one relay per process. Host and network agents reach
+	// it through the authenticated agent MCP endpoint; Workbench sessions
+	// reach it in-process through SessionMessaging below.
+	agentRelay, err := relay.NewRelay[*agentv1.AgentMessage](relay.WithMetrics(registry))
+	if err != nil {
+		return err
+	}
+	messagingScope := runtime.NewScope(ctx, "agent messaging")
+	defer func() { _ = messagingScope.Close() }()
+	if err := agentRelay.Start(messagingScope); err != nil {
+		return err
+	}
+	if agentMCPAuthenticator != nil {
+		options = append(options, csf.WithAgentMessaging(agentRelay))
+	}
 	if settings.emailConfiguration != "" {
 		if agentMCPAuthenticator == nil {
 			return fmt.Errorf("operator email requires the agent MCP signing key")
@@ -229,28 +299,30 @@ func serve(mode string, arguments []string) error {
 		if err != nil {
 			return err
 		}
-		var config struct {
-			URL string `json:"url"`
-		}
-		if err := json.Unmarshal(content, &config); err != nil {
+		var databaseSettings csfpg.Settings
+		if err := json.Unmarshal(content, &databaseSettings); err != nil {
 			return err
 		}
-		pool, err := pgxpool.New(ctx, config.URL)
+		// The binary owns the pool: it opens it, hands it to the services as
+		// their database capability and closes it after they stop.
+		pool, err := csfpg.OpenPool(ctx, databaseSettings)
 		if err != nil {
-			return fmt.Errorf("invalid database configuration")
+			return err
 		}
 		defer pool.Close()
-		if err := pool.Ping(ctx); err != nil {
-			return fmt.Errorf("database connection failed")
-		}
-		store, err := csf.NewPostgres(pool)
+		// CSF's schema goes up under its own version table; idempotent, so
+		// "initialize" and an ordinary start apply the same migration.
+		schemaHandle := pool.OpenSQL()
+		err = csfpg.ApplySchema(ctx, schemaHandle)
+		_ = schemaHandle.Close()
 		if err != nil {
 			return err
 		}
 		if mode == "initialize" {
-			return store.Initialize(ctx)
+			return nil
 		}
-		if err := store.Migrate(ctx); err != nil {
+		store, err := csf.NewPostgres(pool)
+		if err != nil {
 			return err
 		}
 		artifacts, err := csf.NewArtifacts(settings.artifactsPath)
@@ -265,8 +337,8 @@ func serve(mode string, arguments []string) error {
 		defer func() { _ = index.Close() }()
 		options = append(options, csf.WithKnowledge(store, index, artifacts), csf.WithAgentConfigurations(store))
 		var policy *brainspinev1.SimulationConfig
-		var provider csf.IBatch
-		var logs csf.ISimulationLogs
+		var provider jobledger.IBatch
+		var logs jobledger.ICloudWatchLogs
 		if settings.simulationConfig != "" {
 			content, err := os.ReadFile(settings.simulationConfig)
 			if err != nil {
@@ -297,7 +369,7 @@ func serve(mode string, arguments []string) error {
 			if err := protojson.Unmarshal(content, localConfig); err != nil {
 				return err
 			}
-			docker, err := dockerclient.New(dockerclient.WithHost(localConfig.DockerHost), dockerclient.WithAPIVersionNegotiation())
+			docker, err := ipcdocker.NewContainerHost(ipcdocker.WithDockerHost(localConfig.DockerHost))
 			if err != nil {
 				return err
 			}
@@ -417,17 +489,31 @@ func serve(mode string, arguments []string) error {
 		if err != nil {
 			return err
 		}
-		var databaseConfig struct {
-			URL string `json:"url"`
-		}
-		if err := json.Unmarshal(content, &databaseConfig); err != nil {
+		var workbenchDatabaseSettings csfpg.Settings
+		if err := json.Unmarshal(content, &workbenchDatabaseSettings); err != nil {
 			return err
 		}
-		database, err := sql.Open("pgx", databaseConfig.URL)
+		workbenchPool, err := csfpg.OpenPool(ctx, workbenchDatabaseSettings)
 		if err != nil {
-			return fmt.Errorf("workbench database configuration invalid")
+			return fmt.Errorf("workbench database: %w", err)
 		}
+		defer workbenchPool.Close()
+		database := workbenchPool.OpenSQL()
 		defer func() { _ = database.Close() }()
+		// Chat schedules are cron triggers whose state lives in CSF's
+		// schema, so the Workbench database carries it too, under
+		// csf_schema_version.
+		if err := csfpg.ApplySchema(ctx, database); err != nil {
+			return fmt.Errorf("workbench database: %w", err)
+		}
+		// The adapter's own tables, under their own version table.
+		if err := sqlmigrate.Apply(ctx, database, adapterstore.Migrations, adapterstore.MigrationsDirectory); err != nil {
+			return fmt.Errorf("workbench database: %w", err)
+		}
+		scheduleStore, err := cronservice.NewStore(workbenchPool)
+		if err != nil {
+			return err
+		}
 		token := ""
 		if settings.workbenchToken != "" {
 			secret, err := os.ReadFile(settings.workbenchToken)
@@ -459,6 +545,15 @@ func serve(mode string, arguments []string) error {
 		if agentMCPAuthenticator != nil {
 			bridgeConfig.MCPServerResolver = workbenchMCPServerResolver(settings.origin, traceConfig, agentMCPAuthenticator)
 		}
+		// Sessions are created or restored only after the Workbench and its
+		// session messaging exist below, so the resolver always sees them.
+		var sessionMessaging *copilotadapter.SessionMessaging
+		bridgeConfig.ToolResolver = func(_ context.Context, spec copilotadapter.BridgeSessionSpec) ([]copilot.Tool, error) {
+			if sessionMessaging == nil {
+				return nil, nil
+			}
+			return copilotbridge.NewAgentMessagingTools(sessionMessaging, spec.SessionID), nil
+		}
 		bridge, err := copilotbridge.NewCopilotBridge(ctx, bridgeConfig)
 		if err != nil {
 			return err
@@ -468,7 +563,12 @@ func serve(mode string, arguments []string) error {
 		if err != nil {
 			return err
 		}
-		copilotWorkbench, err = workbench.NewWorkbench(ctx, database, workbench.WithBridge(bridge),
+		launcher, err := proc.NewHostLauncher()
+		if err != nil {
+			return err
+		}
+		copilotWorkbench, err = workbench.NewWorkbench(ctx, workbenchPool, workbench.WithBridge(bridge), workbench.WithLauncher(launcher),
+			workbench.WithScheduleStore(scheduleStore),
 			workbench.WithRepository(settings.workbenchRepository), workbench.WithWorktrees(settings.workbenchWorktrees),
 			workbench.WithTaskContinuity(tasks), workbench.WithKanbanOrigins(strings.TrimRight(settings.origin, "/")))
 		if err != nil {
@@ -481,6 +581,16 @@ func serve(mode string, arguments []string) error {
 				slog.Warn("close Workbench", "error", err)
 			}
 		}()
+		sessionMessaging, err = copilotadapter.NewSessionMessaging(copilotWorkbench.Adapter, agentRelay)
+		if err != nil {
+			return err
+		}
+		if err := sessionMessaging.Start(messagingScope); err != nil {
+			return err
+		}
+		// Join delivery goroutines before the Workbench they deliver into
+		// closes; Close is idempotent, so the earlier deferred call is a no-op.
+		defer func() { _ = messagingScope.Close() }()
 		if err := copilotWorkbench.Register(engine); err != nil {
 			return err
 		}
@@ -488,7 +598,8 @@ func serve(mode string, arguments []string) error {
 			workbench.MountUI(engine, settings.workbenchUI)
 		}
 		if traceConfig != nil {
-			exporter, err := copilotadapter.NewTraceExporter(copilotWorkbench.Store, traceConfig)
+			exporter, err := copilotadapter.NewTraceExporter(copilotWorkbench.Store, traceConfig,
+				copilotadapter.WithTraceNetwork(ipcnet.NewHostNetwork()))
 			if err != nil {
 				return err
 			}

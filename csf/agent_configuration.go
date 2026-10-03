@@ -34,12 +34,19 @@ func withVerifiedAgentIdentity(ctx context.Context, id string, sessionID string)
 	return context.WithValue(ctx, agentIdentityContextKey{}, agentIdentity{id: id, sessionID: sessionID})
 }
 
-func agentIDFromContext(ctx context.Context) (string, error) {
+// verifiedAgentIdentity returns the identity AgentMCPHandler verified for
+// this request; nothing else puts one in a context.
+func verifiedAgentIdentity(ctx context.Context) (agentIdentity, error) {
 	identity, ok := ctx.Value(agentIdentityContextKey{}).(agentIdentity)
 	if !ok || identity.id == "" || identity.sessionID == "" {
-		return "", ErrUnauthorized
+		return agentIdentity{}, ErrUnauthorized
 	}
-	return identity.id, nil
+	return identity, nil
+}
+
+func agentIDFromContext(ctx context.Context) (string, error) {
+	identity, err := verifiedAgentIdentity(ctx)
+	return identity.id, err
 }
 
 // GetOwnAgentConfiguration returns the configuration selected by the signed

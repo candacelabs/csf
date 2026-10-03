@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "runtime",
+    srcs = [
+        "host.go",
+        "lazy.go",
+        "scope.go",
+    ],
+    importpath = "github.com/candacelabs/csf/runtime",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_sourcegraph_conc//pool"],
+)
+
+go_test(
+    name = "runtime_test",
+    srcs = [
+        "lazy_test.go",
+        "mock_host_test.go",
+        "mock_lazy_test.go",
+        "runtime_suite_test.go",
+        "runtime_test.go",
+    ],
+    deps = [
+        ":runtime",
+        "//pkg/eventually",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_onsi_gomega//types",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

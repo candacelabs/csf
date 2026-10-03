@@ -1,0 +1,143 @@
+// Case 020 fixture — CLEAN. The same pool, the same behavior, with the state
+// machine owned by one goroutine and every transition arriving as a message. A
+// gate run over this file must report nothing at all.
+//
+// Read the struct first: it holds channels and no state. `state`, `pending`
+// and `inFlight` are now locals inside `own`, which is the only goroutine that
+// may touch them, so there is nothing to lock and nothing for `-race` to find.
+// The states did not disappear — the negotiation over them did.
+//
+// This fixture contains NO mutex, including the leaf mutex CS-5 explicitly
+// permits. That is a deliberate limit of tier 1 and it is argued in
+// `expected.json` and in ../../../README.md § "When a rule's exemption cannot
+// live in a fixture"; the leaf case is judged by case 021 instead.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "errors"
+
+// metricsSink is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const metricsSink = "198.51.100.20:9100"
+
+var errPoolClosed = errors.New("worker pool is closed")
+
+// poolState still exists. CSP does not delete the states; it gives them one
+// owner, so the transitions are statements in one goroutine's control flow
+// instead of a protocol spread across three.
+type poolState int
+
+const (
+	poolRunning poolState = iota
+	poolDraining
+	poolClosed
+)
+
+// Job is one unit of work handed to the pool.
+type Job struct {
+	Key     string
+	Payload []byte
+}
+
+// Stats is the answer to a stats query, copied out of the owner goroutine.
+type Stats struct {
+	Pending  int
+	InFlight int
+}
+
+// submission is one Submit call in flight: the job, plus the channel its
+// verdict comes back on. The reply channel is what replaces the caller
+// holding a lock while it decides.
+type submission struct {
+	job   Job
+	reply chan error
+}
+
+// WorkerPool is a handle on the owner goroutine, not a box of shared state.
+type WorkerPool struct {
+	submissions chan submission
+	completions chan Job
+	queries     chan chan Stats
+	drains      chan chan struct{}
+}
+
+// NewWorkerPool starts the owner goroutine and returns a handle to it.
+func NewWorkerPool(workers int) *WorkerPool {
+	pool := &WorkerPool{
+		submissions: make(chan submission),
+		completions: make(chan Job, workers),
+		queries:     make(chan chan Stats),
+		drains:      make(chan chan struct{}),
+	}
+	go pool.own(workers)
+	return pool
+}
+
+// own is the single goroutine allowed to see the pool's state. Everything it
+// touches is a local variable, which is the whole point: a datum with one
+// owner needs no lock, and a reader of this function can follow the state
+// machine top to bottom without asking which other goroutine holds what.
+func (pool *WorkerPool) own(workers int) {
+	state := poolRunning
+	pending := make([]Job, 0, workers)
+	inFlight := 0
+	var draining []chan struct{}
+
+	for {
+		select {
+		case request := <-pool.submissions:
+			if state != poolRunning {
+				request.reply <- errPoolClosed
+				continue
+			}
+			pending = append(pending, request.job)
+			request.reply <- nil
+		case <-pool.completions:
+			inFlight--
+		case reply := <-pool.queries:
+			reply <- Stats{Pending: len(pending), InFlight: inFlight}
+		case waiter := <-pool.drains:
+			state = poolDraining
+			draining = append(draining, waiter)
+		}
+
+		if state == poolDraining && inFlight == 0 && len(pending) == 0 {
+			state = poolClosed
+			for _, waiter := range draining {
+				close(waiter)
+			}
+			return
+		}
+	}
+}
+
+// Submit queues one job and waits for the owner's verdict.
+func (pool *WorkerPool) Submit(job Job) error {
+	reply := make(chan error, 1)
+	pool.submissions <- submission{job: job, reply: reply}
+	return <-reply
+}
+
+// Complete tells the owner that a worker finished a job.
+func (pool *WorkerPool) Complete(job Job) {
+	pool.completions <- job
+}
+
+// Drain stops new submissions and blocks until the owner has closed. The
+// polling loop the locked version needed is gone: the owner closes the waiter
+// channel when it is actually finished, so there is nothing to poll.
+func (pool *WorkerPool) Drain() {
+	waiter := make(chan struct{})
+	pool.drains <- waiter
+	<-waiter
+}
+
+// Stats reports the queue depth and the in-flight count.
+func (pool *WorkerPool) Stats() Stats {
+	reply := make(chan Stats, 1)
+	pool.queries <- reply
+	return <-reply
+}

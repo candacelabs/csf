@@ -5,10 +5,14 @@
 !app/**
 !csf/
 !csf/**
+!ipc/
+!ipc/**
 !pkg/
 !pkg/**
 !proto/
 !proto/**
+!runtime/
+!runtime/**
 !services/
 !services/**
 **/.git

@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 )
 
 // Timing profile for the test cluster: aggressive but safe multiples so
@@ -50,8 +50,8 @@ const (
 // box running anything else. That trade is not symmetric and these numbers
 // reflect it.
 var (
-	convergeBudget = patience.Budget{Within: time.Minute, Interval: pollEvery}
-	alertBudget    = patience.Budget{Within: time.Minute, Interval: pollEvery}
+	convergeBudget = eventually.Budget{Within: time.Minute, Interval: pollEvery}
+	alertBudget    = eventually.Budget{Within: time.Minute, Interval: pollEvery}
 )
 
 // clusterReporter is how a failed await in this suite reaches the test.
@@ -386,7 +386,7 @@ func (c *cluster) status(id string) statusView {
 // the stale pre-kill state survivors report right after a leader dies.
 // Returns the agreed leader and its term.
 func (c *cluster) awaitConsistentLeader(ids []string, notLeader string, minTerm uint64, phase string) (string, uint64) {
-	agreed := patience.Await(c.reporting(),
+	agreed := eventually.Await(c.reporting(),
 		fmt.Sprintf("%s: %v to agree on one authoritative leader", phase, ids),
 		convergeBudget,
 		func() consistency {
@@ -454,7 +454,7 @@ func (c *cluster) checkConsistent(ids []string) consistency {
 
 // awaitPeerStatus polls until observer's view reports peer with status.
 func (c *cluster) awaitPeerStatus(observer, peer, status string) {
-	patience.Await(c.reporting(),
+	eventually.Await(c.reporting(),
 		fmt.Sprintf("%s to report peer %s as %s", observer, peer, status),
 		alertBudget,
 		func() map[string]peerFact { return c.peerFacts(observer) },
@@ -463,7 +463,7 @@ func (c *cluster) awaitPeerStatus(observer, peer, status string) {
 
 // awaitAllAlive polls until observer's view reports every listed node alive.
 func (c *cluster) awaitAllAlive(observer string, ids []string) {
-	patience.Await(c.reporting(),
+	eventually.Await(c.reporting(),
 		fmt.Sprintf("%s to report all of %v alive", observer, ids),
 		convergeBudget,
 		func() map[string]peerFact { return c.peerFacts(observer) },
@@ -510,7 +510,7 @@ func (c *cluster) countAlerts(id, typ, peer string) int {
 
 // awaitAlert waits for node id's alert file to record an alert of typ for peer.
 func (c *cluster) awaitAlert(id, typ, peer string) {
-	patience.Await(c.reporting(),
+	eventually.Await(c.reporting(),
 		fmt.Sprintf("%s to record a %s alert for %s", id, typ, peer),
 		alertBudget,
 		func() int { return c.countAlerts(id, typ, peer) },
@@ -519,7 +519,7 @@ func (c *cluster) awaitAlert(id, typ, peer string) {
 
 // awaitAlertAnywhere waits for any node's alert file to record the alert.
 func (c *cluster) awaitAlertAnywhere(typ, peer string) {
-	patience.Await(c.reporting(),
+	eventually.Await(c.reporting(),
 		fmt.Sprintf("any node to record a %s alert for %s", typ, peer),
 		alertBudget,
 		func() map[string]int {
@@ -659,13 +659,13 @@ func TestClusterDiscoveryJoin(t *testing.T) {
 	writeRoster(t, roster, addrs)
 
 	// Observer phase: some seed node reports n4 as observer.
-	patience.Await(c.reporting(), "n4 to appear as an observer on the leader's view", convergeBudget,
+	eventually.Await(c.reporting(), "n4 to appear as an observer on the leader's view", convergeBudget,
 		func() map[string]peerFact { return c.peerFacts(leader1) },
 		func(facts map[string]peerFact) bool { return facts["n4"].Member == "observer" })
 
 	// Admission: every node (including n4) converges on 4 voters.
 	all := []string{"n1", "n2", "n3", "n4"}
-	patience.Await(c.reporting(), "every node to converge on the 4-voter membership", convergeBudget,
+	eventually.Await(c.reporting(), "every node to converge on the 4-voter membership", convergeBudget,
 		func() map[string]membership {
 			readings := map[string]membership{}
 			for _, id := range all {

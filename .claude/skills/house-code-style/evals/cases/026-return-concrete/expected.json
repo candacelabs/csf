@@ -1,0 +1,15 @@
+{
+  "case_id": "026-return-concrete",
+  "tier": 1,
+  "rule_under_test": "CS-8",
+  "summary": "A config-selected factory that returns IProbe becomes a switch inside the consumer that assigns concrete constructors into a declared interface variable; the empty arm assigns nothing, so the untyped-nil seam survives. Since 2026-09-03 the dirty fixture also carries the two composite shapes the amendment brought into scope - []IProbe and map[string]IProbe - because reading a slice of interfaces as a container rather than an implementation is exactly what kept this repository's own framework contract at zero findings for a month. The clean fixture carries all three shapes CS-8 permits - a hook implementation, a sealed sum type and a third-party pass-through - because unlike CS-5/6/7 this rule's exemptions are ones the lexer can see, and since 2026-09-02 it also carries the data-shaped test: a Timer struct of a channel plus function values that a method returns concretely, beside the one method-position interface return the test keeps.",
+  "dirty_must_fire": [
+    "CS-8"
+  ],
+  "dirty_min_findings": {
+    "CS-8": 3
+  },
+  "clean_must_not_fire": [
+    "CS-8"
+  ]
+}

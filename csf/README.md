@@ -3,7 +3,7 @@
   <p><b>One Go runtime. Agent work, typed tools, shared knowledge, observable experiments.</b></p>
   <p>
     <a href="../LICENSE"><img src="../docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#10-contracts-and-release-evidence"><img src="../docs/assets/badge-version.svg" alt="version: 0.1.0"></a>
+    <a href="#10-contracts-and-release-evidence"><img src="../docs/assets/badge-version.svg" alt="version: 0.1.3"></a>
     <a href="#7-try-the-library"><img src="../docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="../docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="../docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -18,6 +18,7 @@
     <a href="AGENTS.md"><b>Agent instructions</b></a> ·
     <a href="#9-examples-and-boundaries"><b>Examples</b></a> ·
     <a href="docs/generated/ontology_cgen.md"><b>Terms</b></a> ·
+    <a href="../docs/GLOSSARY.md"><b>Glossary</b></a> ·
     <a href="#11-citation"><b>Citation</b></a>
   </p>
 </div>
@@ -26,24 +27,26 @@
 
 ## 1. Introduction
 
-CSF — The Cerebrospinal Fluid — is the library and runtime at the centre of
-this repository: one Go process that composes agent sessions, typed tools,
-knowledge and experiment evidence around a brain and a spine. The
+CSF — The Cerebrospinal Fluid — is the library and [runtime](docs/generated/ontology_cgen.md#term-runtime) at the centre of
+this repository: one Go process that composes [agent](docs/generated/ontology_cgen.md#term-agent) sessions, typed tools,
+[knowledge](docs/generated/ontology_cgen.md#term-knowledge) and experiment evidence around a [brain](docs/generated/ontology_cgen.md#term-brain) and a [spine](docs/generated/ontology_cgen.md#term-spine). The
 [repository front page](../README.md) is the overview; this page is the
 library's own technical guide.
 
-**CSF's first release, 0.1.0, is a developer preview.** It makes no stability
+**CSF's current release, v0.1.3, is a developer preview.** It makes no stability
 or compatibility promise beyond what this page states.
 This is a breaking integration baseline. Pin a reviewed snapshot and use the
-examples shipped with it. The public Go import is
-`github.com/candacelabs/csf/csf`; this release does not introduce a `/v2`
-module or claim backward compatibility for earlier experimental CSF interfaces.
+examples shipped with it. The public Go module is `github.com/candacelabs/csf`;
+this library is the package in its `csf/` directory. This release does not
+introduce a `/v2` module or claim backward compatibility for earlier
+experimental CSF interfaces. Human readers can find every term on this page
+explained in the plain-language [glossary](../docs/GLOSSARY.md).
 
-| Work | Knowledge | Evidence |
+| Work | [Knowledge](docs/generated/ontology_cgen.md#term-knowledge) | Evidence |
 |---|---|---|
-| Sessions, worktrees, schedules, and a shared Workbench | Typed tools, ingestion, and configured search | Traces, experiment results, and retained receipts |
+| Sessions, worktrees, schedules, and a shared [Workbench](docs/generated/ontology_cgen.md#term-bench) | Typed tools, ingestion, and configured search | Traces, experiment results, and retained receipts |
 
-The brain proposes. The spine executes admitted behavior. CSF supplies the
+The [brain](docs/generated/ontology_cgen.md#term-brain) proposes. The [spine](docs/generated/ontology_cgen.md#term-spine) executes admitted behavior. CSF supplies the
 contracts and coordination that let each experiment inform the next decision.
 
 ## 2. Why Go: no IPC inside LITHE's CPU 0 (Housekeeping)
@@ -52,26 +55,26 @@ contracts and coordination that let each experiment inform the next decision.
 
 *[Figure 2](https://arxiv.org/html/2603.07442v1#S1.F2) from Lim and Clites (2026) [[1](#ref-lithe)],
 arXiv:2603.07442. © the authors. Architecture inspiration: CSF coordinates the
-work, knowledge, and evidence around the brain and spine.*
+work, [knowledge](docs/generated/ontology_cgen.md#term-knowledge), and evidence around the [brain](docs/generated/ontology_cgen.md#term-brain) and [spine](docs/generated/ontology_cgen.md#term-spine).*
 
-LITHE ([Lim and Clites, 2026](#ref-lithe)) names CPU 0 (Housekeeping) (LITHE
+LITHE ([Lim and Clites, 2026](#ref-lithe)) names CPU 0 ([Housekeeping](../docs/GLOSSARY.md#lit-housekeeping)) (LITHE
 [§III-B](https://arxiv.org/html/2603.07442v1#S3.SS2)) and treats inter-process
-communication (IPC) as an architectural concern (LITHE
+communication ([IPC](docs/generated/ontology_cgen.md#term-ipc)) as an architectural concern (LITHE
 [§III-C](https://arxiv.org/html/2603.07442v1#S3.SS3)). CSF applies that framing to the coordination work
-inside the housekeeping layer: tools, sessions, schedules, knowledge and observation.
+inside the [housekeeping](../docs/GLOSSARY.md#lit-housekeeping) layer: tools, sessions, schedules, [knowledge](docs/generated/ontology_cgen.md#term-knowledge) and observation.
 
-**CSF prevents the avoidable IPC problem within this layer by composing those
-capabilities in one Go process.** Services are Go libraries selected with functional
+**CSF prevents the avoidable [IPC](docs/generated/ontology_cgen.md#term-ipc) problem within this layer by composing those
+capabilities in one Go process.** [Services](docs/generated/ontology_cgen.md#term-service) are Go libraries selected with functional
 options. They exchange typed values through function calls and coordinate
-concurrent work with goroutines and channels. An internal handoff needs no
-socket, wire serialization or separate service daemon. Go's
+concurrent work with [goroutines](docs/generated/ontology_cgen.md#term-goroutine) and channels. An internal handoff needs no
+socket, wire serialization or separate daemon. Go's
 [concurrency primitives](https://go.dev/doc/effective_go#concurrency) let waiting
-on tools, storage and model calls coexist in the same runtime; contexts and
+on tools, storage and model calls coexist in the same [runtime](docs/generated/ontology_cgen.md#term-runtime); contexts and
 explicit ownership give each operation a cancellation and cleanup path.
 The [consumer example](../examples/csf-consumer/main.go) shows that composition.
 
-PostgreSQL, OpenSearch, Langfuse and external model or simulator processes keep
-their protocol boundaries. LITHE's Brain–Spine shared-memory IPC remains a
+PostgreSQL, [OpenSearch](docs/generated/ontology_cgen.md#term-opensearch), Langfuse and external model or simulator processes keep
+their protocol boundaries. LITHE's [Brain](docs/generated/ontology_cgen.md#term-brain)–[Spine](docs/generated/ontology_cgen.md#term-spine) shared-memory [IPC](docs/generated/ontology_cgen.md#term-ipc) remains a
 separate integration boundary. The CPU 0 mapping describes CSF's role; CPU
 affinity and isolation require deployment configuration.
 
@@ -84,18 +87,18 @@ same boundaries.
 ## 3. Agent-native onboarding
 
 CSF is intended to be **agent-native**. Alongside human-readable READMEs,
-it exposes an MCP server. The goal is a **self-changeable MCP surface** that
-an agent can learn, configure and extend for the consumer repository.
+it exposes an [MCP](docs/generated/ontology_cgen.md#term-mcp) server. The goal is a **self-changeable [MCP](docs/generated/ontology_cgen.md#term-mcp) surface** that
+an [agent](docs/generated/ontology_cgen.md#term-agent) can learn, configure and extend for the consumer repository.
 
-The intended first instruction to your agent is **“Learn about CSF.”** The
+The intended first instruction to your [agent](docs/generated/ontology_cgen.md#term-agent) is **“Learn about CSF.”** The
 `LearnAboutCSF` operation explains the pinned version's capabilities and
 extension points and submits the embedded guidance plus selected consumer
-files to the configured knowledge capability. Its first call needs no arguments.
+files to the configured [knowledge](docs/generated/ontology_cgen.md#term-knowledge) capability. Its first call needs no arguments.
 Set `CSF_CONSUMER_ROOT` to authorize a checkout, then select relative source
 paths in batches of up to 64. The response carries durable ingestion receipts
 with revisions and content hashes; queued receipts become searchable when the
 existing projection workers finish. Repeating the call is idempotent and
-retrieves matching indexed sources. Without knowledge configuration, the tool
+retrieves matching indexed sources. Without [knowledge](docs/generated/ontology_cgen.md#term-knowledge) configuration, the tool
 still explains CSF and reports that indexing is unavailable. See the
 [configuration contract](docs/configuration.md); library hosts use
 `WithOnboarding` for the same source authorization.
@@ -105,7 +108,7 @@ Copilot CLI history is an explicit opt-in source. Set
 authorized to read; startup copies that directory into a disposable SDK home,
 and the live source is never opened by onboarding. Select at most 16 session
 IDs with `copilot_session_ids` in `LearnAboutCSF`. An empty first call does not
-read history. When the source is configured, the same MCP server exposes
+read history. When the source is configured, the same [MCP](docs/generated/ontology_cgen.md#term-mcp) server exposes
 `ListCopilotHistorySessions`; list IDs there, then pass selected IDs to
 onboarding. Library hosts can call the bridge's typed `ListHistorySessions`
 method directly. Each retained document is a
@@ -116,25 +119,25 @@ Native acceptance with Copilot CLI 1.0.85 and SDK 1.0.11 also reads a persisted
 synthetic conversation without changing its source or making another model
 request. Real PostgreSQL/OpenSearch acceptance verifies retained history reaches
 the lexical search index. User history is not part of those fixtures.
-It guides the agent through this workflow:
+It guides the [agent](docs/generated/ontology_cgen.md#term-agent) through this workflow:
 
 1. Inspect the consumer repository and identify tooling CSF can take over.
 2. Adopt CSF through its Bazel dependency, required environment settings and
    optional capabilities, keeping consumer integration code minimal.
-3. Extend that same MCP server with the consumer's own tools: define their
+3. Extend that same [MCP](docs/generated/ontology_cgen.md#term-mcp) server with the consumer's own tools: define their
    contracts, implement their behavior and expose them alongside CSF's tools.
 4. Discover and call the resulting tools, run the consumer's checks and retain
    evidence that the integration works.
 
 The aim is broad, mostly implicit dependence on CSF: it handles more underneath
 the consumer, and improvements arrive through CSF upgrades with minimal changes
-to consumer code. The agent can continue adapting its integration and adding
+to consumer code. The [agent](docs/generated/ontology_cgen.md#term-agent) can continue adapting its integration and adding
 tools as the repository's needs change.
 
-**Current status:** the MCP server,
+**Current status:** the [MCP](docs/generated/ontology_cgen.md#term-mcp) server,
 [agent configuration tools](docs/standalone_onboarding.md#agent-configuration),
 typed consumer registration (`WithMCPTool[In, Out]`) and the onboarding
-operation exist. Consumer registration uses the pinned MCP SDK to derive and
+operation exist. Consumer registration uses the pinned [MCP](docs/generated/ontology_cgen.md#term-mcp) SDK to derive and
 validate schemas, and rejects name collisions with CSF operations. The host
 still owns listener startup, authentication, repository authorization and
 consumer checks.
@@ -166,8 +169,9 @@ machine-checks four theorems about that bounded model:
 `bash csf/examples/proof/check.sh` runs the pinned Lean release with
 `--trust=0` and admits only Lean's standard `propext`, `Classical.choice` and
 `Quot.sound` axioms. What is not proved: agreement between the Lean model and
-the canonical wire semantics (a reviewed translation boundary), equivalence of
-the native Go and Rust evaluators (conformance tests only), and `csfc` itself —
+the canonical wire semantics (a reviewed translation boundary), any controller
+implementation (CSF ships none: the low-level [spine](docs/generated/ontology_cgen.md#term-spine) is external and ROS-side,
+reached through `ipc/ros`), and `csfc` itself —
 its [Lean verifier](compiler/verification/README.md) is a stub that returns
 `notImplemented`. The actuator clamp proves a numeric range only; timing,
 stability, collision avoidance, safe controller switching and physical safety
@@ -176,12 +180,12 @@ remain outside every theorem.
 ## 5. System diagrams
 
 These diagrams are **generated**, not hand-maintained. The shared
-[architecture model](docs/generated/architecture.csf) also produces the
+[architecture model](compiler/language/architecture.csf) also produces the
 [human dictionary](docs/generated/ontology_cgen.md); its syntax is specified in
-[EBNF](docs/generated/grammar.ebnf). The OCaml documentation compiler checks identifiers,
+[EBNF](compiler/language/grammar.ebnf). The OCaml documentation compiler checks identifiers,
 references and the declared graph before rendering. Separate architecture checks
 inspect selected Go ownership/process boundaries. These checks establish their
-stated source constraints, not runtime timing or physical safety.
+stated source constraints, not [runtime](docs/generated/ontology_cgen.md#term-runtime) timing or physical safety.
 
 Solid connections are existing components or configurable integrations. Dotted
 connections are planned. An integration shown here still needs its dependencies
@@ -195,20 +199,20 @@ flowchart TB
   classDef csf_existing fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#FFFFFF;
   classDef csf_planned fill:#FEF3C7,stroke:#B45309,stroke-width:2px,color:#78350F;
   n_human["Human or agent client (existing)"]:::csf_existing
-  n_brain["Models and agents (existing)"]:::csf_existing
+  n_brain["Brain (existing)"]:::csf_existing
   n_contracts["Shared typed contracts (existing)"]:::csf_existing
-  n_stores["PostgreSQL and artifact storage (existing)"]:::csf_existing
-  n_jobs["Simulator and AWS Batch adapters (existing)"]:::csf_existing
+  n_stores["Store (existing)"]:::csf_existing
+  n_jobs["Job ledger (existing)"]:::csf_existing
   n_views["Prometheus#44; Grafana and Langfuse (existing)"]:::csf_existing
   n_experiments["Training results and optional MLflow (existing)"]:::csf_existing
-  n_vendor["Consumer Copilot backend (existing)"]:::csf_existing
-  n_spine["Consumer C#43;#43; control loop (planned)"]:::csf_planned
+  n_vendor["Copilot brain provider (existing)"]:::csf_existing
+  n_spine["Low#45;level spine controller (planned)"]:::csf_planned
   n_hardware["Consumer sensors and actuators (planned)"]:::csf_planned
   subgraph g_host["CSF#58; one Go application process"]
     n_bench["Workbench (existing)"]:::csf_existing
     n_api["Generated HTTP#44; CLI and MCP operations (existing)"]:::csf_existing
     n_knowledge["Knowledge and retrieval (existing)"]:::csf_existing
-    n_compiler["Bounded controller compiler (existing)"]:::csf_existing
+    n_ros["ROS spine capability (existing)"]:::csf_existing
     n_workers["Configured worker goroutines (existing)"]:::csf_existing
     n_inspect["Inspection (existing)"]:::csf_existing
     n_widgets["Widget SDK and gotth#45;live (existing)"]:::csf_existing
@@ -220,7 +224,7 @@ flowchart TB
   n_bench --> n_api
   n_bench --> n_vendor
   n_api --> n_knowledge
-  n_api --> n_compiler
+  n_api -->|"spine status"| n_ros
   n_api --> n_workers
   n_api --> n_inspect
   n_knowledge --> n_stores
@@ -229,7 +233,7 @@ flowchart TB
   n_inspect --> n_views
   n_brain --> n_experiments
   n_widgets -->|"keyed Kanban cards"| n_bench
-  n_compiler -.->|"planned external adapter"| n_spine
+  n_ros -.->|"planned ROS transport"| n_spine
   n_spine -.-> n_hardware
   linkStyle 0 stroke:#0F766E,stroke-width:2px
   linkStyle 1 stroke:#0F766E,stroke-width:2px
@@ -265,25 +269,25 @@ flowchart LR
   n_execute["Execute (existing)"]:::csf_existing
   n_evaluate["Evaluate (existing)"]:::csf_existing
   n_save_evidence["Save evidence (existing)"]:::csf_existing
-  n_improve["Improve (planned)"]:::csf_planned
-  n_select_controller["Select a controller between episodes (existing)"]:::csf_existing
+  n_ouroboros["Ouroboros (planned)"]:::csf_planned
+  n_select_controller["Select a controller between episodes (planned)"]:::csf_planned
   n_observe -.-> n_retrieve
   n_retrieve -.-> n_choose
   n_choose -.-> n_check
   n_check --> n_execute
   n_execute --> n_evaluate
   n_evaluate --> n_save_evidence
-  n_evaluate --> n_select_controller
+  n_evaluate -.-> n_select_controller
   n_select_controller -.->|"next agent iteration"| n_choose
-  n_save_evidence -.-> n_improve
-  n_improve -.->|"next iteration"| n_observe
+  n_save_evidence -.-> n_ouroboros
+  n_ouroboros -.->|"next iteration"| n_observe
   linkStyle 0 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 1 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 3 stroke:#0F766E,stroke-width:2px
   linkStyle 4 stroke:#0F766E,stroke-width:2px
   linkStyle 5 stroke:#0F766E,stroke-width:2px
-  linkStyle 6 stroke:#0F766E,stroke-width:2px
+  linkStyle 6 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 7 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 8 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 9 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
@@ -325,13 +329,13 @@ flowchart LR
 
 The direction is a system that can inspect a result, propose a change, evaluate
 it against a fixed baseline, and retain the evidence for its next decision.
-Improvement is something to measure, not a consequence of adding an agent loop.
+Improvement is something to measure, not a consequence of adding an [agent](docs/generated/ontology_cgen.md#term-agent) loop.
 
-LITHE [[1](#ref-lithe)] separates best-effort reasoning, real-time control, transport, and housekeeping.
-Its **CPU 0: Housekeeping** box makes CSF's intended position concrete: coordinate
-tools, records, worker lifetimes and experiments around the brain and spine.
+LITHE [[1](#ref-lithe)] separates best-effort reasoning, real-time control, transport, and [housekeeping](../docs/GLOSSARY.md#lit-housekeeping).
+Its **CPU 0: [Housekeeping](../docs/GLOSSARY.md#lit-housekeeping)** box makes CSF's intended position concrete: coordinate
+tools, records, worker lifetimes and experiments around the [brain](docs/generated/ontology_cgen.md#term-brain) and [spine](docs/generated/ontology_cgen.md#term-spine).
 That is our architectural mapping; CSF does not currently implement LITHE's
-loader, CPU isolation, or real-time controller hot swap.
+loader, CPU isolation, or real-time controller [hot swap](../docs/GLOSSARY.md#lit-hot_swap).
 
 ![LITHE Figure 1: hierarchical brain and spine control](https://arxiv.org/html/2603.07442v1/figures/fig_teaser.png)
 
@@ -345,14 +349,14 @@ ownership; CSF's source license does not relicense these externally hosted figur
 ## 7. Try the library
 
 Use Go 1.26. The smallest example needs no database, GPU, model account, or
-extra service process. From the public repository root:
+extra process. From the public repository root:
 
 ```sh
 go run ./examples/csf-theme --listen 127.0.0.1:8089 --theme-dir ./examples/csf-theme
 ```
 
-That mounts the generated HTTP API and MCP at `http://127.0.0.1:8089/mcp`.
-It is an integration example, not the complete Workbench UI. Its essential
+That [mounts](docs/generated/ontology_cgen.md#term-mount) the generated HTTP API and [MCP](docs/generated/ontology_cgen.md#term-mcp) at `http://127.0.0.1:8089/mcp`.
+It is an integration example, not the complete [Workbench](docs/generated/ontology_cgen.md#term-bench) UI. Its essential
 [implementation](../examples/csf-theme/main.go) is:
 
 ```go
@@ -366,7 +370,7 @@ router.Any("/mcp", gin.WrapH(service.MCPHandler()))
 return httpserver.Serve(ctx, httpserver.NewStreamingServer(address, router))
 ```
 
-The service registers its generated HTTP routes and provides the MCP handler;
+The [service](docs/generated/ontology_cgen.md#term-service) registers its generated HTTP routes and provides the [MCP](docs/generated/ontology_cgen.md#term-mcp) handler;
 the caller owns the HTTP server, listener and cancellation.
 Place your CSS in **`workbench-theme.css`** inside the configured directory;
 `ReloadWorkbenchTheme` reloads that fixed file through the same generated API.
@@ -376,7 +380,7 @@ accepted from a tool caller.
 For your own repository, start with the
 [complete consumer example](../examples/csf-consumer/README.md) and
 [extension guide](EXTENDING.md). The example adds a custom Go endpoint beside
-CSF, uses its generated client, discovers MCP tools, reloads a theme, and tests
+CSF, uses its generated client, discovers [MCP](docs/generated/ontology_cgen.md#term-mcp) tools, reloads a theme, and tests
 shutdown. The archive acceptance script creates a fresh Git repository, vendors
 dependencies, then tests/builds with networking disabled.
 
@@ -391,18 +395,18 @@ For Bazel consumers, use the public repository's
 ## 8. Run the Workbench
 
 For native deployment, the [optional dependency package](../app/csf/native/README.md)
-builds selected PostgreSQL, OpenSearch, and Langfuse dependencies as independent
+builds selected PostgreSQL, [OpenSearch](docs/generated/ontology_cgen.md#term-opensearch), and Langfuse dependencies as independent
 [systemd services](../app/csf/native/systemd/). Langfuse uses ClickHouse and Redis;
 AWS S3 is its default object store. A credential or bucket-access failure offers
-an explicit MinIO opt-in that describes the local service, ports, and storage.
+an explicit MinIO opt-in that describes the local MinIO container, ports, and storage.
 
-The supplied composition combines the CSF API, MCP, inspection, Workbench and
-configured workers in one Go application process. **Application** means a
-process-owning runnable composition; **service** means its owned lifecycle
-component. Widgets exist inside gotth-live, CSF's web layer. A widget is not a
-separate application.
+The supplied composition combines the CSF API, [MCP](docs/generated/ontology_cgen.md#term-mcp), [inspection](docs/generated/ontology_cgen.md#term-inspect), [Workbench](docs/generated/ontology_cgen.md#term-bench) and
+configured workers in one Go [application](docs/generated/ontology_cgen.md#term-application) process. **[Application](docs/generated/ontology_cgen.md#term-application)** means a
+process-owning runnable composition; **[service](docs/generated/ontology_cgen.md#term-service)** means its owned lifecycle
+component. [Widgets](docs/generated/ontology_cgen.md#term-widget) exist inside [gotth-live](docs/generated/ontology_cgen.md#term-gotth_live), CSF's [web layer](docs/generated/ontology_cgen.md#term-web). A [widget](docs/generated/ontology_cgen.md#term-widget) is not a
+separate [application](docs/generated/ontology_cgen.md#term-application).
 
-Build the host and the Workbench browser assets from the public repository root:
+Build the host and the [Workbench](docs/generated/ontology_cgen.md#term-bench) browser assets from the public repository root:
 
 ```sh
 go build -trimpath -o out/csf ./app/csf/cmd
@@ -420,11 +424,11 @@ bash app/csf/test-image.sh csf:local
 
 The image runs as the `node` user and contains `/app/candace-runtime` and
 `/app/workbench-ui`. Its acceptance check exercises a local Git LFS worktree
-checkout and HTTP startup without provider credentials. Mount the private
+checkout and HTTP startup without provider credentials. Bind-mount the private
 configuration, repository and writable worktree directory when configuring a
-Workbench deployment; the image does not provide a database or credentials.
+[Workbench](docs/generated/ontology_cgen.md#term-bench) deployment; the image does not provide a database or credentials.
 
-The full Workbench uses your PostgreSQL database and a configured Copilot backend.
+The full [Workbench](docs/generated/ontology_cgen.md#term-bench) uses your PostgreSQL database and a configured Copilot backend.
 Create a private JSON file with `{"url":"postgres://..."}` and configure an
 existing repository and worktree directory. Keep credentials out of Git.
 
@@ -438,7 +442,7 @@ existing repository and worktree directory. Keep credentials out of Git.
   --workbench-theme-dir /absolute/theme-directory
 ```
 
-Open **<http://127.0.0.1:14111/ui/>**. The MCP endpoint is
+Open **<http://127.0.0.1:14111/ui/>**. The [MCP](docs/generated/ontology_cgen.md#term-mcp) endpoint is
 **<http://127.0.0.1:14111/mcp>**. The
 [Workbench composition](../services/copilot-adapter/workbench/workbench.go)
 accepts a caller-supplied database and backend, and has an explicit `Close`.
@@ -447,14 +451,14 @@ the model execution loop into an embedded Go implementation.
 
 For your own composition, follow the [runnable CSF host](../app/csf/cmd/main.go)
 and [Workbench lifecycle](../services/copilot-adapter/workbench/README.md).
-After constructing the Workbench with its database, bridge, repository and
+After constructing the [Workbench](docs/generated/ontology_cgen.md#term-bench) with its database, bridge, repository and
 worktree directory, call `Register(router)` and start the HTTP/MCP listener
-before calling `Restore(ctx)`: restored sessions may connect to that MCP
-endpoint. Workbench API routes return 503 until restoration succeeds. Then run
+before calling `Restore(ctx)`: restored sessions may connect to that [MCP](docs/generated/ontology_cgen.md#term-mcp)
+endpoint. [Workbench](docs/generated/ontology_cgen.md#term-bench) API routes return 503 until restoration succeeds. Then run
 `Adapter.RunSchedules(ctx)` under the host's cancellation context. On shutdown,
 call `Close(ctx)` with a bounded context before closing the bridge and database.
 
-Discover capabilities from MCP `tools/list` rather than copying operation names
+Discover capabilities from [MCP](docs/generated/ontology_cgen.md#term-mcp) `tools/list` rather than copying operation names
 into a second schema. The optional JSON CLI uses the same generated contract:
 
 ```sh
@@ -465,15 +469,14 @@ printf '%s\n' '{}' | ./out/csf call --endpoint http://127.0.0.1:14111 GetSnapsho
 
 | Component | Example and implementation | What the consumer supplies |
 |---|---|---|
-| Mounting and custom Go | [Consumer](../examples/csf-consumer/README.md), [source](../examples/csf-consumer/main.go): mount CSF and add `/consumer/snapshot` | HTTP lifecycle and intended access policy |
+| Mounting and custom Go | [Consumer](../examples/csf-consumer/README.md), [source](../examples/csf-consumer/main.go): [mount](docs/generated/ontology_cgen.md#term-mount) CSF and add `/consumer/snapshot` | HTTP lifecycle and intended access policy |
 | Theme configuration | [Theme](../examples/csf-theme/README.md), [source](../examples/csf-theme/main.go): `csf.WithWorkbenchThemeDirectory(directory)` | The fixed `workbench-theme.css` file |
-| Agent assignment | [Agent example](../examples/csf-agent/README.md), [source](../examples/csf-agent/main.go): typed profile and session assignment | A compatible backend; complete context management remains future work |
-| Knowledge | [Ingestion](examples/knowledge/README.md), [source](examples/knowledge/daily_papers.py): `python3 .../daily_papers.py fetch --date YYYY-MM-DD --out /new/snapshot` | Source documents; persistence and a model for semantic search |
-| CPU controller search | [Driving experiment](examples/training/README.md), [source](examples/training/train.py): `uv run --locked python train.py --runtime /path/to/csf --output /new/run` | Python environment and fixed evaluation seeds; this is numerical search, not neural training |
-| CARLA / Isaac Sim | [Workers](examples/simulators/README.md), [source](examples/simulators/carla_waypoint.py): `SubmitSimulation` then `InspectSimulation` | Vendor images, GPU, configured execution/artifact policy |
+| [Agent](docs/generated/ontology_cgen.md#term-agent) [assignment](docs/generated/ontology_cgen.md#term-assignment) | [Agent example](../examples/csf-agent/README.md), [source](../examples/csf-agent/main.go): typed profile and session [assignment](docs/generated/ontology_cgen.md#term-assignment) | A compatible backend; complete context management remains future work |
+| [Knowledge](docs/generated/ontology_cgen.md#term-knowledge) | [Ingestion](examples/knowledge/README.md), [source](examples/knowledge/daily_papers.py): `python3 .../daily_papers.py fetch --date YYYY-MM-DD --out /new/snapshot` | Source documents; persistence and a model for semantic search |
+| Low-level [spine](docs/generated/ontology_cgen.md#term-spine) | [Boundary](../ipc/ros/spine.go): grant `csf.WithSpine(spine)`; the stub reports `no spine connected` | The external ROS-side controller and its transport |
+| CARLA / Isaac Sim | [Workers](examples/simulators/README.md), [source](examples/simulators/carla_waypoint.py): [`SubmitSimulation`](docs/generated/ontology_cgen.md#term-submit) then [`InspectSimulation`](docs/generated/ontology_cgen.md#term-inspect_job) | Vendor images, GPU, configured execution/artifact policy |
 | AWS Batch | [Configuration](examples/simulators/AWS_BATCH.md), [job example](examples/simulators/aws-job-definition.example.json): choose `SIMULATION_EXECUTOR_AWS_BATCH` | Account, roles, queue, job definitions, budget and S3; real AWS acceptance remains pending |
-| Formal arithmetic model | [Lean proof](examples/proof/README.md), [source](examples/proof/BrainSpine.lean): `bash csf/examples/proof/check.sh` | Pinned Lean download; theorem covers its bounded model, not the Go runtime or robot safety |
-| Independent interpreter | [Rust conformance](examples/rust/README.md), [source](examples/rust/src/lib.rs): `cargo test --locked --manifest-path csf/examples/rust/Cargo.toml` | Rust toolchain; finite conformance tests are not language equivalence proofs |
+| Formal arithmetic model | [Lean proof](examples/proof/README.md), [source](examples/proof/BrainSpine.lean): `bash csf/examples/proof/check.sh` | Pinned Lean download; theorem covers its bounded model, not the Go [runtime](docs/generated/ontology_cgen.md#term-runtime) or robot safety |
 
 Neural training, ROS recording, perception, cross-simulator equivalence, and
 physical robot safety remain consumer work. See the simulator
@@ -488,14 +491,14 @@ currently provides a compiling stub that returns `notImplemented`; it does not
 certify compiler output.
 
 The [architecture model](compiler/language/architecture.csf) generates the diagrams and
-[human dictionary](docs/generated/ontology_cgen.md), using the declared [grammar](docs/generated/grammar.ebnf).
+[human dictionary](docs/generated/ontology_cgen.md), using the declared [grammar](compiler/language/grammar.ebnf).
 The documentation compiler checks identifiers, references, and the graph;
 separate architecture checks inspect selected Go ownership/process boundaries.
-These establish source constraints, not runtime timing or physical safety.
+These establish source constraints, not [runtime](docs/generated/ontology_cgen.md#term-runtime) timing or physical safety.
 
 [`brainspine.proto`](../proto/candace/brainspine/v1/brainspine.proto) and the
 [annotated API](tools/codegen/api/adapter.proto) own the wire messages and operations.
-Generated Go, Python, OpenAPI, HTTP, CLI and MCP projections share those sources.
+Generated Go, Python, OpenAPI, HTTP, CLI and [MCP](docs/generated/ontology_cgen.md#term-mcp) projections share those sources.
 Upstream generators keep their own filenames; Candace-generated output uses
 `_cgen` where it does not conflict with the upstream convention.
 
@@ -544,7 +547,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.1.0},
+  version = {0.1.3},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }

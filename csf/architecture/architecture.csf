@@ -7,32 +7,46 @@ architecture csf version 1 {
   scope application under host;
   scope shell_lifetime under shell;
   scope git_invocation under git_cli;
+  // A relay inbox runs only while it is in use, in a lifetime shorter than
+  // the relay that calls it; lifecycle lazy is what makes that call valid.
+  scope relay_inbox_run under application;
 
   manager composition in host scope application source "app/csf/cmd" state existing lifecycle borrowed verification pending;
   service csf_services in host scope application source "csf" state existing lifecycle scoped verification pending;
   service workbench in host scope application source "services/copilot-adapter/workbench" state existing lifecycle scoped verification pending;
   library kanban_widgets in host scope application source "services/copilot-adapter/kanban" state existing lifecycle borrowed verification test "services/copilot-adapter/integration/workspace_test.go";
-  gateway terminals in host scope application source "services/copilot-adapter/terminaladapter/manager.go" state existing lifecycle scoped verification test "services/copilot-adapter/terminaladapter/manager_test.go";
-  gateway repository_probe in host scope application source "services/copilot-adapter/workbench/ui.go" state existing lifecycle borrowed verification pending;
-  gateway worktrees in host scope application source "services/copilot-adapter/worktreeadapter/manager.go" state existing lifecycle borrowed verification pending;
+  service terminals in host scope application source "services/copilot-adapter/terminaladapter/manager.go" state existing lifecycle scoped verification test "services/copilot-adapter/terminaladapter/manager_test.go";
+  library repository_probe in host scope application source "services/copilot-adapter/workbench/ui.go" state existing lifecycle borrowed verification pending;
+  library worktrees in host scope application source "services/copilot-adapter/worktreeadapter/manager.go" state existing lifecycle borrowed verification pending;
+  service agent_relay in host scope application source "services/relay" state existing lifecycle scoped verification test "services/relay/relay_test.go";
+  service relay_inboxes in host scope relay_inbox_run source "services/relay/inbox.go" state existing lifecycle lazy verification test "services/relay/relay_test.go";
+  gateway proc in host scope application source "ipc/proc" state existing lifecycle borrowed verification test "ipc/proc/launcher_test.go";
   resource terminal_shell in shell scope shell_lifetime state existing lifecycle borrowed verification pending;
   resource git in git_cli scope git_invocation state existing lifecycle borrowed verification pending;
 
   requires composition -> csf_services;
   requires composition -> workbench;
+  requires composition -> agent_relay;
   requires workbench -> terminals;
   requires workbench -> worktrees;
   requires workbench -> repository_probe;
   requires workbench -> kanban_widgets;
+  requires terminals -> proc;
+  requires repository_probe -> proc;
+  requires worktrees -> proc;
   connect composition -> csf_services via call state existing;
   connect composition -> workbench via call state existing;
+  connect composition -> agent_relay via call state existing;
+  connect agent_relay -> relay_inboxes via call state existing;
   connect workbench -> repository_probe via call state existing;
   connect workbench -> terminals via call state existing;
   connect workbench -> worktrees via call state existing;
   connect workbench -> kanban_widgets via call state existing;
-  connect terminals -> terminal_shell via subprocess boundary terminals state existing;
-  connect repository_probe -> git via subprocess boundary repository_probe state existing;
-  connect worktrees -> git via subprocess boundary worktrees state existing;
+  connect terminals -> proc via call state existing;
+  connect repository_probe -> proc via call state existing;
+  connect worktrees -> proc via call state existing;
+  connect proc -> terminal_shell via subprocess boundary proc state existing;
+  connect proc -> git via subprocess boundary proc state existing;
 
   scan "app/csf";
   scan "csf";
@@ -40,13 +54,19 @@ architecture csf version 1 {
   scan "services/copilot-adapter/kanban";
   scan "services/copilot-adapter/terminaladapter";
   scan "services/copilot-adapter/worktreeadapter";
+  scan "services/relay";
+  scan "ipc/proc";
   generated "proto/candace/brainspine";
   generated "csf/api_cgen.go";
   generated "csf/opensearch_client_cgen.go";
   generated "csf/simulation_views_gen.go";
   generated "csf/architecture/generated";
   generated "csf/docs/generated";
-  generated "csf/internal/brainspinedb";
+  generated "ipc/db/csfpg/agent_configurations.sql.go";
+  generated "ipc/db/csfpg/db.go";
+  generated "ipc/db/csfpg/models.go";
+  generated "ipc/db/csfpg/jobs.sql.go";
+  generated "ipc/db/csfpg/queries.sql.go";
   generated "csf/internal/mocks";
   generated "csf/tools/codegen/generated";
 }

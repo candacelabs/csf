@@ -1,4 +1,4 @@
-// Command custom-candaceos is this repository's own Core binary.
+// Command custom-deploy is this repository's own Core binary.
 //
 // It is a complete extending product, linked from a repository that has never
 // seen candace's source tree: every candace package it uses arrives through
@@ -14,7 +14,7 @@
 //	bootstrap.WithComponent       three components of this repository's own,
 //	                              resolved in the order their edges imply
 //	bootstrap.WithHarnessFactory  a full harness implementation compiled
-//	                              outside the CandaceOS tree
+//	                              outside the deploy tree
 //
 // Core keeps everything else: its routes, including the /claws/... paths, its
 // snapshot contract, its API, its persistence, and every string in the UI that
@@ -33,14 +33,14 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/candacelabs/csf/app/candaceos-core/bootstrap"
+	"github.com/candacelabs/csf/app/deploy/bootstrap"
 
 	"example.com/candace-external-consumer/composition"
 )
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Fprintln(os.Stderr, "custom-candaceos:", err)
+		fmt.Fprintln(os.Stderr, "custom-deploy:", err)
 		os.Exit(1)
 	}
 }

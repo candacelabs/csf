@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
-	"github.com/candacelabs/csf/pkg/pgmem"
+	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -18,9 +17,9 @@ import (
 	"go.uber.org/mock/gomock"
 
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/kanban"
-	"github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
 
@@ -37,21 +36,14 @@ type workspaceFixture struct {
 
 func newWorkspaceFixture(options ...copilotadapter.Option) *workspaceFixture {
 	GinkgoHelper()
-	ctx := context.Background()
-	database := pgmem.MustNew()
-	DeferCleanup(database.Close)
-	db := database.Open()
-	DeferCleanup(db.Close)
-	Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-	persistence, err := store.NewPostgresStore(db)
-	Expect(err).NotTo(HaveOccurred())
+	persistence := adaptertest.OpenStore(GinkgoT())
 	controller := gomock.NewController(GinkgoT())
 	worktrees := NewMockIWorktreeManager(controller)
 	worktrees.EXPECT().Repositories().Return([]copilotadapter.Repository{}).AnyTimes()
 	terminals := NewMockITerminalManager(controller)
 	terminals.EXPECT().Close().Return(nil)
 	options = append(options, copilotadapter.WithStore(persistence), copilotadapter.WithBridge(NewMockICopilotBridge(controller)),
-		copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(cron.NewMemoryStore()))
+		copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())))
 	adapter, err := copilotadapter.NewCopilotAdapter(options...)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(adapter.Close)
@@ -65,14 +57,13 @@ func newWorkspaceFixture(options ...copilotadapter.Option) *workspaceFixture {
 	router := gin.New()
 	Expect(adapter.Register(router)).To(Succeed())
 	board.Register(router)
-	server := httptest.NewServer(router)
-	DeferCleanup(server.Close)
-	client, err := api.NewClientWithResponses(server.URL)
+	server := adaptertest.Serve(GinkgoT(), router)
+	client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 	Expect(err).NotTo(HaveOccurred())
 	return &workspaceFixture{adapter: adapter, board: board, router: router, client: client, sessionID: seedWorkspaceSession(persistence)}
 }
 
-func seedWorkspaceSession(persistence *store.PostgresStore) uuid.UUID {
+func seedWorkspaceSession(persistence copilotadapter.IStore) uuid.UUID {
 	GinkgoHelper()
 	now := time.Now().UTC()
 	worktree, err := persistence.CreateWorktree(context.Background(), storedb.CreateWorktreeParams{

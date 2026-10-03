@@ -1,0 +1,28 @@
+// Case 002 fixture — DIRTY. It violates CS-2 and nothing else, in all three
+// places the rule reaches: an interface method, a func type, and a top-level
+// func declaration. The interface is already `I`-prefixed on purpose, so a
+// gate run over this file must report CS-2 findings and zero CS-1 findings —
+// the two rules are tested one at a time so a failure names one cause.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "context"
+
+// IProbe checks one widget endpoint for liveness.
+type IProbe interface {
+	Check(context.Context, string) error
+	Describe() string
+}
+
+// HandlerFunc is a func type, and CS-2 reaches it. CS-1 does not: a func type
+// is not an interface, so `HandlerFunc` is the correct name here.
+type HandlerFunc func(context.Context, []byte) error
+
+// Retry re-runs a probe. Unnamed declaration parameters are legal Go and
+// unreadable at the call site, which is the entire argument for CS-2.
+func Retry(context.Context, int, IProbe) error {
+	return nil
+}

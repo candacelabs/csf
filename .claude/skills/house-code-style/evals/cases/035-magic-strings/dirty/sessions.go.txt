@@ -1,0 +1,22 @@
+package sessions
+
+import "net/http"
+
+// applyStatus records the session's status and answers the poll request.
+func applyStatus(writer http.ResponseWriter, session *Session, status string) {
+	if status == "idle" {
+		session.Status = "idle"
+	}
+	if status == "running" {
+		session.Status = "running"
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Header().Set("Cache-Control", "no-store")
+	if session.Store == nil {
+		writeError(writer, "store_error")
+		return
+	}
+	if session.ID == "" {
+		writeError(writer, "session_not_found")
+	}
+}

@@ -9,7 +9,7 @@ import (
 	"github.com/candacelabs/csf/pkg/telemetry"
 	"golang.org/x/oauth2"
 
-	"github.com/candacelabs/csf/pkg/workcontinuity"
+	"github.com/candacelabs/csf/services/workcontinuity"
 )
 
 const (

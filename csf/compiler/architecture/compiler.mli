@@ -19,3 +19,7 @@ val projections : Model.resolved -> (string * string) list
 (** Only [Emit] writes files. Failed compilation never starts emission.
     Each artifact is replaced atomically; the group is not a transaction. *)
 val run : mode -> config -> (report, Model.diagnostic list) result
+
+(** Check exactly as [run Emit] does, then return [Emit.json] of the checked
+    model instead of writing projections. Nothing is written. *)
+val json : config -> (string, Model.diagnostic list) result

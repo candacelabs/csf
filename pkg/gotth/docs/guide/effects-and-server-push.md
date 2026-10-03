@@ -517,8 +517,9 @@ words.
 ## What the effect boundary guarantees, and what it does not
 
 - Effects run **after** the transition that returned them, on a goroutine the
-  library owns; `App.Close` waits for them up to `Limits.EffectDrainTimeout`
-  (default **5 s**) and counts the ones it abandons.
+  library owns, in the session's runtime scope; the session's teardown joins
+  every one of them, and one still running after `Limits.EffectDrainTimeout`
+  (default **5 s**) is counted and logged, never abandoned.
 - A panicking effect becomes an `EffectFailedEvent` rather than an error frame,
   because a failure the reducer can see is replayable and one that only reaches
   the wire is not.

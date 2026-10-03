@@ -60,7 +60,7 @@ var _ = Describe("A session actor", func() {
 			failing := newTestApp()
 			failing.initErr = errors.New("the database is down")
 			broken := newHarness(failing, session.DefaultLimits())
-			go broken.actor.Run(broken.ctx)
+			broken.run()
 
 			Eventually(broken.closeRecords).Should(ContainElement(closeRecord{
 				Code: protocol.CloseInternalError, Reason: "mount failed",
@@ -86,7 +86,7 @@ var _ = Describe("A session actor", func() {
 				},
 			})
 			zombie := newHarness(oversize, session.DefaultLimits())
-			go zombie.actor.Run(zombie.ctx)
+			zombie.run()
 
 			Eventually(zombie.closeRecords).Should(ContainElement(
 				HaveField("Code", protocol.CloseInternalError)))
@@ -1290,7 +1290,12 @@ var _ = Describe("Effects", func() {
 		Expect(failure.Fields).To(ContainElement(session.Field{Key: "retryable", Value: "false"}))
 	})
 
-	It("does not block shutdown on an effect that will not return", func() {
+	// The ownership rule: a session owns its effects and joins them. An effect
+	// that ignores its cancelled context holds shutdown open until it returns,
+	// and the overrun is counted once the drain window passes, so the operator
+	// sees which shutdown an effect is holding rather than a goroutine leaking
+	// past a teardown that already ran.
+	It("joins an effect that ignores cancellation, and counts the overrun", func() {
 		release := make(chan struct{})
 		app = newTestApp()
 		app.reduce = func(state any, ev session.Event) (any, []session.Effect[subject]) {
@@ -1308,11 +1313,14 @@ var _ = Describe("Effects", func() {
 		h.sendEvent("counter.increment")
 		Eventually(app.executeCount).Should(Equal(1))
 
-		start := time.Now()
-		h.stop()
-		Expect(time.Since(start)).To(BeNumerically("<", time.Second))
+		h.cancel()
+		Eventually(func() float64 { return h.metrics.Total("gotthlive_effects_overran_total") }).
+			Should(Equal(1.0), "the overrun was not counted once the drain window passed")
+		Consistently(h.done, 4*lim.EffectDrainTimeout).ShouldNot(BeClosed(),
+			"the actor returned while one of its effects was still running")
 
 		close(release)
+		Eventually(h.done, time.Second).Should(BeClosed())
 		h = nil
 	})
 })

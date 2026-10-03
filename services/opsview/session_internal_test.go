@@ -1,0 +1,150 @@
+// Copyright 2026 Candace Labs
+
+package opsview
+
+import (
+	"strings"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"github.com/candacelabs/csf/pkg/gotth/live"
+)
+
+// Records in the shapes the harness and its turn executor write, read from
+// a real event log and reduced to the fields this view folds.
+const (
+	startedRecord   = `{"time":"2026-10-02T02:48:35.592623634Z","level":"INFO","msg":"harness run started","session_id":"ff7c7118","turn":0,"sequence":1,"event_type":"harness_run_started","assignment_id":"a1","agent_id":"g0","branch":"g0/staging-gates"}`
+	requestedRecord = `{"time":"2026-10-02T02:48:36.803036478Z","level":"INFO","msg":"turn requested","turn":1,"sequence":3,"event_type":"harness_turn_requested","resume":false}`
+	assistantRecord = `{"time":"2026-10-02T02:48:44.541585227Z","level":"INFO","msg":"turn executor event","turn":1,"direction":"out","event_type":"assistant","event":{"type":"assistant","message":{"model":"claude-fable-5-1","role":"assistant","content":[{"type":"tool_use","id":"toolu_01","name":"Bash","input":{"command":"ls -la && git log --oneline -3","description":"List worktree root, workflows, tools"}}]}}}`
+	twoToolsRecord  = `{"time":"2026-10-02T02:48:48.356181754Z","level":"INFO","msg":"turn executor event","turn":1,"direction":"out","event_type":"assistant","event":{"type":"assistant","message":{"model":"claude-fable-5-1","content":[{"type":"text","text":"Reading."},{"type":"tool_use","name":"Read","input":{"file_path":"/workspace/README.md"}},{"type":"tool_use","name":"Grep","input":{"pattern":"term harness"}}]}}}`
+	thinkingRecord  = `{"time":"2026-10-02T02:48:41.080274212Z","level":"INFO","msg":"turn executor event","turn":1,"direction":"out","event_type":"system","event":{"type":"system","subtype":"thinking_tokens","estimated_tokens":50}}`
+	allowRecord     = `{"time":"2026-10-02T02:48:44.560285178Z","level":"INFO","msg":"session gate decision","turn":1,"sequence":1,"event_type":"session_gate_decision","gate":"wait","decision":"allow","hook_event":"PreToolUse","command":"ls -la"}`
+	denyRecord      = `{"time":"2026-10-02T02:32:38.054357671Z","level":"INFO","msg":"session gate decision","turn":1,"sequence":1,"event_type":"session_gate_decision","gate":"wait","decision":"deny","hook_event":"PreToolUse","command":"sleep 3","rules":["foreground_sleep"],"reason":"Rejected by the CSF session gate. foreground_sleep: \"sleep 3\" is not allowed in a CSF session; start the command with run_in_background"}`
+	deniedRecord    = `{"time":"2026-10-02T03:34:50.862248739Z","level":"INFO","msg":"turn executor event","turn":2,"direction":"out","event_type":"system","event":{"type":"system","subtype":"permission_denied","tool_name":"Bash","tool_use_id":"toolu_02","decision_reason_type":"mode","message":"Permission to use Bash has been denied"}}`
+	publishedRecord = `{"time":"2026-10-02T03:19:16.417999721Z","level":"INFO","msg":"turn executor event","turn":1,"direction":"out","event_type":"system","event":{"type":"system","subtype":"code_change_published","provider":"github","url":"https://example.invalid/org/repo/pull/8","repo":"org/repo","identifier":"8","action":"pushed"}}`
+	resultRecord    = `{"time":"2026-10-02T03:26:39.512113044Z","level":"INFO","msg":"turn executor event","turn":1,"direction":"out","event_type":"result","event":{"type":"result","subtype":"success","duration_ms":2282708,"stop_reason":"end_turn"}}`
+	finishedRecord  = `{"time":"2026-10-02T03:26:39.9213668Z","level":"INFO","msg":"turn finished","turn":1,"sequence":4,"event_type":"harness_run_finished","pull_request_url":"https://example.invalid/org/repo/pull/8"}`
+	failedRecord    = `{"time":"2026-10-02T03:26:40Z","level":"ERROR","msg":"turn failed","turn":2,"sequence":6,"event_type":"harness_run_finished","error":"harness session: the turn failed: ipc/proc: claude: terminated signal received"}`
+	closedRecord    = `{"time":"2026-10-02T03:43:15.710075025Z","level":"INFO","msg":"turn executor closed","turn":2,"sequence":7,"event_type":"harness_session_closed"}`
+	messageRecord   = `{"time":"2026-10-02T03:30:00Z","level":"INFO","msg":"turn executor event","turn":2,"direction":"in","event_type":"user","event":{"type":"user","message":{"role":"user","content":"Push the fix and mark the PR ready.\nThen stop."}}}`
+)
+
+func foldAll(lines ...string) SessionCard {
+	var card SessionCard
+	for _, line := range lines {
+		var read bool
+		card, read = Fold(card, []byte(line))
+		Expect(read).To(BeTrue(), line)
+	}
+	return card
+}
+
+var _ = Describe("folding an event log into a card", func() {
+	It("reads a session's start as running and keeps the first and last times", func() {
+		card := foldAll(startedRecord, requestedRecord)
+		Expect(card.Status).To(Equal(StatusRunning))
+		Expect(card.StartedAt.Format("15:04:05")).To(Equal("02:48:35"))
+		Expect(card.LastAt.Format("15:04:05")).To(Equal("02:48:36"))
+		Expect(card.Elapsed).To(Equal("<1m"))
+		Expect(card.Recent).To(HaveLen(2))
+		Expect(card.Recent[1]).To(Equal(RecentEvent{Time: "02:48:36", Kind: KindHarness, Text: "turn requested"}))
+	})
+
+	It("counts every tool call, takes the model from the first message and keeps a gist", func() {
+		card := foldAll(startedRecord, assistantRecord, twoToolsRecord)
+		Expect(card.Model).To(Equal("claude-fable-5-1"))
+		Expect(card.ToolCalls).To(Equal(3))
+		Expect(card.Recent[1].Text).To(Equal("Bash: List worktree root, workflows, tools"))
+		Expect(card.Recent[2].Text).To(Equal("Read: /workspace/README.md"))
+		Expect(card.Recent[3].Text).To(Equal("Grep: term harness"))
+	})
+
+	It("counts only a gate's denials, and shows the executor's own denial without counting it", func() {
+		card := foldAll(startedRecord, allowRecord, denyRecord, deniedRecord)
+		Expect(card.GateDenials).To(Equal(1))
+		Expect(card.Recent).To(HaveLen(3))
+		Expect(card.Recent[1].Kind).To(Equal(KindGate))
+		Expect(card.Recent[1].Text).To(HavePrefix("gate wait denied: Rejected by the CSF session gate. foreground_sleep"))
+		Expect(card.Recent[2].Text).To(Equal("Bash denied by the executor"))
+	})
+
+	It("moves nothing on the wire on a thinking record, so no patch is needed", func() {
+		before := foldAll(startedRecord, requestedRecord)
+		after, read := Fold(before, []byte(thinkingRecord))
+		Expect(read).To(BeTrue())
+		Expect(after.LastAt).To(BeTemporally(">", before.LastAt), "the effect still knows the log moved")
+		Expect(cardsEqual(before, after)).To(BeTrue(), "but the card on the wire is the same")
+	})
+
+	It("ends a turn as finished with its pull request, then closed", func() {
+		card := foldAll(startedRecord, publishedRecord, resultRecord, finishedRecord)
+		Expect(card.Status).To(Equal(StatusFinished))
+		Expect(card.PullRequestURL).To(Equal("https://example.invalid/org/repo/pull/8"))
+		Expect(card.Elapsed).To(Equal("38m"))
+		Expect(card.Recent[len(card.Recent)-2].Text).To(Equal("turn 1: success after 2283s"))
+		Expect(card.Recent[len(card.Recent)-1].Text).To(Equal("turn finished"))
+
+		card = foldAll(startedRecord, finishedRecord, closedRecord)
+		Expect(card.Status).To(Equal(StatusClosed))
+	})
+
+	It("reads a failed turn as failed with its error", func() {
+		card := foldAll(startedRecord, failedRecord)
+		Expect(card.Status).To(Equal(StatusFailed))
+		Expect(card.Error).To(HavePrefix("harness session: the turn failed"))
+		Expect(card.Recent[1].Text).To(HavePrefix("turn failed: harness session: the turn failed"))
+	})
+
+	It("shows the operator's message by its first line and keeps only the last few events", func() {
+		card := foldAll(startedRecord, requestedRecord, assistantRecord, twoToolsRecord, messageRecord)
+		Expect(card.Recent).To(HaveLen(6))
+		Expect(card.Recent[5]).To(Equal(RecentEvent{Time: "03:30:00", Kind: KindMessage, Text: "message: Push the fix and mark the PR ready."}))
+		for range recentKept {
+			card, _ = Fold(card, []byte(assistantRecord))
+		}
+		Expect(card.Recent).To(HaveLen(recentKept), "the oldest events dropped off")
+		Expect(card.Recent[0].Text).To(Equal("Bash: List worktree root, workflows, tools"))
+	})
+
+	It("keeps the browser's expand choice across the card being replaced", func() {
+		instance := newSessionCardAt(BoardRegion + ":a1")
+		expanded, effects := instance.Reduce(SessionCard{}, live.Event{Name: EventExpand})
+		Expect(effects).To(BeEmpty())
+		Expect(expanded.Expanded).To(BeTrue())
+		event, err := CardEvent(BoardRegion+":a1", foldAll(startedRecord, requestedRecord))
+		Expect(err).NotTo(HaveOccurred())
+		replaced, _ := instance.Reduce(expanded, event)
+		Expect(replaced.Status).To(Equal(StatusRunning))
+		Expect(replaced.Expanded).To(BeTrue())
+		collapsed, _ := instance.Reduce(replaced, live.Event{Name: EventExpand})
+		Expect(collapsed.Expanded).To(BeFalse())
+	})
+
+	It("reports a line that is not a record without changing the card", func() {
+		before := foldAll(startedRecord)
+		after, read := Fold(before, []byte("not json\n"))
+		Expect(read).To(BeFalse())
+		Expect(after).To(Equal(before))
+	})
+
+	DescribeTable("labels elapsed time at minute resolution",
+		func(seconds int, label string) {
+			Expect(elapsedLabel(secondsOf(seconds))).To(Equal(label))
+		},
+		Entry("under a minute", 59, "<1m"),
+		Entry("minutes", 59*60+30, "59m"),
+		Entry("hours", 3*3600+5*60, "3h 05m"),
+	)
+})
+
+var _ = Describe("the display order", func() {
+	It("puts running sessions first, then the most recently started", func() {
+		running := foldAll(startedRecord, requestedRecord)
+		finished := foldAll(startedRecord, finishedRecord)
+		later := foldAll(strings.Replace(startedRecord, "02:48:35", "03:48:35", 1), requestedRecord)
+		state, err := newCards(cardOf("old-finished", finished), cardOf("running", running), cardOf("late", later))
+		Expect(err).NotTo(HaveOccurred())
+		Expect(displayOrder(state)).To(Equal([]string{"late", "running", "old-finished"}))
+	})
+})

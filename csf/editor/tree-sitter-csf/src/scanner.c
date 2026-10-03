@@ -52,6 +52,7 @@ bool tree_sitter_csf_external_scanner_scan(void *payload, TSLexer *lexer, const 
   if (length == 2 && memcmp(word, "go", 2) == 0) return false;
   if (length == 2 && memcmp(word, "in", 2) == 0) return false;
   if (length == 4 && memcmp(word, "kind", 4) == 0) return false;
+  if (length == 4 && memcmp(word, "lazy", 4) == 0) return false;
   if (length == 7 && memcmp(word, "library", 7) == 0) return false;
   if (length == 9 && memcmp(word, "lifecycle", 9) == 0) return false;
   if (length == 7 && memcmp(word, "manager", 7) == 0) return false;

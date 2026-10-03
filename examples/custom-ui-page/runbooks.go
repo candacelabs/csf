@@ -7,7 +7,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
 )
 
 // runbookPath is where this page is served. Core neither knows nor reserves it.

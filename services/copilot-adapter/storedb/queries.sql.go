@@ -31,7 +31,7 @@ type AbandonSessionRequestsParams struct {
 }
 
 func (q *Queries) AbandonSessionRequests(ctx context.Context, arg AbandonSessionRequestsParams) ([]PendingRequest, error) {
-	rows, err := q.db.QueryContext(ctx, abandonSessionRequests, arg.ResolvedAt, arg.SessionID)
+	rows, err := q.db.Query(ctx, abandonSessionRequests, arg.ResolvedAt, arg.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -56,9 +56,6 @@ func (q *Queries) AbandonSessionRequests(ctx context.Context, arg AbandonSession
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -86,7 +83,7 @@ type AbandonTurnRequestsParams struct {
 }
 
 func (q *Queries) AbandonTurnRequests(ctx context.Context, arg AbandonTurnRequestsParams) ([]PendingRequest, error) {
-	rows, err := q.db.QueryContext(ctx, abandonTurnRequests, arg.ResolvedAt, arg.SessionID, arg.TurnID)
+	rows, err := q.db.Query(ctx, abandonTurnRequests, arg.ResolvedAt, arg.SessionID, arg.TurnID)
 	if err != nil {
 		return nil, err
 	}
@@ -111,9 +108,6 @@ func (q *Queries) AbandonTurnRequests(ctx context.Context, arg AbandonTurnReques
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -143,7 +137,7 @@ type AdoptLegacyWorktreeParams struct {
 }
 
 func (q *Queries) AdoptLegacyWorktree(ctx context.Context, arg AdoptLegacyWorktreeParams) (Worktree, error) {
-	row := q.db.QueryRowContext(ctx, adoptLegacyWorktree,
+	row := q.db.QueryRow(ctx, adoptLegacyWorktree,
 		arg.RepositoryID,
 		arg.RepositoryRoot,
 		arg.BaseRef,
@@ -179,7 +173,7 @@ type AdoptLegacyWorktreeSessionsParams struct {
 }
 
 func (q *Queries) AdoptLegacyWorktreeSessions(ctx context.Context, arg AdoptLegacyWorktreeSessionsParams) error {
-	_, err := q.db.ExecContext(ctx, adoptLegacyWorktreeSessions, arg.WorkingDirectory, arg.UpdatedAt, arg.WorktreeID)
+	_, err := q.db.Exec(ctx, adoptLegacyWorktreeSessions, arg.WorkingDirectory, arg.UpdatedAt, arg.WorktreeID)
 	return err
 }
 
@@ -191,7 +185,7 @@ RETURNING last_event_seq AS seq
 `
 
 func (q *Queries) AllocateSessionEventSeq(ctx context.Context, sessionID uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, allocateSessionEventSeq, sessionID)
+	row := q.db.QueryRow(ctx, allocateSessionEventSeq, sessionID)
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
@@ -213,7 +207,7 @@ type AllocateSubagentActivitySeqParams struct {
 }
 
 func (q *Queries) AllocateSubagentActivitySeq(ctx context.Context, arg AllocateSubagentActivitySeqParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, allocateSubagentActivitySeq, arg.UpdatedAt, arg.SessionID, arg.SubagentID)
+	row := q.db.QueryRow(ctx, allocateSubagentActivitySeq, arg.UpdatedAt, arg.SessionID, arg.SubagentID)
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
@@ -227,7 +221,7 @@ RETURNING last_transcript_seq AS seq
 `
 
 func (q *Queries) AllocateTranscriptSeq(ctx context.Context, sessionID uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, allocateTranscriptSeq, sessionID)
+	row := q.db.QueryRow(ctx, allocateTranscriptSeq, sessionID)
 	var seq int64
 	err := row.Scan(&seq)
 	return seq, err
@@ -249,7 +243,7 @@ type BeginSessionCreationSDKAttemptParams struct {
 }
 
 func (q *Queries) BeginSessionCreationSDKAttempt(ctx context.Context, arg BeginSessionCreationSDKAttemptParams) (SessionCreation, error) {
-	row := q.db.QueryRowContext(ctx, beginSessionCreationSDKAttempt, arg.SdkCreateAttemptID, arg.IdempotencyKey, arg.SessionID)
+	row := q.db.QueryRow(ctx, beginSessionCreationSDKAttempt, arg.SdkCreateAttemptID, arg.IdempotencyKey, arg.SessionID)
 	var i SessionCreation
 	err := row.Scan(
 		&i.AgentID,
@@ -291,7 +285,7 @@ type ClaimBridgeEventProjectionParams struct {
 }
 
 func (q *Queries) ClaimBridgeEventProjection(ctx context.Context, arg ClaimBridgeEventProjectionParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, claimBridgeEventProjection, arg.SessionID, arg.EventID, arg.ProjectedAt)
+	row := q.db.QueryRow(ctx, claimBridgeEventProjection, arg.SessionID, arg.EventID, arg.ProjectedAt)
 	var event_id string
 	err := row.Scan(&event_id)
 	return event_id, err
@@ -333,7 +327,7 @@ type ClaimChatScheduleCreationParams struct {
 }
 
 func (q *Queries) ClaimChatScheduleCreation(ctx context.Context, arg ClaimChatScheduleCreationParams) (ChatScheduleCreation, error) {
-	row := q.db.QueryRowContext(ctx, claimChatScheduleCreation,
+	row := q.db.QueryRow(ctx, claimChatScheduleCreation,
 		arg.IdempotencyKey,
 		arg.ScheduleID,
 		arg.SessionID,
@@ -378,7 +372,7 @@ type ClaimPromptSubmissionParams struct {
 }
 
 func (q *Queries) ClaimPromptSubmission(ctx context.Context, arg ClaimPromptSubmissionParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, claimPromptSubmission, arg.SessionID, arg.IdempotencyKey, arg.TurnID)
+	row := q.db.QueryRow(ctx, claimPromptSubmission, arg.SessionID, arg.IdempotencyKey, arg.TurnID)
 	var turn_id uuid.UUID
 	err := row.Scan(&turn_id)
 	return turn_id, err
@@ -402,7 +396,7 @@ type ClaimScheduledTurnOccurrenceParams struct {
 }
 
 func (q *Queries) ClaimScheduledTurnOccurrence(ctx context.Context, arg ClaimScheduledTurnOccurrenceParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, claimScheduledTurnOccurrence, arg.ScheduleOccurrenceID, arg.TurnID)
+	row := q.db.QueryRow(ctx, claimScheduledTurnOccurrence, arg.ScheduleOccurrenceID, arg.TurnID)
 	var turn_id uuid.UUID
 	err := row.Scan(&turn_id)
 	return turn_id, err
@@ -456,7 +450,7 @@ type ClaimSessionCreationParams struct {
 }
 
 func (q *Queries) ClaimSessionCreation(ctx context.Context, arg ClaimSessionCreationParams) (SessionCreation, error) {
-	row := q.db.QueryRowContext(ctx, claimSessionCreation,
+	row := q.db.QueryRow(ctx, claimSessionCreation,
 		arg.IdempotencyKey,
 		arg.SessionID,
 		arg.Model,
@@ -538,7 +532,7 @@ type ClaimTraceDeliveryRow struct {
 // No row means no lease granted, not proof the queue is drained: an expired
 // final attempt is terminalized without granting another lease. Keep polling.
 func (q *Queries) ClaimTraceDelivery(ctx context.Context, arg ClaimTraceDeliveryParams) (ClaimTraceDeliveryRow, error) {
-	row := q.db.QueryRowContext(ctx, claimTraceDelivery, arg.LeaseSeconds, arg.MaxAttempts)
+	row := q.db.QueryRow(ctx, claimTraceDelivery, arg.LeaseSeconds, arg.MaxAttempts)
 	var i ClaimTraceDeliveryRow
 	err := row.Scan(
 		&i.DeliveryID,
@@ -577,7 +571,7 @@ type ClaimTurnAbortSubmissionParams struct {
 }
 
 func (q *Queries) ClaimTurnAbortSubmission(ctx context.Context, arg ClaimTurnAbortSubmissionParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, claimTurnAbortSubmission, arg.SessionID, arg.IdempotencyKey, arg.TurnID)
+	row := q.db.QueryRow(ctx, claimTurnAbortSubmission, arg.SessionID, arg.IdempotencyKey, arg.TurnID)
 	var turn_id uuid.UUID
 	err := row.Scan(&turn_id)
 	return turn_id, err
@@ -603,7 +597,7 @@ type CompleteExternalSessionRequestResolutionParams struct {
 }
 
 func (q *Queries) CompleteExternalSessionRequestResolution(ctx context.Context, arg CompleteExternalSessionRequestResolutionParams) (PendingRequest, error) {
-	row := q.db.QueryRowContext(ctx, completeExternalSessionRequestResolution,
+	row := q.db.QueryRow(ctx, completeExternalSessionRequestResolution,
 		arg.Status,
 		arg.Decision,
 		arg.ResolvedAt,
@@ -639,7 +633,7 @@ type CompleteQuarantinedSessionCreationParams struct {
 }
 
 func (q *Queries) CompleteQuarantinedSessionCreation(ctx context.Context, arg CompleteQuarantinedSessionCreationParams) error {
-	_, err := q.db.ExecContext(ctx, completeQuarantinedSessionCreation, arg.CompletedAt, arg.SessionID)
+	_, err := q.db.Exec(ctx, completeQuarantinedSessionCreation, arg.CompletedAt, arg.SessionID)
 	return err
 }
 
@@ -660,7 +654,7 @@ type CompleteSessionCreationParams struct {
 }
 
 func (q *Queries) CompleteSessionCreation(ctx context.Context, arg CompleteSessionCreationParams) (SessionCreation, error) {
-	row := q.db.QueryRowContext(ctx, completeSessionCreation,
+	row := q.db.QueryRow(ctx, completeSessionCreation,
 		arg.CompletedAt,
 		arg.IdempotencyKey,
 		arg.SessionID,
@@ -708,7 +702,7 @@ type CompleteSessionRequestResolutionParams struct {
 }
 
 func (q *Queries) CompleteSessionRequestResolution(ctx context.Context, arg CompleteSessionRequestResolutionParams) (PendingRequest, error) {
-	row := q.db.QueryRowContext(ctx, completeSessionRequestResolution,
+	row := q.db.QueryRow(ctx, completeSessionRequestResolution,
 		arg.Status,
 		arg.ResolvedAt,
 		arg.ID,
@@ -748,7 +742,7 @@ type CompleteStartingSessionParams struct {
 }
 
 func (q *Queries) CompleteStartingSession(ctx context.Context, arg CompleteStartingSessionParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, completeStartingSession, arg.UpdatedAt, arg.ID)
+	row := q.db.QueryRow(ctx, completeStartingSession, arg.UpdatedAt, arg.ID)
 	var i Session
 	err := row.Scan(
 		&i.AgentID,
@@ -784,7 +778,7 @@ type CompleteTraceDeliveryParams struct {
 }
 
 func (q *Queries) CompleteTraceDelivery(ctx context.Context, arg CompleteTraceDeliveryParams) (TraceDelivery, error) {
-	row := q.db.QueryRowContext(ctx, completeTraceDelivery, arg.DeliveryID, arg.Generation)
+	row := q.db.QueryRow(ctx, completeTraceDelivery, arg.DeliveryID, arg.Generation)
 	var i TraceDelivery
 	err := row.Scan(
 		&i.DeliveryID,
@@ -810,7 +804,7 @@ WHERE session_id = $1
 `
 
 func (q *Queries) CountActiveSessionTurns(ctx context.Context, sessionID uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countActiveSessionTurns, sessionID)
+	row := q.db.QueryRow(ctx, countActiveSessionTurns, sessionID)
 	var turn_count int64
 	err := row.Scan(&turn_count)
 	return turn_count, err
@@ -823,7 +817,7 @@ WHERE session_id = $1
 `
 
 func (q *Queries) CountSessionTurns(ctx context.Context, sessionID uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countSessionTurns, sessionID)
+	row := q.db.QueryRow(ctx, countSessionTurns, sessionID)
 	var turn_count int64
 	err := row.Scan(&turn_count)
 	return turn_count, err
@@ -845,7 +839,7 @@ type CountTraceDeliveriesRow struct {
 }
 
 func (q *Queries) CountTraceDeliveries(ctx context.Context) ([]CountTraceDeliveriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, countTraceDeliveries)
+	rows, err := q.db.Query(ctx, countTraceDeliveries)
 	if err != nil {
 		return nil, err
 	}
@@ -857,9 +851,6 @@ func (q *Queries) CountTraceDeliveries(ctx context.Context) ([]CountTraceDeliver
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -874,7 +865,7 @@ WHERE worktree_id = $1
 `
 
 func (q *Queries) CountWorktreeSessions(ctx context.Context, worktreeID uuid.UUID) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countWorktreeSessions, worktreeID)
+	row := q.db.QueryRow(ctx, countWorktreeSessions, worktreeID)
 	var session_count int64
 	err := row.Scan(&session_count)
 	return session_count, err
@@ -918,7 +909,7 @@ type CreateChatScheduleParams struct {
 }
 
 func (q *Queries) CreateChatSchedule(ctx context.Context, arg CreateChatScheduleParams) (ChatSchedule, error) {
-	row := q.db.QueryRowContext(ctx, createChatSchedule,
+	row := q.db.QueryRow(ctx, createChatSchedule,
 		arg.ID,
 		arg.SessionID,
 		arg.DisplayName,
@@ -989,7 +980,7 @@ type CreateSessionParams struct {
 }
 
 func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, createSession,
+	row := q.db.QueryRow(ctx, createSession,
 		arg.ID,
 		arg.WorktreeID,
 		arg.DisplayName,
@@ -1035,7 +1026,7 @@ type CreateSessionCreationPermissionShellGlobParams struct {
 }
 
 func (q *Queries) CreateSessionCreationPermissionShellGlob(ctx context.Context, arg CreateSessionCreationPermissionShellGlobParams) error {
-	_, err := q.db.ExecContext(ctx, createSessionCreationPermissionShellGlob, arg.IdempotencyKey, arg.Position, arg.ShellGlob)
+	_, err := q.db.Exec(ctx, createSessionCreationPermissionShellGlob, arg.IdempotencyKey, arg.Position, arg.ShellGlob)
 	return err
 }
 
@@ -1051,7 +1042,7 @@ type CreateSessionCreationPermissionToolParams struct {
 }
 
 func (q *Queries) CreateSessionCreationPermissionTool(ctx context.Context, arg CreateSessionCreationPermissionToolParams) error {
-	_, err := q.db.ExecContext(ctx, createSessionCreationPermissionTool, arg.IdempotencyKey, arg.Position, arg.ToolName)
+	_, err := q.db.Exec(ctx, createSessionCreationPermissionTool, arg.IdempotencyKey, arg.Position, arg.ToolName)
 	return err
 }
 
@@ -1067,7 +1058,7 @@ type CreateSessionPermissionShellGlobParams struct {
 }
 
 func (q *Queries) CreateSessionPermissionShellGlob(ctx context.Context, arg CreateSessionPermissionShellGlobParams) error {
-	_, err := q.db.ExecContext(ctx, createSessionPermissionShellGlob, arg.SessionID, arg.Position, arg.ShellGlob)
+	_, err := q.db.Exec(ctx, createSessionPermissionShellGlob, arg.SessionID, arg.Position, arg.ShellGlob)
 	return err
 }
 
@@ -1083,7 +1074,7 @@ type CreateSessionPermissionToolParams struct {
 }
 
 func (q *Queries) CreateSessionPermissionTool(ctx context.Context, arg CreateSessionPermissionToolParams) error {
-	_, err := q.db.ExecContext(ctx, createSessionPermissionTool, arg.SessionID, arg.Position, arg.ToolName)
+	_, err := q.db.Exec(ctx, createSessionPermissionTool, arg.SessionID, arg.Position, arg.ToolName)
 	return err
 }
 
@@ -1122,7 +1113,7 @@ type CreateTurnParams struct {
 }
 
 func (q *Queries) CreateTurn(ctx context.Context, arg CreateTurnParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, createTurn,
+	row := q.db.QueryRow(ctx, createTurn,
 		arg.ID,
 		arg.SessionID,
 		arg.Status,
@@ -1185,7 +1176,7 @@ type CreateWorktreeParams struct {
 }
 
 func (q *Queries) CreateWorktree(ctx context.Context, arg CreateWorktreeParams) (Worktree, error) {
-	row := q.db.QueryRowContext(ctx, createWorktree,
+	row := q.db.QueryRow(ctx, createWorktree,
 		arg.ID,
 		arg.RepositoryID,
 		arg.RepositoryRoot,
@@ -1225,7 +1216,7 @@ type DeleteChatScheduleParams struct {
 }
 
 func (q *Queries) DeleteChatSchedule(ctx context.Context, arg DeleteChatScheduleParams) (uuid.UUID, error) {
-	row := q.db.QueryRowContext(ctx, deleteChatSchedule, arg.DeletedAt, arg.ID)
+	row := q.db.QueryRow(ctx, deleteChatSchedule, arg.DeletedAt, arg.ID)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -1241,7 +1232,7 @@ RETURNING delivery_id, session_id, turn_id, usage_event_id, status, attempts, ge
 
 // Enqueue alongside the source event transaction; duplicates preserve state.
 func (q *Queries) EnqueueTurnTrace(ctx context.Context, turnID uuid.UUID) (TraceDelivery, error) {
-	row := q.db.QueryRowContext(ctx, enqueueTurnTrace, turnID)
+	row := q.db.QueryRow(ctx, enqueueTurnTrace, turnID)
 	var i TraceDelivery
 	err := row.Scan(
 		&i.DeliveryID,
@@ -1274,7 +1265,7 @@ type EnqueueUsageTraceParams struct {
 }
 
 func (q *Queries) EnqueueUsageTrace(ctx context.Context, arg EnqueueUsageTraceParams) (TraceDelivery, error) {
-	row := q.db.QueryRowContext(ctx, enqueueUsageTrace, arg.SessionID, arg.EventID)
+	row := q.db.QueryRow(ctx, enqueueUsageTrace, arg.SessionID, arg.EventID)
 	var i TraceDelivery
 	err := row.Scan(
 		&i.DeliveryID,
@@ -1306,7 +1297,7 @@ ON CONFLICT (session_id) DO NOTHING
 `
 
 func (q *Queries) EnsureSessionCounter(ctx context.Context, sessionID uuid.UUID) error {
-	_, err := q.db.ExecContext(ctx, ensureSessionCounter, sessionID)
+	_, err := q.db.Exec(ctx, ensureSessionCounter, sessionID)
 	return err
 }
 
@@ -1331,7 +1322,7 @@ type FailStartingSessionParams struct {
 }
 
 func (q *Queries) FailStartingSession(ctx context.Context, arg FailStartingSessionParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, failStartingSession,
+	row := q.db.QueryRow(ctx, failStartingSession,
 		arg.FailureCode,
 		arg.FailureReason,
 		arg.EndedAt,
@@ -1387,7 +1378,7 @@ type FailTraceDeliveryParams struct {
 }
 
 func (q *Queries) FailTraceDelivery(ctx context.Context, arg FailTraceDeliveryParams) (TraceDelivery, error) {
-	row := q.db.QueryRowContext(ctx, failTraceDelivery,
+	row := q.db.QueryRow(ctx, failTraceDelivery,
 		arg.MaxAttempts,
 		arg.RetryMaxSeconds,
 		arg.RetryBaseSeconds,
@@ -1429,7 +1420,7 @@ type FinalizeSessionSubagentsParams struct {
 }
 
 func (q *Queries) FinalizeSessionSubagents(ctx context.Context, arg FinalizeSessionSubagentsParams) ([]Subagent, error) {
-	rows, err := q.db.QueryContext(ctx, finalizeSessionSubagents, arg.UpdatedAt, arg.CompletedAt, arg.SessionID)
+	rows, err := q.db.Query(ctx, finalizeSessionSubagents, arg.UpdatedAt, arg.CompletedAt, arg.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -1453,9 +1444,6 @@ func (q *Queries) FinalizeSessionSubagents(ctx context.Context, arg FinalizeSess
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -1477,7 +1465,7 @@ type FinalizeSessionTurnsParams struct {
 }
 
 func (q *Queries) FinalizeSessionTurns(ctx context.Context, arg FinalizeSessionTurnsParams) ([]Turn, error) {
-	rows, err := q.db.QueryContext(ctx, finalizeSessionTurns, arg.CompletedAt, arg.SessionID)
+	rows, err := q.db.Query(ctx, finalizeSessionTurns, arg.CompletedAt, arg.SessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -1501,9 +1489,6 @@ func (q *Queries) FinalizeSessionTurns(ctx context.Context, arg FinalizeSessionT
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -1526,7 +1511,7 @@ type FinalizeTurnParams struct {
 }
 
 func (q *Queries) FinalizeTurn(ctx context.Context, arg FinalizeTurnParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, finalizeTurn, arg.Status, arg.CompletedAt, arg.ID)
+	row := q.db.QueryRow(ctx, finalizeTurn, arg.Status, arg.CompletedAt, arg.ID)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -1551,7 +1536,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetChatSchedule(ctx context.Context, id uuid.UUID) (ChatSchedule, error) {
-	row := q.db.QueryRowContext(ctx, getChatSchedule, id)
+	row := q.db.QueryRow(ctx, getChatSchedule, id)
 	var i ChatSchedule
 	err := row.Scan(
 		&i.ID,
@@ -1577,7 +1562,7 @@ WHERE chat_schedule_creations.idempotency_key = $1
 `
 
 func (q *Queries) GetChatScheduleByCreationKey(ctx context.Context, idempotencyKey uuid.UUID) (ChatSchedule, error) {
-	row := q.db.QueryRowContext(ctx, getChatScheduleByCreationKey, idempotencyKey)
+	row := q.db.QueryRow(ctx, getChatScheduleByCreationKey, idempotencyKey)
 	var i ChatSchedule
 	err := row.Scan(
 		&i.ID,
@@ -1601,7 +1586,7 @@ WHERE idempotency_key = $1
 `
 
 func (q *Queries) GetChatScheduleCreation(ctx context.Context, idempotencyKey uuid.UUID) (ChatScheduleCreation, error) {
-	row := q.db.QueryRowContext(ctx, getChatScheduleCreation, idempotencyKey)
+	row := q.db.QueryRow(ctx, getChatScheduleCreation, idempotencyKey)
 	var i ChatScheduleCreation
 	err := row.Scan(
 		&i.IdempotencyKey,
@@ -1627,7 +1612,7 @@ type GetProviderUsageEventParams struct {
 }
 
 func (q *Queries) GetProviderUsageEvent(ctx context.Context, arg GetProviderUsageEventParams) (ProviderUsageEvent, error) {
-	row := q.db.QueryRowContext(ctx, getProviderUsageEvent, arg.SessionID, arg.EventID)
+	row := q.db.QueryRow(ctx, getProviderUsageEvent, arg.SessionID, arg.EventID)
 	var i ProviderUsageEvent
 	err := row.Scan(
 		&i.SessionID,
@@ -1666,7 +1651,7 @@ type GetRequestEventVersionParams struct {
 }
 
 func (q *Queries) GetRequestEventVersion(ctx context.Context, arg GetRequestEventVersionParams) (RequestEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, getRequestEventVersion, arg.SessionID, arg.EventSeq)
+	row := q.db.QueryRow(ctx, getRequestEventVersion, arg.SessionID, arg.EventSeq)
 	var i RequestEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -1693,7 +1678,7 @@ LIMIT 1
 `
 
 func (q *Queries) GetRunningTurn(ctx context.Context, sessionID uuid.UUID) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, getRunningTurn, sessionID)
+	row := q.db.QueryRow(ctx, getRunningTurn, sessionID)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -1717,7 +1702,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetSession(ctx context.Context, id uuid.UUID) (Session, error) {
-	row := q.db.QueryRowContext(ctx, getSession, id)
+	row := q.db.QueryRow(ctx, getSession, id)
 	var i Session
 	err := row.Scan(
 		&i.AgentID,
@@ -1746,7 +1731,7 @@ WHERE idempotency_key = $1
 `
 
 func (q *Queries) GetSessionCreation(ctx context.Context, idempotencyKey uuid.UUID) (SessionCreation, error) {
-	row := q.db.QueryRowContext(ctx, getSessionCreation, idempotencyKey)
+	row := q.db.QueryRow(ctx, getSessionCreation, idempotencyKey)
 	var i SessionCreation
 	err := row.Scan(
 		&i.AgentID,
@@ -1774,7 +1759,7 @@ WHERE session_id = $1
 `
 
 func (q *Queries) GetSessionCreationBySessionID(ctx context.Context, sessionID uuid.UUID) (SessionCreation, error) {
-	row := q.db.QueryRowContext(ctx, getSessionCreationBySessionID, sessionID)
+	row := q.db.QueryRow(ctx, getSessionCreationBySessionID, sessionID)
 	var i SessionCreation
 	err := row.Scan(
 		&i.AgentID,
@@ -1808,7 +1793,7 @@ type GetSessionEventVersionParams struct {
 }
 
 func (q *Queries) GetSessionEventVersion(ctx context.Context, arg GetSessionEventVersionParams) (SessionEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, getSessionEventVersion, arg.SessionID, arg.EventSeq)
+	row := q.db.QueryRow(ctx, getSessionEventVersion, arg.SessionID, arg.EventSeq)
 	var i SessionEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -1837,7 +1822,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetSessionRequest(ctx context.Context, id uuid.UUID) (PendingRequest, error) {
-	row := q.db.QueryRowContext(ctx, getSessionRequest, id)
+	row := q.db.QueryRow(ctx, getSessionRequest, id)
 	var i PendingRequest
 	err := row.Scan(
 		&i.ID,
@@ -1861,7 +1846,7 @@ SELECT session_id, task_url, generation FROM session_tasks WHERE session_id = $1
 `
 
 func (q *Queries) GetSessionTask(ctx context.Context, sessionID uuid.UUID) (SessionTask, error) {
-	row := q.db.QueryRowContext(ctx, getSessionTask, sessionID)
+	row := q.db.QueryRow(ctx, getSessionTask, sessionID)
 	var i SessionTask
 	err := row.Scan(&i.SessionID, &i.TaskUrl, &i.Generation)
 	return i, err
@@ -1880,7 +1865,7 @@ type GetSubagentParams struct {
 }
 
 func (q *Queries) GetSubagent(ctx context.Context, arg GetSubagentParams) (Subagent, error) {
-	row := q.db.QueryRowContext(ctx, getSubagent, arg.SessionID, arg.ID)
+	row := q.db.QueryRow(ctx, getSubagent, arg.SessionID, arg.ID)
 	var i Subagent
 	err := row.Scan(
 		&i.SessionID,
@@ -1912,7 +1897,7 @@ type GetSubagentActivityParams struct {
 }
 
 func (q *Queries) GetSubagentActivity(ctx context.Context, arg GetSubagentActivityParams) (SubagentActivity, error) {
-	row := q.db.QueryRowContext(ctx, getSubagentActivity, arg.SessionID, arg.SubagentID, arg.Seq)
+	row := q.db.QueryRow(ctx, getSubagentActivity, arg.SessionID, arg.SubagentID, arg.Seq)
 	var i SubagentActivity
 	err := row.Scan(
 		&i.SessionID,
@@ -1940,7 +1925,7 @@ type GetSubagentEventVersionParams struct {
 }
 
 func (q *Queries) GetSubagentEventVersion(ctx context.Context, arg GetSubagentEventVersionParams) (SubagentEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, getSubagentEventVersion, arg.SessionID, arg.EventSeq)
+	row := q.db.QueryRow(ctx, getSubagentEventVersion, arg.SessionID, arg.EventSeq)
 	var i SubagentEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -1971,7 +1956,7 @@ type GetTranscriptItemParams struct {
 }
 
 func (q *Queries) GetTranscriptItem(ctx context.Context, arg GetTranscriptItemParams) (TranscriptItem, error) {
-	row := q.db.QueryRowContext(ctx, getTranscriptItem, arg.SessionID, arg.Seq)
+	row := q.db.QueryRow(ctx, getTranscriptItem, arg.SessionID, arg.Seq)
 	var i TranscriptItem
 	err := row.Scan(
 		&i.SessionID,
@@ -1994,7 +1979,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetTurn(ctx context.Context, id uuid.UUID) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, getTurn, id)
+	row := q.db.QueryRow(ctx, getTurn, id)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -2026,7 +2011,7 @@ type GetTurnByAbortIdempotencyKeyParams struct {
 }
 
 func (q *Queries) GetTurnByAbortIdempotencyKey(ctx context.Context, arg GetTurnByAbortIdempotencyKeyParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, getTurnByAbortIdempotencyKey, arg.SessionID, arg.IdempotencyKey)
+	row := q.db.QueryRow(ctx, getTurnByAbortIdempotencyKey, arg.SessionID, arg.IdempotencyKey)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -2058,7 +2043,7 @@ type GetTurnByPromptIdempotencyKeyParams struct {
 }
 
 func (q *Queries) GetTurnByPromptIdempotencyKey(ctx context.Context, arg GetTurnByPromptIdempotencyKeyParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, getTurnByPromptIdempotencyKey, arg.SessionID, arg.IdempotencyKey)
+	row := q.db.QueryRow(ctx, getTurnByPromptIdempotencyKey, arg.SessionID, arg.IdempotencyKey)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -2084,7 +2069,7 @@ WHERE scheduled_turn_occurrences.occurrence_id = $1
 `
 
 func (q *Queries) GetTurnByScheduleOccurrence(ctx context.Context, scheduleOccurrenceID string) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, getTurnByScheduleOccurrence, scheduleOccurrenceID)
+	row := q.db.QueryRow(ctx, getTurnByScheduleOccurrence, scheduleOccurrenceID)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -2114,7 +2099,7 @@ type GetTurnEventVersionParams struct {
 }
 
 func (q *Queries) GetTurnEventVersion(ctx context.Context, arg GetTurnEventVersionParams) (TurnEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, getTurnEventVersion, arg.SessionID, arg.EventSeq)
+	row := q.db.QueryRow(ctx, getTurnEventVersion, arg.SessionID, arg.EventSeq)
 	var i TurnEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -2138,7 +2123,7 @@ WHERE id = $1
 `
 
 func (q *Queries) GetWorktree(ctx context.Context, id uuid.UUID) (Worktree, error) {
-	row := q.db.QueryRowContext(ctx, getWorktree, id)
+	row := q.db.QueryRow(ctx, getWorktree, id)
 	var i Worktree
 	err := row.Scan(
 		&i.ID,
@@ -2160,7 +2145,7 @@ WHERE path = $1
 `
 
 func (q *Queries) GetWorktreeByPath(ctx context.Context, path string) (Worktree, error) {
-	row := q.db.QueryRowContext(ctx, getWorktreeByPath, path)
+	row := q.db.QueryRow(ctx, getWorktreeByPath, path)
 	var i Worktree
 	err := row.Scan(
 		&i.ID,
@@ -2225,7 +2210,7 @@ type InsertProviderUsageEventParams struct {
 // Exact provider identity retries return the original row; conflicting facts
 // return no row. The caller validates nullable turn ownership in this session.
 func (q *Queries) InsertProviderUsageEvent(ctx context.Context, arg InsertProviderUsageEventParams) (ProviderUsageEvent, error) {
-	row := q.db.QueryRowContext(ctx, insertProviderUsageEvent,
+	row := q.db.QueryRow(ctx, insertProviderUsageEvent,
 		arg.SessionID,
 		arg.EventID,
 		arg.TurnID,
@@ -2312,7 +2297,7 @@ type InsertSessionEventParams struct {
 }
 
 func (q *Queries) InsertSessionEvent(ctx context.Context, arg InsertSessionEventParams) (SessionEvent, error) {
-	row := q.db.QueryRowContext(ctx, insertSessionEvent,
+	row := q.db.QueryRow(ctx, insertSessionEvent,
 		arg.SessionID,
 		arg.Seq,
 		arg.Kind,
@@ -2381,7 +2366,7 @@ type InsertSessionRequestParams struct {
 }
 
 func (q *Queries) InsertSessionRequest(ctx context.Context, arg InsertSessionRequestParams) (PendingRequest, error) {
-	row := q.db.QueryRowContext(ctx, insertSessionRequest,
+	row := q.db.QueryRow(ctx, insertSessionRequest,
 		arg.ID,
 		arg.SessionID,
 		arg.TurnID,
@@ -2446,7 +2431,7 @@ type InsertSubagentActivityParams struct {
 }
 
 func (q *Queries) InsertSubagentActivity(ctx context.Context, arg InsertSubagentActivityParams) (SubagentActivity, error) {
-	row := q.db.QueryRowContext(ctx, insertSubagentActivity,
+	row := q.db.QueryRow(ctx, insertSubagentActivity,
 		arg.SessionID,
 		arg.SubagentID,
 		arg.Seq,
@@ -2508,7 +2493,7 @@ type InsertTranscriptItemParams struct {
 }
 
 func (q *Queries) InsertTranscriptItem(ctx context.Context, arg InsertTranscriptItemParams) (TranscriptItem, error) {
-	row := q.db.QueryRowContext(ctx, insertTranscriptItem,
+	row := q.db.QueryRow(ctx, insertTranscriptItem,
 		arg.SessionID,
 		arg.Seq,
 		arg.TurnID,
@@ -2549,7 +2534,7 @@ type LinkSessionTaskParams struct {
 }
 
 func (q *Queries) LinkSessionTask(ctx context.Context, arg LinkSessionTaskParams) (SessionTask, error) {
-	row := q.db.QueryRowContext(ctx, linkSessionTask, arg.SessionID, arg.TaskUrl, arg.ExpectedGeneration)
+	row := q.db.QueryRow(ctx, linkSessionTask, arg.SessionID, arg.TaskUrl, arg.ExpectedGeneration)
 	var i SessionTask
 	err := row.Scan(&i.SessionID, &i.TaskUrl, &i.Generation)
 	return i, err
@@ -2571,7 +2556,7 @@ type ListAbandonedTurnRequestsParams struct {
 }
 
 func (q *Queries) ListAbandonedTurnRequests(ctx context.Context, arg ListAbandonedTurnRequestsParams) ([]PendingRequest, error) {
-	rows, err := q.db.QueryContext(ctx, listAbandonedTurnRequests, arg.SessionID, arg.TurnID)
+	rows, err := q.db.Query(ctx, listAbandonedTurnRequests, arg.SessionID, arg.TurnID)
 	if err != nil {
 		return nil, err
 	}
@@ -2597,9 +2582,6 @@ func (q *Queries) ListAbandonedTurnRequests(ctx context.Context, arg ListAbandon
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2615,7 +2597,7 @@ ORDER BY created_at ASC, id ASC
 `
 
 func (q *Queries) ListActiveSessionTurns(ctx context.Context, sessionID uuid.UUID) ([]Turn, error) {
-	rows, err := q.db.QueryContext(ctx, listActiveSessionTurns, sessionID)
+	rows, err := q.db.Query(ctx, listActiveSessionTurns, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -2639,9 +2621,6 @@ func (q *Queries) ListActiveSessionTurns(ctx context.Context, sessionID uuid.UUI
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2656,7 +2635,7 @@ ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListChatSchedules(ctx context.Context) ([]ChatSchedule, error) {
-	rows, err := q.db.QueryContext(ctx, listChatSchedules)
+	rows, err := q.db.Query(ctx, listChatSchedules)
 	if err != nil {
 		return nil, err
 	}
@@ -2680,9 +2659,6 @@ func (q *Queries) ListChatSchedules(ctx context.Context) ([]ChatSchedule, error)
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2697,7 +2673,7 @@ ORDER BY created_at ASC, idempotency_key ASC
 `
 
 func (q *Queries) ListIncompleteSessionCreations(ctx context.Context) ([]SessionCreation, error) {
-	rows, err := q.db.QueryContext(ctx, listIncompleteSessionCreations)
+	rows, err := q.db.Query(ctx, listIncompleteSessionCreations)
 	if err != nil {
 		return nil, err
 	}
@@ -2725,9 +2701,6 @@ func (q *Queries) ListIncompleteSessionCreations(ctx context.Context) ([]Session
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2744,7 +2717,7 @@ ORDER BY created_at ASC, id ASC
 `
 
 func (q *Queries) ListPendingPermissionSessionRequests(ctx context.Context, sessionID uuid.UUID) ([]PendingRequest, error) {
-	rows, err := q.db.QueryContext(ctx, listPendingPermissionSessionRequests, sessionID)
+	rows, err := q.db.Query(ctx, listPendingPermissionSessionRequests, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -2770,9 +2743,6 @@ func (q *Queries) ListPendingPermissionSessionRequests(ctx context.Context, sess
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2787,7 +2757,7 @@ ORDER BY created_at ASC, id ASC
 `
 
 func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) {
-	rows, err := q.db.QueryContext(ctx, listResumableSessions)
+	rows, err := q.db.Query(ctx, listResumableSessions)
 	if err != nil {
 		return nil, err
 	}
@@ -2816,9 +2786,6 @@ func (q *Queries) ListResumableSessions(ctx context.Context) ([]Session, error) 
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2833,7 +2800,7 @@ ORDER BY position ASC
 `
 
 func (q *Queries) ListSessionCreationPermissionShellGlobs(ctx context.Context, idempotencyKey uuid.UUID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionCreationPermissionShellGlobs, idempotencyKey)
+	rows, err := q.db.Query(ctx, listSessionCreationPermissionShellGlobs, idempotencyKey)
 	if err != nil {
 		return nil, err
 	}
@@ -2845,9 +2812,6 @@ func (q *Queries) ListSessionCreationPermissionShellGlobs(ctx context.Context, i
 			return nil, err
 		}
 		items = append(items, shell_glob)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -2863,7 +2827,7 @@ ORDER BY position ASC
 `
 
 func (q *Queries) ListSessionCreationPermissionTools(ctx context.Context, idempotencyKey uuid.UUID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionCreationPermissionTools, idempotencyKey)
+	rows, err := q.db.Query(ctx, listSessionCreationPermissionTools, idempotencyKey)
 	if err != nil {
 		return nil, err
 	}
@@ -2875,9 +2839,6 @@ func (q *Queries) ListSessionCreationPermissionTools(ctx context.Context, idempo
 			return nil, err
 		}
 		items = append(items, tool_name)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -2901,7 +2862,7 @@ type ListSessionEventsAfterSeqParams struct {
 }
 
 func (q *Queries) ListSessionEventsAfterSeq(ctx context.Context, arg ListSessionEventsAfterSeqParams) ([]SessionEvent, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionEventsAfterSeq, arg.SessionID, arg.AfterSeq, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listSessionEventsAfterSeq, arg.SessionID, arg.AfterSeq, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -2925,9 +2886,6 @@ func (q *Queries) ListSessionEventsAfterSeq(ctx context.Context, arg ListSession
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -2942,7 +2900,7 @@ ORDER BY position ASC
 `
 
 func (q *Queries) ListSessionPermissionShellGlobs(ctx context.Context, sessionID uuid.UUID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionPermissionShellGlobs, sessionID)
+	rows, err := q.db.Query(ctx, listSessionPermissionShellGlobs, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -2954,9 +2912,6 @@ func (q *Queries) ListSessionPermissionShellGlobs(ctx context.Context, sessionID
 			return nil, err
 		}
 		items = append(items, shell_glob)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -2972,7 +2927,7 @@ ORDER BY position ASC
 `
 
 func (q *Queries) ListSessionPermissionTools(ctx context.Context, sessionID uuid.UUID) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionPermissionTools, sessionID)
+	rows, err := q.db.Query(ctx, listSessionPermissionTools, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -2984,9 +2939,6 @@ func (q *Queries) ListSessionPermissionTools(ctx context.Context, sessionID uuid
 			return nil, err
 		}
 		items = append(items, tool_name)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -3008,7 +2960,7 @@ type ListSessionRequestsParams struct {
 }
 
 func (q *Queries) ListSessionRequests(ctx context.Context, arg ListSessionRequestsParams) ([]PendingRequest, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionRequests, arg.SessionID, arg.Status)
+	rows, err := q.db.Query(ctx, listSessionRequests, arg.SessionID, arg.Status)
 	if err != nil {
 		return nil, err
 	}
@@ -3034,9 +2986,6 @@ func (q *Queries) ListSessionRequests(ctx context.Context, arg ListSessionReques
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3048,7 +2997,7 @@ SELECT session_id, task_url, generation FROM session_tasks ORDER BY session_id
 `
 
 func (q *Queries) ListSessionTasks(ctx context.Context) ([]SessionTask, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionTasks)
+	rows, err := q.db.Query(ctx, listSessionTasks)
 	if err != nil {
 		return nil, err
 	}
@@ -3060,9 +3009,6 @@ func (q *Queries) ListSessionTasks(ctx context.Context) ([]SessionTask, error) {
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -3196,7 +3142,7 @@ type ListSessionTelemetryRow struct {
 // The empty arm declares nullable output types for SQLC 1.31; PostgreSQL
 // eliminates it. Unknown observations stay SQL NULL in the real arm.
 func (q *Queries) ListSessionTelemetry(ctx context.Context, arg ListSessionTelemetryParams) ([]ListSessionTelemetryRow, error) {
-	rows, err := q.db.QueryContext(ctx, listSessionTelemetry, arg.CursorCreatedAt, arg.CursorID, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listSessionTelemetry, arg.CursorCreatedAt, arg.CursorID, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -3235,9 +3181,6 @@ func (q *Queries) ListSessionTelemetry(ctx context.Context, arg ListSessionTelem
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3264,7 +3207,7 @@ type ListSessionsParams struct {
 }
 
 func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]Session, error) {
-	rows, err := q.db.QueryContext(ctx, listSessions,
+	rows, err := q.db.Query(ctx, listSessions,
 		arg.Status,
 		arg.CursorCreatedAt,
 		arg.CursorID,
@@ -3298,9 +3241,6 @@ func (q *Queries) ListSessions(ctx context.Context, arg ListSessionsParams) ([]S
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3325,7 +3265,7 @@ type ListSubagentActivitiesParams struct {
 }
 
 func (q *Queries) ListSubagentActivities(ctx context.Context, arg ListSubagentActivitiesParams) ([]SubagentActivity, error) {
-	rows, err := q.db.QueryContext(ctx, listSubagentActivities,
+	rows, err := q.db.Query(ctx, listSubagentActivities,
 		arg.SessionID,
 		arg.SubagentID,
 		arg.AfterSeq,
@@ -3352,9 +3292,6 @@ func (q *Queries) ListSubagentActivities(ctx context.Context, arg ListSubagentAc
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3371,7 +3308,7 @@ ORDER BY CASE WHEN status = 'active' THEN 0 ELSE 1 END,
 `
 
 func (q *Queries) ListSubagents(ctx context.Context, sessionID uuid.UUID) ([]Subagent, error) {
-	rows, err := q.db.QueryContext(ctx, listSubagents, sessionID)
+	rows, err := q.db.Query(ctx, listSubagents, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -3395,9 +3332,6 @@ func (q *Queries) ListSubagents(ctx context.Context, sessionID uuid.UUID) ([]Sub
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3420,7 +3354,7 @@ type ListTranscriptItemsAfterSeqParams struct {
 }
 
 func (q *Queries) ListTranscriptItemsAfterSeq(ctx context.Context, arg ListTranscriptItemsAfterSeqParams) ([]TranscriptItem, error) {
-	rows, err := q.db.QueryContext(ctx, listTranscriptItemsAfterSeq, arg.SessionID, arg.AfterSeq, arg.RowLimit)
+	rows, err := q.db.Query(ctx, listTranscriptItemsAfterSeq, arg.SessionID, arg.AfterSeq, arg.RowLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -3442,9 +3376,6 @@ func (q *Queries) ListTranscriptItemsAfterSeq(ctx context.Context, arg ListTrans
 			return nil, err
 		}
 		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -3469,7 +3400,7 @@ type ListTurnTraceTranscriptParams struct {
 
 // Retained source rows are paged for trace delivery without truncating payloads.
 func (q *Queries) ListTurnTraceTranscript(ctx context.Context, arg ListTurnTraceTranscriptParams) ([]TranscriptItem, error) {
-	rows, err := q.db.QueryContext(ctx, listTurnTraceTranscript,
+	rows, err := q.db.Query(ctx, listTurnTraceTranscript,
 		arg.SessionID,
 		arg.TurnID,
 		arg.AfterSeq,
@@ -3497,9 +3428,6 @@ func (q *Queries) ListTurnTraceTranscript(ctx context.Context, arg ListTurnTrace
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3514,7 +3442,7 @@ ORDER BY id ASC
 `
 
 func (q *Queries) ListWorktreeSessions(ctx context.Context, worktreeID uuid.UUID) ([]Session, error) {
-	rows, err := q.db.QueryContext(ctx, listWorktreeSessions, worktreeID)
+	rows, err := q.db.Query(ctx, listWorktreeSessions, worktreeID)
 	if err != nil {
 		return nil, err
 	}
@@ -3543,9 +3471,6 @@ func (q *Queries) ListWorktreeSessions(ctx context.Context, worktreeID uuid.UUID
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3566,7 +3491,7 @@ ORDER BY CASE
 `
 
 func (q *Queries) ListWorktrees(ctx context.Context) ([]Worktree, error) {
-	rows, err := q.db.QueryContext(ctx, listWorktrees)
+	rows, err := q.db.Query(ctx, listWorktrees)
 	if err != nil {
 		return nil, err
 	}
@@ -3588,9 +3513,6 @@ func (q *Queries) ListWorktrees(ctx context.Context) ([]Worktree, error) {
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3605,7 +3527,7 @@ RETURNING agent_id, id, display_name, model, working_directory, system_instructi
 `
 
 func (q *Queries) LockSession(ctx context.Context, id uuid.UUID) (Session, error) {
-	row := q.db.QueryRowContext(ctx, lockSession, id)
+	row := q.db.QueryRow(ctx, lockSession, id)
 	var i Session
 	err := row.Scan(
 		&i.AgentID,
@@ -3648,7 +3570,7 @@ type MarkSessionEndedParams struct {
 }
 
 func (q *Queries) MarkSessionEnded(ctx context.Context, arg MarkSessionEndedParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, markSessionEnded,
+	row := q.db.QueryRow(ctx, markSessionEnded,
 		arg.Status,
 		arg.FailureCode,
 		arg.FailureReason,
@@ -3686,7 +3608,7 @@ RETURNING id, session_id, status, prompt_text, prompt_mode, author, created_at, 
 `
 
 func (q *Queries) MarkTurnDeliveryAccepted(ctx context.Context, id uuid.UUID) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, markTurnDeliveryAccepted, id)
+	row := q.db.QueryRow(ctx, markTurnDeliveryAccepted, id)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -3720,7 +3642,7 @@ type MarkTurnDeliveryFailedParams struct {
 }
 
 func (q *Queries) MarkTurnDeliveryFailed(ctx context.Context, arg MarkTurnDeliveryFailedParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, markTurnDeliveryFailed, arg.CompletedAt, arg.ID)
+	row := q.db.QueryRow(ctx, markTurnDeliveryFailed, arg.CompletedAt, arg.ID)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -3746,7 +3668,7 @@ RETURNING id, session_id, status, prompt_text, prompt_mode, author, created_at, 
 `
 
 func (q *Queries) MarkTurnDeliveryUnknown(ctx context.Context, id uuid.UUID) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, markTurnDeliveryUnknown, id)
+	row := q.db.QueryRow(ctx, markTurnDeliveryUnknown, id)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -3773,7 +3695,7 @@ RETURNING id, session_id, status, prompt_text, prompt_mode, author, created_at, 
 `
 
 func (q *Queries) MarkTurnRunning(ctx context.Context, id uuid.UUID) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, markTurnRunning, id)
+	row := q.db.QueryRow(ctx, markTurnRunning, id)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -3805,11 +3727,11 @@ type PauseSessionSchedulesParams struct {
 }
 
 func (q *Queries) PauseSessionSchedules(ctx context.Context, arg PauseSessionSchedulesParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, pauseSessionSchedules, arg.UpdatedAt, arg.SessionID)
+	result, err := q.db.Exec(ctx, pauseSessionSchedules, arg.UpdatedAt, arg.SessionID)
 	if err != nil {
 		return 0, err
 	}
-	return result.RowsAffected()
+	return result.RowsAffected(), nil
 }
 
 const pauseWorktreeSchedules = `-- name: PauseWorktreeSchedules :execrows
@@ -3831,11 +3753,11 @@ type PauseWorktreeSchedulesParams struct {
 }
 
 func (q *Queries) PauseWorktreeSchedules(ctx context.Context, arg PauseWorktreeSchedulesParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, pauseWorktreeSchedules, arg.UpdatedAt, arg.WorktreeID)
+	result, err := q.db.Exec(ctx, pauseWorktreeSchedules, arg.UpdatedAt, arg.WorktreeID)
 	if err != nil {
 		return 0, err
 	}
-	return result.RowsAffected()
+	return result.RowsAffected(), nil
 }
 
 const prepareSessionRequestResolution = `-- name: PrepareSessionRequestResolution :one
@@ -3863,7 +3785,7 @@ type PrepareSessionRequestResolutionParams struct {
 }
 
 func (q *Queries) PrepareSessionRequestResolution(ctx context.Context, arg PrepareSessionRequestResolutionParams) (PendingRequest, error) {
-	row := q.db.QueryRowContext(ctx, prepareSessionRequestResolution, arg.Decision, arg.Answer, arg.ID)
+	row := q.db.QueryRow(ctx, prepareSessionRequestResolution, arg.Decision, arg.Answer, arg.ID)
 	var i PendingRequest
 	err := row.Scan(
 		&i.ID,
@@ -3903,7 +3825,7 @@ type QuarantineWorktreeSessionsParams struct {
 }
 
 func (q *Queries) QuarantineWorktreeSessions(ctx context.Context, arg QuarantineWorktreeSessionsParams) ([]Session, error) {
-	rows, err := q.db.QueryContext(ctx, quarantineWorktreeSessions,
+	rows, err := q.db.Query(ctx, quarantineWorktreeSessions,
 		arg.FailureCode,
 		arg.FailureReason,
 		arg.EndedAt,
@@ -3938,9 +3860,6 @@ func (q *Queries) QuarantineWorktreeSessions(ctx context.Context, arg Quarantine
 		}
 		items = append(items, i)
 	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
@@ -3962,7 +3881,7 @@ type RecordTurnStartedParams struct {
 
 // Preserve the first real start observation; never substitute enqueue time.
 func (q *Queries) RecordTurnStarted(ctx context.Context, arg RecordTurnStartedParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, recordTurnStarted, arg.StartedAt, arg.TurnID)
+	row := q.db.QueryRow(ctx, recordTurnStarted, arg.StartedAt, arg.TurnID)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -3994,7 +3913,7 @@ type ReplaceSessionTaskParams struct {
 }
 
 func (q *Queries) ReplaceSessionTask(ctx context.Context, arg ReplaceSessionTaskParams) (SessionTask, error) {
-	row := q.db.QueryRowContext(ctx, replaceSessionTask, arg.TaskUrl, arg.SessionID, arg.ExpectedGeneration)
+	row := q.db.QueryRow(ctx, replaceSessionTask, arg.TaskUrl, arg.SessionID, arg.ExpectedGeneration)
 	var i SessionTask
 	err := row.Scan(&i.SessionID, &i.TaskUrl, &i.Generation)
 	return i, err
@@ -4035,7 +3954,7 @@ type SnapshotRequestEventParams struct {
 }
 
 func (q *Queries) SnapshotRequestEvent(ctx context.Context, arg SnapshotRequestEventParams) (RequestEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, snapshotRequestEvent, arg.EventSeq, arg.RequestID)
+	row := q.db.QueryRow(ctx, snapshotRequestEvent, arg.EventSeq, arg.RequestID)
 	var i RequestEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -4097,7 +4016,7 @@ type SnapshotSessionEventParams struct {
 }
 
 func (q *Queries) SnapshotSessionEvent(ctx context.Context, arg SnapshotSessionEventParams) (SessionEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, snapshotSessionEvent, arg.EventSeq, arg.SessionID)
+	row := q.db.QueryRow(ctx, snapshotSessionEvent, arg.EventSeq, arg.SessionID)
 	var i SessionEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -4158,7 +4077,7 @@ type SnapshotSubagentEventParams struct {
 }
 
 func (q *Queries) SnapshotSubagentEvent(ctx context.Context, arg SnapshotSubagentEventParams) (SubagentEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, snapshotSubagentEvent, arg.EventSeq, arg.SessionID, arg.SubagentID)
+	row := q.db.QueryRow(ctx, snapshotSubagentEvent, arg.EventSeq, arg.SessionID, arg.SubagentID)
 	var i SubagentEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -4211,7 +4130,7 @@ type SnapshotTurnEventParams struct {
 }
 
 func (q *Queries) SnapshotTurnEvent(ctx context.Context, arg SnapshotTurnEventParams) (TurnEventVersion, error) {
-	row := q.db.QueryRowContext(ctx, snapshotTurnEvent, arg.EventSeq, arg.TurnID)
+	row := q.db.QueryRow(ctx, snapshotTurnEvent, arg.EventSeq, arg.TurnID)
 	var i TurnEventVersion
 	err := row.Scan(
 		&i.SessionID,
@@ -4243,7 +4162,7 @@ type TouchSessionLastTurnParams struct {
 }
 
 func (q *Queries) TouchSessionLastTurn(ctx context.Context, arg TouchSessionLastTurnParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, touchSessionLastTurn, arg.LastTurnAt, arg.UpdatedAt, arg.ID)
+	row := q.db.QueryRow(ctx, touchSessionLastTurn, arg.LastTurnAt, arg.UpdatedAt, arg.ID)
 	var i Session
 	err := row.Scan(
 		&i.AgentID,
@@ -4278,7 +4197,7 @@ type TouchWorktreeParams struct {
 }
 
 func (q *Queries) TouchWorktree(ctx context.Context, arg TouchWorktreeParams) (Worktree, error) {
-	row := q.db.QueryRowContext(ctx, touchWorktree, arg.UpdatedAt, arg.ID)
+	row := q.db.QueryRow(ctx, touchWorktree, arg.UpdatedAt, arg.ID)
 	var i Worktree
 	err := row.Scan(
 		&i.ID,
@@ -4317,7 +4236,7 @@ type UpdateChatScheduleParams struct {
 }
 
 func (q *Queries) UpdateChatSchedule(ctx context.Context, arg UpdateChatScheduleParams) (ChatSchedule, error) {
-	row := q.db.QueryRowContext(ctx, updateChatSchedule,
+	row := q.db.QueryRow(ctx, updateChatSchedule,
 		arg.DisplayName,
 		arg.Prompt,
 		arg.CronExpression,
@@ -4360,7 +4279,7 @@ type UpdateSessionMetadataParams struct {
 }
 
 func (q *Queries) UpdateSessionMetadata(ctx context.Context, arg UpdateSessionMetadataParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, updateSessionMetadata,
+	row := q.db.QueryRow(ctx, updateSessionMetadata,
 		arg.Model,
 		arg.DisplayName,
 		arg.UpdatedAt,
@@ -4403,7 +4322,7 @@ type UpdateSessionStatusParams struct {
 }
 
 func (q *Queries) UpdateSessionStatus(ctx context.Context, arg UpdateSessionStatusParams) (Session, error) {
-	row := q.db.QueryRowContext(ctx, updateSessionStatus, arg.Status, arg.UpdatedAt, arg.ID)
+	row := q.db.QueryRow(ctx, updateSessionStatus, arg.Status, arg.UpdatedAt, arg.ID)
 	var i Session
 	err := row.Scan(
 		&i.AgentID,
@@ -4440,7 +4359,7 @@ type UpdateTurnStatusParams struct {
 }
 
 func (q *Queries) UpdateTurnStatus(ctx context.Context, arg UpdateTurnStatusParams) (Turn, error) {
-	row := q.db.QueryRowContext(ctx, updateTurnStatus, arg.Status, arg.CompletedAt, arg.ID)
+	row := q.db.QueryRow(ctx, updateTurnStatus, arg.Status, arg.CompletedAt, arg.ID)
 	var i Turn
 	err := row.Scan(
 		&i.ID,
@@ -4515,7 +4434,7 @@ type UpsertSubagentParams struct {
 }
 
 func (q *Queries) UpsertSubagent(ctx context.Context, arg UpsertSubagentParams) (Subagent, error) {
-	row := q.db.QueryRowContext(ctx, upsertSubagent,
+	row := q.db.QueryRow(ctx, upsertSubagent,
 		arg.SessionID,
 		arg.ID,
 		arg.TurnID,

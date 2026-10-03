@@ -1,0 +1,42 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cron",
+    srcs = [
+        "options.go",
+        "scheduler.go",
+        "store.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/cron",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/clock",
+        "//ipc/db/csfpg",
+        "//pkg/cron",
+        "//runtime",
+        "@com_github_jackc_pgx_v5//:pgx",
+    ],
+)
+
+go_test(
+    name = "cron_test",
+    srcs = [
+        "cron_suite_test.go",
+        "scheduler_store_test.go",
+        "scheduler_test.go",
+        "store_test.go",
+    ],
+    deps = [
+        ":cron",
+        "//ipc/clock",
+        "//ipc/db/csfpg",
+        "//pkg/cron",
+        "//pkg/eventually",
+        "//runtime",
+        "//services/cron/crontest",
+        "//services/cron/mocks",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

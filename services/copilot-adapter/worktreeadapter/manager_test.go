@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -12,6 +11,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/candacelabs/csf/ipc/proc"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/worktreeadapter"
 )
@@ -37,7 +37,7 @@ var _ = Describe("WorktreeManager", func() {
 		runGit(repository, "add", "README.md")
 		runGit(repository, "commit", "-m", "initial")
 		var err error
-		manager, err = worktreeadapter.NewWorktreeManager(worktreeadapter.Config{
+		manager, err = worktreeadapter.NewWorktreeManager(worktreeadapter.Config{Launcher: hostLauncher(),
 			Repositories: []copilotadapter.Repository{{
 				ID: "repo", DisplayName: "Repository", Root: repository, DefaultRef: "main",
 			}},
@@ -214,8 +214,8 @@ var _ = Describe("WorktreeManager", func() {
 		Expect(os.MkdirAll(managedRoot, 0o750)).To(Succeed())
 		runGit(repository, "worktree", "add", "-b", "csf/session-wrong-owner", path, "main")
 		DeferCleanup(func() {
-			_ = exec.Command("git", "-C", repository, "worktree", "remove", "--force", path).Run()
-			_ = exec.Command("git", "-C", repository, "branch", "-D", "csf/session-wrong-owner").Run()
+			_, _ = gitResult(repository, "worktree", "remove", "--force", path)
+			_, _ = gitResult(repository, "branch", "-D", "csf/session-wrong-owner")
 		})
 
 		_, err := manager.Prepare(ctx, copilotadapter.WorktreeRequest{
@@ -231,7 +231,7 @@ var _ = Describe("WorktreeManager", func() {
 		Expect(os.Symlink(realParent, aliasParent)).To(Succeed())
 		configuredRoot := filepath.Join(aliasParent, "future", "worktrees")
 		canonicalRoot := filepath.Join(realParent, "future", "worktrees")
-		canonicalManager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{
+		canonicalManager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{Launcher: hostLauncher(),
 			Repositories: []copilotadapter.Repository{{
 				ID: "repo", DisplayName: "Repository", Root: repository, DefaultRef: "main",
 			}},
@@ -445,7 +445,7 @@ var _ = Describe("WorktreeManager", func() {
 	)
 
 	It("includes untracked text and binary files inside the global patch bound", func() {
-		untrackedManager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{
+		untrackedManager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{Launcher: hostLauncher(),
 			Repositories: []copilotadapter.Repository{{
 				ID: "repo", DisplayName: "Repository", Root: repository, DefaultRef: "main",
 			}},
@@ -460,7 +460,7 @@ var _ = Describe("WorktreeManager", func() {
 		Expect(changes.Patch).To(ContainSubstring("untracked review content"))
 		Expect(changes.Patch).To(ContainSubstring("GIT binary patch"))
 
-		boundedManager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{
+		boundedManager, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{Launcher: hostLauncher(),
 			Repositories: []copilotadapter.Repository{{
 				ID: "repo", DisplayName: "Repository", Root: repository, DefaultRef: "main",
 			}},
@@ -476,22 +476,28 @@ var _ = Describe("WorktreeManager", func() {
 	})
 })
 
+// gitResult runs Git in directory through the process capability the manager
+// itself is granted.
+func gitResult(directory string, arguments ...string) (proc.Result, error) {
+	return hostLauncher().Run(context.Background(), proc.Command{
+		Executable: "git", Arguments: append([]string{"-C", directory}, arguments...),
+	})
+}
+
 func runGit(directory string, arguments ...string) {
-	command := exec.Command("git", append([]string{"-C", directory}, arguments...)...)
-	output, err := command.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
+	_, err := gitResult(directory, arguments...)
+	Expect(err).NotTo(HaveOccurred())
 }
 
 func gitOutput(directory string, arguments ...string) string {
-	command := exec.Command("git", append([]string{"-C", directory}, arguments...)...)
-	output, err := command.CombinedOutput()
-	Expect(err).NotTo(HaveOccurred(), string(output))
-	return strings.TrimSpace(string(output))
+	result, err := gitResult(directory, arguments...)
+	Expect(err).NotTo(HaveOccurred())
+	return strings.TrimSpace(string(result.Stdout))
 }
 
 func installGitInterposer(mode string, target string) {
 	GinkgoHelper()
-	realGit, err := exec.LookPath("git")
+	realGit, err := hostLauncher().LookPath("git")
 	Expect(err).NotTo(HaveOccurred())
 	bin := GinkgoT().TempDir()
 	interposer := filepath.Join(bin, "git")

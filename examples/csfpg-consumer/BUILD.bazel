@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "csfpg-consumer",
+    srcs = ["migrations.go"],
+    embedsrcs = ["migrations/001_example_notes.sql"],
+    importpath = "github.com/candacelabs/csf/examples/csfpg-consumer",
+    visibility = ["//visibility:public"],
+)

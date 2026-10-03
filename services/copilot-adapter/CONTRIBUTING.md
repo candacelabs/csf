@@ -63,7 +63,7 @@ outputs with a source diff. Never hand-edit generated output.
   [`integration/`](integration/) run the real service on `pkg/pgmem`
   with the real migrations and a mocked CLI, driven through the generated
   client.
-- Waits use `pkg/patience` with a named budget.
+- Waits use `pkg/eventually` with a named budget.
 - UI: Vitest + Testing Library, in the node container.
 
 ## 5. Gates before you push

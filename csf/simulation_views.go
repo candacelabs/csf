@@ -1,11 +1,11 @@
 package csf
 
 import (
-	db "github.com/candacelabs/csf/csf/internal/brainspinedb"
-	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
-	"github.com/jackc/pgx/v5/pgtype"
 	"strings"
 	"time"
+
+	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
+	"github.com/candacelabs/csf/services/jobs"
 )
 
 //go:generate go run github.com/jmattheis/goverter/cmd/goverter@v1.10.0 gen ./
@@ -13,28 +13,47 @@ import (
 // goverter:converter
 // goverter:output:file ./simulation_views_gen.go
 // goverter:output:package github.com/candacelabs/csf/csf
-// goverter:matchIgnoreCase
 // goverter:ignoreUnexported
-// goverter:extend simulationState simulationStamp simulationStep simulationStepCount
+// goverter:extend simulatorOf simulationExecutorOf simulationState simulationStamp simulationUnits
 type iSimulationViews interface {
+	// goverter:map ID RunId
+	// goverter:map Kind Simulator
+	// goverter:map TotalUnits Steps
+	// goverter:map CompletedUnits CompletedSteps
+	// goverter:map ExternalID JobId
+	// goverter:map Target JobQueue
+	// goverter:map Image JobDefinition
+	// goverter:map ArtifactURI ArtifactUri
+	// goverter:map ReservationUSDMicros ReservationUsdMicros
+	// goverter:map Spec.CaptureEvery CaptureEvery
+	// goverter:map Trace.URL TraceUrl
+	// goverter:map Trace.ExportError TraceExportError
+	// goverter:map LogArchive.DocumentID LogDocumentId
+	// goverter:map LogArchive.ProjectionError LogProjectionError
+	// goverter:map LogArchive.IndexedAt LogIndexedAt
 	// goverter:ignore LatestMeasurements Artifacts
-	Run(row db.BrainspineSimulation) *pb.SimulationRun
-	// goverter:ignore CandidateId Split
-	Measurement(row db.BrainspineSimulationMeasurement) *pb.Measurement
+	Run(job SimulationJob) *pb.SimulationRun
 }
 
 var simulationViews iSimulationViews
 
-func simulationState(value db.BrainspineSimulationState) pb.SimulationState {
-	return pb.SimulationState(pb.SimulationState_value["SIMULATION_STATE_"+strings.ToUpper(string(value))])
-}
-func simulationStamp(value pgtype.Timestamptz) string {
-	if !value.Valid {
-		return ""
-	}
-	return value.Time.UTC().Format(time.RFC3339Nano)
+// simulationRun is the generated view of one simulation job.
+func simulationRun(job SimulationJob) *pb.SimulationRun { return simulationViews.Run(job) }
+
+// simulationMeasurement names the run a ledger measurement belongs to.
+func simulationMeasurement(runID string, measurement jobs.RecordedMeasurement) *pb.Measurement {
+	return &pb.Measurement{RunId: runID, Metric: measurement.Metric, Step: measurement.Step, Value: measurement.Value}
 }
 
-// The owning SQL CHECK constraints bound these values to 0..10000.
-func simulationStep(value int64) uint64      { return uint64(value) }
-func simulationStepCount(value int32) uint32 { return uint32(value) }
+func simulationState(value jobs.State) pb.SimulationState {
+	return pb.SimulationState(pb.SimulationState_value["SIMULATION_STATE_"+strings.ToUpper(string(value))])
+}
+func simulationStamp(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
+// Simulation admissions carry uint32 step counts, so stored units fit.
+func simulationUnits(value int64) uint32 { return uint32(value) }

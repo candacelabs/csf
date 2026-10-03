@@ -80,7 +80,7 @@ var _ = Describe("CSF in a consumer-owned host", func() {
 		body, err := io.ReadAll(response.Body)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(response.StatusCode).To(Equal(http.StatusOK))
-		Expect(string(body)).To(Equal("Events: 0\nTruncated: false\nIssues: no event source configured\n"))
+		Expect(string(body)).To(Equal("Events: 0\nTruncated: false\nIssues: no event source configured; no spine connected\n"))
 	})
 
 	It("reloads the fixed host file and rejects tool-supplied paths", func() {

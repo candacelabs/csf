@@ -1,0 +1,15 @@
+{
+  "case_id": "034-bare-constructor",
+  "tier": 1,
+  "rule_under_test": "CS-12",
+  "summary": "A package exports `func New(db) *Store`; at any call site the name says nothing about what the caller now holds. The fix names the constructor for the concrete type it returns, NewPostgresStore, and renames the wrongly generic type with it. Operator directive of 2026-09-04, verbatim in go-rules.md \u00a7 CS-12.",
+  "dirty_must_fire": [
+    "CS-12"
+  ],
+  "dirty_min_findings": {
+    "CS-12": 1
+  },
+  "clean_must_not_fire": [
+    "CS-12"
+  ]
+}

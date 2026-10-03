@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "adaptertest",
+    srcs = [
+        "mock_network.go",
+        "server.go",
+        "store.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/copilot-adapter/adaptertest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/db/csfpg",
+        "//ipc/net/http",
+        "//pkg/pgmem",
+        "//pkg/sqlmigrate",
+        "//runtime",
+        "//services/copilot-adapter/store",
+        "@org_golang_google_grpc//test/bufconn",
+        "@org_uber_go_mock//gomock",
+    ],
+)

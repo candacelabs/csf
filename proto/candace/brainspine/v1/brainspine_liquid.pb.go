@@ -18,6 +18,9 @@ var (
 	_liquidAgentDefinitionIdRe0                 = regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
 	_liquidAgentConfigurationAgentIdRe0         = regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
 	_liquidAgentAssignmentRecipeAssignmentIdRe0 = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidAgentWorkspaceRepositoryPathRe0      = regexp.MustCompile("^/.+")
+	_liquidAgentWorkspaceBaseBranchRe0          = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
+	_liquidAgentWorkspaceBranchRe0              = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
 )
 
 // ValidateExpression checks this message's annotated fields; it does not recurse.
@@ -523,7 +526,7 @@ func ValidateAgentConfiguration(message *AgentConfiguration) error {
 	return nil
 }
 
-// ValidateAgentAssignmentRecipe checks this message's annotated fields; it does not recurse.
+// ValidateAgentAssignmentRecipe checks this message's annotated fields and opted-in nested messages.
 // A failed predicate returns *liquidproto.Error. Nil input also returns an error.
 func ValidateAgentAssignmentRecipe(message *AgentAssignmentRecipe) error {
 	if message == nil {
@@ -567,6 +570,60 @@ func ValidateAgentAssignmentRecipe(message *AgentAssignmentRecipe) error {
 			Field:     "repository_id",
 			Predicate: "len(this) > 0 && len(this) <= 128",
 			Value:     message.RepositoryId,
+		}
+	}
+	if message.Workspace != nil {
+		if err := ValidateAgentWorkspace(message.Workspace); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateAgentWorkspace checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateAgentWorkspace(message *AgentWorkspace) error {
+	if message == nil {
+		return fmt.Errorf("ValidateAgentWorkspace: nil *AgentWorkspace")
+	}
+	if !(len(message.RepositoryPath) <= 4096 && _liquidAgentWorkspaceRepositoryPathRe0.MatchString(message.RepositoryPath)) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentWorkspace",
+			Field:     "repository_path",
+			Predicate: "len(this) <= 4096 && matches(this, `^/.+`)",
+			Value:     message.RepositoryPath,
+		}
+	}
+	if !(_liquidAgentWorkspaceBaseBranchRe0.MatchString(message.BaseBranch)) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentWorkspace",
+			Field:     "base_branch",
+			Predicate: "matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)",
+			Value:     message.BaseBranch,
+		}
+	}
+	if !(_liquidAgentWorkspaceBranchRe0.MatchString(message.Branch)) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentWorkspace",
+			Field:     "branch",
+			Predicate: "matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)",
+			Value:     message.Branch,
+		}
+	}
+	if !(len(message.BriefPath) <= 4096) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentWorkspace",
+			Field:     "brief_path",
+			Predicate: "len(this) <= 4096",
+			Value:     message.BriefPath,
+		}
+	}
+	if !(len(message.PullRequestTitle) > 0 && len(message.PullRequestTitle) <= 256) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentWorkspace",
+			Field:     "pull_request_title",
+			Predicate: "len(this) > 0 && len(this) <= 256",
+			Value:     message.PullRequestTitle,
 		}
 	}
 	return nil

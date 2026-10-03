@@ -9,9 +9,9 @@ go_library(
     importpath = "github.com/candacelabs/csf/examples/custom-ui-page",
     visibility = ["//visibility:private"],
     deps = [
-        "//app/candaceos-core/bootstrap",
-        "//services/candaceos/browserroutes",
-        "//services/candaceos/webui",
+        "//app/deploy/bootstrap",
+        "//web/deploy/browserroutes",
+        "//web/deploy/webui",
         "@com_github_gin_gonic_gin//:gin",
     ],
 )
@@ -27,10 +27,10 @@ go_test(
     srcs = ["custom_ui_page_test.go"],
     embed = [":custom-ui-page_lib"],
     deps = [
-        "//proto/candace/candaceos/v1:candaceos",
-        "//services/candaceos/browserroutes",
-        "//services/candaceos/httpserver",
-        "//services/candaceos/webui",
+        "//proto/candace/deploy/v1:deploy",
+        "//web/deploy/browserroutes",
+        "//web/deploy/httpserver",
+        "//web/deploy/webui",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",
     ],

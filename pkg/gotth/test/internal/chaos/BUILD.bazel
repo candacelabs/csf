@@ -19,12 +19,12 @@ go_test(
         "wire_test.go",
     ],
     deps = [
+        "//pkg/eventually",
         "//pkg/gotth/internal/obs",
         "//pkg/gotth/internal/obstest",
         "//pkg/gotth/internal/protocol/gotthlivepb",
         "//pkg/gotth/internal/session",
         "//pkg/gotth/live",
-        "//pkg/patience",
         "@com_github_a_h_templ//:templ",
         "@com_github_coder_websocket//:websocket",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

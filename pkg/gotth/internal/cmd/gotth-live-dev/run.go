@@ -1,25 +1,28 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"time"
+
+	"github.com/candacelabs/csf/ipc/proc"
 )
 
 // supervisor builds the application and keeps exactly one of it running.
 type supervisor struct {
-	dir     string        // the module directory
-	pkg     string        // the package pattern handed to go build
-	binary  string        // where the built executable is written
-	args    []string      // the application's own arguments
-	grace   time.Duration // how long a stopped process gets before it is killed
-	templ   string        // the templ binary, or "" if there is none on PATH
-	out     io.Writer     // where this watcher's own lines go
-	running *child
+	launcher proc.ILauncher // the process capability every child starts through
+	dir      string         // the module directory
+	pkg      string         // the package pattern handed to go build
+	binary   string         // where the built executable is written
+	args     []string       // the application's own arguments
+	grace    time.Duration  // how long a stopped process gets before it is killed
+	templ    string         // the templ binary, or "" if there is none on PATH
+	out      io.Writer      // where this watcher's own lines go
+	running  *child
 }
 
 // child is one running application and the signal that it has exited.
@@ -29,18 +32,17 @@ type supervisor struct {
 // goroutine that owns Wait says the same thing everywhere, and says it without
 // a second Wait racing the first for the exit status.
 type child struct {
-	proc *os.Process
-	done chan struct{}
+	process *proc.Process
+	done    chan struct{}
 }
 
 // generate runs `templ generate` in the module directory. The caller has
 // already established that templ is on PATH.
 func (s *supervisor) generate() error {
-	cmd := exec.Command(s.templ, "generate")
-	cmd.Dir = s.dir
-	cmd.Stdout = s.out
-	cmd.Stderr = s.out
-	return cmd.Run()
+	_, err := s.launcher.Run(context.Background(), proc.Command{
+		Executable: s.templ, Arguments: []string{"generate"}, Directory: s.dir, Stdout: s.out, Stderr: s.out,
+	})
+	return err
 }
 
 // build compiles the application to s.binary.
@@ -57,30 +59,27 @@ func (s *supervisor) generate() error {
 // useful thing this program ever prints, and reformatting it would only make
 // it harder for an editor to jump to.
 func (s *supervisor) build() error {
-	cmd := exec.Command("go", "build", "-o", s.binary, s.pkg)
-	cmd.Dir = s.dir
-	cmd.Stdout = s.out
-	cmd.Stderr = s.out
-	return cmd.Run()
+	_, err := s.launcher.Run(context.Background(), proc.Command{
+		Executable: "go", Arguments: []string{"build", "-o", s.binary, s.pkg}, Directory: s.dir, Stdout: s.out, Stderr: s.out,
+	})
+	return err
 }
 
 // start launches the built binary.
 func (s *supervisor) start() error {
-	cmd := exec.Command(s.binary, s.args...)
-	cmd.Dir = s.dir
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	if err := cmd.Start(); err != nil {
+	process, err := s.launcher.Start(context.Background(), proc.Command{
+		Executable: s.binary, Arguments: s.args, Directory: s.dir, Stdin: os.Stdin, Stdout: os.Stdout, Stderr: os.Stderr,
+	})
+	if err != nil {
 		return err
 	}
 	done := make(chan struct{})
-	s.running = &child{proc: cmd.Process, done: done}
+	s.running = &child{process: process, done: done}
 	// Reaped on its own goroutine so that a process which exits by itself —
 	// a panic, a port already in use, a deliberate os.Exit — does not become a
 	// zombie waiting for a Wait that only happens on the next file change.
 	go func() {
-		_ = cmd.Wait()
+		_, _ = process.Wait()
 		close(done)
 	}()
 	return nil
@@ -103,15 +102,15 @@ func (s *supervisor) stop() {
 	running := s.running
 	s.running = nil
 
-	if err := running.proc.Signal(os.Interrupt); err != nil {
-		_ = running.proc.Kill()
+	if err := running.process.Signal(os.Interrupt); err != nil {
+		_ = running.process.Kill()
 		<-running.done
 		return
 	}
 	select {
 	case <-running.done:
 	case <-time.After(s.grace):
-		_ = running.proc.Kill()
+		_ = running.process.Kill()
 		<-running.done
 	}
 }

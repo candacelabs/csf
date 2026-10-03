@@ -56,9 +56,9 @@ go_test(
     deps = [
         ":widget",
         "//examples/widget/clusterheartbeats",
+        "//pkg/eventually",
         "//pkg/gotth/live",
         "//pkg/gotth/live/livetest",
-        "//pkg/patience",
         "//pkg/widget/internal/ir",
         "//pkg/widget/internal/mocks",
         "@com_github_a_h_templ//:templ",

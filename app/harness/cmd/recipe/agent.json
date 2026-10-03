@@ -1,0 +1,20 @@
+{
+  "assignment_id": "@ASSIGNMENT_ID@",
+  "agent": {
+    "id": "sample",
+    "revision": 1,
+    "display_name": "Sample",
+    "instructions": "You are a CSF agent working one sample assignment in a git worktree the harness created for you. Follow the brief exactly, in order. Commit with git; the commit gate pushes your branch and opens the draft pull request. Stop when the brief says to stop."
+  },
+  "ticket_url": "https://github.com/candacelabs/csf/blob/main/tools/kit/README.md",
+  "model": "claude-haiku-4-5-20251001",
+  "repository_id": "@REPOSITORY_ID@",
+  "workspace": {
+    "repository_path": "@REPOSITORY_PATH@",
+    "base_branch": "@BASE_BRANCH@",
+    "branch": "csf/sample-@SHORT_ID@",
+    "brief_path": "brief.md",
+    "allowed_tools": ["Bash", "Read", "Write", "Edit"],
+    "pull_request_title": "CSF sample assignment: add CSF_SAMPLE.md"
+  }
+}

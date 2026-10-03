@@ -133,7 +133,7 @@ func dialProbe(app *live.App[widget.HostState, live.AnonymousIdentity]) *livetes
 // fail with "no frame arrived", which is a true statement about the wrong thing.
 //
 // CS-9 verdict: this helper stays on livetest's own Await rather than moving
-// to candace/pkg/patience, and the distinction is the rule's rather than a
+// to candace/pkg/eventually, and the distinction is the rule's rather than a
 // dispensation from it. There is no timing loop here to delete: Client.Await
 // blocks on the frame channel, it is the typed await belonging to the library
 // that owns the frame stream, and it fails with every frame it did see —

@@ -19,10 +19,10 @@ import (
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/gotth/internal/obstest"
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
 	"github.com/candacelabs/csf/pkg/gotth/live"
-	"github.com/candacelabs/csf/pkg/patience"
 )
 
 func TestSampling(t *testing.T) {
@@ -38,7 +38,7 @@ const (
 	subprotocol   = "gotth-live.v1"
 )
 
-var ackAppliedBudget = patience.Budget{Within: 5 * time.Second, Interval: time.Millisecond}
+var ackAppliedBudget = eventually.Budget{Within: 5 * time.Second, Interval: time.Millisecond}
 
 type state struct{ N int }
 
@@ -288,7 +288,7 @@ func (d *driven) ackAndAwait(ackTo, emitted uint64) {
 	})).To(Succeed())
 
 	want := float64(emitted - ackTo)
-	patience.Await(GinkgoTB(), "the actor to apply the sampling acknowledgement", ackAppliedBudget,
+	eventually.Await(GinkgoTB(), "the actor to apply the sampling acknowledgement", ackAppliedBudget,
 		func() []obstest.Measurement { return d.metrics.Observations(metricWindow) },
 		func(observed []obstest.Measurement) bool {
 			return len(observed) > before && observed[len(observed)-1].Value == want

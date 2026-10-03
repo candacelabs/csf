@@ -26,6 +26,8 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     deps = [
+        "//ipc/proc",
+        "//pkg/eventually",
         "//pkg/gotth/internal/obs",
         "//pkg/gotth/internal/obstest",
         "//pkg/gotth/internal/protocol",
@@ -33,7 +35,6 @@ go_test(
         "//pkg/gotth/internal/session",
         "//pkg/gotth/live",
         "//pkg/gotth/live/livetest",
-        "//pkg/patience",
         "@com_github_a_h_templ//:templ",
         "@com_github_coder_websocket//:websocket",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

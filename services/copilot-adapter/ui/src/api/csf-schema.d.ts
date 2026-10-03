@@ -232,27 +232,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Show the latest measured work and health report. */
+        /** Show the latest measured work and health report, including whether the external spine controller is connected. */
         get: operations["Research_GetSnapshot"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/compile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Prepare a driving recipe: check the recipe and turn it into steps the controller can run. */
-        post: operations["Research_Compile"];
         delete?: never;
         options?: never;
         head?: never;
@@ -401,6 +384,10 @@ export interface components {
             repositoryId?: string;
             task?: string;
             ticketUrl?: string;
+            /** @description Present when the harness runs the assignment itself as a Claude Code
+             *     session; absent for a Workbench submission. Set only fields change the
+             *     recipe fingerprint, so recipes without a workspace keep their hashes. */
+            workspace?: components["schemas"]["candace.brainspine.v1.AgentWorkspace"];
         };
         /** @description Durable configuration receipt. It contains references only, never secret
          *     values. revision implements compare-and-swap updates. */
@@ -443,6 +430,25 @@ export interface components {
             endpointUrl?: string;
             index?: string;
         };
+        /** @description Where and how the harness runs an assignment: a git worktree it creates
+         *     from a local repository on a branch of its own, the tools the session may
+         *     use, and the title of the draft pull request the commit gate opens. */
+        "candace.brainspine.v1.AgentWorkspace": {
+            /** @description Claude Code tool rules the session may use without asking, such as
+             *     "Bash", "Edit" or "Bash(git *)". Everything else is denied. */
+            allowedTools?: string[];
+            /** @description The ref the work branch starts from and the pull request targets. */
+            baseBranch?: string;
+            /** @description The work branch the worktree checks out; created from base_branch. */
+            branch?: string;
+            /** @description A file holding the task, read by the launcher in place of an inline
+             *     task; relative paths resolve against the recipe file. */
+            briefPath?: string;
+            /** @description Title of the draft pull request opened after the first commit. */
+            pullRequestTitle?: string;
+            /** @description Absolute path of the local repository the worktree is created from. */
+            repositoryPath?: string;
+        };
         "candace.brainspine.v1.ArtifactEvidence": {
             /** Format: uint64 */
             bytes?: string;
@@ -483,16 +489,6 @@ export interface components {
             trackedChanges?: boolean;
             turnId?: string;
         };
-        "candace.brainspine.v1.CompileResponse": {
-            program?: components["schemas"]["candace.brainspine.v1.Program"];
-        };
-        "candace.brainspine.v1.Controller": {
-            acceleration?: components["schemas"]["candace.brainspine.v1.Expression"];
-            name?: string;
-            /** Format: int64 */
-            schemaVersion?: number;
-            steering?: components["schemas"]["candace.brainspine.v1.Expression"];
-        };
         /** @description CopilotHistoryResult records one typed native session projection. The
          *     embedded ingestion receipt remains the durable queue and provenance result. */
         "candace.brainspine.v1.CopilotHistoryResult": {
@@ -510,18 +506,6 @@ export interface components {
             document?: components["schemas"]["candace.brainspine.v1.SourceDocument"];
             projection?: components["schemas"]["candace.brainspine.v1.ProjectionTask"];
             text?: string;
-        };
-        "candace.brainspine.v1.Expression": {
-            arguments?: components["schemas"]["candace.brainspine.v1.Expression"][];
-            /** Format: int64 */
-            inputIndex?: number;
-            /** Format: int64 */
-            lower?: string;
-            opcode?: components["schemas"]["candace.brainspine.v1.Opcode"];
-            /** Format: int64 */
-            upper?: string;
-            /** Format: int64 */
-            value?: string;
         };
         "candace.brainspine.v1.GetDocumentResponse": {
             result?: components["schemas"]["candace.brainspine.v1.DocumentResult"];
@@ -561,17 +545,6 @@ export interface components {
         };
         "candace.brainspine.v1.InspectSimulationResponse": {
             run?: components["schemas"]["candace.brainspine.v1.SimulationRun"];
-        };
-        "candace.brainspine.v1.Instruction": {
-            /** Format: int64 */
-            inputIndex?: number;
-            /** Format: int64 */
-            lower?: string;
-            opcode?: components["schemas"]["candace.brainspine.v1.Opcode"];
-            /** Format: int64 */
-            upper?: string;
-            /** Format: int64 */
-            value?: string;
         };
         "candace.brainspine.v1.KnowledgeEdge": {
             authorKind?: components["schemas"]["candace.brainspine.v1.AuthorKind"];
@@ -636,23 +609,8 @@ export interface components {
             name?: string;
             unit?: string;
         };
-        /**
-         * @description All expression values are dimensionless fixed-point scalars with scale 1000.
-         *     The simulator adapter owns physical-unit normalization; actuator conversion
-         *     is fixed by the spine, never supplied by a candidate. Every operation saturates
-         *     to [-1000000000, 1000000000]. SCALE divides by 1000 toward zero.
-         * @enum {string}
-         */
-        "candace.brainspine.v1.Opcode": "OPCODE_UNSPECIFIED" | "OPCODE_CONSTANT" | "OPCODE_INPUT" | "OPCODE_ADD" | "OPCODE_SCALE" | "OPCODE_CLAMP";
         "candace.brainspine.v1.PrepareAgentAssignmentResponse": {
             plan?: components["schemas"]["candace.brainspine.v1.AgentAssignmentPlan"];
-        };
-        "candace.brainspine.v1.Program": {
-            acceleration?: components["schemas"]["candace.brainspine.v1.Instruction"][];
-            controllerHash?: string;
-            /** Format: int64 */
-            schemaVersion?: number;
-            steering?: components["schemas"]["candace.brainspine.v1.Instruction"][];
         };
         /** @enum {string} */
         "candace.brainspine.v1.ProjectionState": "PROJECTION_STATE_UNSPECIFIED" | "PROJECTION_STATE_PENDING" | "PROJECTION_STATE_RUNNING" | "PROJECTION_STATE_SUCCEEDED" | "PROJECTION_STATE_FAILED";
@@ -1392,41 +1350,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["candace.brainspine.v1.GetSnapshotResponse"];
-                };
-            };
-            /** @description An unexpected error response. */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["google.rpc.Status"];
-                };
-            };
-        };
-    };
-    Research_Compile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    controller?: components["schemas"]["candace.brainspine.v1.Controller"];
-                };
-            };
-        };
-        responses: {
-            /** @description A successful response. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["candace.brainspine.v1.CompileResponse"];
                 };
             };
             /** @description An unexpected error response. */

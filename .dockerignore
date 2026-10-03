@@ -1,4 +1,4 @@
-# The CandaceOS images build from this export root, but they compile only the
+# The deploy images build from this export root, but they compile only the
 # Go module trees the binaries import. Everything below is either build output,
 # runtime state, or a tree no image copies; excluding it keeps the transferred
 # build context small.
@@ -8,14 +8,14 @@ extensions/
 xetcas/
 pkg/gotth/bench/
 pkg/gotth/docs/
-candaceos/.env
-candaceos/.env.*
-candaceos/apps/
-candaceos/backups/
-candaceos/image-cache/
-candaceos/revisions/
-candaceos/runtime/
-candaceos/tools/
+infra/deploy-kit/.env
+infra/deploy-kit/.env.*
+infra/deploy-kit/apps/
+infra/deploy-kit/backups/
+infra/deploy-kit/image-cache/
+infra/deploy-kit/revisions/
+infra/deploy-kit/runtime/
+infra/deploy-kit/tools/
 
 # Development toolchains and independent compiler sources are not runtime inputs.
 **/.cache

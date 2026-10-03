@@ -5,5 +5,5 @@ go_library(
     srcs = ["steering.go"],
     importpath = "example.com/candace-external-consumer/steering",
     visibility = ["//visibility:public"],
-    deps = ["@csf//services/candaceos/component"],
+    deps = ["@csf//services/deploy/component"],
 )

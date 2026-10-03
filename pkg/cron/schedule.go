@@ -1,5 +1,8 @@
-// Package cron provides durable in-process scheduling with human-readable
-// declarations and explicit state stores.
+// Package cron is the schedule grammar: human-readable trigger declarations,
+// their canonical five-field form, and the pure value model of triggers and
+// occurrences that the scheduler, its store and the Liquid Proto contract
+// share. It starts no goroutines and crosses no boundary; the service that
+// fires triggers and records occurrences is candace/services/cron.
 package cron
 
 import (

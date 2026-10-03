@@ -6,8 +6,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
-	"github.com/jackc/pgx/v5"
+	"github.com/candacelabs/csf/services/jobs"
 )
 
 var simulationMetricDefinitions = []struct {
@@ -33,40 +32,40 @@ func (inspection *Inspection) collectSimulations(emit func(name string, value fl
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	queries := inspection.simulations.store.queries
-	states, err := queries.CountSimulationStates(ctx)
+	ledger := inspection.simulations.ledger
+	states, err := ledger.States(ctx)
 	if err != nil {
 		emit("simulation_collection_readable", 0)
 		return
 	}
-	progress, err := queries.LatestSimulationProgress(ctx)
+	progress, err := ledger.LatestProgress(ctx)
 	if err != nil {
 		emit("simulation_collection_readable", 0)
 		return
 	}
-	budget, err := queries.SimulationBudget(ctx, simulationCampaign)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	budget, err := ledger.BudgetUsage(ctx)
+	if err != nil && !errors.Is(err, jobs.ErrBudgetNotOpened) {
 		emit("simulation_collection_readable", 0)
 		return
 	}
 	emit("simulation_collection_readable", 1)
 	for _, row := range states {
-		emit("simulation_jobs", float64(row.Jobs), simulationMetricSimulator(row.Simulator), simulationMetricExecutor(row.Executor), string(row.State))
+		emit("simulation_jobs", float64(row.Jobs), simulationMetricSimulator(row.Kind), simulationMetricExecutor(row.Executor), string(row.State))
 	}
 	for _, row := range progress {
-		simulator, executor := simulationMetricSimulator(row.Simulator), simulationMetricExecutor(row.Executor)
-		emit("simulation_latest_progress_ratio", float64(row.CompletedSteps)/float64(row.Steps), simulator, executor)
-		emit("simulation_latest_update_timestamp_seconds", float64(row.UpdatedAt.Time.Unix()), simulator, executor)
+		simulator, executor := simulationMetricSimulator(row.Kind), simulationMetricExecutor(row.Executor)
+		emit("simulation_latest_progress_ratio", float64(row.CompletedUnits)/float64(row.TotalUnits), simulator, executor)
+		emit("simulation_latest_update_timestamp_seconds", float64(row.UpdatedAt.Unix()), simulator, executor)
 	}
 	if err == nil {
-		emit("simulation_reserved_usd", float64(budget.ReservedUsdMicros)/1e6)
-		emit("simulation_budget_usd", float64(budget.BudgetLimitUsdMicros)/1e6)
+		emit("simulation_reserved_usd", float64(budget.ReservedUSDMicros)/1e6)
+		emit("simulation_budget_usd", float64(budget.LimitUSDMicros)/1e6)
 	}
 }
 
-func simulationMetricSimulator(value int32) string {
-	return strings.ToLower(strings.TrimPrefix(pb.Simulator(value).String(), "SIMULATOR_"))
+func simulationMetricSimulator(kind jobs.Kind) string {
+	return strings.ToLower(strings.TrimPrefix(simulatorOf(kind).String(), "SIMULATOR_"))
 }
-func simulationMetricExecutor(value int32) string {
-	return strings.ToLower(strings.TrimPrefix(pb.SimulationExecutor(value).String(), "SIMULATION_EXECUTOR_"))
+func simulationMetricExecutor(name jobs.ExecutorName) string {
+	return strings.ToLower(strings.TrimPrefix(simulationExecutorOf(name).String(), "SIMULATION_EXECUTOR_"))
 }

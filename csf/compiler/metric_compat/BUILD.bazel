@@ -3,5 +3,6 @@ package(default_visibility = ["//visibility:public"])
 exports_files([
     "archive.py",
     "codegen.py",
+    "generated_blocks_cgen.py",
     "test_codegen.py",
 ])

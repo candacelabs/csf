@@ -11,10 +11,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	candaceosv1 "github.com/candacelabs/csf/proto/candace/candaceos/v1"
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
-	"github.com/candacelabs/csf/services/candaceos/httpserver"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/httpserver"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 func TestCustomBrand(t *testing.T) {
@@ -34,12 +34,12 @@ func TestCustomBrand(t *testing.T) {
 func newExampleServer() *httptest.Server {
 	GinkgoHelper()
 	handler, err := webui.New(
-		webui.SnapshotFunc(func(ctx context.Context) (*candaceosv1.WebUISnapshot, error) {
+		webui.SnapshotFunc(func(ctx context.Context) (*deployv1.WebUISnapshot, error) {
 			// The system carries no name: Core stamps the configured brand into
 			// every snapshot it produces, and this spec should see that happen
 			// rather than assert on a name it wrote itself.
-			return &candaceosv1.WebUISnapshot{
-				System: &candaceosv1.WebUISystem{Status: "healthy", Summary: "1 node · quorum healthy"},
+			return &deployv1.WebUISnapshot{
+				System: &deployv1.WebUISystem{Status: "healthy", Summary: "1 node · quorum healthy"},
 			}, nil
 		}),
 		webui.WithBrand(brand()),

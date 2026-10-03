@@ -6,12 +6,12 @@ import (
 	"html/template"
 	"io/fs"
 
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 // The two brand-bearing strings. These are the only pieces of UI copy the seam
-// makes data: the product name replaces "CandaceOS" in titles, aria-labels, and
+// makes data: the product name replaces "Candace Deploy" in titles, aria-labels, and
 // the sentences that name the system, and the agent name replaces "Claw" where
 // the UI names the thing acting for the operator. Every other string in the
 // shipped pages stays literal, which is why a rebrand is this small.

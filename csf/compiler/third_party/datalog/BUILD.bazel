@@ -1,0 +1,34 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_module")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["source.BUILD.bazel"])
+
+ocaml_module(
+    name = "AST",
+    struct = "@datalog_ocaml_source//:src/top_down/AST.ml",
+)
+
+ocaml_module(
+    name = "Parser",
+    sig = "@datalog_ocaml_source//:Parser.mli",
+    struct = "@datalog_ocaml_source//:Parser.ml",
+    deps = [":AST"],
+)
+
+ocaml_module(
+    name = "Lexer",
+    struct = "@datalog_ocaml_source//:Lexer.ml",
+    deps = [":Parser"],
+)
+
+ocaml_module(
+    name = "Datalog_top_down",
+    sig = "@datalog_ocaml_source//:src/top_down/Datalog_top_down.mli",
+    struct = "@datalog_ocaml_source//:src/top_down/Datalog_top_down.ml",
+    deps = [
+        ":AST",
+        ":Lexer",
+        ":Parser",
+    ],
+)

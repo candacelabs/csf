@@ -33,13 +33,11 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
@@ -49,6 +47,10 @@ import (
 
 	"github.com/candacelabs/csf/pkg/gotth/internal/protocol"
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
+
+	ipcnet "github.com/candacelabs/csf/ipc/net"
+	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	csfruntime "github.com/candacelabs/csf/runtime"
 )
 
 // counters is what /status publishes. Every field is a fact the manifest needs:
@@ -114,43 +116,63 @@ func run() error {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(d.snapshot())
 	})
-	statusSrv := &http.Server{Addr: *status, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
-	go func() {
-		if err := statusSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			fmt.Fprintln(os.Stderr, "memdrv: status server:", err)
-		}
-	}()
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	var wg sync.WaitGroup
-	for i := 0; i < *n; i += *batch {
-		if ctx.Err() != nil {
-			break
-		}
-		for j := i; j < i+*batch && j < *n; j++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				d.session(ctx)
-			}()
-		}
-		select {
-		case <-ctx.Done():
-		case <-time.After(*pause):
-		}
+	statusListener, err := ipchttp.NewHTTPListener(ipcnet.NewHostNetwork(), *status, mux,
+		ipchttp.WithShutdownBudget(statusDrainBudget))
+	if err != nil {
+		return err
 	}
 
-	fmt.Printf("memdrv: dialing %d sessions at %s\n", *n, *url)
-	<-ctx.Done()
+	// The driver is a service of this process's host runtime: one owner
+	// dials the sessions in batches, and every session is a goroutine of the
+	// same scope, so the stop joins all of them.
+	dialer := csfruntime.ServiceFunc(func(scope *csfruntime.Scope) error {
+		return scope.GoOwner(dialOwner, func(ctx context.Context) error {
+			for i := 0; i < *n; i += *batch {
+				if ctx.Err() != nil {
+					break
+				}
+				for j := i; j < i+*batch && j < *n; j++ {
+					if err := scope.Go(func(ctx context.Context) error {
+						d.session(ctx)
+						return nil
+					}); err != nil {
+						return nil
+					}
+				}
+				select {
+				case <-ctx.Done():
+				case <-time.After(*pause):
+				}
+			}
+			fmt.Printf("memdrv: dialing %d sessions at %s\n", *n, *url)
+			<-ctx.Done()
+			return nil
+		})
+	})
 
-	shutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	_ = statusSrv.Shutdown(shutdown)
-	wg.Wait()
-	return nil
+	host, err := csfruntime.NewHostRuntime(csfruntime.WithHostName(hostName))
+	if err != nil {
+		return err
+	}
+	if err := host.Mount(mountStatus, statusListener); err != nil {
+		return err
+	}
+	if err := host.Mount(mountDialer, dialer); err != nil {
+		return err
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return host.Run(ctx)
 }
+
+// The host runtime's names and the status listener's drain budget.
+const (
+	hostName          = "memdrv"
+	mountStatus       = "status"
+	mountDialer       = "dialer"
+	dialOwner         = "dial sessions"
+	statusDrainBudget = 5 * time.Second
+)
 
 func (d *driver) snapshot() counters {
 	return counters{

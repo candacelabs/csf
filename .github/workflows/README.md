@@ -30,8 +30,18 @@ change to this tree must satisfy before it can ever reach here:
 | `ci.yml` → Bazel inventory, runtime partitions, compiler and metadata | `.github/workflows/candace-bazel-checks.yml` |
 | `csfc.yml` → compiler and Lean stub | `.github/workflows/brain-spine-composition.yml` → `compiler-package` |
 | `ci.yml` → `identifiers` | `.github/workflows/component-export-checks.yml` |
-| `ci.yml` → `candaceos` | `.github/workflows/candaceos-acceptance.yml` |
+| `ci.yml` → `deploy` | `.github/workflows/deploy-acceptance.yml` |
 | `ci.yml` → Go preparation, build, vet/API and four test shards | **no single counterpart.** The monorepo splits checks across `candace-go-checks.yml`, `gotth-live-checks.yml`, `pgmem-checks.yml` and `go-coverage.yml`. The destination shards partition the complete `go list ./...` inventory, including packages whose Bazel tests are tagged `manual`. |
+| `house-lint.yml` → the native house checker, its regressions, every specialist lane and the aggregate `House lint (mandatory and advisory)` check | `.github/workflows/go-style-checks.yml` |
+| `ontology-alignment.yml` → the per-commit score receipt on `main` and the pull-request [ratchet](../../csf/docs/generated/ontology_cgen.md#term-ratchet) `Ontology alignment does not regress` | `.github/workflows/ontology-alignment.yml` |
+
+The last two rows are CSF's own gates (`tools/house_lint`, `tools/ontology-score.sh`),
+ported here in slice G0 so CSF development in staging is held to them. They ship
+with the snapshot like every other workflow and keep the visibility guard, so
+in private staging the local launchers are the bar: `bash tools/check-house-lint.sh --test`
+and `bash tools/ontology-score.sh --pr-spec`, run before every push
+(root `AGENTS.md`, "House gates"). `tools/gates` holds the specs that pin
+their path filters and job wiring.
 
 ## What they are for
 
@@ -40,7 +50,7 @@ destination commit blocks the exporter on divergence. In the public repository,
 these jobs gate the generated snapshot PR before it is merged into `main`. They
 check whether the snapshot is coherent on its own. A snapshot can be green in the monorepo and still be
 broken here, because here it is a repository rather than a subdirectory: the
-module root moves, `candaceos/` sits at the top level, and consumers take this
+module root moves, `infra/deploy-kit/` sits at the top level, and consumers take this
 tree as a Bazel module. Every job here asks that question and nothing else:
 `ci.yml` checks the runtime packages; `csfc.yml` checks the independent compiler
 module and compiles its Lean verifier stub. An optional `notify_release` job in

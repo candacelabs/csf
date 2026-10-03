@@ -1,0 +1,703 @@
+// Spec test for bench task candaws-roundabout-v1: the Roundabout engine.
+//
+// Fixed, and graded unmodified: the implementer may not edit this file, and a
+// run that changed it is void.
+//
+// It is style-neutral on purpose. Every assertion is about observable
+// behaviour — where a request landed, when a backend left the rotation, how
+// many times one request was dispatched, what a snapshot says while requests
+// are in flight — and none of them can tell whether the balancer is a goroutine
+// selecting over channels or a struct behind a mutex. That is the point: the
+// A/B measurement compares two conditions on the same bar.
+//
+// The probes and the serve functions are supplied by this file, so every timing
+// question in the contract is a sequence this file controls rather than a sleep
+// it hopes is long enough. Health checking is driven at millisecond intervals
+// and every wait is a poll with a deadline.
+//
+// Held as .go.txt for the reason the other bench fixture is: a tracked .go file
+// here would join the census corpus and the reuse gate's corpus, and this is
+// neither house code nor compilable in place. grade.sh renames it on the way
+// into the scratch module.
+
+package roundabout_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"roundabout"
+)
+
+// ---------------------------------------------------------------------------
+// The pool this file drives the balancer with.
+// ---------------------------------------------------------------------------
+
+// member is one backend whose behaviour the test owns.
+//
+// Every field is atomic because the balancer calls Serve and Probe from its own
+// goroutines while the test reads the counters from this one; a plain int here
+// would make every run of this file racy regardless of the implementation.
+type member struct {
+	name string
+
+	// serves and probes count the calls the balancer made.
+	serves atomic.Int64
+	probes atomic.Int64
+
+	// serveFails makes every Serve return an error.
+	serveFails atomic.Bool
+
+	// probeFailures is how many of the next probes fail. It is a countdown
+	// rather than a flag so that "exactly two consecutive failures, then
+	// successes" is a sequence rather than a race with a timer.
+	probeFailures atomic.Int64
+}
+
+func newMember(name string) *member { return &member{name: name} }
+
+// serve is the backend's request handler: it answers with its own name so that
+// a response says which backend produced it even without Response.Backend.
+func (backend *member) serve(ctx context.Context, payload string) (string, error) {
+	backend.serves.Add(1)
+	if backend.serveFails.Load() {
+		return "", fmt.Errorf("%s: refusing %q", backend.name, payload)
+	}
+	return payload + "@" + backend.name, nil
+}
+
+func (backend *member) probe(ctx context.Context) error {
+	backend.probes.Add(1)
+	for {
+		remaining := backend.probeFailures.Load()
+		if remaining <= 0 {
+			return nil
+		}
+		if backend.probeFailures.CompareAndSwap(remaining, remaining-1) {
+			return fmt.Errorf("%s: probe failed", backend.name)
+		}
+	}
+}
+
+// failForever puts the backend permanently out of health.
+func (backend *member) failForever() { backend.probeFailures.Store(math.MaxInt64) }
+
+// recover returns the backend to health from the next probe on.
+func (backend *member) recover() { backend.probeFailures.Store(0) }
+
+// pool is three members and the config that uses them.
+type pool struct {
+	members []*member
+	config  roundabout.Config
+}
+
+func newPool(names ...string) *pool {
+	built := &pool{config: roundabout.Config{
+		FailureThreshold: 3,
+		CheckInterval:    2 * time.Millisecond,
+		Cooldown:         20 * time.Millisecond,
+		RetryBudget:      1,
+		PolicyName:       "least connections",
+	}}
+	for _, name := range names {
+		backend := newMember(name)
+		built.members = append(built.members, backend)
+		built.config.Backends = append(built.config.Backends, roundabout.Backend{
+			Name: name, Serve: backend.serve, Probe: backend.probe,
+		})
+	}
+	return built
+}
+
+func (built *pool) named(name string) *member {
+	for _, backend := range built.members {
+		if backend.name == name {
+			return backend
+		}
+	}
+	panic("no such backend: " + name)
+}
+
+func (built *pool) start(t *testing.T) *roundabout.Balancer {
+	t.Helper()
+	balancer, startError := roundabout.Start(built.config)
+	if startError != nil {
+		t.Fatalf("Start: %v", startError)
+	}
+	t.Cleanup(balancer.Close)
+	return balancer
+}
+
+// waitFor polls until the condition holds, and fails with the description
+// rather than hanging. Every timing question in the contract is asked this way.
+func waitFor(t *testing.T, description string, condition func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		if condition() {
+			return
+		}
+		time.Sleep(time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for %s", description)
+}
+
+// answerCounts runs count requests in order and reports which backend answered
+// each one, keyed by name.
+func answerCounts(t *testing.T, balancer *roundabout.Balancer, count int) map[string]int {
+	t.Helper()
+	answered := map[string]int{}
+	for index := 0; index < count; index++ {
+		response, doError := balancer.Do(context.Background(), fmt.Sprintf("r%d", index))
+		if doError != nil {
+			t.Fatalf("Do(r%d): %v", index, doError)
+		}
+		if !strings.HasSuffix(response.Payload, "@"+response.Backend) {
+			t.Fatalf("Do(r%d): payload %q was not answered by the backend it names, %q",
+				index, response.Payload, response.Backend)
+		}
+		answered[response.Backend]++
+	}
+	return answered
+}
+
+// ---------------------------------------------------------------------------
+// Start
+// ---------------------------------------------------------------------------
+
+func TestStartRejectsAConfigurationItCannotHonour(t *testing.T) {
+	sound := func() roundabout.Config { return newPool("a", "b", "c").config }
+
+	cases := []struct {
+		name   string
+		damage func(config *roundabout.Config)
+	}{
+		{"no backends", func(config *roundabout.Config) { config.Backends = nil }},
+		{"an unnamed backend", func(config *roundabout.Config) { config.Backends[1].Name = "" }},
+		{"two backends with one name", func(config *roundabout.Config) { config.Backends[2].Name = "a" }},
+		{"a backend that cannot serve", func(config *roundabout.Config) { config.Backends[0].Serve = nil }},
+		{"a backend that cannot be probed", func(config *roundabout.Config) { config.Backends[0].Probe = nil }},
+		{"a threshold of zero", func(config *roundabout.Config) { config.FailureThreshold = 0 }},
+		{"a negative threshold", func(config *roundabout.Config) { config.FailureThreshold = -1 }},
+		{"no check interval", func(config *roundabout.Config) { config.CheckInterval = 0 }},
+		{"a negative cooldown", func(config *roundabout.Config) { config.Cooldown = -time.Second }},
+		{"a negative retry budget", func(config *roundabout.Config) { config.RetryBudget = -1 }},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			config := sound()
+			testCase.damage(&config)
+			balancer, startError := roundabout.Start(config)
+			if startError == nil {
+				balancer.Close()
+				t.Fatalf("Start accepted %s", testCase.name)
+			}
+			if balancer != nil {
+				t.Fatalf("Start returned both an error and a balancer for %s", testCase.name)
+			}
+		})
+	}
+}
+
+func TestStartPutsEveryBackendInTheRotation(t *testing.T) {
+	balancer := newPool("a", "b", "c").start(t)
+
+	view := balancer.Observe()
+	if view.Healthy != 3 || view.Ejected != 0 {
+		t.Fatalf("a fresh pool is %d healthy and %d ejected, want 3 and 0", view.Healthy, view.Ejected)
+	}
+	if !view.Up || view.Draining {
+		t.Fatalf("a fresh balancer reports Up=%v Draining=%v, want true and false", view.Up, view.Draining)
+	}
+	if view.Sequence != 0 || view.Inflight != 0 {
+		t.Fatalf("a fresh balancer reports Sequence=%d Inflight=%d, want 0 and 0", view.Sequence, view.Inflight)
+	}
+	if view.PolicyName != "least connections" {
+		t.Fatalf("PolicyName is %q, want the configured %q", view.PolicyName, "least connections")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The round trip
+// ---------------------------------------------------------------------------
+
+func TestOneRequestMakesOneRoundTrip(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	response, doError := balancer.Do(context.Background(), "hello")
+	if doError != nil {
+		t.Fatalf("Do: %v", doError)
+	}
+	if response.Attempts != 1 {
+		t.Fatalf("a request answered by a healthy backend took %d attempts, want 1", response.Attempts)
+	}
+	if response.Payload != "hello@"+response.Backend {
+		t.Fatalf("Payload is %q, want %q", response.Payload, "hello@"+response.Backend)
+	}
+
+	served := int64(0)
+	for _, backend := range built.members {
+		served += backend.serves.Load()
+	}
+	if served != 1 {
+		t.Fatalf("one request reached %d backends, want exactly 1", served)
+	}
+	if sequence := balancer.Observe().Sequence; sequence != 1 {
+		t.Fatalf("Sequence is %d after one accepted request, want 1", sequence)
+	}
+}
+
+func TestSequentialRequestsAreDistributedEvenly(t *testing.T) {
+	balancer := newPool("a", "b", "c").start(t)
+
+	answered := answerCounts(t, balancer, 9)
+	for _, name := range []string{"a", "b", "c"} {
+		if answered[name] != 3 {
+			t.Fatalf("nine requests over three healthy backends answered %v, want three each", answered)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Health checking: the threshold, the reset, the cooldown
+// ---------------------------------------------------------------------------
+
+func TestFailuresBelowTheThresholdNeverEject(t *testing.T) {
+	built := newPool("a", "b", "c")
+	// A cooldown long enough that a wrong ejection could not be restored
+	// before the assertion: the check must fail rather than heal.
+	built.config.Cooldown = time.Hour
+	balancer := built.start(t)
+
+	failing := built.named("b")
+	failing.probeFailures.Store(2) // one short of the threshold
+	waitFor(t, "b to be probed past its two failures", func() bool {
+		return failing.probes.Load() >= 5
+	})
+
+	if view := balancer.Observe(); view.Ejected != 0 || view.Healthy != 3 {
+		t.Fatalf("two consecutive failures against a threshold of three ejected a backend: %+v", view)
+	}
+}
+
+func TestAProbeSuccessResetsTheFailureCount(t *testing.T) {
+	built := newPool("a", "b", "c")
+	built.config.Cooldown = time.Hour
+	balancer := built.start(t)
+
+	failing := built.named("b")
+	for round := 0; round < 3; round++ {
+		before := failing.probes.Load()
+		failing.probeFailures.Store(2)
+		waitFor(t, "b to fail twice and then succeed", func() bool {
+			return failing.probes.Load() >= before+4 && failing.probeFailures.Load() == 0
+		})
+	}
+
+	// Six failures in all, and never three in a row.
+	if view := balancer.Observe(); view.Ejected != 0 || view.Healthy != 3 {
+		t.Fatalf("failures that were never consecutive ejected a backend: %+v", view)
+	}
+}
+
+func TestTheThresholdEjectsAndTrafficStops(t *testing.T) {
+	built := newPool("a", "b", "c")
+	built.config.Cooldown = time.Hour
+	balancer := built.start(t)
+
+	failing := built.named("b")
+	failing.failForever()
+	waitFor(t, "b to be ejected", func() bool {
+		view := balancer.Observe()
+		return view.Ejected == 1 && view.Healthy == 2
+	})
+
+	before := failing.serves.Load()
+	answered := answerCounts(t, balancer, 6)
+	if answered["b"] != 0 {
+		t.Fatalf("an ejected backend answered %d requests, want 0", answered["b"])
+	}
+	if failing.serves.Load() != before {
+		t.Fatalf("an ejected backend was dispatched to")
+	}
+	if answered["a"] != 3 || answered["c"] != 3 {
+		t.Fatalf("six requests over the two healthy backends answered %v, want three each", answered)
+	}
+}
+
+func TestOneBackendsFailuresEjectOnlyItself(t *testing.T) {
+	built := newPool("a", "b", "c")
+	built.config.Cooldown = time.Hour
+	balancer := built.start(t)
+
+	built.named("b").failForever()
+	waitFor(t, "b to be ejected", func() bool { return balancer.Observe().Ejected == 1 })
+
+	// Give the others many more probe rounds than the threshold.
+	waitFor(t, "a and c to be probed well past the threshold", func() bool {
+		return built.named("a").probes.Load() >= 10 && built.named("c").probes.Load() >= 10
+	})
+	if view := balancer.Observe(); view.Ejected != 1 || view.Healthy != 2 {
+		t.Fatalf("one backend's failures moved another: %+v", view)
+	}
+}
+
+func TestAnEjectedBackendReturnsAfterTheCooldown(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	failing := built.named("b")
+	failing.failForever()
+	waitFor(t, "b to be ejected", func() bool { return balancer.Observe().Ejected == 1 })
+
+	failing.recover()
+	waitFor(t, "b to return to the rotation", func() bool {
+		view := balancer.Observe()
+		return view.Ejected == 0 && view.Healthy == 3
+	})
+
+	answered := answerCounts(t, balancer, 9)
+	for _, name := range []string{"a", "b", "c"} {
+		if answered[name] != 3 {
+			t.Fatalf("a restored pool answered %v, want three each", answered)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The retry budget
+// ---------------------------------------------------------------------------
+
+func TestAFailedServeIsRetriedOnADifferentBackend(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	// b answers no request but passes every health check, so it stays in the
+	// rotation and keeps being dispatched to.
+	refusing := built.named("b")
+	refusing.serveFails.Store(true)
+
+	retried := 0
+	for index := 0; index < 6; index++ {
+		response, doError := balancer.Do(context.Background(), fmt.Sprintf("r%d", index))
+		if doError != nil {
+			t.Fatalf("Do(r%d): %v", index, doError)
+		}
+		if response.Backend == "b" {
+			t.Fatalf("Do(r%d) was answered by the backend that refuses everything", index)
+		}
+		if response.Attempts > 2 {
+			t.Fatalf("Do(r%d) took %d attempts against a retry budget of 1", index, response.Attempts)
+		}
+		if response.Attempts == 2 {
+			retried++
+		}
+	}
+	if retried == 0 {
+		t.Fatalf("no request was ever retried, so nothing was dispatched to the refusing backend")
+	}
+	if refusing.serves.Load() != int64(retried) {
+		t.Fatalf("the refusing backend was asked %d times for %d retried requests",
+			refusing.serves.Load(), retried)
+	}
+}
+
+func TestARequestIsNeverDispatchedMoreThanTheBudgetAllows(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+	for _, backend := range built.members {
+		backend.serveFails.Store(true)
+	}
+
+	_, doError := balancer.Do(context.Background(), "doomed")
+	if doError == nil {
+		t.Fatalf("Do succeeded with every backend refusing")
+	}
+
+	dispatched := int64(0)
+	for _, backend := range built.members {
+		dispatched += backend.serves.Load()
+	}
+	if dispatched != 2 {
+		t.Fatalf("one request was dispatched %d times against a budget of 1 retry, want 2", dispatched)
+	}
+}
+
+func TestNoRetryBudgetMeansOneDispatch(t *testing.T) {
+	built := newPool("a", "b", "c")
+	built.config.RetryBudget = 0
+	balancer := built.start(t)
+	for _, backend := range built.members {
+		backend.serveFails.Store(true)
+	}
+
+	if _, doError := balancer.Do(context.Background(), "doomed"); doError == nil {
+		t.Fatalf("Do succeeded with every backend refusing")
+	}
+
+	dispatched := int64(0)
+	for _, backend := range built.members {
+		dispatched += backend.serves.Load()
+	}
+	if dispatched != 1 {
+		t.Fatalf("one request was dispatched %d times against a budget of 0, want 1", dispatched)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Refusing: empty rotation, draining, closed, a done context
+// ---------------------------------------------------------------------------
+
+func TestAnEmptyRotationRefusesRatherThanPicking(t *testing.T) {
+	built := newPool("a", "b", "c")
+	built.config.Cooldown = time.Hour
+	balancer := built.start(t)
+
+	for _, backend := range built.members {
+		backend.failForever()
+	}
+	waitFor(t, "every backend to be ejected", func() bool {
+		return balancer.Observe().Healthy == 0
+	})
+
+	dispatchedBefore := int64(0)
+	for _, backend := range built.members {
+		dispatchedBefore += backend.serves.Load()
+	}
+
+	refused := make(chan error, 1)
+	go func() {
+		_, doError := balancer.Do(context.Background(), "nowhere")
+		refused <- doError
+	}()
+	select {
+	case doError := <-refused:
+		if !errors.Is(doError, roundabout.ErrNoBackend) {
+			t.Fatalf("an empty rotation refused with %v, want an error wrapping ErrNoBackend", doError)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("Do blocked on an empty rotation instead of refusing")
+	}
+
+	dispatchedAfter := int64(0)
+	for _, backend := range built.members {
+		dispatchedAfter += backend.serves.Load()
+	}
+	if dispatchedAfter != dispatchedBefore {
+		t.Fatalf("an empty rotation dispatched to an ejected backend")
+	}
+}
+
+func TestDrainingRefusesAndResumes(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	balancer.SetDraining(true)
+	balancer.SetDraining(true) // idempotent
+	if view := balancer.Observe(); !view.Draining {
+		t.Fatalf("Observe reports Draining=false after SetDraining(true)")
+	}
+
+	before := balancer.Observe().Sequence
+	if _, doError := balancer.Do(context.Background(), "held"); !errors.Is(doError, roundabout.ErrDraining) {
+		t.Fatalf("a draining balancer refused with %v, want an error wrapping ErrDraining", doError)
+	}
+	dispatched := int64(0)
+	for _, backend := range built.members {
+		dispatched += backend.serves.Load()
+	}
+	if dispatched != 0 {
+		t.Fatalf("a draining balancer dispatched %d requests", dispatched)
+	}
+	if after := balancer.Observe().Sequence; after != before {
+		t.Fatalf("a refused request moved Sequence from %d to %d", before, after)
+	}
+
+	balancer.SetDraining(false)
+	if _, doError := balancer.Do(context.Background(), "resumed"); doError != nil {
+		t.Fatalf("Do after SetDraining(false): %v", doError)
+	}
+}
+
+func TestCloseIsIdempotentAndRefusesAfterwards(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer, startError := roundabout.Start(built.config)
+	if startError != nil {
+		t.Fatalf("Start: %v", startError)
+	}
+
+	if _, doError := balancer.Do(context.Background(), "before"); doError != nil {
+		t.Fatalf("Do: %v", doError)
+	}
+
+	closed := make(chan struct{})
+	go func() {
+		var closers sync.WaitGroup
+		for caller := 0; caller < 4; caller++ {
+			closers.Add(1)
+			go func() { defer closers.Done(); balancer.Close() }()
+		}
+		closers.Wait()
+		close(closed)
+	}()
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatalf("Close did not return")
+	}
+
+	if _, doError := balancer.Do(context.Background(), "after"); !errors.Is(doError, roundabout.ErrClosed) {
+		t.Fatalf("a closed balancer refused with %v, want an error wrapping ErrClosed", doError)
+	}
+	if view := balancer.Observe(); view.Up {
+		t.Fatalf("a closed balancer reports Up=true")
+	}
+	balancer.Close() // still idempotent afterwards
+}
+
+func TestADoneContextDispatchesNothing(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, doError := balancer.Do(ctx, "cancelled")
+	if !errors.Is(doError, context.Canceled) {
+		t.Fatalf("a done context produced %v, want an error wrapping context.Canceled", doError)
+	}
+	for _, backend := range built.members {
+		if backend.serves.Load() != 0 {
+			t.Fatalf("a done context still reached backend %s", backend.name)
+		}
+	}
+	if sequence := balancer.Observe().Sequence; sequence != 0 {
+		t.Fatalf("a refused request moved Sequence to %d", sequence)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Under load
+// ---------------------------------------------------------------------------
+
+func TestConcurrentRequestsAreAllAnsweredAndTheViewStaysSound(t *testing.T) {
+	const callers = 8
+	const each = 25
+
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	stop := make(chan struct{})
+	unsound := make(chan roundabout.RotationView, 1)
+	var watcher sync.WaitGroup
+	watcher.Add(1)
+	go func() {
+		defer watcher.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+			}
+			view := balancer.Observe()
+			if view.Healthy+view.Ejected != 3 || view.Inflight < 0 {
+				select {
+				case unsound <- view:
+				default:
+				}
+				return
+			}
+		}
+	}()
+
+	answered := make([]atomic.Int64, callers)
+	var load sync.WaitGroup
+	for caller := 0; caller < callers; caller++ {
+		load.Add(1)
+		go func(caller int) {
+			defer load.Done()
+			for index := 0; index < each; index++ {
+				response, doError := balancer.Do(context.Background(),
+					fmt.Sprintf("c%d-r%d", caller, index))
+				if doError != nil {
+					return
+				}
+				if response.Payload == fmt.Sprintf("c%d-r%d@%s", caller, index, response.Backend) {
+					answered[caller].Add(1)
+				}
+			}
+		}(caller)
+	}
+	load.Wait()
+	close(stop)
+	watcher.Wait()
+
+	select {
+	case view := <-unsound:
+		t.Fatalf("a snapshot taken under load was not sound: %+v", view)
+	default:
+	}
+
+	total := int64(0)
+	for caller := 0; caller < callers; caller++ {
+		total += answered[caller].Load()
+	}
+	if total != callers*each {
+		t.Fatalf("%d of %d concurrent requests were answered correctly", total, callers*each)
+	}
+
+	view := balancer.Observe()
+	if view.Inflight != 0 {
+		t.Fatalf("Inflight is %d after every request returned, want 0", view.Inflight)
+	}
+	if view.Sequence != uint64(callers*each) {
+		t.Fatalf("Sequence is %d after %d accepted requests", view.Sequence, callers*each)
+	}
+}
+
+func TestObserveNeverGoesBackwards(t *testing.T) {
+	built := newPool("a", "b", "c")
+	balancer := built.start(t)
+
+	var readers sync.WaitGroup
+	backwards := make(chan string, 1)
+	for reader := 0; reader < 4; reader++ {
+		readers.Add(1)
+		go func() {
+			defer readers.Done()
+			highest := uint64(0)
+			for index := 0; index < 200; index++ {
+				view := balancer.Observe()
+				if view.Sequence < highest {
+					select {
+					case backwards <- fmt.Sprintf("%d after %d", view.Sequence, highest):
+					default:
+					}
+					return
+				}
+				highest = view.Sequence
+			}
+		}()
+	}
+	for index := 0; index < 60; index++ {
+		if _, doError := balancer.Do(context.Background(), "load"); doError != nil {
+			t.Fatalf("Do: %v", doError)
+		}
+	}
+	readers.Wait()
+
+	select {
+	case went := <-backwards:
+		t.Fatalf("Sequence went backwards: %s", went)
+	default:
+	}
+}

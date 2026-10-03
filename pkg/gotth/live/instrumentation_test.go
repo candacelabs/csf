@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/coder/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,7 +20,7 @@ import (
 	"github.com/candacelabs/csf/pkg/gotth/live"
 )
 
-var connectionCountBudget = patience.Budget{Within: 5 * time.Second}
+var connectionCountBudget = eventually.Budget{Within: 5 * time.Second}
 
 // The evidence for the two exit criteria that previously rested on no-op
 // providers: the metric set flowing, and one trace spanning the path.
@@ -55,7 +55,7 @@ var _ = Describe("Instrumentation", func() {
 			Expect(app.app.ActiveConnections()).To(Equal(2))
 			Expect(metrics.Total("gotthlive_sessions_active")).To(Equal(float64(2)))
 			Expect(second.conn.CloseNow()).To(Succeed())
-			patience.Await(GinkgoT(), "one remaining browser connection", connectionCountBudget,
+			eventually.Await(GinkgoT(), "one remaining browser connection", connectionCountBudget,
 				app.app.ActiveConnections, func(count int) bool { return count == 1 })
 			Expect(metrics.Total("gotthlive_sessions_active")).To(Equal(float64(1)))
 			Expect(app.conn.CloseNow()).To(Succeed())

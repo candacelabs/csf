@@ -41,6 +41,9 @@ func (defaultTranslator) Translate(ctx context.Context, defaultSchema, statement
 		if index := parsed.Stmts[0].Stmt.GetIndexStmt(); index != nil {
 			return deparseSQLiteIndex(parsed, index)
 		}
+		if translated, handled := translateStatement(parsed); handled {
+			return translated, nil
+		}
 	}
 
 	translated, err := pgquery.Deparse(parsed)
@@ -124,14 +127,10 @@ func rewritePostgreSQLTree(message protoreflect.Message, defaultSchema string) {
 	case *pgquery.Node:
 		// A cast on a parameter (`$2::text`, the form sqlc emits for a typed
 		// nullable argument) deparses to text the execution engine's
-		// parameter parser reads as the named argument "2::text". The engine
-		// is dynamically typed, so the cast carries nothing: keep the bare
-		// parameter.
-		if cast := node.GetTypeCast(); cast != nil {
-			if parameter := cast.GetArg().GetParamRef(); parameter != nil {
-				node.Node = &pgquery.Node_ParamRef{ParamRef: parameter}
-			}
-		}
+		// parameter parser reads as the named argument "2::text"; it is kept
+		// bare. Other casts, regular-expression operators and PostgreSQL-only
+		// functions are rewritten in postgres_rewrites.go.
+		rewriteExpression(node)
 	}
 
 	message.Range(func(field protoreflect.FieldDescriptor, value protoreflect.Value) bool {

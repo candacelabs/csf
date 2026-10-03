@@ -16,6 +16,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//csf",
+        "//ipc/model/copilot",
         "//proto/candace/brainspine/v1:brainspine",
         "//services/copilot-adapter/gen/api",
         "@org_golang_google_protobuf//encoding/protojson",

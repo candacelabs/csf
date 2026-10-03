@@ -58,6 +58,11 @@ type Config struct {
 	// session and takes precedence over this fallback map.
 	MCPServers        map[string]copilot.MCPServerConfig
 	MCPServerResolver MCPServerResolver
+	// ToolResolver, when supplied, selects host-defined tools for one
+	// durable session. Their handlers run in this process, so a tool bound
+	// to the session (such as NewAgentMessagingTools) acts as that session
+	// without any credential.
+	ToolResolver ToolResolver
 }
 
 // MCPServerResolver binds the host's MCP transports to one durable session.
@@ -65,11 +70,15 @@ type Config struct {
 // giving the generic Workbench adapter a dependency on a particular service.
 type MCPServerResolver func(ctx context.Context, spec copilotadapter.BridgeSessionSpec) (map[string]copilot.MCPServerConfig, error)
 
+// ToolResolver binds the host's in-process tools to one durable session.
+type ToolResolver func(ctx context.Context, spec copilotadapter.BridgeSessionSpec) ([]copilot.Tool, error)
+
 // CopilotBridge drives one Copilot CLI process for every adapter session.
 type CopilotBridge struct {
 	client                   *copilot.Client
 	mcpServers               map[string]copilot.MCPServerConfig
 	resolveMCPServers        MCPServerResolver
+	resolveTools             ToolResolver
 	logger                   *slog.Logger
 	shutdownTimeout          time.Duration
 	forceStop                func()
@@ -117,7 +126,7 @@ func NewCopilotBridge(ctx context.Context, config Config) (*CopilotBridge, error
 	disconnects := newDisconnectTracker()
 	bridge := &CopilotBridge{
 		client: client, logger: logger, shutdownTimeout: config.ShutdownTimeout, mcpServers: config.MCPServers,
-		resolveMCPServers: config.MCPServerResolver, listModels: client.RPC.Models.List,
+		resolveMCPServers: config.MCPServerResolver, resolveTools: config.ToolResolver, listModels: client.RPC.Models.List,
 		listSessions: client.ListSessions, forceStop: client.ForceStop, getSessionMetadata: client.GetSessionMetadata,
 		resumeSession: client.ResumeSession, disconnects: disconnects,
 		historySnapshotDirectory: historySnapshotDirectory, cleanupHistory: cleanupHistory,
@@ -135,6 +144,17 @@ func (bridge *CopilotBridge) mcpServersFor(ctx context.Context, spec copilotadap
 		return nil, fmt.Errorf("copilot bridge: resolve MCP servers for session %s: %w", spec.SessionID, err)
 	}
 	return servers, nil
+}
+
+func (bridge *CopilotBridge) toolsFor(ctx context.Context, spec copilotadapter.BridgeSessionSpec) ([]copilot.Tool, error) {
+	if bridge.resolveTools == nil {
+		return nil, nil
+	}
+	tools, err := bridge.resolveTools(ctx, spec)
+	if err != nil {
+		return nil, fmt.Errorf("copilot bridge: resolve tools for session %s: %w", spec.SessionID, err)
+	}
+	return tools, nil
 }
 
 // Close stops the CLI process and gives every tracked Disconnect worker one
@@ -218,8 +238,14 @@ func (bridge *CopilotBridge) CreateSession(ctx context.Context, spec copilotadap
 	if err != nil {
 		return copilotadapter.BridgeSession{}, err
 	}
+	tools, err := bridge.toolsFor(ctx, spec)
+	if err != nil {
+		return copilotadapter.BridgeSession{}, err
+	}
 	lifecycle := newSessionLifecycle(spec.SessionID, newTurnCorrelator())
-	session, err := bridge.client.CreateSession(ctx, bridge.createSessionConfig(spec, mcpServers, lifecycle))
+	config := bridge.createSessionConfig(spec, mcpServers, lifecycle)
+	config.Tools = tools
+	session, err := bridge.client.CreateSession(ctx, config)
 	if err != nil {
 		lifecycle.stop()
 		return copilotadapter.BridgeSession{}, fmt.Errorf("copilot bridge: create session: %w", err)
@@ -243,8 +269,14 @@ func (bridge *CopilotBridge) ResumeSession(ctx context.Context, spec copilotadap
 	if err != nil {
 		return copilotadapter.BridgeSession{}, err
 	}
+	tools, err := bridge.toolsFor(ctx, spec)
+	if err != nil {
+		return copilotadapter.BridgeSession{}, err
+	}
 	lifecycle := newSessionLifecycle(spec.SessionID, newRestoredTurnCorrelator(spec.RestoredTurns))
-	session, err := bridge.resumeSession(ctx, spec.SessionID.String(), bridge.resumeSessionConfig(spec, mcpServers, lifecycle))
+	config := bridge.resumeSessionConfig(spec, mcpServers, lifecycle)
+	config.Tools = tools
+	session, err := bridge.resumeSession(ctx, spec.SessionID.String(), config)
 	if err != nil {
 		lifecycle.stop()
 		return copilotadapter.BridgeSession{}, bridge.classifyResumeFailure(ctx, spec.SessionID, err)

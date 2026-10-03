@@ -329,6 +329,10 @@
     "named": false
   },
   {
+    "type": "lazy",
+    "named": false
+  },
+  {
     "type": "library",
     "named": false
   },

@@ -1,6 +1,6 @@
 # The custom-ui-page example
 
-Stock CandaceOS Core with one page added: a sidebar entry, and something of
+Stock deploy with one page added: a sidebar entry, and something of
 your own behind it.
 
 This is the smallest useful shape of the operator UI's extension seams, and it
@@ -85,7 +85,7 @@ registered path are the same constant, because nothing checks that they agree.
 
 **Link the brand stylesheet anyway.** The page links `app.css` and the
 generated brand stylesheet, both through
-[`browserroutes`](../../services/candaceos/browserroutes) rather than literal
+[`browserroutes`](../../web/deploy/browserroutes) rather than literal
 URLs. Under the stock identity that second stylesheet is empty, so linking it
 costs nothing — and it is what keeps this page in step on the day the product
 is rebranded.
@@ -96,6 +96,6 @@ is rebranded.
   `WithBrand` and `WithUIOverlay`, which between them replace the two
   brand-bearing names, the wordmark, the palette, and any presentation file the
   overlay names.
-- [`services/candaceos/webui`](../../services/candaceos/webui) — the package
+- [`web/deploy/webui`](../../web/deploy/webui) — the package
   documentation is the contract: the overridable template blocks, the data each
   receives, and what a caller may rely on.

@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "copilotbridge",
     srcs = [
+        "agent_messaging.go",
         "bridge.go",
         "events.go",
         "history.go",
@@ -15,8 +16,10 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/copilot-adapter/copilotbridge",
     visibility = ["//visibility:public"],
     deps = [
+        "//proto/candace/agent/v1:agent",
         "//services/copilot-adapter",
         "//services/copilot-adapter/gen/api",
+        "//services/relay",
         "@com_github_github_copilot_sdk_go//:go",
         "@com_github_github_copilot_sdk_go//rpc",
         "@com_github_google_uuid//:uuid",
@@ -36,6 +39,7 @@ go_test(
     ],
     embed = [":copilotbridge"],
     deps = [
+        "//ipc/net",
         "//services/copilot-adapter",
         "//services/copilot-adapter/gen/api",
         "@com_github_github_copilot_sdk_go//:go",

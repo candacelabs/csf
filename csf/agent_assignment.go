@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/candacelabs/csf/ipc/model/copilot"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 )
@@ -84,11 +85,9 @@ func agentFingerprint(message proto.Message) (string, error) {
 }
 
 // AgentWorkbenchRequests uses the Workbench's generated request types. This
-// translation is the sole boundary between CSF recipes and its current backend.
-type AgentWorkbenchRequests struct {
-	Session api.CreateSessionJSONRequestBody
-	Prompt  api.SubmitPromptJSONRequestBody
-}
+// translation is the sole boundary between CSF recipes and its current
+// backend; it is the context the Copilot brain decides on.
+type AgentWorkbenchRequests = copilot.Assignment
 
 // NewAgentWorkbenchRequests verifies a prepared plan before translating it.
 // The same keys safely replay session creation and prompt acceptance; retries

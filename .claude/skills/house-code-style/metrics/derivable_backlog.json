@@ -1,0 +1,61 @@
+{
+  "_comment": [
+    "The derivability metric's honest denominator: projections that a machine",
+    "could derive from a canonical source and that shipped code maintains by",
+    "hand instead. `derivability_census.py` reads this file and reports the",
+    "status counts; `README.md` documents the metric and the rules below.",
+    "",
+    "This registry is STATE, not measurement. Statuses are UPDATED IN PLACE as",
+    "reality changes, which is the opposite of `ledger.jsonl`, where a row is",
+    "appended and never edited. Every status change names the commit or sha",
+    "that earned it in `status_note`, so the edit is auditable even though the",
+    "history lives in git rather than in the file.",
+    "",
+    "An entry is NEVER deleted to improve the ratio. A projection registered by",
+    "mistake keeps its entry and gains a `status_note` saying why it was wrong;",
+    "deleting it would shrink the denominator, which is the one edit that makes",
+    "the score go up without any derivation being built."
+  ],
+  "entries": [
+    {
+      "id": "widget-channel-legend",
+      "projection": "Channel legend: the footer row of channel swatches and their names.",
+      "canonical_source": "The widget document's declared channels, in declaration order. Typed in pkg/widget/docs/ontology.md, section 'Derived, so authoring it invites drift', inventory entry 1.23, on branch foundry/p1-widget-sdk.",
+      "hand_maintained_at": [],
+      "added": "2026-09-02",
+      "status": "derived",
+      "status_note": "Derived. At be664ec90 on branch foundry/p2-raft-widget the shipped homepage card became the generated WardenHeartbeats widget, so the three sites this entry listed are gone: the hand-written .flow-key row in view.templ and the .heartbeat-key and .ack-key swatch colours in home.css were deleted with the rest of the hand-rolled card. The footer legend the page now serves is emitted by internal/uigen/view.go writeLegend from document.Legend, which pkg/widget/internal/validate/invariants.go appends one ir.LegendEntry to per declared channel — so the words 'heartbeat' and 'ack' and their two swatch tokens exist once, in the channels block of go/services/candace-cloud/internal/homepage/warden-heartbeats.widget. go/services/candace-cloud/internal/homepage/routes_test.go asserts both words still reach the served page."
+    },
+    {
+      "id": "widget-edge-geometry",
+      "projection": "Edge geometry: the length and angle of each edge drawn between two scene nodes.",
+      "canonical_source": "The two endpoint nodes' declared placements. Typed in pkg/widget/docs/ontology.md under Edge and Placement, inventory entry 4.9, on branch foundry/p1-widget-sdk.",
+      "hand_maintained_at": [],
+      "added": "2026-09-02",
+      "status": "derived",
+      "status_note": "Derived. At be664ec90 the homepage card's two hand-computed edges — `width: 36%; transform: rotate(-137deg)` and its sibling — were deleted with .map-line and the three .node-* placement rules they were measured against. The served card's edges are now the two `transform=\"translate(50,50) rotate(-131.31)\"` groups the generator emits from ir.EdgeGeometry, computed by pkg/widget/internal/validate/build.go geometryOf from the three placements the document declares (west 21/17, centre 50/50, east 81/20 — the same percentages the deleted CSS carried). No number describing the picture survives in go/services/candace-cloud/internal/homepage/home.css."
+    },
+    {
+      "id": "widget-dirty-projection",
+      "projection": "Dirty predicate: the per-region test of whether a state change requires a re-render.",
+      "canonical_source": "The set of state fields the region's bindings and predicates read, together with the tick its motion re-arms on (added to the derivation at 178d19842). Typed in pkg/widget/docs/ontology.md, inventory entries 2.14 and 5.13, on branch foundry/p1-widget-sdk. Under-declaring it is a correctness bug, stated at pkg/gotth/live/core.go:45-49.",
+      "hand_maintained_at": [
+        "go/services/candace-cloud/internal/homepage/app.go:209"
+      ],
+      "added": "2026-09-02",
+      "status": "derivation-built",
+      "status_note": "Two of the three sites adopted at be664ec90; the entry stays `derivation-built` because the third cannot be a widget. controlPlaneState() and the control-plane fragment's Dirty closure are gone: the card is the generated widget and the fragment delegates to its widget.IDirtyDeclarer, emitted from document.DirtyProjection, so the fields the card's bindings, predicates and tick read are stated once in go/services/candace-cloud/internal/homepage/warden-heartbeats.widget. What remains is the browser-readiness banner's own `previous.ReadyMS != next.ReadyMS`, and dialect 0 has no spelling for that region: its only input is a hidden field a script fires a `change` on, and uigen.Refusals() refuses a `change` trigger because a control declares no element to bind one to. livetest.AssertDirtyComplete over both fragments still runs in go/services/candace-cloud/internal/homepage/state_test.go."
+    },
+    {
+      "id": "widget-token-mapping",
+      "projection": "The seven-name token mapping: each of a widget's seven semantic token names resolved to one palette variable.",
+      "canonical_source": "The palette the widget renders under, against the closed seven-name namespace fixed in pkg/widget/docs/dialect.md section 8 (surface, ink, muted, rule, accent, positive, warning), on branch foundry/p1-widget-sdk. That section tabulates the homepage and CandaceOS mappings; since d5c267f54 pkg/widget/palette.go applies the same seven-name table for the fieldStation palette, and nothing applies it to the homepage's.",
+      "hand_maintained_at": [
+        "go/services/candace-cloud/internal/homepage/home.css:305"
+      ],
+      "added": "2026-09-02",
+      "status": "derivation-built",
+      "status_note": "Adopted for the card's whole surface at be664ec90, and still `derivation-built` rather than `derived` for one specific reason. The card's markup no longer applies a colour anywhere: every paint in it comes from a widget-token-* class the generator emits from the token the document declared, and home.css resolves the seven names once, in the :root block at the line above, against this page's palette (surface->--sheet, ink->--ink, muted->--muted-strong, rule->--rule, accent->--archive, positive->--lichen, warning->--signal, which is the mapping pkg/widget/docs/dialect.md section 8 tabulates). Measured: home.css held 111 hand-applied colour var() sites before this change and holds 83 after; of those 83, 10 are in the card's block — the 7 token declarations plus 3 paints the closed seven do not name (the --rule-faint graph-paper texture twice and one --shadow). The other 73 are the page's own chrome — header, hero, work list, service grid, research ledger, principles, footer — which is not a widget surface and was never inside this projection. What blocks `derived` is that those seven values are still written here instead of resolved from a widget.Palette: pkg/widget/palette.go ships fieldStation's values and has no exported constructor for a host's own palette, and its own doc comment says a constructor taking values needs the every-failing-entry validator first. routes.go serves widget.Stylesheet(fieldStation) and home.css overrides all seven after it; `derived` belongs to the change that lets this host hand the SDK its palette instead."
+    }
+  ]
+}

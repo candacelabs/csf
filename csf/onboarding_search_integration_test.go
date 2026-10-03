@@ -1,4 +1,4 @@
-//go:build integration
+//go:build acceptance
 
 package csf_test
 
@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/candacelabs/csf/csf"
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/httpserver"
-	"github.com/candacelabs/csf/pkg/patience"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/candacelabs/csf/services/copilot-adapter/copilotbridge"
 	copilot "github.com/github/copilot-sdk/go"
@@ -37,7 +37,7 @@ var _ = Describe("CSF onboarding external knowledge integration", func() {
 		admin, err := opensearchapi.NewClient(opensearchapi.Config{Client: opensearch.Config{Addresses: []string{endpoint}}})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(admin.Close)
-		Expect(patience.Await(GinkgoT(), "onboarding OpenSearch", csfPostgresDatabaseBudget, func() error {
+		Expect(eventually.Await(GinkgoT(), "onboarding OpenSearch", csfPostgresDatabaseBudget, func() error {
 			requestContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
 			_, err := admin.Cluster.Health(requestContext, &opensearchapi.ClusterHealthReq{})
@@ -138,7 +138,7 @@ var _ = Describe("CSF onboarding external knowledge integration", func() {
 func awaitOnboardingProjection(ctx context.Context, store *csf.Postgres, receipts []*pb.IngestDocumentResult) {
 	for _, receipt := range receipts {
 		identity := &pb.DocumentRequest{SourceId: receipt.Document.SourceId, Revision: receipt.Document.Revision}
-		patience.Await(GinkgoT(), "onboarding search projection", csfPostgresDatabaseBudget, func() *pb.ProjectionTask {
+		eventually.Await(GinkgoT(), "onboarding search projection", csfPostgresDatabaseBudget, func() *pb.ProjectionTask {
 			task, err := store.GetProjection(ctx, identity)
 			Expect(err).NotTo(HaveOccurred())
 			return task

@@ -350,7 +350,7 @@ The rest, sorted by whether a deployment has to think about them:
 | `Logger`, `Metrics`, `Tracer` | nil | **Yes** — nil disables the provenance log and with it the reverse lookup from a captured patch back to its cause. [observability.md](observability.md) |
 | `Limits.IdleTimeout` | 30 min | Only to trade session eviction against memory |
 | `Limits.MaxInboundFrameBytes` | 65,536 | Only if a form legitimately carries more. It must stay between 1,024 and 1,048,576 |
-| `Limits.EffectDrainTimeout` | 5 s | Only if your effects are slower than that; it bounds what `App.Close` waits for |
+| `Limits.EffectDrainTimeout` | 5 s | Only if your effects are slower than that; past it an effect still running at shutdown is counted and logged, and the stop keeps waiting for it |
 | `Limits.WriteDeadline`, `SlowClientGrace`, `AckWindow`, `MailboxDepth`, `AckChannelDepth`, `CoalesceFlushAt`, `EventBurst`, `MaxEventsPerSecond`, `MinResyncInterval`, `ResyncBurst`, `PanicBudget` | see [error-handling.md](error-handling.md) | Rarely. They are safe by default and every one of them is validated at `live.New` rather than clamped |
 
 Every `Limits` field is **refused** rather than clamped when it is out of range,
@@ -420,10 +420,15 @@ The DOM stays exactly as the last patch left it in the meantime — frozen,
 scrollable, focusable, and fully interactive, because nothing in the runtime
 disables a control.
 
-Size the grace period above `Limits.EffectDrainTimeout` (default five seconds),
-and above whatever your own effects need. If the deadline passes with effects
-still in flight, `App.Close` returns an error and the effects are abandoned and
-counted.
+Size the grace period above whatever your own effects need to return once their
+context is cancelled. Mounted in a host runtime (`host.Mount("live", app)`), the
+App's stop joins every session goroutine — read pumps, actors and effects — with
+no deadline of its own; an effect still running after
+`Limits.EffectDrainTimeout` (default five seconds) is counted
+(`gotthlive_effects_overran_total`) and logged, and the stop keeps waiting for
+it. A binary that calls `App.Close` itself bounds the wait with the context it
+passes: if the deadline passes first, `Close` returns an error and has not
+joined the sessions scope.
 
 ---
 

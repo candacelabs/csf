@@ -1,4 +1,4 @@
-//go:build integration
+//go:build acceptance
 
 package csf_test
 
@@ -12,11 +12,11 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/httpserver"
-	"github.com/candacelabs/csf/pkg/patience"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
@@ -24,7 +24,7 @@ import (
 
 // A claim can commit even when its response is lost. Allow a 60-second lease
 // to expire and the next worker to index and settle it on a loaded runner.
-var projectionRecoveryBudget = patience.Budget{Within: 2 * time.Minute, Interval: 100 * time.Millisecond}
+var projectionRecoveryBudget = eventually.Budget{Within: 2 * time.Minute, Interval: 100 * time.Millisecond}
 
 var _ = Describe("PostgreSQL projection integration", func() {
 	It("persists queued ingestion and retries through the shared generated HTTP contract", func() {
@@ -58,17 +58,19 @@ var _ = Describe("PostgreSQL projection integration", func() {
 		Expect(abandoned).NotTo(BeNil())
 		Expect(abandoned.Attempts).To(Equal(int32(1)))
 		// Advance only this disposable fixture's lease instead of sleeping a minute.
-		_, err = pool.Exec(ctx, "UPDATE brainspine_projection_tasks SET lease_until = statement_timestamp() - interval '1 second' WHERE source_id = $1 AND revision = $2", request.Document.SourceId, request.Document.Revision)
+		_, err = pool.Exec(ctx, "UPDATE csf_projection_tasks SET lease_until = statement_timestamp() - interval '1 second' WHERE source_id = $1 AND revision = $2", request.Document.SourceId, request.Document.Revision)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(store.CompleteProjection(ctx, abandoned)).To(MatchError(pgx.ErrNoRows))
 		// Reopen connections and reconstruct the service without an in-memory wakeup.
 		pool.Close()
-		pool, err = pgxpool.NewWithConfig(ctx, fixture.config.Copy())
+		pool, err = csfpg.OpenPool(ctx, fixture.settings)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(pool.Close)
+		schemaHandle := pool.OpenSQL()
+		DeferCleanup(schemaHandle.Close)
+		Expect(csfpg.ApplySchema(ctx, schemaHandle)).To(Succeed())
 		store, err = csf.NewPostgres(pool)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(store.Migrate(ctx)).To(Succeed())
 		service, err = csf.New(csf.WithKnowledge(store, index, artifacts))
 		Expect(err).NotTo(HaveOccurred())
 		first := index.EXPECT().Index(gomock.Any(), gomock.Any(), text).Return(errors.New("transient projection failure"))
@@ -77,7 +79,7 @@ var _ = Describe("PostgreSQL projection integration", func() {
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(workers.Close)
 		identity := &pb.DocumentRequest{SourceId: "integration", Revision: "v1"}
-		task := patience.Await(GinkgoT(), "abandoned lease and durable retry complete", projectionRecoveryBudget, func() *pb.ProjectionTask {
+		task := eventually.Await(GinkgoT(), "abandoned lease and durable retry complete", projectionRecoveryBudget, func() *pb.ProjectionTask {
 			task, err := store.GetProjection(ctx, identity)
 			if err != nil {
 				return nil

@@ -1,0 +1,180 @@
+// Case 022 fixture — CLEAN. The same four checks, the same behavior, as named
+// function values registered in data. A gate run over this file must report
+// nothing at all.
+//
+// Read `checks` first: the family is now a value. That is the entire argument,
+// and it buys three things the method set could not have:
+//
+//  1. It carries metadata. Each entry names the finding classes its check owns
+//     — there is nowhere on a method to put that.
+//  2. It is enumerable, so `DeclaredClasses` exists and a spec can assert
+//     completeness over it: every declared class has exactly one owner, no two
+//     checks claim the same one, the count matches the contract. No test can
+//     iterate a method set.
+//  3. The checks are pure. Each takes the document explicitly and returns its
+//     findings; the registry loop does the appending. The shared mutable
+//     receiver is gone, and with it the reason the checks had to be methods.
+//
+// Note `Check`'s parameter is named (CS-2 applies inside a function type, and
+// converting a method set is the most common way to introduce that debt).
+//
+// This fixture contains NO method chain, including the short ordered sequence
+// CS-6 explicitly permits — a three-step chain would fire the heuristic and
+// fail the runner's "nothing fires on clean" invariant. That limit is argued
+// in `expected.json` and in ../../../README.md § "When a rule's exemption
+// cannot live in a fixture"; the permitted chain is judged by case 023.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "fmt"
+
+// The finding classes this validator can report. CS-13: a value the program
+// dispatches on is declared once, named, in the package that owns its meaning.
+const (
+	classFieldUnwritten       = classFieldUnwritten
+	classBindingUntargeted    = classBindingUntargeted
+	classDocumentEndpointless = classDocumentEndpointless
+	classDocumentUnnamed      = classDocumentUnnamed
+)
+
+// documentEndpoint is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const documentEndpoint = "203.0.113.40:8080"
+
+// Finding is one problem reported against a document.
+type Finding struct {
+	Class   string
+	Message string
+}
+
+// Field is one state field declared by a document.
+type Field struct {
+	Name    string
+	Writers []string
+}
+
+// Binding is one named binding declared by a document.
+type Binding struct {
+	Name   string
+	Target string
+}
+
+// Document is the parsed thing being checked.
+type Document struct {
+	Name     string
+	Endpoint string
+	Fields   []Field
+	Bindings []Binding
+}
+
+// Check is one document check: document in, findings out, nothing shared.
+type Check func(document *Document) []Finding
+
+// registeredCheck is one entry in the registry — the check plus the metadata a
+// method had nowhere to carry.
+type registeredCheck struct {
+	name    string
+	classes []string
+	check   Check
+}
+
+// checks is the registry. Adding a check means adding a row here, and a row
+// that claims a finding class it never reports is a test failure rather than a
+// bug someone files months later.
+var checks = []registeredCheck{
+	{
+		name:    "field-writers",
+		classes: []string{classFieldUnwritten},
+		check:   checkFieldWriters,
+	},
+	{
+		name:    "binding-targets",
+		classes: []string{classBindingUntargeted},
+		check:   checkBindingTargets,
+	},
+	{
+		name:    "endpoint-set",
+		classes: []string{classDocumentEndpointless},
+		check:   checkEndpointSet,
+	},
+	{
+		name:    "name-set",
+		classes: []string{classDocumentUnnamed},
+		check:   checkNameSet,
+	},
+}
+
+// Validate runs every registered check. There is no call list to fall out of
+// step with the family, because the family is what is iterated.
+func Validate(document *Document) []Finding {
+	findings := make([]Finding, 0, len(checks))
+	for _, registered := range checks {
+		findings = append(findings, registered.check(document)...)
+	}
+	return findings
+}
+
+// DeclaredClasses is every finding class the registry claims to own, in
+// registration order. This function is the payoff: it is what a completeness
+// spec asserts against, and it cannot be written against a method set.
+func DeclaredClasses() []string {
+	classes := make([]string, 0, len(checks))
+	for _, registered := range checks {
+		classes = append(classes, registered.classes...)
+	}
+	return classes
+}
+
+// checkFieldWriters reports state nothing can reach: a field written by
+// nothing renders one value forever.
+func checkFieldWriters(document *Document) []Finding {
+	findings := make([]Finding, 0, len(document.Fields))
+	for _, field := range document.Fields {
+		if len(field.Writers) == 0 {
+			findings = append(findings, Finding{
+				Class:   classFieldUnwritten,
+				Message: fmt.Sprintf("field %s has no writer", field.Name),
+			})
+		}
+	}
+	return findings
+}
+
+// checkBindingTargets reports a binding that names nothing.
+func checkBindingTargets(document *Document) []Finding {
+	findings := make([]Finding, 0, len(document.Bindings))
+	for _, binding := range document.Bindings {
+		if binding.Target == "" {
+			findings = append(findings, Finding{
+				Class:   classBindingUntargeted,
+				Message: fmt.Sprintf("binding %s names no target", binding.Name),
+			})
+		}
+	}
+	return findings
+}
+
+// checkEndpointSet reports a document with nowhere to send anything.
+func checkEndpointSet(document *Document) []Finding {
+	if document.Endpoint != "" {
+		return nil
+	}
+	return []Finding{{
+		Class:   classDocumentEndpointless,
+		Message: "document declares no endpoint",
+	}}
+}
+
+// checkNameSet reports an unnamed document.
+func checkNameSet(document *Document) []Finding {
+	if document.Name != "" {
+		return nil
+	}
+	return []Finding{{
+		Class:   classDocumentUnnamed,
+		Message: "document declares no name",
+	}}
+}

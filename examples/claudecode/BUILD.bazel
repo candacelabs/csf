@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "claudecode_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/examples/claudecode",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//ipc/model/claudecode",
+        "//ipc/proc",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_binary(
+    name = "claudecode",
+    embed = [":claudecode_lib"],
+    visibility = ["//visibility:public"],
+)

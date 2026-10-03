@@ -1,0 +1,24 @@
+load("@rules_ocaml//build:rules.bzl", "ocamllex", "ocamlyacc")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "src/top_down/AST.ml",
+    "src/top_down/Datalog_top_down.ml",
+    "src/top_down/Datalog_top_down.mli",
+])
+
+ocamllex(
+    name = "lexer",
+    src = "src/top_down/Lexer.mll",
+    out = "Lexer.ml",
+)
+
+ocamlyacc(
+    name = "parser",
+    src = "src/top_down/Parser.mly",
+    outs = [
+        "Parser.ml",
+        "Parser.mli",
+    ],
+)

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	contract0 "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	contract1 "github.com/candacelabs/csf/proto/candace/email/v1"
+	contract2 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 	"strings"
 )
@@ -16,9 +17,14 @@ func (service *Service) registerOperations() {
 	registerOperation(service, "UpdateOwnAgentConfiguration", "POST", "/api/agents/configuration/update", "Replace the signed caller's Langfuse and OpenSearch references. expected_revision prevents an older agent session from overwriting a newer configuration.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.AgentConfigurationInput\":{\"description\":\"A complete replacement payload for one agent's external-tool configuration.\\nThe authenticated transport selects the agent; callers cannot supply an ID.\",\"properties\":{\"langfuse\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentLangfuseConfiguration\"},\"opensearch\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentOpenSearchConfiguration\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentLangfuseConfiguration\":{\"description\":\"Agent-owned references for Langfuse. Secret material remains in the\\noperator-owned secret store; agents can only inspect and select their own\\nopaque references.\",\"properties\":{\"endpointUrl\":{\"type\":\"string\"},\"publicKeySecretRef\":{\"type\":\"string\"},\"secretKeySecretRef\":{\"type\":\"string\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentOpenSearchConfiguration\":{\"description\":\"Agent-owned references for the rebuildable OpenSearch projection. The\\nevidence authority remains PostgreSQL and the artifact store.\",\"properties\":{\"credentialsSecretRef\":{\"type\":\"string\"},\"embeddingModel\":{\"type\":\"string\"},\"endpointUrl\":{\"type\":\"string\"},\"index\":{\"type\":\"string\"}},\"type\":\"object\"}},\"properties\":{\"configuration\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentConfigurationInput\"},\"expectedRevision\":{\"format\":\"int64\",\"type\":\"integer\"}},\"type\":\"object\"}"), func() *contract0.UpdateOwnAgentConfigurationRequest {
 		return &contract0.UpdateOwnAgentConfigurationRequest{}
 	}, service.UpdateOwnAgentConfiguration)
-	registerOperation(service, "PrepareAgentAssignment", "POST", "/api/agents/prepare", "Validate an agent recipe and prepare stable retry identities without starting a session. Execute the plan with the generated Workbench session and prompt operations; retain the recipe and receipt. This scaffold leaves Copilot context behavior unchanged.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.AgentAssignmentRecipe\":{\"description\":\"One immutable assignment recipe. Retain this file to retry the assignment;\\nchanging its contents requires a new assignment_id. Model and repository\\nidentifiers come from the Workbench catalog. This slice creates a worktree.\",\"properties\":{\"agent\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentDefinition\"},\"assignmentId\":{\"type\":\"string\"},\"model\":{\"type\":\"string\"},\"repositoryId\":{\"type\":\"string\"},\"task\":{\"type\":\"string\"},\"ticketUrl\":{\"type\":\"string\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentDefinition\":{\"description\":\"Reusable worker configuration. Instructions guide the backend; they do not\\ngrant permissions. The host retains its existing tool approval policy.\",\"properties\":{\"displayName\":{\"type\":\"string\"},\"id\":{\"type\":\"string\"},\"instructions\":{\"type\":\"string\"},\"revision\":{\"format\":\"int64\",\"type\":\"integer\"}},\"type\":\"object\"}},\"properties\":{\"recipe\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentAssignmentRecipe\"}},\"type\":\"object\"}"), func() *contract0.PrepareAgentAssignmentRequest { return &contract0.PrepareAgentAssignmentRequest{} }, service.PrepareAgentAssignment)
-	registerOperation(service, "Compile", "POST", "/api/compile", "Prepare a driving recipe: check the recipe and turn it into steps the controller can run.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.Controller\":{\"properties\":{\"acceleration\":{\"$ref\":\"#/$defs/candace.brainspine.v1.Expression\"},\"name\":{\"type\":\"string\"},\"schemaVersion\":{\"format\":\"int64\",\"type\":\"integer\"},\"steering\":{\"$ref\":\"#/$defs/candace.brainspine.v1.Expression\"}},\"type\":\"object\"},\"candace.brainspine.v1.Expression\":{\"properties\":{\"arguments\":{\"items\":{\"$ref\":\"#/$defs/candace.brainspine.v1.Expression\"},\"type\":\"array\"},\"inputIndex\":{\"format\":\"int64\",\"type\":\"integer\"},\"lower\":{\"format\":\"int64\",\"type\":\"string\"},\"opcode\":{\"$ref\":\"#/$defs/candace.brainspine.v1.Opcode\"},\"upper\":{\"format\":\"int64\",\"type\":\"string\"},\"value\":{\"format\":\"int64\",\"type\":\"string\"}},\"type\":\"object\"},\"candace.brainspine.v1.Opcode\":{\"description\":\"All expression values are dimensionless fixed-point scalars with scale 1000.\\nThe simulator adapter owns physical-unit normalization; actuator conversion\\nis fixed by the spine, never supplied by a candidate. Every operation saturates\\nto [-1000000000, 1000000000]. SCALE divides by 1000 toward zero.\",\"enum\":[\"OPCODE_UNSPECIFIED\",\"OPCODE_CONSTANT\",\"OPCODE_INPUT\",\"OPCODE_ADD\",\"OPCODE_SCALE\",\"OPCODE_CLAMP\"],\"type\":\"string\"}},\"properties\":{\"controller\":{\"$ref\":\"#/$defs/candace.brainspine.v1.Controller\"}},\"type\":\"object\"}"), func() *contract0.CompileRequest { return &contract0.CompileRequest{} }, service.Compile)
+	registerOperation(service, "PrepareAgentAssignment", "POST", "/api/agents/prepare", "Validate an agent recipe and prepare stable retry identities without starting a session. Execute the plan with the generated Workbench session and prompt operations; retain the recipe and receipt. This scaffold leaves Copilot context behavior unchanged.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.AgentAssignmentRecipe\":{\"description\":\"One immutable assignment recipe. Retain this file to retry the assignment;\\nchanging its contents requires a new assignment_id. Model and repository\\nidentifiers come from the Workbench catalog. This slice creates a worktree.\",\"properties\":{\"agent\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentDefinition\"},\"assignmentId\":{\"type\":\"string\"},\"model\":{\"type\":\"string\"},\"repositoryId\":{\"type\":\"string\"},\"task\":{\"type\":\"string\"},\"ticketUrl\":{\"type\":\"string\"},\"workspace\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentWorkspace\",\"description\":\"Present when the harness runs the assignment itself as a Claude Code\\nsession; absent for a Workbench submission. Set only fields change the\\nrecipe fingerprint, so recipes without a workspace keep their hashes.\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentDefinition\":{\"description\":\"Reusable worker configuration. Instructions guide the backend; they do not\\ngrant permissions. The host retains its existing tool approval policy.\",\"properties\":{\"displayName\":{\"type\":\"string\"},\"id\":{\"type\":\"string\"},\"instructions\":{\"type\":\"string\"},\"revision\":{\"format\":\"int64\",\"type\":\"integer\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentWorkspace\":{\"description\":\"Where and how the harness runs an assignment: a git worktree it creates\\nfrom a local repository on a branch of its own, the tools the session may\\nuse, and the title of the draft pull request the commit gate opens.\",\"properties\":{\"allowedTools\":{\"description\":\"Claude Code tool rules the session may use without asking, such as\\n\\\"Bash\\\", \\\"Edit\\\" or \\\"Bash(git *)\\\". Everything else is denied.\",\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"baseBranch\":{\"description\":\"The ref the work branch starts from and the pull request targets.\",\"type\":\"string\"},\"branch\":{\"description\":\"The work branch the worktree checks out; created from base_branch.\",\"type\":\"string\"},\"briefPath\":{\"description\":\"A file holding the task, read by the launcher in place of an inline\\ntask; relative paths resolve against the recipe file.\",\"type\":\"string\"},\"pullRequestTitle\":{\"description\":\"Title of the draft pull request opened after the first commit.\",\"type\":\"string\"},\"repositoryPath\":{\"description\":\"Absolute path of the local repository the worktree is created from.\",\"type\":\"string\"}},\"type\":\"object\"}},\"properties\":{\"recipe\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentAssignmentRecipe\"}},\"type\":\"object\"}"), func() *contract0.PrepareAgentAssignmentRequest { return &contract0.PrepareAgentAssignmentRequest{} }, service.PrepareAgentAssignment)
 	registerOperation(service, "SendEmail", "POST", "/api/email/send", "Email the configured operator. Requires an authenticated agent session. The host automatically attaches Spine provenance and retains a delivery receipt; SMTP acceptance does not prove inbox delivery. Do not blindly retry an unknown outcome.", json.RawMessage("{\"$defs\":{\"candace.email.v1.EmailMessage\":{\"description\":\"The host owns sender, operator recipients, provenance and transport settings.\\nAn agent supplies message content, not a forged footer or runtime identity.\",\"properties\":{\"subject\":{\"type\":\"string\"},\"text\":{\"type\":\"string\"}},\"type\":\"object\"}},\"properties\":{\"message\":{\"$ref\":\"#/$defs/candace.email.v1.EmailMessage\"}},\"type\":\"object\"}"), func() *contract1.SendEmailRequest { return &contract1.SendEmailRequest{} }, service.SendEmail)
+	registerOperation(service, "CancelAgentSession", "POST", "/api/harness/sessions/cancel", "Ask a session's owner to stop at its next safepoint: at once between turns, or after the running turn is interrupted. Read the session again to see it reach CANCELED.", json.RawMessage("{\"properties\":{\"assignmentId\":{\"type\":\"string\"}},\"type\":\"object\"}"), func() *contract2.CancelAgentSessionRequest { return &contract2.CancelAgentSessionRequest{} }, service.CancelAgentSession)
+	registerOperation(service, "GetAgentSession", "POST", "/api/harness/sessions/get", "Read one session's state by its assignment identifier.", json.RawMessage("{\"properties\":{\"assignmentId\":{\"type\":\"string\"}},\"type\":\"object\"}"), func() *contract2.GetAgentSessionRequest { return &contract2.GetAgentSessionRequest{} }, service.GetAgentSession)
+	registerOperation(service, "ListAgentSessions", "POST", "/api/harness/sessions/list", "List every session this harness process holds, with its phase, turns and queue, and the one process they all run in.", json.RawMessage("{\"type\":\"object\"}"), func() *contract2.ListAgentSessionsRequest { return &contract2.ListAgentSessionsRequest{} }, service.ListAgentSessions)
+	registerOperation(service, "SendAgentSessionMessage", "POST", "/api/harness/sessions/send", "Queue one message for an open session; its owner starts the turn at the next safepoint. The turn identifier acknowledges acceptance, not completion. Follow the session's event stream to read the turn.", json.RawMessage("{\"properties\":{\"assignmentId\":{\"type\":\"string\"},\"message\":{\"type\":\"string\"}},\"type\":\"object\"}"), func() *contract2.SendAgentSessionMessageRequest { return &contract2.SendAgentSessionMessageRequest{} }, service.SendAgentSessionMessage)
+	registerOperation(service, "SubmitAgentSession", "POST", "/api/harness/sessions/submit", "Admit one agent assignment recipe as a session of this host's agent harness: the worktree is created, the session gates are installed and the turn executor is kept open for later messages. The receipt links the session, branch and trace; it does not prove the task succeeded.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.AgentAssignmentRecipe\":{\"description\":\"One immutable assignment recipe. Retain this file to retry the assignment;\\nchanging its contents requires a new assignment_id. Model and repository\\nidentifiers come from the Workbench catalog. This slice creates a worktree.\",\"properties\":{\"agent\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentDefinition\"},\"assignmentId\":{\"type\":\"string\"},\"model\":{\"type\":\"string\"},\"repositoryId\":{\"type\":\"string\"},\"task\":{\"type\":\"string\"},\"ticketUrl\":{\"type\":\"string\"},\"workspace\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentWorkspace\",\"description\":\"Present when the harness runs the assignment itself as a Claude Code\\nsession; absent for a Workbench submission. Set only fields change the\\nrecipe fingerprint, so recipes without a workspace keep their hashes.\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentDefinition\":{\"description\":\"Reusable worker configuration. Instructions guide the backend; they do not\\ngrant permissions. The host retains its existing tool approval policy.\",\"properties\":{\"displayName\":{\"type\":\"string\"},\"id\":{\"type\":\"string\"},\"instructions\":{\"type\":\"string\"},\"revision\":{\"format\":\"int64\",\"type\":\"integer\"}},\"type\":\"object\"},\"candace.brainspine.v1.AgentWorkspace\":{\"description\":\"Where and how the harness runs an assignment: a git worktree it creates\\nfrom a local repository on a branch of its own, the tools the session may\\nuse, and the title of the draft pull request the commit gate opens.\",\"properties\":{\"allowedTools\":{\"description\":\"Claude Code tool rules the session may use without asking, such as\\n\\\"Bash\\\", \\\"Edit\\\" or \\\"Bash(git *)\\\". Everything else is denied.\",\"items\":{\"type\":\"string\"},\"type\":\"array\"},\"baseBranch\":{\"description\":\"The ref the work branch starts from and the pull request targets.\",\"type\":\"string\"},\"branch\":{\"description\":\"The work branch the worktree checks out; created from base_branch.\",\"type\":\"string\"},\"briefPath\":{\"description\":\"A file holding the task, read by the launcher in place of an inline\\ntask; relative paths resolve against the recipe file.\",\"type\":\"string\"},\"pullRequestTitle\":{\"description\":\"Title of the draft pull request opened after the first commit.\",\"type\":\"string\"},\"repositoryPath\":{\"description\":\"Absolute path of the local repository the worktree is created from.\",\"type\":\"string\"}},\"type\":\"object\"}},\"properties\":{\"recipe\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AgentAssignmentRecipe\"}},\"type\":\"object\"}"), func() *contract2.SubmitAgentSessionRequest { return &contract2.SubmitAgentSessionRequest{} }, service.SubmitAgentSession)
+	registerOperation(service, "StopHarness", "POST", "/api/harness/stop", "Stop the harness process in order: listeners first, then every open session. Running sessions are closed, not completed.", json.RawMessage("{\"type\":\"object\"}"), func() *contract2.StopHarnessRequest { return &contract2.StopHarnessRequest{} }, service.StopHarness)
 	registerOperation(service, "GetDocument", "POST", "/api/knowledge/document", "Open one saved source document and read its words.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.DocumentRequest\":{\"properties\":{\"revision\":{\"type\":\"string\"},\"sourceId\":{\"type\":\"string\"}},\"type\":\"object\"}},\"properties\":{\"request\":{\"$ref\":\"#/$defs/candace.brainspine.v1.DocumentRequest\"}},\"type\":\"object\"}"), func() *contract0.GetDocumentRequest { return &contract0.GetDocumentRequest{} }, service.GetDocument)
 	registerOperation(service, "IngestDocument", "POST", "/api/knowledge/documents", "Add a source document so people can find and cite it later.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.SourceDocument\":{\"description\":\"A source revision cites immutable UTF-8 content in the artifact store. The\\nsource's license is metadata, never inferred from the software ingesting it.\",\"properties\":{\"artifactRef\":{\"type\":\"string\"},\"contentHash\":{\"type\":\"string\"},\"license\":{\"type\":\"string\"},\"mediaType\":{\"type\":\"string\"},\"rawSourceContentHash\":{\"type\":\"string\"},\"retrievedAt\":{\"type\":\"string\"},\"revision\":{\"type\":\"string\"},\"sizeBytes\":{\"format\":\"uint64\",\"type\":\"string\"},\"sourceId\":{\"type\":\"string\"},\"sourceUri\":{\"type\":\"string\"},\"title\":{\"type\":\"string\"}},\"type\":\"object\"}},\"properties\":{\"document\":{\"$ref\":\"#/$defs/candace.brainspine.v1.SourceDocument\"},\"text\":{\"type\":\"string\"}},\"type\":\"object\"}"), func() *contract0.IngestDocumentRequest { return &contract0.IngestDocumentRequest{} }, service.IngestDocument)
 	registerOperation(service, "PutEdge", "POST", "/api/knowledge/edges", "Connect two ideas and record why they belong together.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.AuthorKind\":{\"enum\":[\"AUTHOR_KIND_UNSPECIFIED\",\"AUTHOR_KIND_SOURCE\",\"AUTHOR_KIND_MODEL\",\"AUTHOR_KIND_OPERATOR\",\"AUTHOR_KIND_CHECKER\"],\"type\":\"string\"},\"candace.brainspine.v1.KnowledgeEdge\":{\"properties\":{\"authorKind\":{\"$ref\":\"#/$defs/candace.brainspine.v1.AuthorKind\"},\"authorRef\":{\"type\":\"string\"},\"fromNodeId\":{\"type\":\"string\"},\"rationale\":{\"type\":\"string\"},\"relation\":{\"$ref\":\"#/$defs/candace.brainspine.v1.RelationKind\"},\"toNodeId\":{\"type\":\"string\"}},\"type\":\"object\"},\"candace.brainspine.v1.RelationKind\":{\"enum\":[\"RELATION_KIND_UNSPECIFIED\",\"RELATION_KIND_SUPPORTS\",\"RELATION_KIND_REFUTES\",\"RELATION_KIND_DEPENDS_ON\",\"RELATION_KIND_DERIVED_FROM\",\"RELATION_KIND_SUPERSEDES\"],\"type\":\"string\"}},\"properties\":{\"edge\":{\"$ref\":\"#/$defs/candace.brainspine.v1.KnowledgeEdge\"}},\"type\":\"object\"}"), func() *contract0.PutEdgeRequest { return &contract0.PutEdgeRequest{} }, service.PutEdge)
@@ -33,7 +39,7 @@ func (service *Service) registerOperations() {
 	registerOperation(service, "ReadSimulationLogs", "POST", "/api/simulation/logs", "Read bounded local job logs, including retained output after container cleanup.", json.RawMessage("{\"properties\":{\"maxBytes\":{\"format\":\"int64\",\"type\":\"integer\"},\"runId\":{\"type\":\"string\"}},\"type\":\"object\"}"), func() *contract0.ReadSimulationLogsRequest { return &contract0.ReadSimulationLogsRequest{} }, service.ReadSimulationLogs)
 	registerOperation(service, "SubmitSimulation", "POST", "/api/simulation/submit", "Queue a bounded simulator example using the operator's configured execution profile.", json.RawMessage("{\"$defs\":{\"candace.brainspine.v1.SimulationExecutor\":{\"enum\":[\"SIMULATION_EXECUTOR_UNSPECIFIED\",\"SIMULATION_EXECUTOR_LOCAL\",\"SIMULATION_EXECUTOR_AWS_BATCH\"],\"type\":\"string\"},\"candace.brainspine.v1.Simulator\":{\"description\":\"Simulator jobs share the host's durable queue. Vendor SDKs own cloud wire types.\",\"enum\":[\"SIMULATOR_UNSPECIFIED\",\"SIMULATOR_CARLA\",\"SIMULATOR_ISAAC\"],\"type\":\"string\"}},\"properties\":{\"captureEvery\":{\"description\":\"Zero disables camera capture; otherwise one frame per N completed steps.\",\"format\":\"int64\",\"type\":\"integer\"},\"executor\":{\"$ref\":\"#/$defs/candace.brainspine.v1.SimulationExecutor\"},\"runId\":{\"type\":\"string\"},\"simulator\":{\"$ref\":\"#/$defs/candace.brainspine.v1.Simulator\"},\"steps\":{\"format\":\"int64\",\"type\":\"integer\"}},\"type\":\"object\"}"), func() *contract0.SubmitSimulationRequest { return &contract0.SubmitSimulationRequest{} }, service.SubmitSimulation)
 	registerOperation(service, "RebuildSimulationTrace", "POST", "/api/simulation/trace/rebuild", "Rebuild a simulator trace from its retained OpenSearch source document.", json.RawMessage("{\"properties\":{\"runId\":{\"type\":\"string\"}},\"type\":\"object\"}"), func() *contract0.RebuildSimulationTraceRequest { return &contract0.RebuildSimulationTraceRequest{} }, service.RebuildSimulationTrace)
-	registerOperation(service, "GetSnapshot", "GET", "/api/snapshot", "Show the latest measured work and health report.", json.RawMessage("{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}"), func() *contract0.GetSnapshotRequest { return &contract0.GetSnapshotRequest{} }, service.GetSnapshot)
+	registerOperation(service, "GetSnapshot", "GET", "/api/snapshot", "Show the latest measured work and health report, including whether the external spine controller is connected.", json.RawMessage("{\"additionalProperties\":false,\"properties\":{},\"type\":\"object\"}"), func() *contract0.GetSnapshotRequest { return &contract0.GetSnapshotRequest{} }, service.GetSnapshot)
 	registerOperation(service, "GetWorkbenchTheme", "POST", "/api/workbench/theme/get", "Read the active Workbench CSS and its host-owned file path. Edit workbench-theme.css at that path, then call ReloadWorkbenchTheme.", json.RawMessage("{\"type\":\"object\"}"), func() *contract0.GetWorkbenchThemeRequest { return &contract0.GetWorkbenchThemeRequest{} }, service.GetWorkbenchTheme)
 	registerOperation(service, "ReloadWorkbenchTheme", "POST", "/api/workbench/theme/reload", "Reload the host-owned workbench-theme.css file after editing it. Missing or empty CSS restores the default; invalid UTF-8 or over 65536 bytes preserves the active theme. Browsers refresh within five seconds while visible. Use /ui/?theme=default to bypass broken CSS in one tab. No path or CSS input is accepted.", json.RawMessage("{\"type\":\"object\"}"), func() *contract0.ReloadWorkbenchThemeRequest { return &contract0.ReloadWorkbenchThemeRequest{} }, service.ReloadWorkbenchTheme)
 }
@@ -58,16 +64,51 @@ func (client *Client) PrepareAgentAssignment(ctx context.Context, request *contr
 	}
 	return response, nil
 }
-func (client *Client) Compile(ctx context.Context, request *contract0.CompileRequest) (*contract0.CompileResponse, error) {
-	response := &contract0.CompileResponse{}
-	if err := client.call(ctx, "POST", "/api/compile", request, response); err != nil {
+func (client *Client) SendEmail(ctx context.Context, request *contract1.SendEmailRequest) (*contract1.SendEmailResponse, error) {
+	response := &contract1.SendEmailResponse{}
+	if err := client.call(ctx, "POST", "/api/email/send", request, response); err != nil {
 		return nil, err
 	}
 	return response, nil
 }
-func (client *Client) SendEmail(ctx context.Context, request *contract1.SendEmailRequest) (*contract1.SendEmailResponse, error) {
-	response := &contract1.SendEmailResponse{}
-	if err := client.call(ctx, "POST", "/api/email/send", request, response); err != nil {
+func (client *Client) CancelAgentSession(ctx context.Context, request *contract2.CancelAgentSessionRequest) (*contract2.CancelAgentSessionResponse, error) {
+	response := &contract2.CancelAgentSessionResponse{}
+	if err := client.call(ctx, "POST", "/api/harness/sessions/cancel", request, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func (client *Client) GetAgentSession(ctx context.Context, request *contract2.GetAgentSessionRequest) (*contract2.GetAgentSessionResponse, error) {
+	response := &contract2.GetAgentSessionResponse{}
+	if err := client.call(ctx, "POST", "/api/harness/sessions/get", request, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func (client *Client) ListAgentSessions(ctx context.Context, request *contract2.ListAgentSessionsRequest) (*contract2.ListAgentSessionsResponse, error) {
+	response := &contract2.ListAgentSessionsResponse{}
+	if err := client.call(ctx, "POST", "/api/harness/sessions/list", request, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func (client *Client) SendAgentSessionMessage(ctx context.Context, request *contract2.SendAgentSessionMessageRequest) (*contract2.SendAgentSessionMessageResponse, error) {
+	response := &contract2.SendAgentSessionMessageResponse{}
+	if err := client.call(ctx, "POST", "/api/harness/sessions/send", request, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func (client *Client) SubmitAgentSession(ctx context.Context, request *contract2.SubmitAgentSessionRequest) (*contract2.SubmitAgentSessionResponse, error) {
+	response := &contract2.SubmitAgentSessionResponse{}
+	if err := client.call(ctx, "POST", "/api/harness/sessions/submit", request, response); err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+func (client *Client) StopHarness(ctx context.Context, request *contract2.StopHarnessRequest) (*contract2.StopHarnessResponse, error) {
+	response := &contract2.StopHarnessResponse{}
+	if err := client.call(ctx, "POST", "/api/harness/stop", request, response); err != nil {
 		return nil, err
 	}
 	return response, nil
@@ -195,10 +236,10 @@ func (client *Client) ReloadWorkbenchTheme(ctx context.Context, request *contrac
 type HumanOperation struct{ Name, Description string }
 
 func HumanOperations() []HumanOperation {
-	return []HumanOperation{{Name: "GetOwnAgentConfiguration", Description: "Read the signed caller's durable Langfuse and OpenSearch references. The response contains opaque secret references, never secret values."}, {Name: "UpdateOwnAgentConfiguration", Description: "Replace the signed caller's Langfuse and OpenSearch references. expected_revision prevents an older agent session from overwriting a newer configuration."}, {Name: "PrepareAgentAssignment", Description: "Validate an agent recipe and prepare stable retry identities without starting a session. Execute the plan with the generated Workbench session and prompt operations; retain the recipe and receipt. This scaffold leaves Copilot context behavior unchanged."}, {Name: "Compile", Description: "Prepare a driving recipe: check the recipe and turn it into steps the controller can run."}, {Name: "SendEmail", Description: "Email the configured operator. Requires an authenticated agent session. The host automatically attaches Spine provenance and retains a delivery receipt; SMTP acceptance does not prove inbox delivery. Do not blindly retry an unknown outcome."}, {Name: "GetDocument", Description: "Open one saved source document and read its words."}, {Name: "IngestDocument", Description: "Add a source document so people can find and cite it later."}, {Name: "PutEdge", Description: "Connect two ideas and record why they belong together."}, {Name: "GetGraph", Description: "Browse the ideas connected to a starting point."}, {Name: "PutNode", Description: "Add one idea to the shared knowledge map."}, {Name: "Search", Description: "Find saved knowledge that matches a question."}, {Name: "LearnAboutCSF", Description: "Explain the pinned CSF contract and index explicitly selected onboarding sources for retrieval."}, {Name: "CancelSimulation", Description: "Request termination; inspect again to see whether provider cleanup is confirmed."}, {Name: "RecordSimulationEvents", Description: "Record bounded progress from an explicitly registered local simulator worker."}, {Name: "InspectSimulation", Description: "Inspect your simulator's progress, provider status, metrics and artifact location."}, {Name: "ListSimulations", Description: "List recent simulator examples and their actual execution states."}, {Name: "ReadSimulationLogs", Description: "Read bounded local job logs, including retained output after container cleanup."}, {Name: "SubmitSimulation", Description: "Queue a bounded simulator example using the operator's configured execution profile."}, {Name: "RebuildSimulationTrace", Description: "Rebuild a simulator trace from its retained OpenSearch source document."}, {Name: "GetSnapshot", Description: "Show the latest measured work and health report."}, {Name: "GetWorkbenchTheme", Description: "Read the active Workbench CSS and its host-owned file path. Edit workbench-theme.css at that path, then call ReloadWorkbenchTheme."}, {Name: "ReloadWorkbenchTheme", Description: "Reload the host-owned workbench-theme.css file after editing it. Missing or empty CSS restores the default; invalid UTF-8 or over 65536 bytes preserves the active theme. Browsers refresh within five seconds while visible. Use /ui/?theme=default to bypass broken CSS in one tab. No path or CSS input is accepted."}}
+	return []HumanOperation{{Name: "GetOwnAgentConfiguration", Description: "Read the signed caller's durable Langfuse and OpenSearch references. The response contains opaque secret references, never secret values."}, {Name: "UpdateOwnAgentConfiguration", Description: "Replace the signed caller's Langfuse and OpenSearch references. expected_revision prevents an older agent session from overwriting a newer configuration."}, {Name: "PrepareAgentAssignment", Description: "Validate an agent recipe and prepare stable retry identities without starting a session. Execute the plan with the generated Workbench session and prompt operations; retain the recipe and receipt. This scaffold leaves Copilot context behavior unchanged."}, {Name: "SendEmail", Description: "Email the configured operator. Requires an authenticated agent session. The host automatically attaches Spine provenance and retains a delivery receipt; SMTP acceptance does not prove inbox delivery. Do not blindly retry an unknown outcome."}, {Name: "CancelAgentSession", Description: "Ask a session's owner to stop at its next safepoint: at once between turns, or after the running turn is interrupted. Read the session again to see it reach CANCELED."}, {Name: "GetAgentSession", Description: "Read one session's state by its assignment identifier."}, {Name: "ListAgentSessions", Description: "List every session this harness process holds, with its phase, turns and queue, and the one process they all run in."}, {Name: "SendAgentSessionMessage", Description: "Queue one message for an open session; its owner starts the turn at the next safepoint. The turn identifier acknowledges acceptance, not completion. Follow the session's event stream to read the turn."}, {Name: "SubmitAgentSession", Description: "Admit one agent assignment recipe as a session of this host's agent harness: the worktree is created, the session gates are installed and the turn executor is kept open for later messages. The receipt links the session, branch and trace; it does not prove the task succeeded."}, {Name: "StopHarness", Description: "Stop the harness process in order: listeners first, then every open session. Running sessions are closed, not completed."}, {Name: "GetDocument", Description: "Open one saved source document and read its words."}, {Name: "IngestDocument", Description: "Add a source document so people can find and cite it later."}, {Name: "PutEdge", Description: "Connect two ideas and record why they belong together."}, {Name: "GetGraph", Description: "Browse the ideas connected to a starting point."}, {Name: "PutNode", Description: "Add one idea to the shared knowledge map."}, {Name: "Search", Description: "Find saved knowledge that matches a question."}, {Name: "LearnAboutCSF", Description: "Explain the pinned CSF contract and index explicitly selected onboarding sources for retrieval."}, {Name: "CancelSimulation", Description: "Request termination; inspect again to see whether provider cleanup is confirmed."}, {Name: "RecordSimulationEvents", Description: "Record bounded progress from an explicitly registered local simulator worker."}, {Name: "InspectSimulation", Description: "Inspect your simulator's progress, provider status, metrics and artifact location."}, {Name: "ListSimulations", Description: "List recent simulator examples and their actual execution states."}, {Name: "ReadSimulationLogs", Description: "Read bounded local job logs, including retained output after container cleanup."}, {Name: "SubmitSimulation", Description: "Queue a bounded simulator example using the operator's configured execution profile."}, {Name: "RebuildSimulationTrace", Description: "Rebuild a simulator trace from its retained OpenSearch source document."}, {Name: "GetSnapshot", Description: "Show the latest measured work and health report, including whether the external spine controller is connected."}, {Name: "GetWorkbenchTheme", Description: "Read the active Workbench CSS and its host-owned file path. Edit workbench-theme.css at that path, then call ReloadWorkbenchTheme."}, {Name: "ReloadWorkbenchTheme", Description: "Reload the host-owned workbench-theme.css file after editing it. Missing or empty CSS restores the default; invalid UTF-8 or over 65536 bytes preserves the active theme. Browsers refresh within five seconds while visible. Use /ui/?theme=default to bypass broken CSS in one tab. No path or CSS input is accepted."}}
 }
 func CLIOperations() []string {
-	return []string{"GetOwnAgentConfiguration", "UpdateOwnAgentConfiguration", "PrepareAgentAssignment", "Compile", "SendEmail", "GetDocument", "IngestDocument", "PutEdge", "GetGraph", "PutNode", "Search", "LearnAboutCSF", "CancelSimulation", "RecordSimulationEvents", "InspectSimulation", "ListSimulations", "ReadSimulationLogs", "SubmitSimulation", "RebuildSimulationTrace", "GetSnapshot", "GetWorkbenchTheme", "ReloadWorkbenchTheme"}
+	return []string{"GetOwnAgentConfiguration", "UpdateOwnAgentConfiguration", "PrepareAgentAssignment", "SendEmail", "CancelAgentSession", "GetAgentSession", "ListAgentSessions", "SendAgentSessionMessage", "SubmitAgentSession", "StopHarness", "GetDocument", "IngestDocument", "PutEdge", "GetGraph", "PutNode", "Search", "LearnAboutCSF", "CancelSimulation", "RecordSimulationEvents", "InspectSimulation", "ListSimulations", "ReadSimulationLogs", "SubmitSimulation", "RebuildSimulationTrace", "GetSnapshot", "GetWorkbenchTheme", "ReloadWorkbenchTheme"}
 }
 func (client *Client) CallOperation(ctx context.Context, operation string, input []byte) ([]byte, error) {
 	switch strings.ToLower(operation) {
@@ -232,22 +273,72 @@ func (client *Client) CallOperation(ctx context.Context, operation string, input
 			return nil, err
 		}
 		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
-	case "compile":
-		request := &contract0.CompileRequest{}
-		if err := protojson.Unmarshal(input, request); err != nil {
-			return nil, err
-		}
-		response, err := client.Compile(ctx, request)
-		if err != nil {
-			return nil, err
-		}
-		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
 	case "sendemail":
 		request := &contract1.SendEmailRequest{}
 		if err := protojson.Unmarshal(input, request); err != nil {
 			return nil, err
 		}
 		response, err := client.SendEmail(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
+	case "cancelagentsession":
+		request := &contract2.CancelAgentSessionRequest{}
+		if err := protojson.Unmarshal(input, request); err != nil {
+			return nil, err
+		}
+		response, err := client.CancelAgentSession(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
+	case "getagentsession":
+		request := &contract2.GetAgentSessionRequest{}
+		if err := protojson.Unmarshal(input, request); err != nil {
+			return nil, err
+		}
+		response, err := client.GetAgentSession(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
+	case "listagentsessions":
+		request := &contract2.ListAgentSessionsRequest{}
+		if err := protojson.Unmarshal(input, request); err != nil {
+			return nil, err
+		}
+		response, err := client.ListAgentSessions(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
+	case "sendagentsessionmessage":
+		request := &contract2.SendAgentSessionMessageRequest{}
+		if err := protojson.Unmarshal(input, request); err != nil {
+			return nil, err
+		}
+		response, err := client.SendAgentSessionMessage(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
+	case "submitagentsession":
+		request := &contract2.SubmitAgentSessionRequest{}
+		if err := protojson.Unmarshal(input, request); err != nil {
+			return nil, err
+		}
+		response, err := client.SubmitAgentSession(ctx, request)
+		if err != nil {
+			return nil, err
+		}
+		return (protojson.MarshalOptions{UseProtoNames: true}).Marshal(response)
+	case "stopharness":
+		request := &contract2.StopHarnessRequest{}
+		if err := protojson.Unmarshal(input, request); err != nil {
+			return nil, err
+		}
+		response, err := client.StopHarness(ctx, request)
 		if err != nil {
 			return nil, err
 		}

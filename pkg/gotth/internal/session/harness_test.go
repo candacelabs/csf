@@ -20,6 +20,7 @@ import (
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
 	"github.com/candacelabs/csf/pkg/gotth/internal/render"
 	"github.com/candacelabs/csf/pkg/gotth/internal/session"
+	csfruntime "github.com/candacelabs/csf/runtime"
 )
 
 func TestSession(t *testing.T) {
@@ -423,6 +424,7 @@ type harness struct {
 	logs    *records
 	metrics *obstest.Metrics
 	actor   *session.Actor[subject]
+	scope   *csfruntime.Scope
 
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -468,6 +470,7 @@ func newHarnessIn(app *testApp, lim session.Limits, dev bool) *harness {
 		done:    make(chan struct{}),
 	}
 	h.ctx, h.cancel = context.WithCancel(context.Background())
+	h.scope = csfruntime.NewScope(context.Background(), "session spec")
 
 	framer := protocol.NewFramer(h.sink.write)
 	// Every frame this library builds and then refuses to send. Nothing an
@@ -507,22 +510,42 @@ func newHarnessIn(app *testApp, lim session.Limits, dev bool) *harness {
 		Dev:     dev,
 		Now:     h.clock.Now,
 		Ticks:   h.ticks,
+		// The scope the effects start in. The actor joins its own effects
+		// before Run returns, so a spec that stops the harness has nothing
+		// left in it; it is closed at cleanup to hold that.
+		Scope: h.scope,
+	})
+	DeferCleanup(func() {
+		h.cancel()
+		Expect(h.scope.Close()).To(Succeed())
 	})
 	return h
 }
 
 func (h *harness) start() {
 	GinkgoHelper()
-	go func() {
-		defer close(h.done)
-		h.actor.Run(h.ctx)
-	}()
+	h.run()
 	Expect(h.actor.Ready(h.ctx)).To(Succeed())
 }
 
+// run starts the actor in the harness scope, as the transport starts it in
+// the session scope, without waiting for its mount; stop and the cleanup join
+// it.
+func (h *harness) run() {
+	GinkgoHelper()
+	Expect(h.scope.Go(func(_ context.Context) error {
+		defer close(h.done)
+		h.actor.Run(h.ctx)
+		return nil
+	})).To(Succeed())
+}
+
+// stop ends the session and joins the scope its effects started in, which is
+// the order the transport stops a session in.
 func (h *harness) stop() {
 	h.cancel()
 	Eventually(h.done, time.Second).Should(BeClosed())
+	Expect(h.scope.Close()).To(Succeed())
 }
 
 func (h *harness) closeRecords() []closeRecord {

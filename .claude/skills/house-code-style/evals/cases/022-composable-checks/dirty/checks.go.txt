@@ -1,0 +1,142 @@
+// Case 022 fixture — DIRTY. It violates CS-6 and nothing else: a family of
+// four same-shaped checks accumulated as methods on a mutable validator, wired
+// together by a hardcoded call list. No interface is declared, every parameter
+// is named and there is no mutex, so a gate run over this file must report
+// CS-6 findings and zero CS-1, CS-2 and CS-5 findings.
+//
+// This is the shape CS-6 exists to name, and it is the shape of the founding
+// evidence (`../../../../references/go-rules.md` § CS-6). Read `checkAll` and
+// ask the question the rule is built on: is every check wired in? Nothing here
+// can answer that. The four checks are not enumerable — they are a method set,
+// and no test can iterate one. The list is correct today and nothing will tell
+// you when it stops being.
+//
+// The second half of the problem is `report`. Each check reaches through the
+// receiver for its input and calls `report` for its output, so the checks are
+// coupled to the validator rather than to the document — which is why they had
+// to be methods in the first place.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "fmt"
+
+// The finding classes this validator can report. CS-13: a value the program
+// dispatches on is declared once, named, in the package that owns its meaning.
+const (
+	classFieldUnwritten       = classFieldUnwritten
+	classBindingUntargeted    = classBindingUntargeted
+	classDocumentEndpointless = classDocumentEndpointless
+	classDocumentUnnamed      = classDocumentUnnamed
+)
+
+// documentEndpoint is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const documentEndpoint = "203.0.113.40:8080"
+
+// Finding is one problem reported against a document.
+type Finding struct {
+	Class   string
+	Message string
+}
+
+// Field is one state field declared by a document.
+type Field struct {
+	Name    string
+	Writers []string
+}
+
+// Binding is one named binding declared by a document.
+type Binding struct {
+	Name   string
+	Target string
+}
+
+// Document is the parsed thing being checked.
+type Document struct {
+	Name     string
+	Endpoint string
+	Fields   []Field
+	Bindings []Binding
+}
+
+// validator accumulates findings on itself while its check methods run. The
+// mutable receiver is the coupling: it is both the input every check reads and
+// the output every check writes.
+type validator struct {
+	document *Document
+	findings []Finding
+}
+
+func newValidator(document *Document) *validator {
+	return &validator{document: document}
+}
+
+// checkAll is the dispatch list. Four sibling methods, named once, in an order
+// that means nothing — they could run in any order and the result would be the
+// same, which is the tell that this is a family and not a sequence.
+func (documentValidator *validator) checkAll() {
+	documentValidator.checkFieldWriters()
+	documentValidator.checkBindingTargets()
+	documentValidator.checkEndpointSet()
+	documentValidator.checkNameSet()
+}
+
+// checkFieldWriters reports state nothing can reach: a field written by
+// nothing renders one value forever.
+func (documentValidator *validator) checkFieldWriters() {
+	for _, field := range documentValidator.document.Fields {
+		if len(field.Writers) == 0 {
+			documentValidator.report(
+				classFieldUnwritten,
+				fmt.Sprintf("field %s has no writer", field.Name),
+			)
+		}
+	}
+}
+
+// checkBindingTargets reports a binding that names nothing.
+func (documentValidator *validator) checkBindingTargets() {
+	for _, binding := range documentValidator.document.Bindings {
+		if binding.Target == "" {
+			documentValidator.report(
+				classBindingUntargeted,
+				fmt.Sprintf("binding %s names no target", binding.Name),
+			)
+		}
+	}
+}
+
+// checkEndpointSet reports a document with nowhere to send anything.
+func (documentValidator *validator) checkEndpointSet() {
+	if documentValidator.document.Endpoint == "" {
+		documentValidator.report(
+			classDocumentEndpointless,
+			"document declares no endpoint",
+		)
+	}
+}
+
+// checkNameSet reports an unnamed document.
+func (documentValidator *validator) checkNameSet() {
+	if documentValidator.document.Name == "" {
+		documentValidator.report(classDocumentUnnamed, "document declares no name")
+	}
+}
+
+// report is the shared mutable accumulation every check writes through.
+func (documentValidator *validator) report(class string, message string) {
+	documentValidator.findings = append(
+		documentValidator.findings,
+		Finding{Class: class, Message: message},
+	)
+}
+
+// Validate runs every check the author remembered to add to checkAll.
+func Validate(document *Document) []Finding {
+	documentValidator := newValidator(document)
+	documentValidator.checkAll()
+	return documentValidator.findings
+}

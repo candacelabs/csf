@@ -30,7 +30,7 @@ measured surface.
 
 | | `live` (exact) | `live/livetest` (ceiling) |
 |---|---:|---:|
-| Exported identifiers (types, funcs, methods, consts, vars) | **60** | 37 |
+| Exported identifiers (types, funcs, methods, consts, vars) | **63** | 37 |
 | Exported struct fields | **55** | 33 |
 
 *The `live` split was corrected from 41/48 to 40/49 when `tools/apisurface`
@@ -101,7 +101,10 @@ and was wrong twice over (REV-DEL finding 8, ruled at
 | `(*App[S]).Handler() http.Handler` | method | Returns the `http.Handler` that serves the live connection and the client runtime. Mountable under any router. **The live route returns at the upgrade** — the session runs on a goroutine the library owns, so wrapping middleware completes at the handshake and the session runs under `context.WithoutCancel` of the request context (`5a2ca417`, C-38). | stable | FR-33 |
 | `(*App[S]).PageHandler(page func(state S) templ.Component) http.Handler` | method | Serves the first paint: on every request it loads state through `Config.Init` — with the identity `Config.Authenticate` derives from that request and the zero session `ID` — and renders the given component function from it. **It cannot be given a state value, only the function that renders one**, which is what makes QA-1's F-4 unwritable: `templ.Handler(Page(State{}))` freezes the zero state at registration and contradicts every `Init` that loads anything. `Init`'s effects are discarded on a page render. 401 when `Authenticate` refuses (the status that visitor's upgrade would get), 500 when the load or the render fails, buffered so a half-written document is never a 200. | experimental | **FR-53**, QA-1 F-4, FR-33 |
 | `(*App[S]).Mux(mountPath string, page http.Handler) http.Handler` | method | The three registrations of a single-application server in one call: the upgrade at exactly `mountPath`, the runtime and dev routes on the subtree under it, and `page` on the catch-all. Makes the two silent mounting failures `docs/quickstart.md` §2 measures — a missing subtree registration, and the `http.StripPrefix` repair that turns the upgrade into an unfollowable 307 — inexpressible. **Panics** on a nil page, on a `mountPath` `Script` would reject, and on `"/"`, on the precedent of `http.ServeMux.Handle`, which panics for the same class. | experimental | **FR-53**, FR-33 |
-| `(*App[S]).Close(context.Context) error` | method | Drains **every** session, closing each with `GOING_AWAY`, and waits for in-flight effects up to the context deadline. A connection admitted but not yet registered when `Close` begins is refused and closed rather than started, so `Close` cannot return `nil` over a session it did not touch (`ed9f73b6`, C-34). Not reusable afterwards. | stable | FR-22, checklist §6.8 |
+| `(*App[S]).Close(context.Context) error` | method | Drains **every** session, closing each with `GOING_AWAY`, waits for each session's read pump, actor and effects up to the context deadline, then joins the App's sessions scope. A connection admitted but not yet registered when `Close` begins is refused and closed rather than started, so `Close` cannot return `nil` over a session it did not touch (`ed9f73b6`, C-34). Idempotent; not reusable afterwards. The explicit stop for a binary that does not mount the App. | stable | FR-22, checklist §6.8 |
+| `(*App[S]).Start(scope *runtime.Scope) error` | method | **The App is a `runtime.IService`** (the ontology's `live_ui_service`). Starts one goroutine in the host's scope that, on cancellation, drains every session and joins every goroutine the service started — read pumps, actors, effects — with no deadline. Refuses a nil scope, a second start and a start after stop. | stable | CSF runtime ontology, checklist §6.8 |
+| `ErrServiceStarted` | var | Returned by a second `Start`: one App mounts into one host runtime, once. | stable | CSF runtime ontology |
+| `ErrServiceStopped` | var | Returned by `Start` after `Close` or an earlier host's stop: an App is not reusable. | stable | CSF runtime ontology |
 | `ConfigError` | struct | Reports an invalid `Config`, naming the offending field and what to set it to. | stable | FR-58 |
 | `(*ConfigError).Error() string` | method | — | stable | FR-58 |
 
@@ -587,6 +590,19 @@ patches from its own code rather than from telemetry, the hook lands in Phase 2
 ---
 
 ## 10. Changelog
+
+### The live UI service joins its goroutines — 2026-10-01, 60 → 63 identifiers
+
+`live.App` becomes a `runtime.IService`: `App.Start` mounts it into the
+binary's host runtime, and its stop drains every session and joins every
+goroutine it started. Each session's read pump, actor and effects start in a
+child of the App's own sessions scope instead of on bare `go` statements, and
+the bounded effect drain that abandoned a still-running effect after
+`Limits.EffectDrainTimeout` is replaced by a join: the timeout now only counts
+and logs the overrun (`gotthlive_effects_overran_total`, formerly
+`gotthlive_effects_abandoned_total`). `Start`'s two lifecycle refusals are the
+exported sentinels `ErrServiceStarted` and `ErrServiceStopped`. No
+configuration field is added.
 
 ### Keyed child regions — added 2026-09-17; ledger corrected 2026-09-18
 

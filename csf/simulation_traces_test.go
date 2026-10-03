@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/candacelabs/csf/csf/internal/brainspinedb"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
+	"github.com/candacelabs/csf/services/jobs"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -17,12 +17,12 @@ import (
 var _ = Describe("native simulator trace projection", func() {
 	var local *LocalSimulations
 	var root string
-	var row db.BrainspineSimulation
+	var row SimulationJob
 	BeforeEach(func() {
 		root = GinkgoT().TempDir()
 		Expect(os.Mkdir(filepath.Join(root, "native"), 0700)).To(Succeed())
 		local = &LocalSimulations{config: &pb.LocalSimulationConfig{PublicTraces: true, Profiles: []*pb.LocalSimulationProfile{{Simulator: pb.Simulator_SIMULATOR_CARLA, ArtifactDirectory: root, ArtifactUrl: "http://example.invalid/ui/runs"}}}}
-		row = db.BrainspineSimulation{RunID: "native", Simulator: 1, Steps: 1, CompletedSteps: 1, State: db.BrainspineSimulationStateSucceeded}
+		row = SimulationJob{ID: "native", Kind: simulationKinds[pb.Simulator_SIMULATOR_CARLA], Executor: simulationExecutorLocal, TotalUnits: 1, CompletedUnits: 1, State: jobs.StateSucceeded}
 		events := []*pb.ResearchEvent{
 			{SchemaVersion: 1, RecordedAt: "2026-01-01T12:00:00Z", Payload: &pb.ResearchEvent_Status{Status: &pb.RunStatus{RunId: "native", Phase: "started"}}},
 			{SchemaVersion: 1, RecordedAt: "2026-01-01T12:00:03Z", Payload: &pb.ResearchEvent_Measurement{Measurement: &pb.Measurement{RunId: "native", Step: 1, Metric: "simulation_seconds", Value: 0.05}}},
@@ -81,32 +81,32 @@ var _ = Describe("native simulator trace projection", func() {
 	})
 	It("does not synthesize missing step wall clocks from simulation seconds", func() {
 		Expect(os.WriteFile(filepath.Join(root, "native", "trace.jsonl"), []byte("{}\n{}\n"), 0600)).To(Succeed())
-		row.Steps = 2
+		row.TotalUnits = 2
 		_, _, err := local.trace(row)
 		Expect(err).To(MatchError(ContainSubstring("no observed wall-clock")))
 	})
 	It("exports observed startup failures even when no vendor manifest was written", func() {
-		row.State = db.BrainspineSimulationStateFailed
+		row.State = jobs.StateFailed
 		row.Reason = "world readiness timed out"
 		Expect(os.Remove(filepath.Join(root, "native", "manifest.json"))).To(Succeed())
 		payload, _, err := local.trace(row)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(payload.ScopeSpans[0].Spans[0].Status.Message).To(Equal(row.Reason))
 		Expect(payload.ScopeSpans[0].Spans[0].Attributes[2].Value.GetStringValue()).To(ContainSubstring(row.Reason))
-		row.LogDocumentID, row.TraceUrl, row.LogProjectionError = "archived", "http://example.invalid/trace", "prior retry"
+		row.LogArchive.DocumentID, row.Trace.URL, row.LogArchive.ProjectionError = "archived", "http://example.invalid/trace", "prior retry"
 		repeated, _, err := local.trace(row)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(proto.Equal(payload, repeated)).To(BeTrue())
 	})
 	It("only exposes bounded known artifacts from the admitted run directory", func() {
 		Expect(os.WriteFile(filepath.Join(root, "native", "secret.txt"), []byte("not an artifact"), 0600)).To(Succeed())
-		artifacts := local.artifactViews(row.RunID, pb.Simulator(row.Simulator))
+		artifacts := local.artifactViews(row.ID, simulatorOf(row.Kind))
 		Expect(artifacts).To(HaveLen(3))
 		for _, artifact := range artifacts {
 			Expect(artifact.Sha256).To(HaveLen(64))
 			Expect(artifact.Url).To(HavePrefix("http://example.invalid/ui/runs/native/"))
 		}
-		row.RunID = "../elsewhere"
-		Expect(local.artifactViews(row.RunID, pb.Simulator(row.Simulator))).To(BeEmpty())
+		row.ID = "../elsewhere"
+		Expect(local.artifactViews(row.ID, simulatorOf(row.Kind))).To(BeEmpty())
 	})
 })

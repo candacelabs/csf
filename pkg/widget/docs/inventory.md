@@ -14,9 +14,9 @@ Four sources were harvested:
 
 | Source | What it contributes |
 |---|---|
-| `go/services/candace-cloud/internal/homepage/` | The one shipped widget: its markup, its state, its labels, its motion |
+| `go/services/homepage/` | The one shipped widget: its markup, its state, its labels, its motion |
 | `candace/pkg/gotth/live` | The runtime contract any widget must fit inside |
-| `candace/services/candaceos/webui/palette.go` | The validated-token pattern the language should copy rather than reinvent |
+| `candace/web/deploy/webui/palette.go` | The validated-token pattern the language should copy rather than reinvent |
 | The widget lifecycle | The verbs a host performs on a widget |
 
 Line references are to the tree at the commit that introduces this file.
@@ -25,7 +25,7 @@ Line references are to the tree at the commit that introduces this file.
 
 ## 1. The shipped widget — markup
 
-Source: `go/services/candace-cloud/internal/homepage/view.templ`.
+Source: `go/services/homepage/view.templ`.
 
 | # | Concept | Real name in the source | Where |
 |---|---|---|---|
@@ -61,7 +61,7 @@ Source: `go/services/candace-cloud/internal/homepage/view.templ`.
 
 ## 2. The shipped widget — state, labels and events
 
-Source: `go/services/candace-cloud/internal/homepage/app.go`.
+Source: `go/services/homepage/app.go`.
 
 | # | Concept | Real name in the source | Where |
 |---|---|---|---|
@@ -102,7 +102,7 @@ Source: `go/services/candace-cloud/internal/homepage/app.go`.
 
 ## 3. The shipped widget — the external data stream
 
-Source: `go/services/candace-cloud/internal/homepage/feed.go`.
+Source: `go/services/homepage/feed.go`.
 
 | # | Concept | Real name in the source | Where |
 |---|---|---|---|
@@ -119,7 +119,7 @@ Source: `go/services/candace-cloud/internal/homepage/feed.go`.
 
 ## 4. The shipped widget — motion and tokens
 
-Source: `go/services/candace-cloud/internal/homepage/home.css`.
+Source: `go/services/homepage/home.css`.
 
 | # | Concept | Real name in the source | Where |
 |---|---|---|---|
@@ -171,7 +171,7 @@ Source: `go/services/candace-cloud/internal/homepage/home.css`.
 | 5.25 | Explicit opt-outs rather than defaults | `Anonymous`, `AllowAll`, `NoCSRFCheck` | live/config.go:723, 731, 736 |
 | 5.26 | Session limits | `type Limits`, `MaxSessions` | live/config.go:144, 275, 385 |
 
-## 6. The validated-token pattern — `candace/services/candaceos/webui/palette.go`
+## 6. The validated-token pattern — `candace/web/deploy/webui/palette.go`
 
 | # | Concept | Real name in the source | Where |
 |---|---|---|---|

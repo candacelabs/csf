@@ -6,6 +6,7 @@ option go_package = "github.com/candacelabs/csf/csf/gen;brainspineapi";
 import "google/api/annotations.proto";
 import "candace/brainspine/v1/brainspine.proto";
 import "candace/email/v1/email.proto";
+import "candace/harness/v1/harness.proto";
 
 // Candace's owned adapter API, not a reverse-engineered LITHE vendor protocol.
 service Research {
@@ -61,13 +62,9 @@ service Research {
   rpc CancelSimulation(candace.brainspine.v1.CancelSimulationRequest) returns (candace.brainspine.v1.CancelSimulationResponse) {
     option (google.api.http) = {post: "/api/simulation/cancel" body: "*"};
   }
-  // Show the latest measured work and health report.
+  // Show the latest measured work and health report, including whether the external spine controller is connected.
   rpc GetSnapshot(candace.brainspine.v1.GetSnapshotRequest) returns (candace.brainspine.v1.GetSnapshotResponse) {
     option (google.api.http) = {get: "/api/snapshot"};
-  }
-  // Prepare a driving recipe: check the recipe and turn it into steps the controller can run.
-  rpc Compile(candace.brainspine.v1.CompileRequest) returns (candace.brainspine.v1.CompileResponse) {
-    option (google.api.http) = {post: "/api/compile" body: "*"};
   }
   // Add a source document so people can find and cite it later.
   rpc IngestDocument(candace.brainspine.v1.IngestDocumentRequest) returns (candace.brainspine.v1.IngestDocumentResponse) {
@@ -92,6 +89,30 @@ service Research {
   // Connect two ideas and record why they belong together.
   rpc PutEdge(candace.brainspine.v1.PutEdgeRequest) returns (candace.brainspine.v1.PutEdgeResponse) {
     option (google.api.http) = {post: "/api/knowledge/edges" body: "*"};
+  }
+  // Admit one agent assignment recipe as a session of this host's agent harness: the worktree is created, the session gates are installed and the turn executor is kept open for later messages. The receipt links the session, branch and trace; it does not prove the task succeeded.
+  rpc SubmitAgentSession(candace.harness.v1.SubmitAgentSessionRequest) returns (candace.harness.v1.SubmitAgentSessionResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/submit" body: "*"};
+  }
+  // Queue one message for an open session; its owner starts the turn at the next safepoint. The turn identifier acknowledges acceptance, not completion. Follow the session's event stream to read the turn.
+  rpc SendAgentSessionMessage(candace.harness.v1.SendAgentSessionMessageRequest) returns (candace.harness.v1.SendAgentSessionMessageResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/send" body: "*"};
+  }
+  // List every session this harness process holds, with its phase, turns and queue, and the one process they all run in.
+  rpc ListAgentSessions(candace.harness.v1.ListAgentSessionsRequest) returns (candace.harness.v1.ListAgentSessionsResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/list" body: "*"};
+  }
+  // Read one session's state by its assignment identifier.
+  rpc GetAgentSession(candace.harness.v1.GetAgentSessionRequest) returns (candace.harness.v1.GetAgentSessionResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/get" body: "*"};
+  }
+  // Ask a session's owner to stop at its next safepoint: at once between turns, or after the running turn is interrupted. Read the session again to see it reach CANCELED.
+  rpc CancelAgentSession(candace.harness.v1.CancelAgentSessionRequest) returns (candace.harness.v1.CancelAgentSessionResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/cancel" body: "*"};
+  }
+  // Stop the harness process in order: listeners first, then every open session. Running sessions are closed, not completed.
+  rpc StopHarness(candace.harness.v1.StopHarnessRequest) returns (candace.harness.v1.StopHarnessResponse) {
+    option (google.api.http) = {post: "/api/harness/stop" body: "*"};
   }
   // Browse the ideas connected to a starting point.
   rpc GetGraph(candace.brainspine.v1.GetGraphRequest) returns (candace.brainspine.v1.GetGraphResponse) {

@@ -1,73 +1,18 @@
-# Candace cron
+# cron: the schedule grammar
 
-`cron` is a durable in-process scheduler for Candace Go services. It runs as
-part of the service lifecycle; it is not a separate daemon. An `IStore` is
-required, and PostgreSQL is the production implementation.
-
-```go
-import (
-	"context"
-	"database/sql"
-	"time"
-
-	cron "github.com/candacelabs/csf/pkg/cron"
-	cronpostgres "github.com/candacelabs/csf/pkg/cron/postgres"
-	"github.com/gin-gonic/gin"
-	_ "github.com/jackc/pgx/v5/stdlib"
-	"golang.org/x/sync/errgroup"
-)
-
-func run(ctx context.Context, databaseURL string) error {
-	db, err := sql.Open("pgx", databaseURL)
-	if err != nil {
-		return err
-	}
-	defer db.Close()
-
-	store, err := cronpostgres.NewStore(db)
-	if err != nil {
-		return err
-	}
-	scheduler, err := cron.New(
-		cron.WithStore(store),
-		cron.WithJob(
-			"daily-rollup",
-			cron.Spec(cron.Daily(cron.At(3).AM())),
-			buildDailyRollup,
-			cron.WithCatchUp(cron.CatchUpAll),
-			cron.WithOverlap(cron.OverlapAllow),
-		),
-		cron.WithJob(
-			"cache-refresh",
-			cron.Spec(cron.Every(15*time.Minute)),
-			refreshCache,
-		),
-	)
-	if err != nil {
-		return err
-	}
-
-	router := gin.New()
-	scheduler.Register(router.Group("/internal")) // GET /internal/cron only
-
-	group, groupContext := errgroup.WithContext(ctx)
-	group.Go(func() error { return scheduler.Run(groupContext) })
-	group.Go(func() error { return serveHTTP(groupContext, router) })
-	return group.Wait()
-}
-
-func buildDailyRollup(ctx context.Context, invocation cron.Invocation) error {
-	// invocation.ID is the stable idempotency key for this scheduled instant.
-	return nil
-}
-```
+`pkg/cron` is the schedule grammar of CSF's cron [service](../../csf/docs/generated/ontology_cgen.md#term-service): human-readable
+trigger declarations, their canonical five-field form, and the pure value
+model of triggers and occurrences that the scheduler, its store and the
+Liquid Proto contract share. It starts no [goroutines](../../csf/docs/generated/ontology_cgen.md#term-goroutine) and crosses no boundary.
+The scheduler that fires triggers and records occurrences is
+[`services/cron`](../../services/cron).
 
 ## Declaring a schedule
 
 Schedules are typed builders rather than strings. Each one normalizes to a
-canonical five-field cron form, and that string — not the builder call — is
-what a `JobDefinition` persists and the status route reports. These pairs are
-pinned by `schedule_test.go`:
+canonical five-field cron form, and that string, not the builder call, is
+what a `TriggerDefinition` persists and a status snapshot reports. These pairs
+are pinned by `schedule_test.go`:
 
 | Declaration | `Canonical()` |
 |---|---|
@@ -83,8 +28,8 @@ row reads `daily at 3:00 PM (UTC)`.
 
 `At` returns a `MeridiemTime`, not a `TimeOfDay`, so a twelve-hour clock
 declaration cannot reach a schedule until it says which half of the day it
-means — the ambiguous spelling is a compile error rather than a job that fires
-twelve hours off:
+means: the ambiguous spelling is a compile error rather than a trigger that
+fires twelve hours off.
 
 ```go
 cron.Daily(cron.At(3))        // does not compile: MeridiemTime is not a TimeOfDay
@@ -94,68 +39,25 @@ cron.Daily(cron.At24(15))     // the same instant on a 24-hour clock
 
 `Spec` schedules in UTC. `Schedule.In(location)` returns a copy in another
 location, and neither builder panics: an invalid declaration is carried until
-`Validate`, `Canonical`, or `Next` reports it.
+`Validate`, `Canonical`, or `Next` reports it. An interval schedule is
+anchored once, at the instant it is first reconciled, so its cadence survives
+a restart; `Schedule.Anchor` states the anchor explicitly.
 
-## Policies and their defaults
+## The value model
 
-Both defaults are the conservative choice, and both are per job:
+`TriggerDefinition` is the persistence-neutral declaration of one trigger:
+its name, which `ValidateTriggerName` holds to `^[a-z][a-z0-9._/-]*$` and
+128 bytes, its `ScheduleDefinition`, and its `CatchUpPolicy` and
+`OverlapPolicy`. `NormalizeTriggerDefinition` validates one and anchors an
+interval schedule; `PreserveIntervalAnchor` keeps an established anchor across
+a re-declaration. `TriggerState` is a trigger's durable cursor, and
+`OccurrenceRecord` the durable record of one scheduled instant;
+`OccurrenceID` is its stable identity, the operation's idempotency key.
 
-| Job option | Values | Default | Effect |
-|---|---|---|---|
-| `WithCatchUp` | `CatchUpNone` · `CatchUpLatest` · `CatchUpAll` | `CatchUpNone` | What to do with occurrences missed while the process was down: skip past all of them (traditional cron), run only the most recent, or run every one up to the catch-up limit. |
-| `WithOverlap` | `OverlapSkip` · `OverlapAllow` | `OverlapSkip` | Whether a second occurrence may run while another holds a live lease. Enforced by the `IStore`, so it holds across processes sharing one database, not just within one. |
+## Contract
 
-Service-wide options: `WithStore` (required, no implicit default),
-`WithLeaseDuration` (30s; active jobs renew three times per duration),
-`WithCatchUpLimit` (1,000 due occurrences per job per cycle), and
-`WithLeaseOwner` for callers that already have a stable replica identity —
-`New` generates a random one otherwise.
-
-Apply the relational migration in
-`postgres/migrations/000001_create_cron_jobs_and_runs.up.sql` through the
-owning service's normal migration runner. Queries are generated and checked in
-with:
-
-```sh
-./pkg/cron/postgres/generate.sh write
-./pkg/cron/postgres/generate.sh check
-```
-
-The PostgreSQL integration suite is opt-in locally. Point it at a disposable
-database whose name ends in `_test`, then run the complete cron suite from the
-`candace` module root:
-
-```sh
-CANDACE_CRON_TEST_DATABASE_URL='postgresql://cron:cron@localhost:5432/candace_cron_test?sslmode=disable' \
-  go test -race ./pkg/cron/...
-```
-
-The integration harness rejects database names without the `_test` suffix and
-runs each suite in a unique schema that it removes afterward. It never reuses
-the scheduler tables in `public`.
-
-The PostgreSQL model is ordinary typed relational state: job definitions,
-schedule columns, cursors, occurrences, attempts, and fenced leases. The
-Liquid Proto messages under `cron/v1` are only portable HTTP or
-messaging contracts; protobuf wire bytes are never stored in the database.
-
-Execution is at least once. A lease can expire after the handler produced an
-external side effect but before completion was recorded, so handlers must use
-`Invocation.ID` as an idempotency key. `CatchUpNone`, `CatchUpLatest`, and
-`CatchUpAll` control missed occurrences; `OverlapSkip` is conservative by
-default, while `OverlapAllow` permits concurrent attempts. Handlers must honor
-context cancellation; `Run` drains cooperative handlers before returning.
-
-The status snapshot includes active jobs and the 1,000 most recent durable
-occurrences, keeping the read-only Gin endpoint bounded as history grows.
-
-For tests or deliberately disposable processes, opt into memory explicitly:
-
-```go
-scheduler, err := cron.New(
-	cron.WithStore(cron.NewMemoryStore()),
-	cron.WithJob("test-job", cron.Spec(cron.Daily(cron.Noon())), handler),
-)
-```
-
-`MemoryStore` never pretends to be durable and is never selected implicitly.
+[`contract`](contract) maps the value model to the validated Liquid Proto
+messages under [`v1`](v1): `ScheduleSpec`, `TriggerDefinition`,
+`TriggerStatus` and `StatusSnapshot`. They are HTTP and messaging boundary
+contracts; protobuf wire bytes are never stored in the database. Regenerate
+them with `pkg/proto/generate.sh`.

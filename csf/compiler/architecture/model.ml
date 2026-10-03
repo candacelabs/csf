@@ -19,9 +19,12 @@ type state = Existing | Planned
     policy and may borrow a lifetime; its name does not introduce a goroutine. *)
 type role = Service | Manager | Library | Adapter | Gateway | Resource
 
-(** [Scoped] declares cleanup, cancellation and joining obligations. [Borrowed]
-    leaves ownership with the caller. Validation checks the declaration only. *)
-type lifecycle = Scoped | Borrowed
+(** [Scoped] declares cleanup, cancellation and joining obligations. [Lazy] is
+    a scoped component started on first use and retired when idle, so a call
+    into it from a longer-lived caller restarts it rather than outliving it.
+    [Borrowed] leaves ownership with the caller. Validation checks the
+    declaration only. *)
+type lifecycle = Scoped | Lazy | Borrowed
 
 (** An OCaml variant can carry data: [Test_reference "worker_test.go"] stores
     a path while [Pending] carries none. Neither alternative says a test passed. *)

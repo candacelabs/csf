@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "crontest",
+    srcs = ["store.go"],
+    importpath = "github.com/candacelabs/csf/services/cron/crontest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/db/csfpg",
+        "//pkg/pgmem",
+        "//services/cron",
+    ],
+)

@@ -14,9 +14,8 @@ import (
 	"strings"
 	"time"
 
-	db "github.com/candacelabs/csf/csf/internal/brainspinedb"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
-	"github.com/jackc/pgx/v5"
+	"github.com/candacelabs/csf/services/jobs"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
 	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
@@ -30,6 +29,8 @@ const simulationTraceLimit = 1024 * 1024
 const simulationTraceVersion = "csf.simulation.v2"
 const simulationTraceVersionAttribute = "langfuse.observation.metadata.projection_version"
 const simulationTraceSupersedesAttribute = "langfuse.observation.metadata.supersedes_trace_url"
+const simulationTraceDeadline = 10 * time.Second
+const simulationDeliveryRecordDeadline = 5 * time.Second
 
 type ISimulationTraces interface {
 	Start(ctx context.Context) error
@@ -47,74 +48,64 @@ func (simulations *Simulations) exportSimulationTrace(ctx context.Context) error
 	if simulations.traces == nil || simulations.local == nil || simulations.local.config.TraceBaseUrl == "" {
 		return nil
 	}
-	row, err := simulations.store.queries.NextSimulationTrace(ctx)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
+	job, ok, err := simulations.ledger.NextUntraced(ctx, simulationExecutorLocal)
+	if err != nil || !ok {
 		return err
 	}
-	spans, identity, problem := simulations.local.trace(row)
+	spans, identity, problem := simulations.local.trace(job)
 	if problem == nil {
-		deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
-		problem = simulations.deliverSimulationTrace(deadline, row, spans, identity)
+		deadline, cancel := context.WithTimeout(ctx, simulationTraceDeadline)
+		problem = simulations.deliverSimulationTrace(deadline, job, spans, identity)
 		cancel()
 	}
 	if problem == nil {
 		return nil
 	}
-	return simulations.store.queries.SetSimulationTrace(ctx, db.SetSimulationTraceParams{RunID: row.RunID, TraceExportError: problem.Error()})
+	return simulations.ledger.RecordTrace(ctx, job.ID, jobs.TraceProjection{ExportError: problem.Error()})
 }
 
-func (simulations *Simulations) deliverSimulationTrace(ctx context.Context, row db.BrainspineSimulation, spans *tracepb.ResourceSpans, identity string) error {
+func (simulations *Simulations) deliverSimulationTrace(ctx context.Context, job SimulationJob, spans *tracepb.ResourceSpans, identity string) error {
 	destination := strings.TrimRight(simulations.local.config.TraceBaseUrl, "/")
 	url := destination + "/" + identity
-	if row.TraceUrl == url {
+	if job.Trace.URL == url {
 		return nil
 	}
-	_, err := simulations.store.queries.ClaimSimulationTraceDelivery(ctx, db.ClaimSimulationTraceDeliveryParams{Destination: destination, RunID: row.RunID, TraceID: identity})
-	alreadyDelivered := errors.Is(err, pgx.ErrNoRows)
-	if alreadyDelivered {
-		delivery, readErr := simulations.store.queries.GetSimulationTraceDelivery(ctx, db.GetSimulationTraceDeliveryParams{Destination: destination, TraceID: identity})
-		if readErr != nil {
-			return readErr
-		}
-		if delivery.State != db.BrainspineTraceDeliveryStateSucceeded {
-			return fmt.Errorf("trace delivery %s is %s; inspect the sink before recovery, automatic resend is disabled", identity, delivery.State)
-		}
+	delivery := jobs.TraceDelivery{Destination: destination, JobID: job.ID, TraceID: identity}
+	claimed, err := simulations.ledger.ClaimTraceDelivery(ctx, delivery)
+	if err != nil {
+		return err
 	}
-	if !alreadyDelivered {
+	if !claimed {
+		state, err := simulations.ledger.TraceDeliveryState(ctx, delivery)
 		if err != nil {
 			return err
 		}
-		if err := simulations.sendSimulationTrace(ctx, destination, row.TraceUrl, spans, identity); err != nil {
-			return err
+		if state != jobs.DeliverySucceeded {
+			return fmt.Errorf("trace delivery %s is %s; inspect the sink before recovery, automatic resend is disabled", identity, state)
 		}
+	} else if err := simulations.sendSimulationTrace(ctx, delivery, job.Trace.URL, spans); err != nil {
+		return err
 	}
-	return simulations.store.queries.SetSimulationTrace(ctx, db.SetSimulationTraceParams{RunID: row.RunID, TraceUrl: url})
+	return simulations.ledger.RecordTrace(ctx, job.ID, jobs.TraceProjection{URL: url})
 }
 
-func (simulations *Simulations) sendSimulationTrace(ctx context.Context, destination string, previousURL string, spans *tracepb.ResourceSpans, identity string) error {
+func (simulations *Simulations) sendSimulationTrace(ctx context.Context, delivery jobs.TraceDelivery, previousURL string, spans *tracepb.ResourceSpans) error {
 	if previousURL != "" {
 		parent := spans.ScopeSpans[0].Spans[0]
 		parent.Attributes = append(parent.Attributes, simulationTraceString(simulationTraceSupersedesAttribute, previousURL))
 	}
 	problem := simulations.traces.UploadTraces(ctx, []*tracepb.ResourceSpans{spans})
-	result := db.FinishSimulationTraceDeliveryParams{Destination: destination, TraceID: identity, State: db.BrainspineTraceDeliveryStateSucceeded}
-	if problem != nil {
-		result.State, result.Error = db.BrainspineTraceDeliveryStateAmbiguous, problem.Error()
-	}
-	deadline, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	deadline, cancel := context.WithTimeout(context.WithoutCancel(ctx), simulationDeliveryRecordDeadline)
 	defer cancel()
-	_, err := simulations.store.queries.FinishSimulationTraceDelivery(deadline, result)
+	err := simulations.ledger.FinishTraceDelivery(deadline, delivery, problem)
 	if failure := errors.Join(problem, err); failure != nil {
 		return fmt.Errorf("trace delivery unconfirmed; automatic resend is disabled: %w", failure)
 	}
 	return nil
 }
 
-func (local *LocalSimulations) trace(row db.BrainspineSimulation) (*tracepb.ResourceSpans, string, error) {
-	source, err := local.traceSource(row)
+func (local *LocalSimulations) trace(job SimulationJob) (*tracepb.ResourceSpans, string, error) {
+	source, err := local.traceSource(job)
 	if err != nil {
 		return nil, "", err
 	}
@@ -123,12 +114,12 @@ func (local *LocalSimulations) trace(row db.BrainspineSimulation) (*tracepb.Reso
 
 // traceSource retains the exact vendor text used to derive stable trace IDs.
 // Camera byte hashes are verified here; replay retains their observed references.
-func (local *LocalSimulations) traceSource(row db.BrainspineSimulation) (*pb.SimulationTraceSource, error) {
-	profile := local.profile(pb.Simulator(row.Simulator))
-	if profile == nil || !simulationID.MatchString(row.RunID) {
+func (local *LocalSimulations) traceSource(job SimulationJob) (*pb.SimulationTraceSource, error) {
+	profile := local.profile(simulatorOf(job.Kind))
+	if profile == nil || !simulationID.MatchString(job.ID) {
 		return nil, fmt.Errorf("simulator artifact profile unavailable")
 	}
-	root, err := os.OpenRoot(filepath.Join(profile.ArtifactDirectory, row.RunID))
+	root, err := os.OpenRoot(filepath.Join(profile.ArtifactDirectory, job.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -141,19 +132,19 @@ func (local *LocalSimulations) traceSource(row db.BrainspineSimulation) (*pb.Sim
 	if err != nil {
 		return nil, err
 	}
-	run := simulationViews.Run(row)
+	run := simulationRun(job)
 	// Projection receipts are outputs, not inputs to the reconstructed trace.
 	run.TraceUrl, run.TraceExportError = "", ""
 	run.LogDocumentId, run.LogProjectionError, run.LogIndexedAt = "", "", ""
-	run.ArtifactUri = strings.TrimRight(profile.ArtifactUrl, "/") + "/" + row.RunID + "/"
+	run.ArtifactUri = strings.TrimRight(profile.ArtifactUrl, "/") + "/" + job.ID + "/"
 	manifest, err := readSimulationFile(root, "manifest.json")
-	if os.IsNotExist(err) && row.State != db.BrainspineSimulationStateSucceeded {
+	if os.IsNotExist(err) && job.State != jobs.StateSucceeded {
 		manifest, err = protojson.Marshal(run)
 	}
 	if err != nil {
 		return nil, err
 	}
-	source := &pb.SimulationTraceSource{Run: run, EventsJsonl: string(events), TrajectoryJsonl: string(trajectory), ManifestJson: string(manifest), Artifacts: local.artifactViews(row.RunID, pb.Simulator(row.Simulator))}
+	source := &pb.SimulationTraceSource{Run: run, EventsJsonl: string(events), TrajectoryJsonl: string(trajectory), ManifestJson: string(manifest), Artifacts: local.artifactViews(job.ID, simulatorOf(job.Kind))}
 	frames, err := readSimulationFile(root, "frames.json")
 	if err == nil {
 		source.Frames = &pb.SimulationFrames{}

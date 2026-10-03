@@ -1,0 +1,9 @@
+{
+  "case_id": "028-await-not-sleep",
+  "tier": 1,
+  "rule_under_test": "CS-9",
+  "summary": "A private awaitVoters helper — deadline, poll, sleep, Fatalf — becomes one eventually.Await call polling a typed value against a named budget. The helper disappears rather than being rewritten, because the loop was all it was; the domain (which nodes, which count) moves to the call site where a reader can see it, and the failure now prints the map instead of a boolean.",
+  "dirty_must_fire": ["CS-9"],
+  "dirty_min_findings": {"CS-9": 1},
+  "clean_must_not_fire": ["CS-9"]
+}

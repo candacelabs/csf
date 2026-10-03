@@ -659,7 +659,7 @@ credential — only a source name.
 
 A widget references **seven** token names and no others:
 
-| Token | Role | Homepage palette | CandaceOS palette |
+| Token | Role | Homepage palette | Deploy palette |
 |---|---|---|---|
 | `surface` | the card's own background | `--sheet` | `--card` |
 | `ink` | primary text | `--ink` | `--ink` |

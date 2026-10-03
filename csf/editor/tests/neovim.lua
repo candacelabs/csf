@@ -5,6 +5,12 @@ local ok, message = pcall(function()
   local parser_root = module_root .. '/csf/editor/tree-sitter-csf'
   vim.opt.runtimepath:append(parser_root .. '/neovim')
   vim.treesitter.language.add('csf', { path = assert(vim.env.CSF_PARSER) })
+  -- The checkout keeps one highlights.scm; installation copies it into
+  -- queries/csf. A symlink here would sit under a csfc scan root, which
+  -- rejects symlinks, so register the checked-in query explicitly.
+  local query_file = assert(io.open(parser_root .. '/queries/highlights.scm'))
+  vim.treesitter.query.set('csf', 'highlights', query_file:read('*a'))
+  query_file:close()
   vim.cmd('filetype plugin on')
   vim.cmd('runtime! ftdetect/csf.lua')
   vim.cmd('edit ' .. vim.fn.fnameescape(module_root .. '/csf/architecture/architecture.csf'))

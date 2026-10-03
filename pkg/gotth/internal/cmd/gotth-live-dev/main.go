@@ -49,9 +49,10 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/exec"
 	"os/signal"
 	"time"
+
+	"github.com/candacelabs/csf/ipc/proc"
 )
 
 func main() {
@@ -94,19 +95,24 @@ func run() error {
 	// templ is resolved once, at startup, and its absence is reported once.
 	// Looking it up per cycle would turn "you have not installed templ" into a
 	// line that scrolls past on every save.
-	templ, lookErr := exec.LookPath("templ")
+	launcher, err := proc.NewHostLauncher()
+	if err != nil {
+		return err
+	}
+	templ, lookErr := launcher.LookPath("templ")
 	if lookErr != nil {
 		templ = ""
 	}
 
 	sup := &supervisor{
-		dir:    root,
-		pkg:    *pkg,
-		binary: binaryName(scratch),
-		args:   flag.Args(),
-		grace:  *grace,
-		templ:  templ,
-		out:    os.Stderr,
+		launcher: launcher,
+		dir:      root,
+		pkg:      *pkg,
+		binary:   binaryName(scratch),
+		args:     flag.Args(),
+		grace:    *grace,
+		templ:    templ,
+		out:      os.Stderr,
 	}
 	defer sup.stop()
 

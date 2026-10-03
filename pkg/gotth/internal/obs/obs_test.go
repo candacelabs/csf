@@ -85,7 +85,7 @@ var _ = Describe("A disabled configuration", func() {
 			m.SlowClientEvent(ctx)
 			m.ResyncRequest(ctx, "snapshot", 100)
 			m.Effect(ctx, "test", "ok")
-			m.EffectAbandoned(ctx)
+			m.EffectOverran(ctx)
 			m.Panic(ctx, "reduce")
 			m.ConnectionOpened(ctx)
 			m.ConnectionClosed(ctx, "normal")

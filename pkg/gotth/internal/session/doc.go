@@ -37,10 +37,12 @@
 //
 // # Panics
 //
-// Effect goroutines start through one helper that installs recovery, a counter,
-// and shutdown wait-group registration. The transport owns the loop separately;
-// bounded effect draining also uses a waiter goroutine. Repeated panics at one
-// site close that connection while other connections continue serving.
+// Effect goroutines start in the session's runtime scope through one helper
+// that installs recovery, a counter, and shutdown wait-group registration. The
+// transport owns the loop separately. At shutdown the actor joins every effect
+// before the teardown hook runs; the drain timeout only reports an effect that
+// overran it. Repeated panics at one site close that connection while other
+// connections continue serving.
 //
 // # Status
 //

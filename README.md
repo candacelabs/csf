@@ -3,13 +3,14 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.1.0"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.1.3"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
   </p>
-  <p><i>Developer preview. The first release makes no stability or compatibility promise.</i></p>
   <p>
+    <a href="#what-is-csf"><b>What is CSF</b></a> ·
+    <a href="#north-star"><b>North star</b></a> ·
     <a href="#2-why-csf-no-ipc-inside-cpu-0"><b>Why CSF</b></a> ·
     <a href="#3-proofs-not-just-hardware-csf-and-lithes-safety-problem"><b>Proofs</b></a> ·
     <a href="#4-architecture"><b>Architecture</b></a> ·
@@ -22,17 +23,69 @@
 
 <hr>
 
+## What is CSF
+
+<!-- agent-drafted (#379): awaiting operator approval -->
+
+CSF is the LITHE philosophy ([Lim and Clites, 2026](#ref-lithe)) applied to CPU 0:
+a [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer that carries tools, records and experiments without inter-process
+communication, in which the architecture is a checked artifact and the engineers are
+[agents](csf/docs/generated/ontology_cgen.md#term-agent) working under rules. It ships with working implementations
+([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live), Warden, xetcas, pgmem, liquidproto) that prove the loop works.
+It has four parts, and together they form one loop:
+
+1. **A language.** [`architecture.csf`](csf/compiler/language/architecture.csf)
+   declares what the system is: its terms (124 today), how they contain and
+   depend on each other, and the paper each borrowed word comes from. For
+   example: `term widget "Widget" "A component of gotth-live ..."`.
+2. **A [compiler](csf/docs/generated/ontology_cgen.md#term-compiler), `csfc`.** It checks the code against that declaration and
+   generates what used to be hand-written: the [glossary](docs/GLOSSARY.md),
+   the [dictionary](csf/docs/generated/ontology_cgen.md), the architecture
+   diagrams below, and this README's north star. For example,
+   [`tools/merge-pr.sh`](tools/merge-pr.sh) refuses a pull request whose
+   ontology alignment score regresses against `main`.
+3. **A [harness](csf/docs/generated/ontology_cgen.md#term-harness).** One process per machine runs coding-agent
+   [sessions](csf/docs/generated/ontology_cgen.md#term-session) with a [gate](csf/docs/generated/ontology_cgen.md#term-session_gate) on every shell
+   command and every commit. For example,
+   `harness submit -recipe agent.json` starts an [agent](csf/docs/generated/ontology_cgen.md#term-agent) that cannot run a
+   polling loop and whose first commit opens a draft pull request.
+4. **Miners ([ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros)).** They read the operator–[agent](csf/docs/generated/ontology_cgen.md#term-agent) record and the repository, find
+   where intent and code diverge, and turn each divergence into the next gate
+   or change. For example, on 2026-10-02 the finding that 64 of the 124 terms
+   own no directory became a ticket that states the gate's predicate; the gate
+   itself is not built yet
+   (source monorepo issue #386).
+
+### What it can be used as
+
+An agent-operated deployment system: propose and approve changes, reconcile [applications](csf/docs/generated/ontology_cgen.md#term-application), approve infrastructure updates, and watch the fleet. An [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness with gates on every command and commit. A server-driven live UI that syncs state with a browser. A self-hosted build and evidence cache. Fast tests with real SQL and no server.
+
+The loop produces:
+
+- **[CSF and its agent harness](app/harness):** One process per machine runs [agent](csf/docs/generated/ontology_cgen.md#term-agent) sessions with gates on every command and commit. The `csf` binary is the process and its client: `csf init` on a repository, `csf submit` with a recipe, `csf send` to add a turn.
+- **[Deploy service and node executor](services/deploy):** An agent-operated deployment system with the [deployment kit](infra/deploy-kit/) for Compose [applications](csf/docs/generated/ontology_cgen.md#term-application). An [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, and the node executor reconciles [applications](csf/docs/generated/ontology_cgen.md#term-application).
+- **[Warden](services/warden):** A fleet watchdog: Raft-style leader election, liveness, incidents, and an authoritative view every mutation is fenced against.
+- **[gotth-live](pkg/gotth):** Server-driven live user interfaces. [Widgets](csf/docs/generated/ontology_cgen.md#term-widget), event handlers and state synced from the [application](csf/docs/generated/ontology_cgen.md#term-application) layer; browser receives a stream of mutations and renders them as the [app](csf/docs/generated/ontology_cgen.md#term-app) commits.
+- **[xetcas](xetcas):** A self-hosted Xet content-addressable store. Binary blob storage and retrieval indexed by exact hash; used for build caches, snapshots and evidence archival.
+- **[`pkg/`](pkg):** Domain-neutral Go primitives — [`pgmem`](pkg/pgmem) (a process-local PostgreSQL emulator for fast tests — real PostgreSQL AST, no server), [`liquidproto`](pkg/liquidproto) (the [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for Liquid Proto: protobuf with refinement predicates compiled into the generated Go), [`cron`](pkg/cron), [`config`](pkg/config), [`redact`](pkg/redact), [`telemetry`](pkg/telemetry), [`mailbox`](pkg/mailbox), and more.
+
+The north star is a robot software
+stack whose correctness is proven end to end; today that is a goal, not a
+capability: the generated table below reports no completed milestone, and the
+`csfc` verifier does not yet issue certificates. It ships as one Go monorepo
+with a CLI.
+
 ## 1. Introduction
 
-**CSF — The Cerebrospinal Fluid** is a Go library and runtime for the
-coordination around an agent system: typed tools, sessions and worktrees,
-schedules, knowledge ingestion and search, traces and retained evidence. Its
-services are libraries mounted into one Go process through functional options,
-and its operations are generated once and served as HTTP, CLI and MCP.
+**CSF — The Cerebrospinal Fluid** is a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the
+coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system: typed tools, sessions and worktrees,
+schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its
+[services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options,
+and its operations are generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp).
 
 The name comes from the architecture that shaped it. In LITHE
-([Lim and Clites, 2026](#ref-lithe)), a best-effort **Brain** proposes and a real-time **Spine** executes, on one
-partitioned computer. CSF is the fluid around them: the housekeeping layer that
+([Lim and Clites, 2026](#ref-lithe)), a best-effort **[Brain](csf/docs/generated/ontology_cgen.md#term-brain)** proposes and a real-time **[Spine](csf/docs/generated/ontology_cgen.md#term-spine)** executes, on one
+partitioned computer. CSF is the fluid around them: the [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer that
 carries tools, records and experiments between decisions.
 
 ![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](docs/assets/lithe-system-architecture.png)
@@ -48,54 +101,73 @@ system is reproducible as a whole.
 
 | | |
 |---|---|
-| [**CSF — The Cerebrospinal Fluid**](csf) | Shared Go coordination for agents, typed tools, knowledge and simulation evidence. Start with the [consumer example](examples/csf-consumer). |
-| [**CandaceOS**](services/candaceos) | An agent-operated app lab: a harness proposes, Core approves and fences, a node executor reconciles Compose applications, and an operator UI watches. Its deployment kit is [`candaceos/`](candaceos). |
+| [**CSF — The Cerebrospinal Fluid**](csf) | Shared Go coordination for [agents](csf/docs/generated/ontology_cgen.md#term-agent), typed tools, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) and simulation evidence. Start with the [consumer example](examples/csf-consumer). |
+| [**Agent harness and ops view**](app/harness/cmd) | <!-- agent-drafted (#379): awaiting operator approval --> One process per machine runs every [agent](csf/docs/generated/ontology_cgen.md#term-agent) session, and the `csf` binary is both that process and its client: `csf init` puts CSF into a repository, `csf submit` takes an [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) recipe, `csf send` adds a turn, and `csf view` serves a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) page with one live card per session. See [Quick start](#5-quick-start). |
+| [**Deploy service, node executor and operator UI**](services/deploy) | An agent-operated deployment system: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, the node executor reconciles Compose [applications](csf/docs/generated/ontology_cgen.md#term-application), and the operator UI watches. Its deployment kit is [`infra/deploy-kit/`](infra/deploy-kit). |
 | [**Warden**](services/warden) | A fleet watchdog: Raft-style leader election over a static peer set, liveness, incidents, and an authoritative view every mutation is fenced against. |
 | [**gotth-live**](pkg/gotth) | Server-driven live user interfaces from Go. State and rendering stay in your process; one WebSocket per tab carries events up and re-rendered fragments down. No npm, no CDN. |
 | [**xetcas**](xetcas) | A self-hosted Xet content-addressable storage server with a Git LFS front door. Re-pushing a 48 MiB model after editing 2% of it costs about 1 MiB. |
-| [**pkg/**](pkg) | The primitives the rest is built on: `pgmem` (a process-local PostgreSQL emulator for tests), `liquidproto` (protobuf refinement types), `cron`, `config`, `redact`, `telemetry`, and more. |
+| [**pkg/**](pkg) | The primitives the rest is built on: `pgmem` (a process-local PostgreSQL emulator for tests), `liquidproto` (protobuf [refinement types](docs/GLOSSARY.md#lit-refinement_types)), `cron`, `config`, `redact`, `telemetry`, and more. |
 
-**Status: CSF's first release, 0.1.0, is a developer preview** and a breaking
-integration baseline. It makes no stability or compatibility promise: pin a
-reviewed snapshot and use the examples shipped with it. The Go import is
-`github.com/candacelabs/csf/csf`; this release makes no backward-compatibility
-claim for earlier experimental CSF interfaces.
+New to the words used here? The [glossary](docs/GLOSSARY.md) explains every CSF
+term in plain language, plus the words CSF borrows from papers, with citations.
 
 First-party source is Apache-2.0. Dependencies, vendor simulator images and
 paper figures retain their own licenses.
 
+<!-- csf:north_star correctness -->
+## North star
+
+*Generated from [architecture.csf](csf/compiler/language/architecture.csf); change that file, not this section.*
+
+**Goal.** End-to-end correctness of a robot software stack, proven relative to stated assumptions and checked against them at [runtime](csf/docs/generated/ontology_cgen.md#term-runtime). The physical world and the models in it are not proven; the envelope around them is: check before execute, contracts at every io boundary, and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) monitors with a safe fallback.
+
+**Milestones.** 0 done, 6 in progress, 1 planned. A done milestone names a path in this repository that the generator checks exists; PR and issue numbers refer to the source monorepo.
+
+| # | Milestone | Status | Terms | Evidence | Builds on |
+|---|---|---|---|---|---|
+| 1 | Every io boundary is a typed capability: a [service](csf/docs/generated/ontology_cgen.md#term-service) crosses only what its constructor was granted, and the io tree is sorted by crossing tier. Process launch and PostgreSQL are capabilities today; the move into the tier-sorted io directories is planned. | in progress | [I/O crossing](csf/docs/generated/ontology_cgen.md#term-io), [Crossing tier](csf/docs/generated/ontology_cgen.md#term-tier), [Capability](csf/docs/generated/ontology_cgen.md#term-capability) | [`ipc/proc`](ipc/proc), [`ipc/db/csfpg`](ipc/db/csfpg), PR #290, PR #301, PR #321, issue #264 | — |
+| 2 | Each crossing's tier is resolved from [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) and placement state instead of being declared by hand. | planned | [Crossing tier](csf/docs/generated/ontology_cgen.md#term-tier), [Placement rules](csf/docs/generated/ontology_cgen.md#term-placement), [Runtime](csf/docs/generated/ontology_cgen.md#term-runtime) | issue #264 | — |
+| 3 | The low-level controller is reached only through the ros seam, whose contract is proven ROS-side and monitored CSF-side with a safe fallback. The stub that answers every call with a typed not-connected error ships; the transport, proof and monitor are planned. | in progress | [ROS spine capability](csf/docs/generated/ontology_cgen.md#term-ros), [Low-level spine controller](csf/docs/generated/ontology_cgen.md#term-spine), [Check](csf/docs/generated/ontology_cgen.md#term-check) | [`ipc/ros`](ipc/ros), PR #299 | [KeYmaera X](https://keymaerax.org/) ([glossary](docs/GLOSSARY.md#lit-keymaera_x)), [VeriPhy](https://doi.org/10.1145/3192366.3192406) ([glossary](docs/GLOSSARY.md#lit-veriphy)) |
+| 4 | Turn executors are interchangeable behind one contract while CSF owns the session, its context and its tools. Claude Code runs as the first [turn executor](csf/docs/generated/ontology_cgen.md#term-turn_executor); CSF does not yet own the session's context. | in progress | [Turn executor](csf/docs/generated/ontology_cgen.md#term-turn_executor), [Workbench conversation session](csf/docs/generated/ontology_cgen.md#term-session), [Claude Code provider](csf/docs/generated/ontology_cgen.md#term-claudecode) | [`ipc/model/claudecode`](ipc/model/claudecode), [`examples/claudecode`](examples/claudecode), PR #322 | — |
+| 5 | Every unit of the system climbs the compilability ladder from prose to structured, typed, checked and finally discharged, where a checker discharges a stated proof obligation. csfc checks the declared architecture against its Go source on every change, and its check-generated command states lifetime and cleanup obligations that it does not yet discharge. | in progress | [Compiler](csf/docs/generated/ontology_cgen.md#term-compiler), [Compile](csf/docs/generated/ontology_cgen.md#term-compile), [Shared typed contracts](csf/docs/generated/ontology_cgen.md#term-contracts) | [`csf/compiler/architecture`](csf/compiler/architecture), issue #329 | [CompCert](https://compcert.org/) ([glossary](docs/GLOSSARY.md#lit-compcert)), [seL4](https://sel4.systems/) ([glossary](docs/GLOSSARY.md#lit-sel4)) |
+| 6 | The system improves itself through [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), under gates it may not change: mined evidence proposes each change and every accepted change is an operator-approved pull request. Session mining exists in the source monorepo, outside this repository; the CSF [service](csf/docs/generated/ontology_cgen.md#term-service) is planned. | in progress | [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), [Evaluate](csf/docs/generated/ontology_cgen.md#term-evaluate), [Save evidence](csf/docs/generated/ontology_cgen.md#term-save_evidence) | PR #237 | — |
+| 7 | No hand-written documentation: every claim is typed data in architecture.csf and its prose is generated, this section included. | in progress | [Compiler](csf/docs/generated/ontology_cgen.md#term-compiler), [Compile](csf/docs/generated/ontology_cgen.md#term-compile) | [`csf/compiler/language/architecture.csf`](csf/compiler/language/architecture.csf), [`docs/GLOSSARY.md`](docs/GLOSSARY.md), PR #333 | — |
+
+<!-- /csf:north_star correctness -->
+
 ## 2. Why CSF: no IPC inside CPU 0
 
 LITHE runs a whole robot control hierarchy on one quad-core single-board
-computer by partitioning its cores (LITHE
+computer by partitioning its [cores](csf/docs/generated/ontology_cgen.md#term-core) (LITHE
 [§III-B](https://arxiv.org/html/2603.07442v1#S3.SS2)):
 
-| LITHE core | Role in LITHE |
+| LITHE [core](csf/docs/generated/ontology_cgen.md#term-core) | Role in LITHE |
 |---|---|
-| **CPU 0 (Housekeeping)** | Linux housekeeping, SSH sessions and non-critical interrupts. It absorbs system jitter, and LITHE's loader thread prepares new controllers here (LITHE [§III-E1](https://arxiv.org/html/2603.07442v1#S3.SS5.SSS1)). |
-| CPU 1 (Spine) | The C++ control loop, alone on an isolated core. |
-| CPU 2 (Brain) | The high-level Python runtime. |
-| CPU 3 (Transport) | Blocking SPI/CAN bus I/O, kept off the control core. |
+| **CPU 0 ([Housekeeping](docs/GLOSSARY.md#lit-housekeeping))** | Linux [housekeeping](docs/GLOSSARY.md#lit-housekeeping), SSH sessions and non-critical interrupts. It absorbs system jitter, and LITHE's loader thread prepares new controllers here (LITHE [§III-E1](https://arxiv.org/html/2603.07442v1#S3.SS5.SSS1)). |
+| CPU 1 ([Spine](csf/docs/generated/ontology_cgen.md#term-spine)) | The C++ control loop, alone on an isolated [core](csf/docs/generated/ontology_cgen.md#term-core). |
+| CPU 2 ([Brain](csf/docs/generated/ontology_cgen.md#term-brain)) | The high-level Python [runtime](csf/docs/generated/ontology_cgen.md#term-runtime). |
+| CPU 3 (Transport) | Blocking SPI/CAN bus I/O, kept off the control [core](csf/docs/generated/ontology_cgen.md#term-core). |
 
 LITHE treats inter-process communication as architecture (LITHE
-[§III-C](https://arxiv.org/html/2603.07442v1#S3.SS3)): the Brain and Spine exchange state through lock-free, zero-copy
+[§III-C](https://arxiv.org/html/2603.07442v1#S3.SS3)): the [Brain](csf/docs/generated/ontology_cgen.md#term-brain) and [Spine](csf/docs/generated/ontology_cgen.md#term-spine) exchange state through lock-free, zero-copy
 POSIX shared memory whose layout a build-time generator owns. Its abstract names
 complex middleware as one cost of the conventional alternatives.
 
-The coordination an agent system needs — tools, sessions, schedules, knowledge
-and observation — lands on the housekeeping side of that partition. Built the
+The coordination an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system needs — tools, sessions, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge)
+and observation — lands on the [housekeeping](docs/GLOSSARY.md#lit-housekeeping) side of that partition. Built the
 usual way, each capability is its own daemon, and every handoff inside CPU 0
 becomes a socket, a serialization format and another process lifecycle to
 supervise.
 
-**CSF prevents that IPC problem inside CPU 0 by composing those capabilities in
-one Go process.** Services are Go libraries selected with functional options.
+**CSF prevents that [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) problem inside CPU 0 by composing those capabilities in
+one Go process.** [Services](csf/docs/generated/ontology_cgen.md#term-service) are Go libraries selected with functional options.
 They exchange typed values through function calls and coordinate concurrent work
-with goroutines and channels; contexts and explicit ownership give each
+with [goroutines](csf/docs/generated/ontology_cgen.md#term-goroutine) and channels; contexts and explicit ownership give each
 operation a cancellation and cleanup path. An internal handoff needs no socket,
-no wire serialization and no separate service daemon. Separate architecture
-checks inspect selected Go ownership and process boundaries in source; they
-establish those source constraints, not runtime timing.
+no wire serialization and no separate daemon. Separate architecture
+checks inspect selected Go ownership and [process boundaries](csf/docs/generated/ontology_cgen.md#term-process_boundary) in source; they
+establish those source constraints, not [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) timing.
 
 <p align="center">
   <img src="docs/assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
@@ -104,15 +176,15 @@ establish those source constraints, not runtime timing.
 The diagram is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
 by hand; it is not generated from the architecture model. Its boundaries are exact:
 
-- PostgreSQL, OpenSearch, Langfuse and external model or simulator processes
-  keep their protocol boundaries. CSF removes IPC between its own capabilities,
-  not IPC with systems that genuinely live elsewhere.
-- LITHE's Brain–Spine shared-memory IPC remains a separate integration boundary.
+- PostgreSQL, [OpenSearch](csf/docs/generated/ontology_cgen.md#term-opensearch), Langfuse and external model or simulator processes
+  keep their protocol boundaries. CSF removes [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) between its own capabilities,
+  not [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) with systems that genuinely live elsewhere.
+- LITHE's [Brain](csf/docs/generated/ontology_cgen.md#term-brain)–[Spine](csf/docs/generated/ontology_cgen.md#term-spine) shared-memory [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) remains a separate integration boundary.
 - CPU affinity and isolation are deployment configuration. CSF does not
-  implement LITHE's loader, CPU isolation or real-time controller hot swap.
+  implement LITHE's loader, CPU isolation or real-time controller [hot swap](docs/GLOSSARY.md#lit-hot_swap).
 
 [`examples/csf-consumer`](examples/csf-consumer/main.go) shows the composition:
-CSF, its generated routes, its MCP server and the consumer's own endpoint in one
+CSF, its generated routes, its [MCP](csf/docs/generated/ontology_cgen.md#term-mcp) server and the consumer's own endpoint in one
 router owned by the consumer's process.
 
 ## 3. Proofs, not just hardware: CSF and LITHE's safety problem
@@ -158,8 +230,8 @@ own job.
 **What is not proved.** Be precise about the gap:
 
 - Agreement between the Lean model and the canonical wire semantics is a
-  reviewed translation boundary. The Go and Rust evaluators have conformance
-  tests, not equivalence proofs.
+  reviewed translation boundary. CSF ships no controller implementation: the
+  low-level [spine](csf/docs/generated/ontology_cgen.md#term-spine) is external and ROS-side, reached through `ipc/ros`.
 - The `csfc` compiler verifier is a
   [stub](csf/compiler/verification/README.md): `CSFC.Verification.verify`
   returns `notImplemented` for every input and issues no certificate.
@@ -170,9 +242,9 @@ own job.
   operating system and the hardware remain trusted.
 
 The improvement loop below is generated from the same architecture model as
-every CSF diagram. *Choose* is still planned: today the bounded controller
-search selects between episodes, and an agent choosing among proved options is
-the next step, not a shipped one.
+every CSF diagram. *[Choose](csf/docs/generated/ontology_cgen.md#term-choose)* and controller selection are planned: the
+low-level controller is external and ROS-side, and an [agent](csf/docs/generated/ontology_cgen.md#term-agent) choosing among
+proved options is the next step, not a shipped one.
 
 <!-- csf:diagram improvement -->
 ```mermaid
@@ -188,25 +260,25 @@ flowchart LR
   n_execute["Execute (existing)"]:::csf_existing
   n_evaluate["Evaluate (existing)"]:::csf_existing
   n_save_evidence["Save evidence (existing)"]:::csf_existing
-  n_improve["Improve (planned)"]:::csf_planned
-  n_select_controller["Select a controller between episodes (existing)"]:::csf_existing
+  n_ouroboros["Ouroboros (planned)"]:::csf_planned
+  n_select_controller["Select a controller between episodes (planned)"]:::csf_planned
   n_observe -.-> n_retrieve
   n_retrieve -.-> n_choose
   n_choose -.-> n_check
   n_check --> n_execute
   n_execute --> n_evaluate
   n_evaluate --> n_save_evidence
-  n_evaluate --> n_select_controller
+  n_evaluate -.-> n_select_controller
   n_select_controller -.->|"next agent iteration"| n_choose
-  n_save_evidence -.-> n_improve
-  n_improve -.->|"next iteration"| n_observe
+  n_save_evidence -.-> n_ouroboros
+  n_ouroboros -.->|"next iteration"| n_observe
   linkStyle 0 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 1 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 3 stroke:#0F766E,stroke-width:2px
   linkStyle 4 stroke:#0F766E,stroke-width:2px
   linkStyle 5 stroke:#0F766E,stroke-width:2px
-  linkStyle 6 stroke:#0F766E,stroke-width:2px
+  linkStyle 6 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 7 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 8 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 9 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
@@ -218,7 +290,8 @@ flowchart LR
 The diagram is **generated** from
 [`csf/compiler/language/architecture.csf`](csf/compiler/language/architecture.csf)
 by the CSF documentation compiler, which also produces the
-[shared vocabulary](csf/docs/generated/ontology_cgen.md). Solid connections are
+[shared vocabulary](csf/docs/generated/ontology_cgen.md) and the plain-language
+[glossary](docs/GLOSSARY.md). Solid connections are
 existing components or configurable integrations; dotted connections are
 planned. An integration shown here still needs its dependencies and
 configuration; it is not automatically running when you import CSF.
@@ -231,20 +304,20 @@ flowchart TB
   classDef csf_existing fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#FFFFFF;
   classDef csf_planned fill:#FEF3C7,stroke:#B45309,stroke-width:2px,color:#78350F;
   n_human["Human or agent client (existing)"]:::csf_existing
-  n_brain["Models and agents (existing)"]:::csf_existing
+  n_brain["Brain (existing)"]:::csf_existing
   n_contracts["Shared typed contracts (existing)"]:::csf_existing
-  n_stores["PostgreSQL and artifact storage (existing)"]:::csf_existing
-  n_jobs["Simulator and AWS Batch adapters (existing)"]:::csf_existing
+  n_stores["Store (existing)"]:::csf_existing
+  n_jobs["Job ledger (existing)"]:::csf_existing
   n_views["Prometheus#44; Grafana and Langfuse (existing)"]:::csf_existing
   n_experiments["Training results and optional MLflow (existing)"]:::csf_existing
-  n_vendor["Consumer Copilot backend (existing)"]:::csf_existing
-  n_spine["Consumer C#43;#43; control loop (planned)"]:::csf_planned
+  n_vendor["Copilot brain provider (existing)"]:::csf_existing
+  n_spine["Low#45;level spine controller (planned)"]:::csf_planned
   n_hardware["Consumer sensors and actuators (planned)"]:::csf_planned
   subgraph g_host["CSF#58; one Go application process"]
     n_bench["Workbench (existing)"]:::csf_existing
     n_api["Generated HTTP#44; CLI and MCP operations (existing)"]:::csf_existing
     n_knowledge["Knowledge and retrieval (existing)"]:::csf_existing
-    n_compiler["Bounded controller compiler (existing)"]:::csf_existing
+    n_ros["ROS spine capability (existing)"]:::csf_existing
     n_workers["Configured worker goroutines (existing)"]:::csf_existing
     n_inspect["Inspection (existing)"]:::csf_existing
     n_widgets["Widget SDK and gotth#45;live (existing)"]:::csf_existing
@@ -256,7 +329,7 @@ flowchart TB
   n_bench --> n_api
   n_bench --> n_vendor
   n_api --> n_knowledge
-  n_api --> n_compiler
+  n_api -->|"spine status"| n_ros
   n_api --> n_workers
   n_api --> n_inspect
   n_knowledge --> n_stores
@@ -265,7 +338,7 @@ flowchart TB
   n_inspect --> n_views
   n_brain --> n_experiments
   n_widgets -->|"keyed Kanban cards"| n_bench
-  n_compiler -.->|"planned external adapter"| n_spine
+  n_ros -.->|"planned ROS transport"| n_spine
   n_spine -.-> n_hardware
   linkStyle 0 stroke:#0F766E,stroke-width:2px
   linkStyle 1 stroke:#0F766E,stroke-width:2px
@@ -287,20 +360,62 @@ flowchart TB
 ```
 <!-- /csf:diagram architecture -->
 
+### Stores and data structures
+
+CSF separates *what* data is from *where* it lives, following the ANSI/SPARC
+three-level architecture [[2]](#ref-ansi-sparc) and Codd's physical data
+independence [[3]](#ref-codd):
+
+| CSF | ANSI/SPARC | Meaning |
+|---|---|---|
+| data structure (`pkg/graph`, Cell, Map, Queue) | conceptual level | the data and its operations, with no placement, locks or I/O |
+| store (`pkg/store.Store[D]`) | internal level | the physical placement of a data structure: memory (RAM), a file, or PostgreSQL; its crossing tier is derived from that backend |
+| `store places data_structure` | conceptual/internal mapping | changing a store's backend never changes code written against the data structure (physical data independence) |
+| view, dashboard | external level (specializes) | generated projections of typed records, not per-user schemas |
+
+*Status: operator ruling recorded 2026-10-02; `pkg/graph`, `pkg/store` and the ontology
+terms are planned (source monorepo issue #366). The in-process Queue exists today in
+[`io/inproc`](io/inproc).*
+
+### Aspects: hooks on service actions
+
+Anything that does something is a [service](csf/docs/generated/ontology_cgen.md#term-service),
+and cross-cutting behavior attaches to a [service](csf/docs/generated/ontology_cgen.md#term-service)'s actions the way aspect-oriented
+programming attaches advice to join points [[4]](#ref-aop):
+
+| CSF | AOP | Meaning |
+|---|---|---|
+| action | join point | a [service](csf/docs/generated/ontology_cgen.md#term-service) operation (an RPC method); the only thing a hook attaches to |
+| hook | advice (before/after) | pre or post code on one action, supplied as a generated functional option such as `WithPreSubmit`, typed by that action's request and response |
+| pointcut | pointcut | a typed selector of actions |
+| aspect | aspect | one cross-cutting concern: a pointcut plus its hooks, e.g. the [session gate](csf/docs/generated/ontology_cgen.md#term-session_gate), telemetry, admission, the merge gate |
+| weaving (specializes) | weaving | applying aspects when the host [app](csf/docs/generated/ontology_cgen.md#term-app) composes its [services](csf/docs/generated/ontology_cgen.md#term-service); no source or bytecode rewriting |
+
+An action CSF does not execute itself, such as `git commit`, enters through an
+adapter [service](csf/docs/generated/ontology_cgen.md#term-service) whose operation is the join point.
+
+*Status: operator ruling recorded 2026-10-02; the generated options and ontology
+terms are planned (source monorepo issue #374).*
+
 ### What is in here
 
 ```text
-candace/
+.
 ├── csf/          typed coordination library, contracts, examples and consumer guide
-├── pkg/          domain-neutral primitives — nothing in them knows what CandaceOS is
-├── services/     composable business logic — candaceos, warden
-├── app/          runnable compositions — candaceos-core, candaceos-agent, warden
+├── pkg/          domain-neutral primitives — nothing in them knows about any service
+├── services/     composable business logic — deploy, warden, the agent harness, cron, ops view and more
+├── app/          runnable compositions — csf, harness, deploy, node executor, warden, intake
+├── runtime/      the process runtime: the lifetimes every goroutine starts under
+├── ipc/          boundary crossings, each a capability granted through a constructor
+├── io/           the in-process io tier (io/inproc)
+├── web/          the deploy service's and node executor's web layers
 ├── proto/        .proto sources and their committed Go bindings
-├── candaceos/    the deployment kit: Compose stack, installer, fleet driver, updater
+├── infra/        deploy-kit/ (Compose stack, installer, fleet driver, updater) and local dev services
+├── tools/        build wrapper, house gates, the CSF kit installer and the csf operator CLI
 ├── xetcas/       a Rust workspace (xetcasd) plus its generated Go bindings
 ├── examples/     one worked consumer per extension seam, each with its own suite
 ├── extensions/   copilot-pair, a GitHub Copilot CLI extension
-├── docs/         extending.md — the four compile-time seams
+├── docs/         extending.md (the four compile-time seams) and GLOSSARY.md (for humans)
 └── bazel/        the legacy WORKSPACE shim
 ```
 
@@ -308,41 +423,55 @@ The three Go trees are separated by one rule, about who may import whom:
 
 | Imports | Allowed direction |
 |---|---|
-| Runnable compositions (`app/`) | Services, CSF and shared packages |
-| Domain services and CSF | Shared packages |
-| Domain-neutral packages (`pkg/`) | No import of services or application compositions |
+| Runnable compositions (`app/`) | [Services](csf/docs/generated/ontology_cgen.md#term-service), CSF and shared packages |
+| Domain [services](csf/docs/generated/ontology_cgen.md#term-service) and CSF | Shared packages |
+| Domain-neutral packages (`pkg/`) | No import of [services](csf/docs/generated/ontology_cgen.md#term-service) or [application](csf/docs/generated/ontology_cgen.md#term-application) compositions |
 
 Nothing in `pkg/` imports `services/` or `app/`, which is what makes the
 primitives usable on their own:
 
 | Package | What it is |
 |---|---|
-| [`gotth`](pkg/gotth) | Server-driven live UI. Large enough to have its own documentation set. |
+| [`gotth`](pkg/gotth) | Server-driven live UI. Large enough to have its own documentation set. [And it does](pkg/gotth/docs/README.md). |
 | [`pgmem`](pkg/pgmem) | A process-local PostgreSQL emulator for fast tests — real PostgreSQL AST, no server. |
-| [`cron`](pkg/cron) | Durable in-process scheduling with human-readable declarations and an explicit state store. |
-| [`liquidproto`](pkg/liquidproto) | The runtime for Liquid Proto: protobuf with refinement predicates compiled into the generated Go. |
+| [`cron`](pkg/cron) | The schedule grammar: human-readable trigger declarations and their canonical five-field form. The scheduler that fires them is [`services/cron`](services/cron). |
+| [`liquidproto`](pkg/liquidproto) | The [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for Liquid Proto: protobuf with refinement predicates compiled into the generated Go. |
 | [`telemetry`](pkg/telemetry) | Trace propagation and structured JSONL over the `candace.telemetry.v1` contracts, with no observability SDK. |
 | [`config`](pkg/config) | Configuration-boundary parsing: environment lookup, private-origin validation, `provider/model` strings. |
-| [`mailbox`](pkg/mailbox) | Serializes ownership of a mutable value onto one goroutine — commands run in turn, so no field needs a lock. |
+| [`mailbox`](pkg/mailbox) | Serializes ownership of a mutable value onto one [goroutine](csf/docs/generated/ontology_cgen.md#term-goroutine) — commands run in turn, so no field needs a lock. |
 | [`boundedbuffer`](pkg/boundedbuffer) | An `io.Writer` that retains at most a fixed number of bytes while still reporting the true write lengths. |
 | [`redact`](pkg/redact) | Removes caller-declared sensitive values, and their URL-userinfo spellings, from log-bound text. |
-| [`labels`](pkg/labels) | Canonicalizes case-insensitive label lists so services compare and deduplicate them one way. |
+| [`labels`](pkg/labels) | Canonicalizes case-insensitive label lists so [services](csf/docs/generated/ontology_cgen.md#term-service) compare and deduplicate them one way. |
 | [`core`](pkg/core) | The zerolog logger the Go trees log through, plus the few formatters operator pages share. |
-| [`patience`](pkg/patience) | The one typed await for tests: poll a value, judge it with a predicate, get the value that satisfied it back. |
-| [`widget`](pkg/widget) | The widget dialect and its toolchain: interpreter, validator, generator, and the typed SDK that mounts generated cards into a gotth-live host. |
+| [`eventually`](pkg/eventually) | The one typed await for tests: poll a value, judge it with a predicate, get the value that satisfied it back. |
+| [`widget`](pkg/widget) | The [widget](csf/docs/generated/ontology_cgen.md#term-widget) dialect and its toolchain: interpreter, validator, generator, and the typed SDK that [mounts](csf/docs/generated/ontology_cgen.md#term-mount) generated cards into a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) host. |
 
 `pkg/proto` and `pkg/scripts` hold tooling rather than a package.
 
 ## 5. Quick start
 
+**To put CSF into a repository of yours, run `csf init` at its root.** It
+writes a sample [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) under `.csf/` and registers the repository with
+this machine's [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness, starting it if none is running. Then:
+
+```bash
+csf submit -recipe .csf/assignments/sample/agent.json   # an agent session starts
+csf events -assignment <id>                              # ends with a draft pull request
+csf chat -assignment <id>                                # the session's chat address
+```
+
+`csf` comes from this repository, once per machine, with only Docker on the
+machine: `tools/kit/install.sh` from a clone. [The CSF kit guide](tools/kit/README.md)
+walks every step, its success check and how to undo it.
+
 Use Go 1.26. The smallest CSF example needs no database, GPU, model account or
-extra service process:
+extra process:
 
 ```bash
 go run ./examples/csf-theme --listen 127.0.0.1:8089 --theme-dir ./examples/csf-theme
 ```
 
-That mounts the generated HTTP API and MCP at `http://127.0.0.1:8089/mcp`. The
+That [mounts](csf/docs/generated/ontology_cgen.md#term-mount) the generated HTTP API and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp) at `http://127.0.0.1:8089/mcp`. The
 caller owns the process; CSF only registers routes and hands back a handler.
 From [`examples/csf-consumer/main.go`](examples/csf-consumer/main.go):
 
@@ -357,11 +486,11 @@ router.Any(mcpPath, gin.WrapH(service.MCPHandler()))
 registerConsumerSummary(router, service)
 ```
 
-**Agent-native onboarding.** The intended first instruction to your agent is
-*“Learn about CSF.”* The `LearnAboutCSF` MCP operation explains the pinned
-version's capabilities and extension points and, when knowledge is configured,
+**Agent-native onboarding.** The intended first instruction to your [agent](csf/docs/generated/ontology_cgen.md#term-agent) is
+*“Learn about CSF.”* The `LearnAboutCSF` [MCP](csf/docs/generated/ontology_cgen.md#term-mcp) operation explains the pinned
+version's capabilities and extension points and, when [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) is configured,
 submits the embedded guidance plus selected consumer files for indexing. Your
-own tools join the same MCP server with typed inputs and outputs; the pinned MCP
+own tools join the same [MCP](csf/docs/generated/ontology_cgen.md#term-mcp) server with typed inputs and outputs; the pinned [MCP](csf/docs/generated/ontology_cgen.md#term-mcp)
 SDK derives and validates their schemas, and CSF rejects name collisions with
 its own operations. The signature, from [`csf/service.go`](csf/service.go):
 
@@ -370,10 +499,10 @@ func WithMCPTool[In, Out any](tool mcp.Tool, handler mcp.ToolHandlerFor[In, Out]
 ```
 
 The host still owns listener startup, authentication, repository authorization
-and consumer checks. The [CSF guide](csf/README.md) covers the Workbench,
+and consumer checks. The [CSF guide](csf/README.md) covers the [Workbench](csf/docs/generated/ontology_cgen.md#term-bench),
 onboarding and every example with its boundary.
 
-**gotth-live**, the web layer CSF's Workbench uses, runs with no npm or code
+**[gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live)**, the [web layer](csf/docs/generated/ontology_cgen.md#term-web) CSF's [Workbench](csf/docs/generated/ontology_cgen.md#term-bench) uses, runs with no npm or code
 generation:
 
 ```bash
@@ -387,20 +516,23 @@ counter: allowed origins [http://127.0.0.1:8080 http://localhost:8080]
 
 Open that URL in two browser tabs. The number lives in the Go process and
 neither tab holds a copy of it: click in one and the other repaints, reload
-either and the count survives, and the client runtime that carried the patch
+either and the count survives, and the client script that carried the patch
 was compiled into the binary and served by the same handler that serves the
 WebSocket. [`examples/gotth/counter/README.md`](examples/gotth/counter/README.md)
 follows one click all the way through and names the file each step lives in.
-The optional CSF Workbench has a separate browser-asset build documented in its
+The optional CSF [Workbench](csf/docs/generated/ontology_cgen.md#term-bench) has a separate browser-asset build documented in its
 README.
 
 ## 6. Consume it
 
 ### This repository is generated
 
-It is a **one-way snapshot** of a private monorepo's `candace/` folder at one
-exact revision, published with no upstream history. Snapshot updates arrive as ready pull requests from `candace-export` against
-`main`. Make source changes in the canonical repository; editing the generated
+It is a **one-way snapshot** of the canonical repository at one exact revision,
+published with no upstream history. <!-- agent-drafted (#379): awaiting operator approval -->The canonical repository is
+private CSF staging since 2026-10-02; `v0.1.3` and earlier were exported from a
+private monorepo's `candace/` folder. Snapshot updates arrive as ready pull
+requests from the `candace-export` branch against `main`, and releases from
+`candace-release`. Make source changes in the canonical repository; editing the generated
 destination directly would conflict with its next snapshot.
 
 After its review PR is merged, the publisher verifies that tree and creates
@@ -410,11 +542,11 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Public URLs below apply only once `v0.1.0` is published on `candacelabs/csf`;
-a private staging release does not publish it there. For staging, download
-the release assets with authenticated access and use the
+Releases are published on `candacelabs/csf`; the current one is `v0.1.3`. For a
+private staging release, download the release assets with authenticated access
+and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
-The Go module path remains `github.com/candacelabs/csf` in both stages.
+The Go module path is `github.com/candacelabs/csf` in both cases.
 
 New releases carry `csf-<sha12>.tar.gz` and its `.sha256`; historical releases
 retain their original archive names. The tarball is
@@ -436,7 +568,9 @@ printf '\n'
 ```
 
 Copy the complete `sha256-...` output line into `integrity` in your own
-`MODULE.bazel`; the `.sha256` file's hexadecimal value is not an SRI value:
+`MODULE.bazel`; the `.sha256` file's hexadecimal value is not an SRI value. The
+archive's `module()` still declares version `0.1.0`, so `bazel_dep` keeps that
+version while the URL names the release tag:
 
 ```python
 bazel_dep(name = "csf", version = "0.1.0")
@@ -445,17 +579,20 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.1.0/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.1.3/csf-<sha12>.tar.gz"],
 )
 ```
 
-Then depend on what you use — `@csf//services/candaceos/component`,
-`@csf//pkg/gotth/live`, `@csf//services/warden` — and build.
+Then depend on what you use — `@csf//services/deploy/component`,
+`@csf//pkg/gotth/live`, `@csf//services/warden` — and build. In `v0.1.3` the
+deploy [service](csf/docs/generated/ontology_cgen.md#term-service) still sits at `services/candaceos/` and its kit at `candaceos/`;
+this tree names them `services/deploy/` and `infra/deploy-kit/`, and the next
+release carries the new paths.
 
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.1.0
+go get github.com/candacelabs/csf@v0.1.3
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -472,11 +609,11 @@ these fail if it stops being true.
 
 | Example | Shows |
 |---|---|
-| [`csf-consumer`](examples/csf-consumer) | CSF mounted beside a consumer's own Go endpoint in one process, its generated client, MCP tool discovery and shutdown. Its archive acceptance script builds a fresh repository with networking disabled. |
-| [`external-consumer`](examples/external-consumer) | A complete outside repository choosing every seam at once: its own identity and overlay, its own sidebar entry and page, three composed services, a custom agent harness, and the Core binary linked from them — built and tested both supported Bazel ways. This is also the acceptance test every release archive passes. |
-| [`custom-brand`](examples/custom-brand) | Core wearing another product's identity — name, agent, wordmark, palette, an overlay asset, an extra sidebar entry and page — with no edit to Core. |
+| [`csf-consumer`](examples/csf-consumer) | CSF [mounted](csf/docs/generated/ontology_cgen.md#term-mount) beside a consumer's own Go endpoint in one process, its generated client, [MCP](csf/docs/generated/ontology_cgen.md#term-mcp) tool discovery and shutdown. Its archive acceptance script builds a fresh repository with networking disabled. |
+| [`external-consumer`](examples/external-consumer) | A complete outside repository choosing every seam at once: its own identity and overlay, its own sidebar entry and page, three composed [services](csf/docs/generated/ontology_cgen.md#term-service), a custom [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness, and the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) binary linked from them — built and tested both supported Bazel ways. This is also the acceptance test every release archive passes. |
+| [`custom-brand`](examples/custom-brand) | The deploy [service](csf/docs/generated/ontology_cgen.md#term-service) wearing another product's identity — name, [agent](csf/docs/generated/ontology_cgen.md#term-agent), wordmark, palette, an overlay asset, an extra sidebar entry and page — with no edit to the deploy [service](csf/docs/generated/ontology_cgen.md#term-service). |
 | [`custom-ui-page`](examples/custom-ui-page) | The smallest useful UI extension: stock identity, one sidebar entry, one page of your own. |
-| [`gotth/counter`](examples/gotth/counter) | gotth-live at its smallest: a number that lives in Go, four buttons, and every open tab kept in step by the server. |
+| [`gotth/counter`](examples/gotth/counter) | [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) at its smallest: a number that lives in Go, four buttons, and every open tab kept in step by the server. |
 | [`gotth/chat`](examples/gotth/chat) | One room in Go, several browsers, and every message reaching every session over a server push. |
 | [`gotth/dashboard`](examples/gotth/dashboard) | A feed pushing twenty times a second, three live regions patched independently, and two plain-HTMX regions on the same page. |
 
@@ -511,32 +648,35 @@ cd xetcas && cargo build --workspace && cargo test --workspace
 files are generated by Gazelle (`tools/bazel.sh run //:gazelle`) and CI fails on
 drift.
 
-### Run CandaceOS
+### Run the deploy stack
 
-The deployment kit installs and runs the whole one-box stack from this clone.
+The deployment kit installs and runs the whole one-box stack (deploy [service](csf/docs/generated/ontology_cgen.md#term-service),
+node executor and operator UI) from this clone.
 The default install is deliberately harmless: a simulated harness, a dry-run
-executor, and no Docker socket mounted anywhere.
+executor, and no Docker socket bind-mounted anywhere.
 
 ```bash
-./candaceos/install.sh          # then open http://<host>:7780
-./candaceos/status.sh
-./candaceos/uninstall.sh
+./infra/deploy-kit/install.sh          # then open http://<host>:7780
+./infra/deploy-kit/status.sh
+./infra/deploy-kit/uninstall.sh
 ```
 
-Core publishes on all host IPv4 interfaces with **no built-in authentication**:
+The deploy [service](csf/docs/generated/ontology_cgen.md#term-service) publishes on all host IPv4 interfaces with **no built-in authentication**:
 put it behind your own authenticating proxy before exposing it beyond a trusted
-network. [`candaceos/README.md`](candaceos/README.md) is the operations manual,
-and [`candaceos/AGENTS.md`](candaceos/AGENTS.md) states the trust model as eight
+network. [`infra/deploy-kit/README.md`](infra/deploy-kit/README.md) is the operations manual,
+and [`infra/deploy-kit/AGENTS.md`](infra/deploy-kit/AGENTS.md) states the trust model as eight
 invariants with their enforcement points.
 
 ## 9. Where to go next
 
-- [`csf/README.md`](csf/README.md) — the CSF guide: Workbench, onboarding,
+- [`csf/README.md`](csf/README.md) — the CSF guide: [Workbench](csf/docs/generated/ontology_cgen.md#term-bench), onboarding,
   examples and release evidence.
 - [`AGENTS.md`](AGENTS.md) — the repository's own guide: taxonomy, seams,
   invariants, conventions.
 - [`docs/extending.md`](docs/extending.md) — the four compile-time seams and how
   to pin a snapshot.
+- [`docs/GLOSSARY.md`](docs/GLOSSARY.md) — every CSF term and borrowed literature
+  term in plain language, for human readers.
 - [`pkg/gotth/README.md`](pkg/gotth/README.md), [`xetcas/README.md`](xetcas/README.md)
   — each subsystem's own front page.
 - `app/*/CLAUDE.md` — what may not be changed casually in each binary.
@@ -571,7 +711,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.1.0},
+  version = {0.1.3},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
@@ -581,6 +721,23 @@ The LITHE paper and its figures are distributed under arXiv's
 [non-exclusive distribution license](http://arxiv.org/licenses/nonexclusive-distrib/1.0/),
 not a Creative Commons license. © the authors; this repository's license does
 not cover them, and no figure file is copied into it.
+
+<a id="ref-ansi-sparc"></a>
+
+**[2]** D. Tsichritzis and A. Klug. *The ANSI/X3/SPARC DBMS framework report of the
+study group on database management systems.* Information Systems 3(3):173–191, 1978.
+<https://doi.org/10.1016/0306-4379(78)90001-7>
+
+<a id="ref-codd"></a>
+
+**[3]** E. F. Codd. *A relational model of data for large shared data banks.*
+Communications of the ACM 13(6):377–387, 1970. <https://doi.org/10.1145/362384.362685>
+
+<a id="ref-aop"></a>
+
+**[4]** G. Kiczales, J. Lamping, A. Mendhekar, C. Maeda, C. Lopes, J.-M. Loingtier and
+J. Irwin. *Aspect-oriented programming.* ECOOP '97, LNCS 1241, pp. 220–242, 1997.
+<https://doi.org/10.1007/BFb0053381>
 
 ## License
 

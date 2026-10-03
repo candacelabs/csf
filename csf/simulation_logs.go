@@ -10,10 +10,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	db "github.com/candacelabs/csf/csf/internal/brainspinedb"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/candacelabs/csf/services/jobs"
 	"github.com/opensearch-project/opensearch-go/v5/opensearchapi"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -94,41 +92,37 @@ func simulationSourceHash(source *pb.SimulationTraceSource) (string, error) {
 	return hex.EncodeToString(digest[:]), nil
 }
 
-// archiveSimulationLogs retries durable terminal rows in the existing worker.
+// archiveSimulationLogs retries durable terminal jobs in the existing worker.
 // An OpenSearch outage does not suppress independent Langfuse export.
 func (simulations *Simulations) archiveSimulationLogs(ctx context.Context) error {
 	if simulations.logSearch == nil || simulations.local == nil || simulations.local.config.LogIndex == "" {
 		return nil
 	}
-	row, err := simulations.store.queries.NextSimulationLog(ctx)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
-	if err != nil {
+	job, ok, err := simulations.ledger.NextUnarchived(ctx, simulationExecutorLocal)
+	if err != nil || !ok {
 		return err
 	}
-	source, problem := simulations.local.traceSource(row)
-	if problem == nil && row.LogStream != "" {
+	source, problem := simulations.local.traceSource(job)
+	if problem == nil && job.LogStream != "" {
 		var content []byte
-		content, problem = simulations.artifacts.Get(row.LogStream)
+		content, problem = simulations.artifacts.Get(job.LogStream)
 		if problem == nil && !utf8.Valid(content) {
 			problem = fmt.Errorf("retained simulator logs are not UTF-8; raw artifact remains available")
 		}
 		source.Logs = string(content)
 	}
-	result := db.SetSimulationLogParams{RunID: row.RunID}
+	archive := jobs.LogArchive{}
 	if problem == nil {
-		deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
-		result.LogDocumentID, problem = simulations.logSearch.IndexSimulationSource(deadline, simulations.local.config.LogIndex, source)
+		deadline, cancel := context.WithTimeout(ctx, simulationTraceDeadline)
+		archive.DocumentID, problem = simulations.logSearch.IndexSimulationSource(deadline, simulations.local.config.LogIndex, source)
 		cancel()
 	}
 	if problem != nil {
-		result.LogDocumentID = ""
-		result.LogProjectionError = problem.Error()
+		archive = jobs.LogArchive{ProjectionError: problem.Error()}
 	} else {
-		result.LogIndexedAt = pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true}
+		archive.IndexedAt = time.Now().UTC()
 	}
-	return simulations.store.queries.SetSimulationLog(ctx, result)
+	return simulations.ledger.RecordLogArchive(ctx, job.ID, archive)
 }
 
 // RebuildSimulationTrace derives versioned spans from OpenSearch alone. The
@@ -138,31 +132,31 @@ func (service *Service) RebuildSimulationTrace(ctx context.Context, request *pb.
 	if simulations == nil || simulations.local == nil || simulations.traces == nil || simulations.logSearch == nil || simulations.local.config.TraceBaseUrl == "" || simulations.local.config.LogIndex == "" || request == nil || !simulationID.MatchString(request.RunId) {
 		return nil, fmt.Errorf("simulation trace reconstruction unavailable or invalid run identity")
 	}
-	row, err := simulations.store.queries.GetSimulation(ctx, request.RunId)
+	job, err := simulations.ledger.Get(ctx, request.RunId)
 	if err != nil {
 		return nil, err
 	}
-	if row.Executor != int32(pb.SimulationExecutor_SIMULATION_EXECUTOR_LOCAL) || !simulationTerminal(row.State) || (row.Managed && !row.CleanupConfirmed) {
+	if job.Executor != simulationExecutorLocal || !job.State.Terminal() || (job.Managed && !job.CleanupConfirmed) {
 		return nil, fmt.Errorf("simulation is not terminal with confirmed cleanup")
 	}
-	deadline, cancel := context.WithTimeout(ctx, 10*time.Second)
+	deadline, cancel := context.WithTimeout(ctx, simulationTraceDeadline)
 	defer cancel()
 	record, err := simulations.logSearch.SimulationSource(deadline, simulations.local.config.LogIndex, request.RunId)
 	if err != nil {
 		return nil, err
 	}
-	if record.Simulation.Run.Simulator != pb.Simulator(row.Simulator) || record.Simulation.Run.Steps != uint32(row.Steps) {
+	if record.Simulation.Run.Simulator != simulatorOf(job.Kind) || int64(record.Simulation.Run.Steps) != job.TotalUnits {
 		return nil, fmt.Errorf("archived simulation does not match admitted job")
 	}
 	spans, identity, err := simulations.local.projectTrace(record.Simulation)
 	if err != nil {
 		return nil, err
 	}
-	if err := simulations.deliverSimulationTrace(deadline, row, spans, identity); err != nil {
-		retained := simulations.store.queries.SetSimulationTrace(ctx, db.SetSimulationTraceParams{RunID: row.RunID, TraceUrl: row.TraceUrl, TraceExportError: err.Error()})
+	if err := simulations.deliverSimulationTrace(deadline, job, spans, identity); err != nil {
+		retained := simulations.ledger.RecordTrace(ctx, job.ID, jobs.TraceProjection{URL: job.Trace.URL, ExportError: err.Error()})
 		return nil, errors.Join(err, retained)
 	}
-	run, err := simulations.inspect(ctx, row.RunID)
+	run, err := simulations.inspect(ctx, job.ID)
 	if err != nil {
 		return nil, err
 	}

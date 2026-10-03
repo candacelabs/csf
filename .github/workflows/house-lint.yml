@@ -1,0 +1,197 @@
+name: House lint
+
+# One OCaml checker (tools/house_lint) owns the house rules, their severity
+# and their corpus. No path filter: the native scan reads every tracked Go and
+# Python file, the specialist lanes read the whole Go module, and the checker,
+# its tests and its toolchain are inputs too, so any change can move the
+# verdict. Private staging allocates no hosted runner (see README.md here);
+# the local launcher is the same command: bash tools/check-house-lint.sh --test
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  ocaml_repository:
+    name: Prepare pinned tooling and opam metadata
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: repository
+
+  ocaml_bytecode:
+    needs: ocaml_repository
+    name: Prepare the OCaml bytecode bootstrap
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: bytecode
+
+  ocaml_compiler:
+    needs: ocaml_bytecode
+    name: Prepare the pinned OCaml compiler
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: compiler
+
+  ocaml_toolchain:
+    name: Prepare the locked OCaml libraries
+    needs: ocaml_compiler
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: prepare
+
+  native:
+    name: Build and test the native house checker
+    needs: ocaml_toolchain
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      matrix: ${{ steps.inventory.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/ocaml-toolchain
+        with:
+          mode: restore
+
+      - name: Build the checker and run every native regression
+        run: bash tools/check-house-lint.sh --test --build-only
+
+      # The lane matrix is the checker's own inventory, so a lane added to
+      # tools/house_lint/runner.ml is scanned without a second list here.
+      - name: Prepare the exact checker and its complete lane inventory
+        id: inventory
+        run: |
+          set -euo pipefail
+          output="$RUNNER_TEMP/house-lint-native"
+          mkdir -p "$output"
+          install -m 0755 bazel-bin/tools/house_lint/check.exe "$output/house-lint"
+          printf '%s\n' "$GITHUB_SHA" > "$output/source-revision"
+          (cd "$output" && sha256sum house-lint source-revision > SHA256SUMS)
+          printf 'matrix={"lane":%s}\n' "$("$output/house-lint" --ci-lanes)" >> "$GITHUB_OUTPUT"
+
+      - name: Hand the tested checker to the lanes
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: house-lint-native
+          path: ${{ runner.temp }}/house-lint-native
+          if-no-files-found: error
+          retention-days: 1
+
+  scan:
+    name: House lint (${{ matrix.lane }})
+    needs: native
+    if: ${{ github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.native.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Restore the tested checker for this revision
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: house-lint-native
+          path: ${{ runner.temp }}/house-lint-native
+
+      # OCaml retains ownership of commands, policy and error handling. No
+      # workflow exit-code exception turns a failed advisory scan into a pass.
+      - name: Verify the checker and run the selected lane
+        env:
+          HOUSE_LINT_LANE: ${{ matrix.lane }}
+        run: |
+          set -euo pipefail
+          checker="$RUNNER_TEMP/house-lint-native"
+          test "$(cat "$checker/source-revision")" = "$GITHUB_SHA"
+          (cd "$checker" && sha256sum --check --strict SHA256SUMS)
+          chmod 0755 "$checker/house-lint"
+          "$checker/house-lint" --root "$PWD" --lane "$HOUSE_LINT_LANE" --summary house-lint-report.md
+
+      - name: Publish the lane summary
+        if: always()
+        run: |
+          if [ -f house-lint-report.md ]; then
+            cat house-lint-report.md >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo 'House lint did not produce a report; inspect the failed setup or scan step.' >>"$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Retain the lane report and specialist logs
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: house-lint-report-${{ matrix.lane }}
+          path: |
+            house-lint-report.md
+            house-lint-output/
+          if-no-files-found: warn
+          overwrite: true
+          retention-days: 7
+
+  house_lint:
+    name: House lint (mandatory and advisory)
+    needs: [native, scan]
+    if: ${{ always() && github.event.repository.private == false }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      NATIVE_RESULT: ${{ needs.native.result }}
+      SCAN_RESULT: ${{ needs.scan.result }}
+    steps:
+      # The one check to require: it is green only when the checker built,
+      # its regressions passed and every registered lane succeeded. A skipped
+      # or cancelled lane is not a pass.
+      - name: Require the tested checker and every registered lane
+        run: |
+          set -euo pipefail
+          status=0
+          for result in "native=$NATIVE_RESULT" "scan=$SCAN_RESULT"; do
+            case "$result" in
+              *=success) ;;
+              *) printf 'House lint did not complete: %s\n' "$result" >&2; status=1 ;;
+            esac
+          done
+          exit "$status"

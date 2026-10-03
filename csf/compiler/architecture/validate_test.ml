@@ -101,6 +101,11 @@ let invalid_cases = [
   "call names boundary", "internal_boundary", { valid with connections = [connection ~transport:Call "consumer" "provider"] };
   "channel names boundary", "internal_boundary", { valid with connections = [connection ~transport:Channel "consumer" "provider"] };
   "short call dependency", "call_lifetime", { valid with connections = [connection ~transport:Call ~boundary:None "provider" "consumer"] };
+  "short call into a scoped service", "call_lifetime", { valid with connections = [connection ~transport:Call ~boundary:None "gateway" "consumer"] };
+  "short call into a borrowed component", "call_lifetime", edit_component "provider" (fun c -> { c with scope = "request" })
+    { valid with dependencies = []; connections = [connection ~transport:Call ~boundary:None "gateway" "provider"] };
+  "lazy call crosses processes", "internal_process", edit_component "target" (fun c -> { c with lifecycle = Lazy })
+    { valid with connections = [connection ~transport:Call ~boundary:None "consumer" "target"] };
   "same process crossing", "crossing_process", { valid with connections = [connection "consumer" "provider"] };
   "crossing without owner", "crossing_boundary", { valid with connections = [connection ~boundary:None "consumer" "target"] };
   "foreign crossing owner", "boundary_process", { valid with connections = [connection ~boundary:(Some "target") "consumer" "target"] };
@@ -146,6 +151,14 @@ let tests = [
       (edit_component "provider" (fun c -> { c with state = Planned; source = None; verification = Pending })
         { valid with connections = [connection ~state:Planned "consumer" "target"] }) in
     ignore (accepted architecture));
+  "call into a shorter-lived lazy service restarts it", (fun () ->
+    let resolved = accepted (edit_component "consumer" (fun c -> { c with lifecycle = Lazy })
+      { valid with connections = [connection ~transport:Call ~boundary:None "gateway" "consumer"] }) in
+    check (has_obligation (fun o -> o.subject = "consumer" && contains o.requirement "idle retirement") resolved)
+      "Missing lazy lifecycle obligation");
+  "lazy does not relax a requires edge", (fun () ->
+    reject "dependency_lifetime" (edit_component "consumer" (fun c -> { c with lifecycle = Lazy })
+      { valid with dependencies = [dependency "provider" "consumer"] }));
   "call borrows enclosing lifetime", (fun () ->
     ignore (accepted { valid with connections = [connection ~transport:Call ~boundary:None "consumer" "provider"] }));
   "channel does not imply borrowed dependency", (fun () ->

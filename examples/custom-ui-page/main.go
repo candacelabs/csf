@@ -1,4 +1,4 @@
-// Command custom-ui-page is stock CandaceOS Core with one page added.
+// Command custom-ui-page is stock deploy with one page added.
 //
 // It is the smallest useful shape of the operator UI's extension seams, and it
 // is deliberately not a rebrand: the identity, the palette, the templates, and
@@ -30,8 +30,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/candacelabs/csf/app/candaceos-core/bootstrap"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	"github.com/candacelabs/csf/app/deploy/bootstrap"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 // version is what Core reports as its build. A real embedding binary stamps

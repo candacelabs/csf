@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "config",
+    srcs = ["environment.go"],
+    importpath = "github.com/candacelabs/csf/runtime/config",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "config_test",
+    srcs = [
+        "config_suite_test.go",
+        "environment_test.go",
+    ],
+    deps = [
+        ":config",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

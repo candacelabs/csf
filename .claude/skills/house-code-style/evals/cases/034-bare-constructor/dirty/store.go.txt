@@ -1,0 +1,13 @@
+package postgres
+
+import "database/sql"
+
+// Store is the relational metadata store.
+type Store struct {
+	db *sql.DB
+}
+
+// New returns the store over db.
+func New(db *sql.DB) *Store {
+	return &Store{db: db}
+}

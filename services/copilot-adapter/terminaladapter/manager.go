@@ -7,19 +7,14 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"sort"
-	"strconv"
-	"strings"
 	"sync"
-	"syscall"
 	"time"
 	"unicode/utf8"
 
-	"github.com/creack/pty"
 	"github.com/google/uuid"
 
+	"github.com/candacelabs/csf/ipc/proc"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 )
@@ -29,12 +24,12 @@ const (
 	maximumInputCharacters = 65536
 	readChunkBytes         = 4 << 10
 	terminalEnvironment    = "TERM=xterm-256color"
-	procDirectory          = "/proc"
-	procStatFilename       = "stat"
 )
 
-// Config fixes the shell and replay bound; clients cannot override either.
+// Config fixes the shell and replay bound, which clients cannot override, and
+// grants the process capability every shell starts through.
 type Config struct {
+	Launcher           proc.ILauncher
 	Shell              string
 	ReplayBytes        int
 	ExitedHistoryLimit int
@@ -42,6 +37,7 @@ type Config struct {
 
 // TerminalManager owns process state until Close.
 type TerminalManager struct {
+	launcher           proc.ILauncher
 	shell              string
 	replayBytes        int
 	exitedHistoryLimit int
@@ -53,10 +49,8 @@ type TerminalManager struct {
 type terminal struct {
 	mu              sync.RWMutex
 	snapshot        copilotadapter.TerminalSnapshot
-	command         *exec.Cmd
+	process         *proc.Process
 	pty             *os.File
-	processGroup    int
-	sessionID       int
 	events          []copilotadapter.TerminalOutput
 	eventBytes      int
 	nextSeq         int64
@@ -70,6 +64,9 @@ var _ copilotadapter.ITerminalManager = (*TerminalManager)(nil)
 
 // NewTerminalManager validates the fixed executable and replay bound.
 func NewTerminalManager(config Config) (*TerminalManager, error) {
+	if config.Launcher == nil {
+		return nil, fmt.Errorf("terminal adapter: process launcher is required")
+	}
 	if config.Shell == "" {
 		return nil, fmt.Errorf("terminal adapter: shell is required")
 	}
@@ -83,7 +80,7 @@ func NewTerminalManager(config Config) (*TerminalManager, error) {
 		return nil, fmt.Errorf("terminal adapter: exited history limit must be positive")
 	}
 	return &TerminalManager{
-		shell: config.Shell, replayBytes: config.ReplayBytes,
+		launcher: config.Launcher, shell: config.Shell, replayBytes: config.ReplayBytes,
 		exitedHistoryLimit: config.ExitedHistoryLimit, terminals: map[uuid.UUID]*terminal{},
 	}, nil
 }
@@ -119,26 +116,21 @@ func (manager *TerminalManager) Create(ctx context.Context, spec copilotadapter.
 	}
 	identifier := uuid.New()
 	now := time.Now().UTC()
-	command := exec.Command(manager.shell)
-	command.Dir = spec.Directory
-	command.Env = append(os.Environ(), terminalEnvironment)
-	file, err := pty.StartWithSize(command, &pty.Winsize{Rows: uint16(spec.Rows), Cols: uint16(spec.Columns)})
+	// The shell outlives the request that created it: Stop and Close end it.
+	shell, err := manager.launcher.Start(context.WithoutCancel(ctx), proc.Command{
+		Executable: manager.shell, Directory: spec.Directory,
+		ExtraEnvironment: []string{terminalEnvironment},
+		Terminal:         &proc.TerminalSize{Rows: uint16(spec.Rows), Columns: uint16(spec.Columns)},
+	})
 	if err != nil {
 		return copilotadapter.TerminalSnapshot{}, fmt.Errorf("terminal adapter: start shell: %w", err)
-	}
-	processGroup, err := syscall.Getpgid(command.Process.Pid)
-	if err != nil {
-		_ = file.Close()
-		_ = command.Process.Kill()
-		_ = command.Wait()
-		return copilotadapter.TerminalSnapshot{}, fmt.Errorf("terminal adapter: inspect shell process group: %w", err)
 	}
 	process := &terminal{
 		snapshot: copilotadapter.TerminalSnapshot{
 			ID: identifier, WorktreeID: spec.WorktreeID, Rows: spec.Rows, Columns: spec.Columns,
 			Shell: manager.shell, Status: string(api.TerminalStatusRunning), CreatedAt: now, UpdatedAt: now,
 		},
-		command: command, pty: file, processGroup: processGroup, sessionID: command.Process.Pid,
+		process: shell, pty: shell.Terminal(),
 		nextSeq: 1, done: make(chan struct{}), changed: make(chan struct{}),
 	}
 	snapshot := process.snapshot
@@ -175,7 +167,7 @@ func (manager *TerminalManager) Resize(identifier uuid.UUID, rows int32, columns
 		return copilotadapter.TerminalSnapshot{}, fmt.Errorf("terminal adapter: terminal is not running")
 	}
 	process.mu.RUnlock()
-	if err := pty.Setsize(process.pty, &pty.Winsize{Rows: uint16(rows), Cols: uint16(columns)}); err != nil {
+	if err := process.process.Resize(proc.TerminalSize{Rows: uint16(rows), Columns: uint16(columns)}); err != nil {
 		return copilotadapter.TerminalSnapshot{}, err
 	}
 	process.mu.Lock()
@@ -232,10 +224,11 @@ func (manager *TerminalManager) Stop(identifier uuid.UUID) (copilotadapter.Termi
 		process.stopOnce.Do(func() {
 			process.mu.RLock()
 			stillRunning := process.snapshot.Status == string(api.TerminalStatusRunning)
-			processGroup, sessionID := process.processGroup, process.sessionID
 			process.mu.RUnlock()
-			if stillRunning && processGroup > 0 {
-				killSession(sessionID, processGroup)
+			if stillRunning {
+				// Kill ends the shell's whole session, background jobs in
+				// their own process groups included.
+				_ = process.process.Kill()
 				_ = process.pty.Close()
 			}
 		})
@@ -245,38 +238,6 @@ func (manager *TerminalManager) Stop(identifier uuid.UUID) (copilotadapter.Termi
 	snapshot := process.snapshot
 	process.mu.RUnlock()
 	return snapshot, nil
-}
-
-// killSession terminates background jobs that an interactive shell may place
-// in their own process groups while retaining the shell's session id, then
-// kills the shell's group. Every selected PID belongs to this PTY session.
-func killSession(sessionID int, processGroup int) {
-	entries, err := os.ReadDir(procDirectory)
-	if err == nil {
-		for _, entry := range entries {
-			identifier, parseErr := strconv.Atoi(entry.Name())
-			if parseErr != nil || identifier == sessionID {
-				continue
-			}
-			body, readErr := os.ReadFile(filepath.Join(procDirectory, entry.Name(), procStatFilename))
-			if readErr != nil {
-				continue
-			}
-			closeName := strings.LastIndexByte(string(body), ')')
-			if closeName < 0 {
-				continue
-			}
-			fields := strings.Fields(string(body[closeName+1:]))
-			if len(fields) < 4 {
-				continue
-			}
-			candidateSession, fieldErr := strconv.Atoi(fields[3])
-			if fieldErr == nil && candidateSession == sessionID {
-				_ = syscall.Kill(identifier, syscall.SIGKILL)
-			}
-		}
-	}
-	_ = syscall.Kill(-processGroup, syscall.SIGKILL)
 }
 
 // EventsAfter returns the current snapshot and retained output after the
@@ -345,15 +306,12 @@ func (manager *TerminalManager) drain(process *terminal) {
 		output, _ := decodeTerminalOutput(pending, nil, true)
 		manager.append(process, api.TerminalEventKindOutput, output, nil)
 	}
-	waitErr := process.command.Wait()
+	result, waitErr := process.process.Wait()
 	status, kind := api.TerminalStatusExited, api.TerminalEventKindExited
-	var exitCode *int32
-	if process.command.ProcessState != nil {
-		code := int32(process.command.ProcessState.ExitCode())
-		exitCode = &code
-	}
+	code := int32(result.ExitCode)
+	exitCode := &code
 	if waitErr != nil {
-		var exitError *exec.ExitError
+		var exitError *proc.ExitError
 		if !errors.As(waitErr, &exitError) {
 			status, kind = api.TerminalStatusFailed, api.TerminalEventKindFailed
 		}

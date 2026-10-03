@@ -1,0 +1,53 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "chat",
+    srcs = [
+        "chat.go",
+        "render.go",
+    ],
+    embedsrcs = ["chat.html"],
+    importpath = "github.com/candacelabs/csf/services/harness/chat",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/gotth/live",
+        "//proto/candace/harness/v1:harness",
+        "//runtime",
+        "//services/harness",
+        "@com_github_a_h_templ//:templ",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_yuin_goldmark//:goldmark",
+        "@com_github_yuin_goldmark//extension",
+        "@com_github_yuin_goldmark//renderer/html",
+    ],
+)
+
+go_test(
+    name = "chat_test",
+    srcs = [
+        "chat_test.go",
+        "mobile_browser_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+    ],
+    embed = [":chat"],
+    deps = [
+        "//ipc/model",
+        "//ipc/model/claudecode",
+        "//ipc/proc",
+        "//pkg/eventually",
+        "//pkg/gotth/live",
+        "//pkg/gotth/live/livetest",
+        "//pkg/httpserver",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//proto/candace/harness/v1:harness",
+        "//runtime",
+        "//runtime/config",
+        "//services/harness",
+        "//services/harness/session",
+        "//services/harness/session/mocks",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

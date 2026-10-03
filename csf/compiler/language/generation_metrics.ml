@@ -208,7 +208,7 @@ let documentation_json report = `Assoc ([
     `Assoc (("path", `String file.path) :: totals_json file.totals)) report.documentation_files);
   "definition", `String ("physical Markdown lines including comments and blank lines; selected " ^
     "archive files only; explicit generated headers mark whole documents, " ^
-    "otherwise only csf:diagram interiors are generated and marker lines " ^
+    "otherwise only generated-block (csf:KIND) interiors are generated and marker lines " ^
     "are handwritten; not a proof or derivability score");
 ] @ totals_json report.documentation)
 

@@ -98,6 +98,8 @@ let test_documentation () =
     "````markdown\n```\n~~~\n<!-- csf:diagram unmatched -->\n````\n", 0;
     "```\n<!-- csf:diagram unmatched -->\n", 0;
     "<!-- csf:diagrammatic -->\ncsf:diagramé\n", 0;
+    "<!-- csf:north_star goal -->\n## North star\n\n| row |\n<!-- /csf:north_star goal -->\n", 3;
+    "<!-- csf:north_starry -->\n", 0;
   ];
   List.iter (fun (opener, closer) ->
     let source = opener ^ "\n<!-- csf:diagram missing_end -->\n<!-- csf:diagram -->\n" ^ closer ^
@@ -123,7 +125,17 @@ let test_invalid_documentation () =
     "\t```\n<!-- csf:diagram a -->\n", "unclosed diagram marker a: README.md";
     "<!-- csf:diagram a -->\n```\n<!-- csf:diagram b -->\n", "nested diagram marker: README.md:3";
     "<!-- csf:diagram a -->\n```\n<!-- /csf:diagram a -->\n<!-- /csf:diagram a -->", "unmatched diagram end marker: README.md:4";
-  ]
+    "<!-- csf:north_star -->\n", "malformed north_star marker: README.md:1";
+    "<!-- csf:north_star a -->\n<!-- /csf:diagram a -->\n", "unmatched diagram end marker: README.md:2";
+    "<!-- csf:north_star a -->\n<!-- csf:diagram b -->\n", "nested diagram marker: README.md:2";
+    "<!-- csf:north_star a -->\n", "unclosed north_star marker a: README.md";
+  ];
+  (* Every kind the generator owns is counted, from the generator's own list. *)
+  List.iter (fun kind ->
+    let name = Generated_block.name kind in
+    let source = Printf.sprintf "Authored.\n<!-- csf:%s goal -->\none\ntwo\n<!-- /csf:%s goal -->\n" name name in
+    expect ("generated block kind counted: " ^ name)
+      (Metric_text.documentation_generated_lines ~name:"README.md" source = 2)) Generated_block.kinds
 
 let test_unicode_word_ranges () =
   let ranges = Metric_unicode_cgen.word_ranges in

@@ -1,0 +1,43 @@
+package fleet_test
+
+import (
+	"testing"
+	"time"
+)
+
+// awaitVoters polls the fleet until every named node reports the same voter
+// count, or gives up and says what it last saw.
+//
+// This is the shape CS-9 is named after, and the thing to notice is that
+// nothing about it is badly written. The deadline is right, the failure
+// message carries the last reading, the poll interval is sensible. It is the
+// ninth copy of it in the tree that is the defect, and no review of this file
+// alone can see that.
+func awaitVoters(t *testing.T, fleet *fakeFleet, ids []string, want int) {
+	t.Helper()
+
+	deadline := time.Now().Add(20 * time.Second)
+	var last map[string]int
+	for time.Now().Before(deadline) {
+		last = fleet.voterCounts(ids)
+		agreed := true
+		for _, id := range ids {
+			if last[id] != want {
+				agreed = false
+				break
+			}
+		}
+		if agreed {
+			return
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Fatalf("the fleet never agreed on %d voters within 20s: %v", want, last)
+}
+
+func TestFleetAdmitsAJoiner(t *testing.T) {
+	fleet := startFleet(t, "node-a", "node-b", "node-c")
+	fleet.join("node-d")
+
+	awaitVoters(t, fleet, []string{"node-a", "node-b", "node-c", "node-d"}, 4)
+}

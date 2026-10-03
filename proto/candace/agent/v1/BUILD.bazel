@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "agent",
+    srcs = [
+        "agent.pb.go",
+        "agent_liquid.pb.go",
+    ],
+    importpath = "github.com/candacelabs/csf/proto/candace/agent/v1",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/liquidproto",
+        "//pkg/liquidproto/v1:liquidproto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+    ],
+)

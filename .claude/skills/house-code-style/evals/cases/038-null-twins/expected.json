@@ -1,0 +1,15 @@
+{
+  "case_id": "038-null-twins",
+  "tier": 1,
+  "rule_under_test": "CS-14",
+  "summary": "A store hand-writes `optionalTime(sql.NullTime) *time.Time` and `nullableString(string) sql.NullString` — two conversions guregu/null already ships and an sqlc `go_type` override already emits, so the tree now holds two spellings of one meaning. The fix deletes both: the nullable columns come out of sqlc as null.Time and null.String, and callers read .Ptr() and write null.TimeFrom. The `endedRow` beside them CARRIES a nullable value through rather than converting it and is silent in both halves. Operator directive of 2026-09-04, verbatim in go-rules.md § CS-14.",
+  "dirty_must_fire": [
+    "CS-14"
+  ],
+  "dirty_min_findings": {
+    "CS-14": 2
+  },
+  "clean_must_not_fire": [
+    "CS-14"
+  ]
+}

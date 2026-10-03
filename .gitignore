@@ -2,3 +2,11 @@
 /bazel-*
 # Standalone Rust operator build output.
 tools/csf-operator/target/
+# House lint and ontology score output, written into the scanned checkout by
+# tools/check-house-lint.sh and tools/ontology-score.sh. Local artifacts, never
+# tracked source.
+/house-lint-output/
+/house-lint-report.md
+/ontology-alignment/
+/ontology-ratchet/
+/ontology-ratchet.md

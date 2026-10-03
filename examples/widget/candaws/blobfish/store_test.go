@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/candacelabs/csf/examples/widget/candaws/fleet"
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -19,7 +19,7 @@ const (
 	specPatience = 15 * time.Second
 )
 
-var specWaitBudget = patience.Budget{Within: specPatience}
+var specWaitBudget = eventually.Budget{Within: specPatience}
 
 // specConfig is the pace every specification in this file runs at. The slow
 // zone is the parameter, because a store whose zones are all the same speed and
@@ -49,7 +49,7 @@ type stream struct {
 // claimed a quorum wider than the zone set.
 func (subscriber *stream) await(what string, match func(view StoreView) bool) StoreView {
 	GinkgoHelper()
-	return patience.Await(GinkgoTB(), what, specWaitBudget,
+	return eventually.Await(GinkgoTB(), what, specWaitBudget,
 		func() StoreView {
 			var last StoreView
 			for {
@@ -85,7 +85,7 @@ func storeUnder(config Config) (*Store, *stream) {
 	DeferCleanup(func() {
 		cancel()
 		var runError error
-		patience.Await(GinkgoTB(), "the store goroutines to stop", specWaitBudget,
+		eventually.Await(GinkgoTB(), "the store goroutines to stop", specWaitBudget,
 			func() bool {
 				select {
 				case runError = <-stopped:
@@ -135,7 +135,7 @@ func repairStoreUnder(config Config) *Store {
 	DeferCleanup(func() {
 		cancel()
 		finished := 0
-		patience.Await(GinkgoTB(), "the repair workers to stop", specWaitBudget,
+		eventually.Await(GinkgoTB(), "the repair workers to stop", specWaitBudget,
 			func() int {
 				for finished < zoneCount+1 {
 					select {
@@ -155,7 +155,7 @@ func repairStoreUnder(config Config) *Store {
 func (store *Store) awaitRepair(what string, lagging int) storeReport {
 	GinkgoHelper()
 
-	return patience.Await(GinkgoTB(), what, specWaitBudget,
+	return eventually.Await(GinkgoTB(), what, specWaitBudget,
 		func() storeReport {
 			for {
 				select {
@@ -258,7 +258,7 @@ var _ = Describe("A store with a zone the quorum does not wait for", func() {
 			store.inboxes[zone] <- replicaOp{Kind: opWrite, Generation: 1}
 		}
 		acks := map[int]replicaAck{}
-		patience.Await(GinkgoTB(), "the fast replicas to acknowledge generation one", specWaitBudget,
+		eventually.Await(GinkgoTB(), "the fast replicas to acknowledge generation one", specWaitBudget,
 			func() int {
 				for {
 					select {
@@ -287,7 +287,7 @@ var _ = Describe("A store with a zone the quorum does not wait for", func() {
 
 		reply := make(chan generationReport, 1)
 		store.inboxes[zoneCount-1] <- replicaOp{Kind: opProbe, Reply: reply}
-		repaired := patience.Await(GinkgoTB(), "the slow replica to report generation one", specWaitBudget,
+		repaired := eventually.Await(GinkgoTB(), "the slow replica to report generation one", specWaitBudget,
 			func() generationReport {
 				select {
 				case report := <-reply:

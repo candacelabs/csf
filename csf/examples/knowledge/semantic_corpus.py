@@ -23,9 +23,9 @@ from google.protobuf.json_format import MessageToDict, MessageToJson, ParseDict
 TOKENIZER_URL = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/resolve/1110a243fdf4706b3f48f1d95db1a4f5529b4d41/tokenizer.json"
 TOKENIZER_SHA256 = "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037"
 CODE_PATHS = (
-    "csf/runtime.go", "csf/compiler.go",
+    "ipc/ros/spine.go", "csf/service.go",
     "csf/knowledge.go", "csf/opensearch.go",
-    "csf/internal/brainspinedb/schema.sql",
+    "ipc/db/csfpg/schema/001_init.sql",
 )
 
 

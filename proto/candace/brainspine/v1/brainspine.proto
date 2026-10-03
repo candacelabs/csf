@@ -644,6 +644,30 @@ message AgentAssignmentRecipe {
   string task = 4 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 32000"}];
   string model = 5 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 200"}];
   string repository_id = 6 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+  // Present when the harness runs the assignment itself as a Claude Code
+  // session; absent for a Workbench submission. Set only fields change the
+  // recipe fingerprint, so recipes without a workspace keep their hashes.
+  AgentWorkspace workspace = 7 [(candace.liquid.v1.field) = {recurse: true}];
+}
+
+// Where and how the harness runs an assignment: a git worktree it creates
+// from a local repository on a branch of its own, the tools the session may
+// use, and the title of the draft pull request the commit gate opens.
+message AgentWorkspace {
+  // Absolute path of the local repository the worktree is created from.
+  string repository_path = 1 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096 && matches(this, `^/.+`)"}];
+  // The ref the work branch starts from and the pull request targets.
+  string base_branch = 2 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)"}];
+  // The work branch the worktree checks out; created from base_branch.
+  string branch = 3 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)"}];
+  // A file holding the task, read by the launcher in place of an inline
+  // task; relative paths resolve against the recipe file.
+  string brief_path = 4 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096"}];
+  // Claude Code tool rules the session may use without asking, such as
+  // "Bash", "Edit" or "Bash(git *)". Everything else is denied.
+  repeated string allowed_tools = 5;
+  // Title of the draft pull request opened after the first commit.
+  string pull_request_title = 6 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
 }
 
 // A prepared recipe is inspectable data, not a dispatched or completed task.
@@ -668,4 +692,9 @@ message AgentAssignmentReceipt {
   string turn_id = 3;
   string worktree_id = 4;
   string session_url = 5;
+  // For a harness run: the work branch, the draft pull request the commit
+  // gate opened (empty when none exists yet) and the run's trace.
+  string branch = 6;
+  string pull_request_url = 7;
+  string trace_id = 8;
 }

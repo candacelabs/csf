@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = ["mock_store.go"],
+    importpath = "github.com/candacelabs/csf/services/cron/mocks",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/cron",
+        "//services/cron",
+        "@org_uber_go_mock//gomock",
+    ],
+)

@@ -1,6 +1,6 @@
-# Extending CandaceOS from your own repository
+# Extending deploy from your own repository
 
-CandaceOS Core exposes its extension points to the Go compiler, not to a plugin
+Deploy exposes its extension points to the Go compiler, not to a plugin
 loader. Your repository pins one published snapshot of this one, implements
 ordinary Go interfaces, and links its own Core binary. Nothing is loaded at
 runtime, nothing is forked, and nothing is mirrored.
@@ -114,7 +114,7 @@ respective build targets and the Rust workspace under `xetcas/`.
 
 ## Compose services alongside Core
 
-[`services/candaceos/component`](../services/candaceos/component) orders
+[`services/deploy/component`](../services/deploy/component) orders
 bring-up; it is not a dependency-injection container. Core never constructs a
 component's value, never reads its configuration, and never hands it Core
 state. A definition carries a name, a required assembly function, optional
@@ -254,7 +254,7 @@ go_library(
     srcs = ["steering.go"],
     importpath = "example.com/candace-external-consumer/steering",
     visibility = ["//visibility:public"],
-    deps = ["@csf//services/candaceos/component"],
+    deps = ["@csf//services/deploy/component"],
 )
 ```
 
@@ -307,7 +307,7 @@ if err := bootstrap.Run(
 [`examples/custom-brand`](../examples/custom-brand) is the whole seam exercised
 at once, with a hermetic suite that needs no database and no container.
 
-The zero `Brand` is the stock CandaceOS identity, so you name only what you
+The zero `Brand` is the stock deploy identity, so you name only what you
 change. Every unset field falls back: an unset `Wordmark` becomes the escaped
 `ProductName` when a product was named, and the stock lockup when it was not.
 
@@ -424,61 +424,61 @@ and link it instead.
 ## Run the custom Core
 
 The custom binary inherits normal Core configuration. It does not require
-`CANDACEOS_HARNESS_BACKEND` or built-in Copilot/Ollama settings; the compiled
+`DEPLOY_HARNESS_BACKEND` or built-in Copilot/Ollama settings; the compiled
 factory selects `HARNESS_BACKEND_EMBEDDED`. Provider-specific configuration is
 owned and read by your repository.
 
 At minimum, Core needs:
 
 - an absolute writable data directory and workspace;
-- `CANDACEOS_DATABASE_URL` pointing at PostgreSQL;
+- `DEPLOY_DATABASE_URL` pointing at PostgreSQL;
 - a reachable Warden for fleet observation;
 - a reachable node agent for reconciliation.
 
 With those services available:
 
 ```bash
-mkdir -p "$PWD/.candaceos" "$PWD/workspace"
-export CANDACEOS_DATA_DIR="$PWD/.candaceos"
-export CANDACEOS_WORKSPACE="$PWD/workspace"
-export CANDACEOS_DATABASE_URL='postgres://candaceos:password@127.0.0.1:5432/candaceos?sslmode=disable'
-export CANDACEOS_WARDEN_URL='http://127.0.0.1:7717'
-export CANDACEOS_AGENT_URL='http://127.0.0.1:8094'
-bazel run //cmd:candaceos
+mkdir -p "$PWD/.deploy" "$PWD/workspace"
+export DEPLOY_DATA_DIR="$PWD/.deploy"
+export DEPLOY_WORKSPACE="$PWD/workspace"
+export DEPLOY_DATABASE_URL='postgres://deploy:password@127.0.0.1:5432/deploy?sslmode=disable'
+export DEPLOY_WARDEN_URL='http://127.0.0.1:7717'
+export NODEEXEC_URL='http://127.0.0.1:8094'
+bazel run //cmd:deploy
 ```
 
 ### Deploying it to a fleet
 
-For the standard three-node CandaceOS fleet, resolve the regular executable that
+For the standard three-node deploy fleet, resolve the regular executable that
 Bazel built:
 
 ```bash
-bazel build //cmd:candaceos
-CUSTOM_CORE="$(realpath "$(bazel cquery --output=files //cmd:candaceos)")"
+bazel build //cmd:deploy
+CUSTOM_CORE="$(realpath "$(bazel cquery --output=files //cmd:deploy)")"
 ```
 
 Then run one deploy command from a checkout of the canonical monorepo whose
 current pushed revision equals the export revision the binary was built from:
 
 ```bash
-./candace/candaceos/fleet.sh deploy --harness custom \
+./candace/infra/deploy-kit/fleet.sh deploy --harness custom \
   --core-binary "$CUSTOM_CORE" \
   --core-export-revision "$EXPORT_REVISION"
 ```
 
 The deployer snapshots and hashes the executable, layers it over the standard
 Core runtime image with
-[`candaceos/Dockerfile.core.external`](../candaceos/Dockerfile.core.external),
+[`infra/deploy-kit/Dockerfile.core.external`](../infra/deploy-kit/Dockerfile.core.external),
 deploys the usual Core, Warden, agents, and PostgreSQL topology, and records the
 binary SHA-256 and export revision in the receipt. It rejects a source-revision
 mismatch, so the custom Core and the canonical fleet services use one compatible
-CandaceOS contract. Your repository needs no custom Compose files and no image
+Deploy contract. Your repository needs no custom Compose files and no image
 registry.
 
 `fleet.sh` is the one part of the deployment kit that a clone of this repository
 cannot run: it resolves a monorepo layout two levels above itself and reads the
 export root out of that repository's Git history. Everything else in
-`candaceos/` — `install.sh`, the updater, and the hermetic suites — runs here,
+`infra/deploy-kit/` — `install.sh`, the updater, and the hermetic suites — runs here,
 because this repository *is* the Go module root those build contexts reach for.
 
 ---
@@ -488,7 +488,7 @@ because this repository *is* the Go module root those build contexts reach for.
 Everything tracked in this repository at the published revision, and nothing
 else: the Go module and its committed BUILD files, the generated protobuf and
 Liquid Proto bindings, the embedded Web UI assets and SQL migrations, the xetcas
-Rust workspace, the deployment kit under `candaceos/`, the examples, and the
+Rust workspace, the deployment kit under `infra/deploy-kit/`, the examples, and the
 legacy WORKSPACE shim under `bazel/`. There is no allowlist and no generated
 manifest, because the repository is the unit of publication and the Bazel
 metadata is committed rather than stamped on at packaging time.

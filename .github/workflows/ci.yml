@@ -498,9 +498,9 @@ jobs:
           path: /tmp/csf-go-cache/build
           key: ${{ steps.build-cache.outputs.cache-primary-key }}
 
-  candaceos:
+  deploy:
     name: Deployment-kit suites
-    # candaceos/ is shell, not Bazel: an installer, a fleet driver, and a
+    # infra/deploy-kit/ is shell, not Bazel: an installer, a fleet driver, and a
     # self-updating deployment agent. These three suites are the ones that need
     # nothing but the runner — bash, python3, docker, and the tree itself — so
     # they say the same thing here that they say in the monorepo. The suites
@@ -520,13 +520,13 @@ jobs:
       # or reaches for Docker. Runs against a stub `docker` that fails loudly if
       # it is called at all.
       - name: Installer validation
-        run: ./candaceos/test-install-validation.sh
+        run: ./deploy/test-install-validation.sh
 
       # Drives the updater's deployment ledger, retry backoff, and rollback
       # bookkeeping in-process, then builds the updater image and exercises its
       # read-only health and credential-askpass entrypoints.
       - name: Updater
-        run: ./candaceos/test-updater.sh
+        run: ./deploy/test-updater.sh
 
       # Plans every fleet topology against stub transports that fail if they are
       # ever invoked, and renders each Compose overlay with `docker compose
@@ -534,7 +534,7 @@ jobs:
       # self-skips its one operator-side bundle check when it is not running
       # inside a Git worktree.
       - name: Fleet
-        run: ./candaceos/test-fleet.sh
+        run: ./deploy/test-fleet.sh
 
   public_contracts:
     name: Public contract generation (${{ matrix.component }})

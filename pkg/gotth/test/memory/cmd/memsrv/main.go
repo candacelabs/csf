@@ -34,12 +34,10 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -56,7 +54,10 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
+	ipcnet "github.com/candacelabs/csf/ipc/net"
+	ipchttp "github.com/candacelabs/csf/ipc/net/http"
 	"github.com/candacelabs/csf/pkg/gotth/live"
+	csfruntime "github.com/candacelabs/csf/runtime"
 )
 
 // mountPath is where the live handler is mounted, and the same string is given
@@ -267,43 +268,54 @@ func run() error {
 		}
 	})
 
-	srv := &http.Server{
-		Handler:           mux,
-		ReadHeaderTimeout: 5 * time.Second,
-		// No WriteTimeout: it would cut live connections off mid-session.
-	}
-
-	listener, err := net.Listen("tcp", *addr)
+	// The process is a host runtime: the live UI service is mounted first and
+	// the HTTP listener — the socket capability's, with the streaming-safe
+	// server shape (no WriteTimeout, which would cut live connections off
+	// mid-session) — last, so a stop refuses new requests before it drains and
+	// joins every session.
+	listener, err := ipchttp.NewHTTPListener(ipcnet.NewHostNetwork(), *addr, mux,
+		ipchttp.WithShutdownBudget(drainBudget))
 	if err != nil {
 		return err
 	}
-	fmt.Printf("memsrv: plaintext http://%s (observability %s, GOGC=%s GOMEMLIMIT=%s)\n",
-		listener.Addr(), observability, os.Getenv("GOGC"), os.Getenv("GOMEMLIMIT"))
+	host, err := csfruntime.NewHostRuntime(csfruntime.WithHostName(hostName))
+	if err != nil {
+		return err
+	}
+	announce := csfruntime.ServiceFunc(func(_ *csfruntime.Scope) error {
+		fmt.Printf("memsrv: plaintext http://%s (observability %s, GOGC=%s GOMEMLIMIT=%s)\n",
+			listener.Addr(), observability, os.Getenv("GOGC"), os.Getenv("GOMEMLIMIT"))
+		return nil
+	})
+	for _, mounted := range []struct {
+		name    string
+		service csfruntime.IService
+	}{{mountLive, app}, {mountHTTP, listener}, {mountAnnounce, announce}} {
+		if err := host.Mount(mounted.name, mounted.service); err != nil {
+			return err
+		}
+	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	err = host.Run(ctx)
 
-	serving := make(chan error, 1)
-	go func() { serving <- srv.Serve(listener) }()
-
-	select {
-	case err := <-serving:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return err
-	case <-ctx.Done():
-	}
-
-	drain, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	flush, cancel := context.WithTimeout(context.Background(), drainBudget)
 	defer cancel()
-	_ = srv.Shutdown(drain)
-	err = app.Close(drain)
 	for _, fn := range shutdown {
-		_ = fn(drain)
+		_ = fn(flush)
 	}
 	return err
 }
+
+// The host runtime's names and the listener's drain budget.
+const (
+	hostName      = "memsrv"
+	mountLive     = "live"
+	mountHTTP     = "http"
+	mountAnnounce = "announce"
+	drainBudget   = 10 * time.Second
+)
 
 // page is the full-page load §3.6's warm-up counts. It renders the same region
 // the fragment patches, so the warm-up walks the render path rather than a

@@ -1,9 +1,10 @@
 package copilotadapter
 
 import (
-	"database/sql"
 	"errors"
 	"net/http"
+
+	"github.com/jackc/pgx/v5"
 
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
@@ -59,7 +60,7 @@ func storeFailure(err error) error {
 // lookupFailure maps a missing row to the contract's 404 and anything else
 // to a 500.
 func lookupFailure(err error, code string, message string) error {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fail(http.StatusNotFound, code, message)
 	}
 	return storeFailure(err)

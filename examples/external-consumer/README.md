@@ -57,7 +57,7 @@ by something other than candace's own name.
   carrying exactly one file, a redefinition of the shipped `"statusPill"` block.
   Everything the overlay does not name keeps shipping from candace.
 - `customharness/` — a full `harness.IFactory` and `harness.IRuntime`
-  implementation compiled outside the CandaceOS tree, publishing typed events
+  implementation compiled outside the deploy tree, publishing typed events
   through the host boundary and holding the steering service the composition
   root handed it.
 - `composition/` — the composition root, as a library rather than inline in
@@ -160,11 +160,11 @@ bazel build //...
 bazel test //...
 ```
 
-`//cmd:custom-candaceos` is the resulting Linux Core executable, with the custom
+`//cmd:custom-deploy` is the resulting Linux Core executable, with the custom
 harness, the custom components, and the custom presentation compiled in. It
 reads exactly the configuration the stock command reads — a PostgreSQL URL, a
 writable data directory and workspace, a Warden URL, and a harness selection —
-and adds no setting of its own. `candaceos/README.md` describes how a fleet
+and adds no setting of its own. `infra/deploy-kit/README.md` describes how a fleet
 deployment layers such a binary over the standard Core runtime.
 
 ## Consuming from a legacy WORKSPACE build
@@ -190,5 +190,5 @@ It stops short of running Core. An assembled Core opens PostgreSQL, a Warden
 client, and a harness, so the suites hold the values this repository hands
 `bootstrap.Run` to the same web UI and the same Gin engine Core assembles them
 into, and the Core binary itself is proven by linking rather than by booting.
-Deploying such a binary over a fleet is `candaceos/README.md`'s subject, not
+Deploying such a binary over a fleet is `infra/deploy-kit/README.md`'s subject, not
 this example's.

@@ -160,9 +160,10 @@ type Limits struct {
 	// memory for nobody.
 	IdleTimeout time.Duration
 
-	// EffectDrainTimeout bounds how long teardown waits for in-flight effects
-	// to return before the actor exits anyway. An effect that outlives it has
-	// its result discarded, not cancelled: the I/O may already have happened.
+	// EffectDrainTimeout is how long teardown waits for in-flight effects to
+	// return before it reports the overrun. Teardown keeps waiting after it:
+	// every effect is joined before the session ends, so an effect that
+	// ignores its cancelled context holds the session's shutdown open.
 	EffectDrainTimeout time.Duration
 
 	// PanicBudget is how many times one site may panic in a session before

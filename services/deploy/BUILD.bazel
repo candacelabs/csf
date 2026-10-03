@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "deploy",
+    srcs = [
+        "app_revision.go",
+        "approval.go",
+        "deployment.go",
+        "doc.go",
+        "errors.go",
+        "placement.go",
+        "receipt.go",
+        "run.go",
+        "source_digest.go",
+        "source_materialization.go",
+        "validate.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/deploy",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/proc",
+        "//pkg/boundedbuffer",
+        "//pkg/boundedbuffer/v1:boundedbuffer",
+        "//proto/candace/deploy/v1:deploy",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "deploy_test",
+    srcs = [
+        "deploy_test.go",
+        "launcher_support_test.go",
+        "source_digest_test.go",
+        "source_materialization_test.go",
+    ],
+    deps = [
+        ":deploy",
+        "//ipc/proc",
+        "//proto/candace/deploy/v1:deploy",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

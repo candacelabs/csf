@@ -2,9 +2,11 @@ package store
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 
+	"github.com/jackc/pgx/v5"
+
+	"github.com/candacelabs/csf/ipc/db/csfpg"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
@@ -13,13 +15,14 @@ import (
 // adapter needs. The database pool remains owned by the mounting binary.
 type PostgresStore struct {
 	*storedb.Queries
-	database *sql.DB
+	database csfpg.IDB
 }
 
 var _ copilotadapter.IStore = (*PostgresStore)(nil)
 
-// NewPostgresStore binds generated queries to database.
-func NewPostgresStore(database *sql.DB) (*PostgresStore, error) {
+// NewPostgresStore binds generated queries to the database capability the
+// binary granted: a csfpg pool in production, pgmem's in a spec.
+func NewPostgresStore(database csfpg.IDB) (*PostgresStore, error) {
 	if database == nil {
 		return nil, fmt.Errorf("copilot-adapter store: nil database")
 	}
@@ -32,13 +35,13 @@ func (store *PostgresStore) Transact(ctx context.Context, operation copilotadapt
 	if operation == nil {
 		return fmt.Errorf("copilot-adapter store: nil transaction operation")
 	}
-	transaction, err := store.database.BeginTx(ctx, nil)
+	transaction, err := store.database.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		return err
 	}
-	defer func() { _ = transaction.Rollback() }()
+	defer func() { _ = transaction.Rollback(ctx) }()
 	if err := operation(storedb.New(transaction)); err != nil {
 		return err
 	}
-	return transaction.Commit()
+	return transaction.Commit(ctx)
 }

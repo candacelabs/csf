@@ -33,15 +33,19 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"sync"
+	"syscall"
 
 	"github.com/a-h/templ"
 
+	ipcnet "github.com/candacelabs/csf/ipc/net"
+	ipchttp "github.com/candacelabs/csf/ipc/net/http"
 	"github.com/candacelabs/csf/pkg/gotth/live"
+	csfruntime "github.com/candacelabs/csf/runtime"
 )
 
 // fileLedger is the commit log, appended one identifier per line and read back
@@ -182,20 +186,48 @@ func main() {
 		os.Exit(1)
 	}
 
-	ln, err := net.Listen("tcp", *addr)
+	// A host runtime: the live UI service, then the HTTP listener the socket
+	// capability opens, then the READY line, which runs only once the listener
+	// is bound. The parent restarts this process by killing it, so the stop
+	// path matters only for a signal from a person running it by hand.
+	listener, err := ipchttp.NewHTTPListener(ipcnet.NewHostNetwork(), *addr, app.Handler())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "chaossrv:", err)
 		os.Exit(1)
 	}
-
+	host, err := csfruntime.NewHostRuntime(csfruntime.WithHostName(hostName))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "chaossrv:", err)
+		os.Exit(1)
+	}
 	// The parent waits for this line before dialling, so a restart is timed
 	// from "the port is accepting" rather than from "the process was spawned".
-	fmt.Printf("READY %s\n", ln.Addr().String())
 	// os.Stdout is an unbuffered file/pipe; Sync on the parent's pipe is invalid.
-
-	srv := &http.Server{Handler: app.Handler()}
-	if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+	ready := csfruntime.ServiceFunc(func(_ *csfruntime.Scope) error {
+		fmt.Printf("READY %s\n", listener.Addr().String())
+		return nil
+	})
+	for _, mounted := range []struct {
+		name    string
+		service csfruntime.IService
+	}{{mountLive, app}, {mountHTTP, listener}, {mountReady, ready}} {
+		if err := host.Mount(mounted.name, mounted.service); err != nil {
+			fmt.Fprintln(os.Stderr, "chaossrv:", err)
+			os.Exit(1)
+		}
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := host.Run(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, "chaossrv:", err)
 		os.Exit(1)
 	}
 }
+
+// The host runtime's names.
+const (
+	hostName   = "chaossrv"
+	mountLive  = "live"
+	mountHTTP  = "http"
+	mountReady = "ready"
+)

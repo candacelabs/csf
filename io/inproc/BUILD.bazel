@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "inproc",
+    srcs = [
+        "graph.go",
+        "queue.go",
+    ],
+    importpath = "github.com/candacelabs/csf/io/inproc",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "inproc_test",
+    srcs = [
+        "graph_test.go",
+        "inproc_suite_test.go",
+        "queue_test.go",
+    ],
+    deps = [
+        ":inproc",
+        "//pkg/eventually",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

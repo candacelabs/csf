@@ -5,10 +5,13 @@
 *.pb.go linguist-generated=true
 *.sql.go linguist-generated=true
 *_templ.go linguist-generated=true
-csf/internal/brainspinedb/db.go linguist-generated=true
-csf/internal/brainspinedb/models.go linguist-generated=true
+ipc/db/csfpg/db.go linguist-generated=true
+ipc/db/csfpg/models.go linguist-generated=true
 csf/tools/codegen/generated/** linguist-generated=true
-pkg/workcontinuity/mock_source_test.go linguist-generated=true
+services/workcontinuity/mock_source_test.go linguist-generated=true
+services/workcontinuity/mock_launcher_test.go linguist-generated=true
+services/deploy/reconcile/mock_launcher_test.go linguist-generated=true
+ipc/docker/mock_container_api_test.go linguist-generated=true
 services/copilot-adapter/views_gen.go linguist-generated=true
 services/copilot-adapter/copilotbridge/usage_views_gen.go linguist-generated=true
 services/copilot-adapter/mock_trace_client_test.go linguist-generated=true

@@ -1,0 +1,44 @@
+package sessions
+
+import (
+	"net/http"
+
+	"github.com/candace-server/services/copilot-adapter/gen/api"
+)
+
+// The `code` field of the contract's Error object. One spelling each, in the
+// package that owns the boundary that serialises them.
+const (
+	errorCodeStoreError      = "store_error"
+	errorCodeSessionNotFound = "session_not_found"
+)
+
+// The response headers this handler writes, and the values it writes into them.
+const (
+	headerContentType   = "Content-Type"
+	headerCacheControl  = "Cache-Control"
+	contentTypeJSON     = "application/json"
+	cacheControlNoStore = "no-store"
+)
+
+// applyStatus records the session's status and answers the poll request. The
+// status values are the generated enum rather than named constants of their
+// own: `api.SessionStatus` is projected from openapi.yaml, so it cannot drift
+// from the contract the way a second hand-written spelling would.
+func applyStatus(writer http.ResponseWriter, session *Session, status api.SessionStatus) {
+	if status == api.SessionStatusIdle {
+		session.Status = api.SessionStatusIdle
+	}
+	if status == api.SessionStatusRunning {
+		session.Status = api.SessionStatusRunning
+	}
+	writer.Header().Set(headerContentType, contentTypeJSON)
+	writer.Header().Set(headerCacheControl, cacheControlNoStore)
+	if session.Store == nil {
+		writeError(writer, errorCodeStoreError)
+		return
+	}
+	if session.ID == "" {
+		writeError(writer, errorCodeSessionNotFound)
+	}
+}

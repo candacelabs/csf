@@ -1,0 +1,343 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+ocaml_module(
+    name = "Source",
+    struct = "source.ml",
+    deps = [
+        "//csf/compiler/architecture:Codegen_header",
+        "//csf/compiler/architecture:Generated_policy",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Policy",
+    struct = "policy.ml",
+    deps = [":Source"],
+)
+
+ocaml_module(
+    name = "Structure",
+    struct = "structure.ml",
+    deps = [
+        ":Source",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Mandatory",
+    struct = "mandatory.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Advisory",
+    struct = "advisory.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Placement",
+    struct = "placement.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Test_layout",
+    struct = "test_layout.ml",
+    deps = [
+        ":Placement",
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "Shared_state",
+    struct = "shared_state.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+    ],
+)
+
+ocaml_module(
+    name = "Runner",
+    struct = "runner.ml",
+    deps = [
+        ":Advisory",
+        ":Mandatory",
+        ":Placement",
+        ":Policy",
+        ":Python_magic",
+        ":Shared_state",
+        ":Source",
+        ":Structure",
+        ":Test_layout",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Alignment",
+    struct = "alignment.ml",
+    deps = ["@opam.yojson//lib"],
+)
+
+ocaml_module(
+    name = "Alignment_test",
+    struct = "alignment_test.ml",
+    deps = [
+        ":Alignment",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_test(
+    name = "alignment_test",
+    size = "small",
+    main = ":Alignment_test",
+)
+
+ocaml_module(
+    name = "Score",
+    struct = "score.ml",
+    deps = [
+        ":Alignment",
+        ":Policy",
+        ":Runner",
+        ":Source",
+        "//tools/gorilla_mux_lint:Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Score_test",
+    struct = "score_test.ml",
+    deps = [
+        ":Alignment",
+        ":Score",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "score_test",
+    size = "small",
+    main = ":Score_test",
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [
+        ":Alignment",
+        ":Runner",
+        ":Score",
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_binary(
+    name = "check",
+    main = ":Main",
+)
+
+ocaml_module(
+    name = "Source_test",
+    struct = "source_test.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/architecture:Codegen_header",
+    ],
+)
+
+ocaml_test(
+    name = "source_test",
+    size = "small",
+    main = ":Source_test",
+)
+
+ocaml_module(
+    name = "Mandatory_test",
+    struct = "mandatory_test.ml",
+    deps = [
+        ":Mandatory",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "mandatory_test",
+    size = "small",
+    main = ":Mandatory_test",
+)
+
+ocaml_module(
+    name = "Advisory_test",
+    struct = "advisory_test.ml",
+    deps = [
+        ":Advisory",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "advisory_test",
+    size = "small",
+    main = ":Advisory_test",
+)
+
+ocaml_module(
+    name = "Structure_test",
+    struct = "structure_test.ml",
+    deps = [
+        ":Source",
+        ":Structure",
+    ],
+)
+
+ocaml_test(
+    name = "structure_test",
+    size = "small",
+    main = ":Structure_test",
+)
+
+ocaml_module(
+    name = "Placement_test",
+    struct = "placement_test.ml",
+    deps = [
+        ":Placement",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "placement_test",
+    size = "small",
+    main = ":Placement_test",
+)
+
+ocaml_module(
+    name = "Test_layout_test",
+    struct = "test_layout_test.ml",
+    deps = [
+        ":Source",
+        ":Test_layout",
+    ],
+)
+
+ocaml_test(
+    name = "test_layout_test",
+    size = "small",
+    main = ":Test_layout_test",
+)
+
+ocaml_module(
+    name = "Shared_state_test",
+    struct = "shared_state_test.ml",
+    deps = [
+        ":Shared_state",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "shared_state_test",
+    size = "small",
+    main = ":Shared_state_test",
+)
+
+ocaml_module(
+    name = "Policy_test",
+    struct = "policy_test.ml",
+    deps = [
+        ":Policy",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "policy_test",
+    size = "small",
+    main = ":Policy_test",
+)
+
+ocaml_module(
+    name = "Runner_test",
+    struct = "runner_test.ml",
+    deps = [
+        ":Policy",
+        ":Runner",
+        ":Source",
+        "//csf/compiler/architecture:Codegen_header",
+        "//tools/gorilla_mux_lint:Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_test(
+    name = "runner_test",
+    size = "small",
+    main = ":Runner_test",
+)
+
+cc_library(
+    name = "python_grammar_stubs",
+    srcs = ["python_grammar_stubs.c"],
+    linkstatic = True,
+    deps = [
+        "@opam.ocamlsdk//ffi/lib",
+        "@tree_sitter_python//:parser",
+    ],
+)
+
+ocaml_module(
+    name = "Python_magic",
+    cc_deps = [":python_grammar_stubs"],
+    struct = "python_magic.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Python_magic_test",
+    struct = "python_magic_test.ml",
+    deps = [
+        ":Python_magic",
+        ":Source",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_test(
+    name = "python_magic_test",
+    size = "small",
+    main = ":Python_magic_test",
+)

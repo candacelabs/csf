@@ -63,55 +63,20 @@ func causalClause(scheduledBy uint64) string {
 
 // spawn starts the goroutine that runs one effect.
 //
-// It is not the only place this library starts a goroutine. The sentence that
-// stood here — "every goroutine in this library is started here" — was false of
-// the tree on the day it was written, and it is L9-1's C-49; RFC §3.4 carries
-// the same correction on the document side, with the table this comment is the
-// source half of.
+// The goroutine starts in the session's runtime scope (Options.Scope), which is
+// the live UI service's sessions scope: no goroutine in this library is started
+// by a bare go statement, so the service's join is a join of every session,
+// actor and effect goroutine it ever ran. spawn adds what is per-effect: the
+// recover, the Goroutines gauge and the a.effects registration that
+// joinEffects waits on before the session's teardown hook runs.
 //
-// What spawn does own is every effect: Go has no supervision tree, so a panic
-// anywhere kills the process unless something recovers it, and this installs
-// the recover, the Goroutines gauge and the a.effects registration that
-// shutdown drains under EffectDrainTimeout in one place. That is what makes an
-// effect started with a bare go statement a defect a reviewer can look for —
-// which is the true version of the claim, and narrower than the old one by
-// exactly the four goroutines below.
-//
-// The four, so that "look for a bare go statement" has a set to compare
-// against. Each satisfies what review checklist §6.4 actually asks — a named
-// owner, a stop condition, and a place that waits:
-//
-//   - wsx/handler.go, the session goroutine, started once register has
-//     succeeded. Waited for by IApp.Close through the conn's done channel, which
-//     serve closes after deregistering (C-34).
-//   - wsx/conn.go, the actor's Run. Joined by serve's own actorDone before that
-//     done channel closes.
-//   - wsx/handler.go, Close's per-session close fan-out. Concurrent on purpose,
-//     so one unresponsive peer cannot serialize the drain; joined in the same
-//     function.
-//   - actor.go's waitFor helper, which blocks on a WaitGroup and closes a
-//     channel. Deliberately NOT waited for, and that is what makes the drain's
-//     deadline enforceable: if an effect never returns, this goroutine stays
-//     blocked and the abandonment is counted (EffectAbandoned) rather than
-//     hidden.
-//
-// Two more sit outside the runtime library, named here so that a grep which
-// finds them does not make this comment a liar in the same way its predecessor
-// was: gotth-live-dev reaps its child process on one, and livetest's Client
-// reads its socket on one (joined by Close, and by the tb.Cleanup NewClient
-// registers).
-//
-// Routing the four through spawn would make the original claim true and is
-// wrong rather than merely large, which is why this is a comment change.
-// spawn registers into a.effects and shutdown waits on it: the session and
-// actor goroutines would be waiting for themselves to finish, and waitFor's
-// helper — whose whole job is to bound that wait — would be waiting for the
-// wait it bounds. Three of the four are also in wsx, which would have to hold
-// an Actor to reach this method at all.
+// The effect runs under the actor's context rather than the scope's. The
+// transport cancels a session's context when the sessions scope is cancelled,
+// so the effect observes both a session closing and the service stopping.
 func (a *Actor[I]) spawn(ctx context.Context, site string, fn func(ctx context.Context)) {
 	a.effects.Add(1)
 	a.m.Goroutines(ctx, 1)
-	go func() {
+	err := a.scope.Go(func(_ context.Context) error {
 		defer a.effects.Done()
 		defer a.m.Goroutines(ctx, -1)
 		defer func() {
@@ -125,7 +90,19 @@ func (a *Actor[I]) spawn(ctx context.Context, site string, fn func(ctx context.C
 			}
 		}()
 		fn(ctx)
-	}()
+		return nil
+	})
+	if err != nil {
+		// Only a scope that has begun joining refuses a goroutine, and the
+		// service joins its sessions scope after every session has ended, so
+		// this is a library bug rather than a client or application problem.
+		a.effects.Done()
+		a.m.Goroutines(ctx, -1)
+		a.log.Error(ctx, "gotth-live: an effect could not start because the sessions scope is closed: this is a library bug",
+			obs.Str("session_id", a.idStr),
+			obs.Str("site", site),
+			obs.Err(err))
+	}
 }
 
 // runEffects hands a transition's effects to the actor boundary. They are

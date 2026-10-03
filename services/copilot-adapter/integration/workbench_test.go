@@ -5,12 +5,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 
-	"github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/pkg/httpserver"
-	"github.com/candacelabs/csf/pkg/pgmem"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
-	"github.com/candacelabs/csf/services/copilot-adapter/store"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	"github.com/candacelabs/csf/services/copilot-adapter/workbench"
+	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -19,21 +18,15 @@ import (
 
 var _ = Describe("Workbench composition in another host", func() {
 	It("keeps sibling routes available but rejects adapter requests until durable restoration", func() {
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(context.Background(), db)).To(Succeed())
 		controller := gomock.NewController(GinkgoT())
 		bridge := NewMockICopilotBridge(controller)
 		terminal := NewMockITerminalManager(controller)
 		terminal.EXPECT().Close().Return(nil)
-		persistence, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
+		persistence := adaptertest.OpenStore(GinkgoT())
 		adapter, err := copilotadapter.NewCopilotAdapter(copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence),
 			copilotadapter.WithWorktreeManager(NewMockIWorktreeManager(controller)), copilotadapter.WithTerminalManager(terminal),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()))
-		composed := &workbench.Workbench{Adapter: adapter, Store: persistence}
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())))
+		composed := &workbench.Workbench{Adapter: adapter, Store: persistence.PostgresStore}
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(composed.Adapter.Close)
 		router := httpserver.NewEngine("shared-host-test")

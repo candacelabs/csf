@@ -19,10 +19,10 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/candacelabs/csf/pkg/workcontinuity"
 	workv1 "github.com/candacelabs/csf/proto/candace/work/v1"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
+	"github.com/candacelabs/csf/services/workcontinuity"
 )
 
 type taskAuthorityFixture struct {

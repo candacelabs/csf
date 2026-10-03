@@ -18,6 +18,8 @@ import (
 	"github.com/github/copilot-sdk/go/rpc"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	ipcnet "github.com/candacelabs/csf/ipc/net"
 )
 
 var _ = Describe("copied Copilot history", func() {
@@ -259,8 +261,11 @@ type historyFixtureRuntime struct {
 	serveErr error
 }
 
+// newHistoryFixtureRuntime serves the runtime's JSON-RPC on a loopback socket
+// opened through the socket capability: the SDK dials its runtime by URL and
+// takes no dialer, so this is the one place the spec needs a real address.
 func newHistoryFixtureRuntime() *historyFixtureRuntime {
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err := ipcnet.NewHostNetwork().Listen(context.Background(), "tcp", "127.0.0.1:0")
 	Expect(err).NotTo(HaveOccurred())
 	runtime := &historyFixtureRuntime{listener: listener, done: make(chan struct{})}
 	go runtime.serve()

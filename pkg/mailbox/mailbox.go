@@ -1,6 +1,6 @@
 // Package mailbox serializes ownership of a mutable value onto one goroutine.
 //
-// A Mailbox is the shape both of CandaceOS's harness runtimes converged on
+// A Mailbox is the shape both of deploy's harness runtimes converged on
 // independently: state that several callers must read and write, guarded not
 // by a lock but by a single goroutine that runs every access in turn. Callers
 // hand it a [Command] — a function of a pointer to the state — and the

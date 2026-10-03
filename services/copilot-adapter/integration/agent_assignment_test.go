@@ -2,12 +2,10 @@ package integration_test
 
 import (
 	"context"
-	"database/sql"
-	"net/http/httptest"
 	"os"
 
-	"github.com/candacelabs/csf/pkg/cron"
-	"github.com/candacelabs/csf/pkg/pgmem"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -15,9 +13,11 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/candacelabs/csf/csf"
+	"github.com/candacelabs/csf/ipc/model/copilot"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/store"
 )
@@ -26,11 +26,12 @@ type agentAssignmentConsumer struct {
 	adapter   *copilotadapter.CopilotAdapter
 	bridge    *MockICopilotBridge
 	worktrees *MockIWorktreeManager
-	server    *httptest.Server
+	server    *adaptertest.Server
 	client    *api.ClientWithResponses
+	brain     *copilot.CopilotBrain
 }
 
-func newAgentAssignmentConsumer(database *sql.DB) *agentAssignmentConsumer {
+func newAgentAssignmentConsumer(database csfpg.IDB) *agentAssignmentConsumer {
 	GinkgoHelper()
 	controller := gomock.NewController(GinkgoT())
 	consumer := &agentAssignmentConsumer{bridge: NewMockICopilotBridge(controller), worktrees: NewMockIWorktreeManager(controller)}
@@ -41,15 +42,16 @@ func newAgentAssignmentConsumer(database *sql.DB) *agentAssignmentConsumer {
 	consumer.adapter, err = copilotadapter.NewCopilotAdapter(
 		copilotadapter.WithBridge(consumer.bridge), copilotadapter.WithStore(persistence),
 		copilotadapter.WithWorktreeManager(consumer.worktrees), copilotadapter.WithTerminalManager(terminals),
-		copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+		copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 	)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(consumer.adapter.Close)
 	router := httpserver.NewEngine("agent-assignment-consumer")
 	Expect(consumer.adapter.Register(router)).To(Succeed())
-	consumer.server = httptest.NewServer(router)
-	DeferCleanup(consumer.server.Close)
-	consumer.client, err = api.NewClientWithResponses(consumer.server.URL, api.WithHTTPClient(consumer.server.Client()))
+	consumer.server = adaptertest.Serve(GinkgoT(), router)
+	consumer.client, err = api.NewClientWithResponses(consumer.server.URL, api.WithHTTPClient(consumer.server.Client))
+	Expect(err).NotTo(HaveOccurred())
+	consumer.brain, err = copilot.NewCopilotBrain(consumer.client)
 	Expect(err).NotTo(HaveOccurred())
 	return consumer
 }
@@ -94,22 +96,18 @@ func submitAgentExample(consumer *agentAssignmentConsumer, recipe *pb.AgentAssig
 	GinkgoHelper()
 	plan, err := csf.PrepareAgentAssignment(recipe)
 	Expect(err).NotTo(HaveOccurred())
-	receipt, err := csf.SubmitAgentAssignmentHTTP(context.Background(), consumer.client, consumer.server.URL, plan)
+	receipt, err := csf.SubmitAgentAssignment(context.Background(), consumer.brain, consumer.server.URL, plan)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(receipt.TurnId).NotTo(BeEmpty())
 	return receipt
 }
 
 var _ = Describe("Agent recipe through real Workbench storage and generated transports", func() {
-	var database *sql.DB
+	var database csfpg.IDB
 	var consumer *agentAssignmentConsumer
 	var recipe *pb.AgentAssignmentRecipe
 	BeforeEach(func() {
-		memory := pgmem.MustNew()
-		DeferCleanup(memory.Close)
-		database = memory.Open()
-		DeferCleanup(database.Close)
-		Expect(store.ApplyMigrations(context.Background(), database)).To(Succeed())
+		database = adaptertest.OpenStore(GinkgoT()).Database()
 		consumer = newAgentAssignmentConsumer(database)
 		recipe = agentAssignmentRecipe()
 	})
@@ -135,7 +133,7 @@ var _ = Describe("Agent recipe through real Workbench storage and generated tran
 		recipe.Task += " Also change the implementation."
 		plan, err := csf.PrepareAgentAssignment(recipe)
 		Expect(err).NotTo(HaveOccurred())
-		partial, err := csf.SubmitAgentAssignmentHTTP(context.Background(), consumer.client, consumer.server.URL, plan)
+		partial, err := csf.SubmitAgentAssignment(context.Background(), consumer.brain, consumer.server.URL, plan)
 		Expect(err).To(MatchError(ContainSubstring("HTTP 409")))
 		Expect(partial.SessionId).To(Equal(first.SessionId))
 		Expect(partial.TurnId).To(BeEmpty())
@@ -144,7 +142,6 @@ var _ = Describe("Agent recipe through real Workbench storage and generated tran
 	It("recovers the same session and turn links after the host is reconstructed", func() {
 		expectAgentAssignment(consumer, recipe)
 		first := submitAgentExample(consumer, recipe)
-		consumer.server.Close()
 		Expect(consumer.adapter.Close()).To(Succeed())
 		consumer = newAgentAssignmentConsumer(database)
 		expectAgentRestoration(consumer, recipe)

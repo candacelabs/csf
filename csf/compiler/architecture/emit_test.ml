@@ -135,16 +135,65 @@ let test_empty_optionals () =
   expect "empty declaration cannot be emitted" (contains (Emit.ocaml empty) "components = []");
   expect "empty diagram contains invented nodes" (not (contains (Emit.mermaid empty) "subgraph"));
   expect "empty review invents obligations" (contains (Emit.review empty) "No pending obligations");
-  expect "empty lifecycle invents an order" (contains (Emit.review empty) "None declared")
+  expect "empty lifecycle invents an order" (contains (Emit.review empty) "None declared");
+  expect "empty JSON invents components"
+    (Yojson.Safe.Util.member "components" (Yojson.Safe.from_string (Emit.json empty)) = `List [])
+
+(* Parse the JSON with Yojson rather than matching text, so escaping and
+   structure are checked as a consumer in another language would read them. *)
+let test_json () =
+  let document = Yojson.Safe.from_string (Emit.json fixture) in
+  let open Yojson.Safe.Util in
+  let field name value = member name value in
+  let strings name values = List.map (fun value -> field name value |> to_string) values in
+  expect "JSON format name changed" (field "format" document = `String "csf-architecture");
+  expect "JSON format version changed" (field "format_version" document = `Int 1);
+  expect "architecture identity lost"
+    (field "architecture" document |> field "name" = `String "example");
+  let components = field "components" document |> to_list in
+  expect "component order changed"
+    (strings "name" components = ["app"; "manager"; "library"; "adapter"; "gateway"; "resource"]);
+  expect "role spellings changed"
+    (strings "kind" components = ["service"; "manager"; "library"; "adapter"; "gateway"; "resource"]);
+  let app = List.hd components in
+  expect "source escapes are lost" (field "source" app = `String injection);
+  expect "state spelling lost" (field "state" app = `String "existing");
+  expect "lifecycle spelling lost" (field "lifecycle" app = `String "scoped");
+  expect "test reference promoted or lost" (field "verification" app = `Assoc [
+    "status", `String "test_reference"; "test", `String "tests/acceptance\"\nreference|`<tag>"]);
+  expect "pending verification lost" (field "verification" (List.nth components 1) |> field "status"
+    = `String "pending");
+  expect "missing source is not null" (field "source" (List.nth components 1) = `Null);
+  expect "location lost" (field "at" app = `Assoc [
+    "file", `String at.file; "line", `Int 12; "column", `Int 7]);
+  let scopes = field "scopes" document |> to_list in
+  expect "scope owners lost" (strings "process" scopes = ["host"; "host"; "peer"]);
+  let processes = field "processes" document |> to_list in
+  expect "process kinds lost" (strings "kind" processes = ["go"; "external"]);
+  expect "missing entrypoint is not null" (field "entrypoint" (List.nth processes 1) = `Null);
+  let connections = field "connections" document |> to_list in
+  expect "transports lost"
+    (strings "transport" connections = ["call"; "channel"; "subprocess"; "remote"; "device"]);
+  expect "boundary lost" (field "boundary" (List.nth connections 2) = `String "gateway");
+  expect "dependency lost" (field "dependencies" document |> to_list |> strings "provider" = ["library"]);
+  expect "scan root escapes lost"
+    (field "scan_roots" document |> to_list |> strings "path" = ["source/\"\\\n"]);
+  expect "generated roots lost"
+    (field "generated_roots" document |> to_list |> strings "path" = ["generated/"]);
+  let obligations = field "obligations" document |> to_list in
+  expect "obligation evidence lost" (List.map (field "evidence") obligations
+    = [`Null; `String "test|`<tag>\nnext"]);
+  expect "JSON document lacks trailing newline" (String.ends_with ~suffix:"}\n" (Emit.json fixture))
 
 let test_determinism () =
   List.iter (fun project -> expect "projection changes across calls" (project fixture = project fixture))
-    [Emit.ocaml; Emit.mermaid; Emit.review]
+    [Emit.ocaml; Emit.mermaid; Emit.review; Emit.json]
 
 let () =
   test_typed_output ();
   test_diagram ();
   test_review ();
   test_empty_optionals ();
+  test_json ();
   test_determinism ();
   print_endline "CSF architecture projection tests passed"

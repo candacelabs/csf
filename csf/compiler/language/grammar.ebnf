@@ -1,7 +1,18 @@
 (* CSF documentation language, not the controller expression language.
    Whitespace and # line comments are ignored between tokens. *)
-source        = { term | diagram | document } ;
-term          = 'term', identifier, string, string, ';' ;
+source        = { term | literature | retired | jargon | section | linked
+                | diagram | north_star | document } ;
+term          = 'term', identifier, string, string, [ forms ], ';' ;
+forms         = 'forms', string, { string } ;
+(* name, meaning, how CSF uses it, citation, https:// link *)
+literature    = 'literature', identifier, string, string, string, string,
+                  string, [ forms ], ';' ;
+retired       = 'retired', identifier, string, string, ';' ;
+jargon        = 'jargon', string, ';' ;
+(* title, plain-language summary, example, member terms *)
+section       = 'section', identifier, string, string, string,
+                  '{', { identifier, ';' }, '}' ;
+linked        = 'linked', string, ';' ;
 diagram       = 'diagram', identifier, direction, '{',
                   { node | group | edge }, '}' ;
 direction     = 'LR' | 'TB' ;
@@ -11,6 +22,21 @@ group         = 'group', identifier, ':', identifier, ';' ;
 edge          = 'edge', identifier, state, identifier,
                   [ 'label', string ], ';' ;
 state         = 'existing' | 'planned' ;
+(* The goal and its ordered milestones; a document renders it between
+   <!-- csf:north_star NAME --> markers. *)
+north_star    = 'north_star', identifier, '{', 'goal', string, ';',
+                  milestone, { milestone }, '}' ;
+(* identifier, status, statement, then what the milestone is made of *)
+milestone     = 'milestone', identifier, status, string, '{',
+                  { milestone_item }, '}' ;
+status        = 'done' | 'in_progress' | 'planned' ;
+milestone_item = 'uses', identifier, ';'
+               | 'evidence', ( 'path', string | 'pr', number
+                 | 'issue', number ), ';'
+               | 'cites', identifier, ';' ;
+number        = nonzero, { digit } ;
+nonzero       = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' ;
+(* A document names diagrams and north stars; its markers say which. *)
 document      = 'document', string, '{', { identifier, ';' }, '}' ;
 identifier    = lowercase, { lowercase | digit | '_' } ;
 lowercase     = 'a' | 'b' | 'c' | 'd' | 'e' | 'f' | 'g' | 'h' | 'i'
@@ -32,4 +58,16 @@ comment       = '#', { ? any character except LF ? }, [ ? LF ? ] ;
    relative .md or .markdown paths without empty, '.' or '..' components,
    backslashes, or control characters. The generated ontology path is reserved.
    File components must not be symlinks. Target documents already exist and
-   contain each declared diagram's opening and closing marker once. *)
+   contain each declared diagram's opening and closing marker once.
+   Literature, retired, section and linked identifiers or paths are unique.
+   Term names and forms, literature names and forms, retired words and jargon
+   candidates are pairwise distinct. When sections exist, every term is in
+   exactly one. Linked paths are Markdown and exclude the generated ontology
+   and glossary paths; vocabulary matching rules are documented in compiler.ml.
+   North stars: identifiers are unique and distinct from diagram identifiers;
+   the goal and every statement are nonblank; milestone identifiers are unique
+   within their north star; every milestone uses at least one term and every
+   used term and cited literature entry resolves, without repeats; a done
+   milestone has at least one path evidence and an in_progress one at least
+   one evidence; evidence paths are repository-relative and name an existing
+   file or directory, checked against ROOT before anything is written. *)

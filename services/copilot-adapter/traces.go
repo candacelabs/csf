@@ -3,7 +3,6 @@ package copilotadapter
 import (
 	"context"
 	"crypto/sha256"
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -14,6 +13,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
@@ -21,6 +21,8 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 
+	ipcnet "github.com/candacelabs/csf/ipc/net"
+	ipchttp "github.com/candacelabs/csf/ipc/net/http"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
@@ -75,6 +77,7 @@ type TraceExporter struct {
 	queries storedb.Querier
 	config  *copilotv1.TraceExportConfig
 	client  otlptrace.Client
+	network ipcnet.IDialer
 	started atomic.Bool
 	cancel  context.CancelFunc
 	done    chan struct{}
@@ -84,6 +87,13 @@ type TraceOption func(exporter *TraceExporter)
 
 func WithTraceClient(client otlptrace.Client) TraceOption {
 	return func(exporter *TraceExporter) { exporter.client = client }
+}
+
+// WithTraceNetwork grants the socket capability the official OTLP client
+// dials the collector through. The binary grants it; without it, or a
+// WithTraceClient transport, the exporter is not constructed.
+func WithTraceNetwork(network ipcnet.IDialer) TraceOption {
+	return func(exporter *TraceExporter) { exporter.network = network }
 }
 
 func NewTraceExporter(queries storedb.Querier, config *copilotv1.TraceExportConfig, options ...TraceOption) (*TraceExporter, error) {
@@ -104,10 +114,19 @@ func NewTraceExporter(queries storedb.Querier, config *copilotv1.TraceExportConf
 		}
 	}
 	if exporter.client == nil {
+		if exporter.network == nil {
+			return nil, fmt.Errorf("trace exporter requires a network capability or a trace client")
+		}
+		timeout := time.Duration(config.GetRequestTimeoutMillis()) * time.Millisecond
+		transport, err := ipchttp.NewHTTPClient(exporter.network, ipchttp.WithClientTimeout(timeout))
+		if err != nil {
+			return nil, err
+		}
 		exporter.client = otlptracehttp.NewClient(
+			otlptracehttp.WithHTTPClient(transport),
 			otlptracehttp.WithEndpointURL(config.GetEndpointUrl()),
 			otlptracehttp.WithHeaders(map[string]string{traceAuthorizationHeader: "Basic " + base64.StdEncoding.EncodeToString([]byte(config.GetPublicKey()+":"+config.GetSecretKey())), traceIngestionHeader: traceIngestionVersion}),
-			otlptracehttp.WithTimeout(time.Duration(config.GetRequestTimeoutMillis())*time.Millisecond),
+			otlptracehttp.WithTimeout(timeout),
 			otlptracehttp.WithRetry(otlptracehttp.RetryConfig{Enabled: false}),
 			otlptracehttp.WithMaxRequestSize(int(config.GetMaxRequestBytes())),
 		)
@@ -175,7 +194,7 @@ func (exporter *TraceExporter) DeliverNext(ctx context.Context) (bool, error) {
 	deadline, cancel := context.WithTimeout(ctx, time.Duration(exporter.config.GetRequestTimeoutMillis())*time.Millisecond)
 	defer cancel()
 	delivery, err := exporter.queries.ClaimTraceDelivery(deadline, storedb.ClaimTraceDeliveryParams{LeaseSeconds: exporter.config.GetLeaseSeconds(), MaxAttempts: exporter.config.GetMaxAttempts()})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil
 	}
 	if err != nil {

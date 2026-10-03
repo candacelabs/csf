@@ -1,0 +1,209 @@
+// The dispatch service: an intent-ranked work queue of slices inside the one
+// harness process of a machine. Work is a slice graph, not a heap: depends_on
+// edges order it, contends edges exclude slices from running together, and
+// no edge means parallel. The frontier is dispatched onto harness sessions by
+// list scheduling within a derived concurrency cap.
+syntax = "proto3";
+
+package candace.dispatch.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+import "candace/brainspine/v1/brainspine.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/dispatch/v1;dispatchv1";
+
+// How soon an intent must be acted on. URGENT intents preempt: a running
+// lower-ranked session is asked to stop at its next safepoint, checkpointed
+// and re-enqueued.
+enum Urgency {
+  URGENCY_UNSPECIFIED = 0;
+  URGENCY_LOW = 1;
+  URGENCY_NORMAL = 2;
+  URGENCY_HIGH = 3;
+  URGENCY_URGENT = 4;
+}
+
+// Where a slice is in its life. The dispatch service owns the transitions.
+enum SliceState {
+  SLICE_STATE_UNSPECIFIED = 0;
+  // Enqueued; a depends_on predecessor has not merged, or the cap or a
+  // contends edge holds it back.
+  SLICE_STATE_QUEUED = 1;
+  // A harness session is being opened or runs for it.
+  SLICE_STATE_RUNNING = 2;
+  // An urgent intent asked its running session to stop at a safepoint; once
+  // the session reports CANCELED the slice is checkpointed and re-enqueued.
+  SLICE_STATE_PREEMPTED = 3;
+  // Its pull request merged: every slice that depends on it may enter the
+  // frontier.
+  SLICE_STATE_MERGED = 4;
+  // Its session failed; the slice stays out of the frontier until it is
+  // enqueued again.
+  SLICE_STATE_FAILED = 5;
+  // Canceled by the operator.
+  SLICE_STATE_CANCELED = 6;
+}
+
+// What Route decided for one operator message.
+enum RouteDecision {
+  ROUTE_DECISION_UNSPECIFIED = 0;
+  // The covering slice's session is running: the message was sent into it.
+  ROUTE_DECISION_STEER = 1;
+  // The covering slice is not running: the intent was attached to it.
+  ROUTE_DECISION_QUEUE = 2;
+  // No slice covers the intent's terms: a new slice was created, or is
+  // needed.
+  ROUTE_DECISION_NEW = 3;
+  // The intent compiles to no change against main: the term exists or the
+  // covering slice has merged. The reference names the proof.
+  ROUTE_DECISION_ALREADY_DONE = 4;
+}
+
+// A typed intent: the statement of what is wanted, its scope, its urgency,
+// an optional deadline and the intent it supersedes. The term slots route it
+// to the slice whose touch-set covers them.
+message Intent {
+  string intent_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$`)"}];
+  string statement = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 32000"}];
+  string scope = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 256"}];
+  Urgency urgency = 4;
+  google.protobuf.Timestamp deadline = 5;
+  string supersedes = 6 [(candace.liquid.v1.field) = {expr: "len(this) <= 80"}];
+  // The vocabulary the intent names: ontology term identifiers, paths or
+  // hotspot names. Routing matches them against each slice's touch-set.
+  repeated string terms = 7;
+}
+
+// What a slice touches: path globs and named hotspots. Two slices whose
+// touch-sets overlap contend and never run at once.
+message TouchSet {
+  repeated string paths = 1;
+  repeated string hotspots = 2;
+}
+
+// The edges a slice is enqueued with. depends_on names the slices that must
+// merge first; required_by names the already-enqueued slices that must wait
+// for this one; contends names slices it must not run beside, in addition
+// to the contends edges computed from touch-sets. Every named slice must be
+// enqueued already, and the depends_on relation must stay acyclic.
+message SliceEdges {
+  repeated string depends_on = 1;
+  repeated string contends = 2;
+  repeated string required_by = 3;
+}
+
+// Who enqueued the slice and from what.
+message Provenance {
+  string source = 1 [(candace.liquid.v1.field) = {expr: "len(this) <= 256"}];
+  string issue_url = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 2048"}];
+  string intent_id = 3 [(candace.liquid.v1.field) = {expr: "len(this) <= 80"}];
+}
+
+// One unit of work: the recipe a harness session runs for it. The recipe's
+// assignment identifier is the first session's; a re-enqueued slice runs
+// under a derived identifier.
+message Slice {
+  string slice_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$`)"}];
+  string title = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  candace.brainspine.v1.AgentAssignmentRecipe recipe = 3;
+}
+
+// Why a slice ranks where it does. Rank is lexicographic: critical path
+// first, then urgency, then declared order; the learned term is zero until
+// data exists and is never hand-set.
+message PriorityBreakdown {
+  // Upward critical-path length from this slice to the end of the graph, in
+  // slices (unit weights until durations have been measured).
+  uint32 critical_path = 1;
+  // The strongest urgency among the intents attached to the slice.
+  Urgency urgency = 2;
+  // Position in enqueue order; earlier wins among equals.
+  uint64 declared_order = 3;
+  double learned = 4;
+  // The slice's position in the current dispatch order, 1 first; 0 when it
+  // is not in the frontier.
+  uint32 rank = 5;
+}
+
+// A node of the slice graph as the service holds it.
+message SliceNode {
+  Slice slice = 1;
+  SliceEdges edges = 2;
+  TouchSet touch_set = 3;
+  Provenance provenance = 4;
+  SliceState state = 5;
+  // The assignment of the session running the slice, when one runs.
+  string assignment_id = 6;
+  string pull_request_url = 7;
+  repeated Intent intents = 8;
+  PriorityBreakdown priority = 9;
+  // How many sessions have run the slice, preemptions included.
+  uint32 attempts = 10;
+  // The checkpoint recorded when the slice was last preempted: what the
+  // session had reached, so the next attempt resumes from it.
+  string checkpoint = 11;
+  string error = 12;
+  google.protobuf.Timestamp created_at = 13;
+  google.protobuf.Timestamp updated_at = 14;
+}
+
+message EnqueueSliceRequest {
+  Slice slice = 1;
+  SliceEdges edges = 2;
+  TouchSet touch_set = 3;
+  Provenance provenance = 4;
+}
+message EnqueueSliceResponse { SliceNode node = 1; }
+
+message DeclareIntentRequest { Intent intent = 1; }
+// The slices the intent attached to, after reprioritization and any
+// preemption it requested.
+message DeclareIntentResponse { repeated SliceNode nodes = 1; }
+
+message RouteMessageRequest {
+  Intent intent = 1;
+  // The operator's message; sent into the covering slice's session when it
+  // runs.
+  string message = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 32000"}];
+  // The slice to create when no node covers the intent's terms. Without it,
+  // the decision NEW names the gap.
+  EnqueueSliceRequest new_slice = 3;
+}
+message RouteMessageResponse {
+  RouteDecision decision = 1;
+  string slice_id = 2;
+  string assignment_id = 3;
+  // The turn the message became, when steered.
+  string turn_id = 4;
+  // What proves the intent already done: a pull request URL or a path.
+  string reference = 5;
+  // Checks the router could not make yet, as typed findings.
+  repeated string findings = 6;
+  SliceNode node = 7;
+}
+
+message GetFrontierRequest {}
+message GetFrontierResponse {
+  // The slices whose depends_on predecessors have merged, in dispatch order.
+  repeated SliceNode nodes = 1;
+}
+
+message ListSlicesRequest {}
+message ListSlicesResponse {
+  repeated SliceNode nodes = 1;
+  // The derived concurrency cap and how many sessions run under it.
+  uint32 concurrency_cap = 2;
+  uint32 running = 3;
+  bool persisted = 4;
+}
+
+message ReprioritizeRequest { Intent intent = 1; }
+message ReprioritizeResponse { repeated SliceNode nodes = 1; }
+
+message MarkSliceMergedRequest {
+  string slice_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$`)"}];
+  string pull_request_url = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 2048"}];
+}
+// The merged slice and every slice the merge released into the frontier.
+message MarkSliceMergedResponse { repeated SliceNode nodes = 1; }

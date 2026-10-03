@@ -18,8 +18,8 @@ import (
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/candacelabs/csf/pkg/eventually"
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
-	"github.com/candacelabs/csf/pkg/patience"
 )
 
 // PRD Phase 3, case 3:
@@ -51,7 +51,7 @@ import (
 // and the two are reported separately, because a slow restart and a slow
 // backoff are different defects with different owners. The spec asserts a total
 // and prints the split.
-var reconnectBudget = patience.Budget{Within: 90 * time.Second, Interval: 50 * time.Millisecond}
+var reconnectBudget = eventually.Budget{Within: 90 * time.Second, Interval: 50 * time.Millisecond}
 
 var _ = Describe("A server restarted under load (PRD case 3)", func() {
 
@@ -97,7 +97,7 @@ var _ = Describe("A server restarted under load (PRD case 3)", func() {
 
 		// Every client back on a NEW session — server_seq 1, a mount Snapshot —
 		// carrying the truth the dead process had committed.
-		patience.Await(GinkgoTB(), "every client to receive a fresh Snapshot after the restart",
+		eventually.Await(GinkgoTB(), "every client to receive a fresh Snapshot after the restart",
 			reconnectBudget,
 			func() int { return generationsAfter(fleet, generationsBefore) },
 			func(recovered int) bool { return recovered == clients })

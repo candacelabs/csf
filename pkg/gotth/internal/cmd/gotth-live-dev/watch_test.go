@@ -9,6 +9,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+
+	"github.com/candacelabs/csf/ipc/proc"
 )
 
 // The watcher's specs.
@@ -238,6 +240,14 @@ var _ = Describe("summarize", func() {
 	})
 })
 
+// hostLauncher is the process capability main grants the supervisor.
+func hostLauncher() *proc.HostLauncher {
+	GinkgoHelper()
+	launcher, err := proc.NewHostLauncher()
+	Expect(err).NotTo(HaveOccurred())
+	return launcher
+}
+
 var _ = Describe("the supervisor", func() {
 	// The property FR-57 leans on hardest, and the one a developer notices
 	// within a minute of using this: a typo costs a red line in the terminal,
@@ -262,11 +272,12 @@ var _ = Describe("the supervisor", func() {
 
 		var log bytes.Buffer
 		sup := &supervisor{
-			dir:    dir,
-			pkg:    ".",
-			binary: binaryName(GinkgoT().TempDir()),
-			grace:  2 * time.Second,
-			out:    &log,
+			launcher: hostLauncher(),
+			dir:      dir,
+			pkg:      ".",
+			binary:   binaryName(GinkgoT().TempDir()),
+			grace:    2 * time.Second,
+			out:      &log,
 		}
 		DeferCleanup(sup.stop)
 
@@ -296,7 +307,7 @@ var _ = Describe("the supervisor", func() {
 			Skip("no sleep(1) on PATH: the process-lifetime spec did not run")
 		}
 
-		sup := &supervisor{dir: GinkgoT().TempDir(), binary: sleep, args: []string{"60"},
+		sup := &supervisor{launcher: hostLauncher(), dir: GinkgoT().TempDir(), binary: sleep, args: []string{"60"},
 			grace: 3 * time.Second, out: &bytes.Buffer{}}
 		Expect(sup.start()).To(Succeed())
 
@@ -334,7 +345,7 @@ var _ = Describe("the supervisor", func() {
 			[]byte("package main\n\nimport \"time\"\n\nfunc main() { time.Sleep(time.Hour) }\n"), 0o644)).To(Succeed())
 
 		var log bytes.Buffer
-		sup := &supervisor{dir: dir, pkg: ".", binary: binaryName(GinkgoT().TempDir()),
+		sup := &supervisor{launcher: hostLauncher(), dir: dir, pkg: ".", binary: binaryName(GinkgoT().TempDir()),
 			grace: 2 * time.Second, templ: "", out: &log}
 		DeferCleanup(sup.stop)
 

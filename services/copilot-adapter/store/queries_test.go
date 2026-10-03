@@ -9,20 +9,14 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/pkg/pgmem"
-
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
 
 var _ = Describe("queries", func() {
 	It("orders worktrees by their latest associated session activity with deterministic ties", func() {
 		ctx := context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(ApplyMigrations(ctx, db)).To(Succeed())
-		queries := storedb.New(db)
+		_, capability := openSchema(ctx)
+		queries := storedb.New(capability)
 		base := time.Date(2026, 9, 6, 12, 0, 0, 0, time.UTC)
 		activeID := uuid.MustParse("00000000-0000-4000-8000-000000000000")
 		tiedSessionID := uuid.MustParse("00000000-0000-4000-8000-000000000001")

@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/httpserver"
-	"github.com/candacelabs/csf/pkg/patience"
 	"github.com/coder/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
-var boardConnectionBudget = patience.Budget{Within: 10 * time.Second}
+var boardConnectionBudget = eventually.Budget{Within: 10 * time.Second}
 
 var _ = Describe("Live-board connection inspection", func() {
 	It("projects the actual connection registry into HTML and the existing metrics route", func() {
@@ -49,7 +49,7 @@ var _ = Describe("Live-board connection inspection", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(string(markup)).To(ContainSubstring(`<span>LIVE-BOARD CONNECTIONS</span><b>2</b>`))
 		Expect(board.Close(ctx)).To(Succeed())
-		patience.Await(GinkgoT(), "board connection cleanup", boardConnectionBudget,
+		eventually.Await(GinkgoT(), "board connection cleanup", boardConnectionBudget,
 			board.ActiveConnections, func(count int) bool { return count == 0 })
 		Expect(inspectionGauges(scrapeInspection(inspection), browserConnectionsMetric, "")).To(Equal(map[string]float64{"": 0}))
 	})

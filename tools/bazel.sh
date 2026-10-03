@@ -55,7 +55,14 @@ if [[ -n "${CANDACE_OCAML_TOOLCHAIN_CACHE:-}" ]]; then
 fi
 
 bazel_arguments=("$@")
+# The disk cache is a host directory the container must see at one fixed
+# path: the flag Bazel gets names the mount, not the host path, so a cache
+# shared by many sessions works from any workspace and any output base.
+disk_cache_mount=()
 if [[ -n "${CANDACE_BAZEL_DISK_CACHE:-}" ]]; then
+  mkdir -p -- "$CANDACE_BAZEL_DISK_CACHE"
+  disk_cache_root=$(cd -- "$CANDACE_BAZEL_DISK_CACHE" && pwd -P)
+  disk_cache_mount=(--volume "$disk_cache_root:/bazel-disk-cache")
   for ((argument_index = 0; argument_index < ${#bazel_arguments[@]}; argument_index++)); do
     case "${bazel_arguments[$argument_index]}" in
       analyze-profile|aquery|canonicalize-flags|clean|config|coverage|cquery|dump|fetch|help|info|license|mobile-install|mod|print_action|query|shutdown|sync|version)
@@ -66,7 +73,7 @@ if [[ -n "${CANDACE_BAZEL_DISK_CACHE:-}" ]]; then
         after_command=("${bazel_arguments[@]:$((argument_index + 1))}")
         bazel_arguments=(
           "${before_command[@]}"
-          "--disk_cache=${CANDACE_BAZEL_DISK_CACHE}"
+          "--disk_cache=/bazel-disk-cache"
           "${after_command[@]}"
         )
         break
@@ -81,6 +88,7 @@ exec docker run --rm \
   --env HOME=/bazel-home \
   --env USER="${USER:-bazel}" \
   "${toolchain_mount[@]}" \
+  "${disk_cache_mount[@]}" \
   --volume "$cache_root/home:/bazel-home" \
   --volume "$cache_root/output:$output_root" \
   --volume "$cache_root/output:/bazel-output" \

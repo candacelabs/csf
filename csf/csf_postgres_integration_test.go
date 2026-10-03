@@ -1,47 +1,52 @@
-//go:build integration
+//go:build acceptance
 
 package csf_test
 
 import (
 	"context"
-	"os"
+	"net/url"
 	"strings"
 	"time"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/pkg/eventually"
+	"github.com/candacelabs/csf/runtime/config"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
 const csfPostgresTestDatabaseURLEnvironment = "CANDACE_CSF_TEST_DATABASE_URL"
 
-var csfPostgresDatabaseBudget = patience.Budget{Within: 20 * time.Second}
+var csfPostgresDatabaseBudget = eventually.Budget{Within: 20 * time.Second}
+
+const csfPostgresSearchPathParameter = "search_path"
 
 type csfPostgresFixture struct {
-	config *pgxpool.Config
-	pool   *pgxpool.Pool
-	store  *csf.Postgres
+	settings csfpg.Settings
+	pool     *csfpg.Pool
+	store    *csf.Postgres
 }
 
 // buildCSFPostgresFixture gives each integration spec an isolated database
 // schema while preserving the caller-selected disposable PostgreSQL instance.
+// The spec owns the pools, as a binary would: it opens them through
+// ipc/db/csfpg and closes them when the spec ends.
 func buildCSFPostgresFixture(ctx context.Context) *csfPostgresFixture {
-	databaseURL := os.Getenv(csfPostgresTestDatabaseURLEnvironment)
-	Expect(databaseURL).NotTo(BeEmpty(), "set "+csfPostgresTestDatabaseURLEnvironment+" to run PostgreSQL integration specs")
-	config, err := pgxpool.ParseConfig(databaseURL)
-	Expect(err).NotTo(HaveOccurred())
-	admin, err := pgxpool.NewWithConfig(ctx, config.Copy())
-	Expect(err).NotTo(HaveOccurred())
+	settings, err := csfpg.SettingsFromEnvironment(config.OSEnvironment(), csfPostgresTestDatabaseURLEnvironment)
+	Expect(err).NotTo(HaveOccurred(), "set "+csfPostgresTestDatabaseURLEnvironment+" to run PostgreSQL integration specs")
+	admin := eventually.Await(GinkgoT(), "CSF integration PostgreSQL", csfPostgresDatabaseBudget, func() *csfpg.Pool {
+		pool, err := csfpg.OpenPool(ctx, settings)
+		if err != nil {
+			return nil
+		}
+		return pool
+	}, func(pool *csfpg.Pool) bool {
+		return pool != nil
+	})
 	DeferCleanup(admin.Close)
-	Expect(patience.Await(GinkgoT(), "CSF integration PostgreSQL", csfPostgresDatabaseBudget, func() error {
-		return admin.Ping(ctx)
-	}, func(err error) bool {
-		return err == nil
-	})).To(Succeed())
 	schema := "csf_integration_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	_, err = admin.Exec(ctx, "CREATE SCHEMA "+pgx.Identifier{schema}.Sanitize())
 	Expect(err).NotTo(HaveOccurred())
@@ -49,12 +54,19 @@ func buildCSFPostgresFixture(ctx context.Context) *csfPostgresFixture {
 		_, err := admin.Exec(ctx, "DROP SCHEMA "+pgx.Identifier{schema}.Sanitize()+" CASCADE")
 		Expect(err).NotTo(HaveOccurred())
 	})
-	config.ConnConfig.RuntimeParams["search_path"] = schema
-	pool, err := pgxpool.NewWithConfig(ctx, config)
+	location, err := url.Parse(settings.URL)
+	Expect(err).NotTo(HaveOccurred())
+	query := location.Query()
+	query.Set(csfPostgresSearchPathParameter, schema)
+	location.RawQuery = query.Encode()
+	settings = csfpg.Settings{URL: location.String()}
+	pool, err := csfpg.OpenPool(ctx, settings)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(pool.Close)
+	schemaHandle := pool.OpenSQL()
+	DeferCleanup(schemaHandle.Close)
+	Expect(csfpg.ApplySchema(ctx, schemaHandle)).To(Succeed())
 	store, err := csf.NewPostgres(pool)
 	Expect(err).NotTo(HaveOccurred())
-	Expect(store.Initialize(ctx)).To(Succeed())
-	return &csfPostgresFixture{config: config, pool: pool, store: store}
+	return &csfPostgresFixture{settings: settings, pool: pool, store: store}
 }

@@ -13,9 +13,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/gotth/internal/obstest"
 	"github.com/candacelabs/csf/pkg/gotth/live"
-	"github.com/candacelabs/csf/pkg/patience"
 )
 
 // PRD Phase 3, case 5:
@@ -109,7 +109,7 @@ var _ = Describe("An event flood from a hostile client (PRD case 5, FR-51)", fun
 		const rate = 3000
 		const duration = 4 * time.Second
 		const batch = 30
-		batchDrainBudget := patience.Budget{Within: 10 * time.Second, Interval: time.Millisecond}
+		batchDrainBudget := eventually.Budget{Within: 10 * time.Second, Interval: time.Millisecond}
 		start := time.Now()
 		sent := 0
 		bytesOut := 0
@@ -128,7 +128,7 @@ var _ = Describe("An event flood from a hostile client (PRD case 5, FR-51)", fun
 			// bunch several writes in the socket buffer. Drain each small batch
 			// through the real reducer/error stream before pacing the next one.
 			// This also proves every sent frame was committed or explicitly refused.
-			patience.Await(GinkgoTB(), "flood batch committed or refused", batchDrainBudget,
+			eventually.Await(GinkgoTB(), "flood batch committed or refused", batchDrainBudget,
 				func() int {
 					_, _, errorsReceived, _ := w.counters()
 					return s.ledger.callCount() + int(errorsReceived)

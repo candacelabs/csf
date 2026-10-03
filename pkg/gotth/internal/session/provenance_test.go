@@ -3,6 +3,7 @@ package session_test
 import (
 	"context"
 	"runtime"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -234,9 +235,10 @@ var _ = Describe("Goroutine lifecycle", func() {
 			"goroutines outlived the sessions that owned them")
 	})
 
-	It("abandons an effect that will not return rather than leaking the session with it", func() {
+	It("runs the teardown hook only after every effect has returned", func() {
 		release := make(chan struct{})
-		defer close(release)
+		var releaseOnce sync.Once
+		DeferCleanup(func() { releaseOnce.Do(func() { close(release) }) })
 
 		app := newTestApp()
 		app.reduce = func(state any, ev session.Event) (any, []session.Effect[subject]) {
@@ -254,15 +256,19 @@ var _ = Describe("Goroutine lifecycle", func() {
 		h.sendEvent("counter.increment")
 		Eventually(app.executeCount).Should(Equal(1))
 
-		done := make(chan struct{})
-		go func() {
-			defer GinkgoRecover()
-			h.stop()
-			close(done)
-		}()
+		tornDown := func() bool {
+			app.mu.Lock()
+			defer app.mu.Unlock()
+			return app.tornDown
+		}
+		h.cancel()
+		// No value worth printing: the poll is whether a hook has run.
+		Consistently(tornDown, 10*lim.EffectDrainTimeout).Should(BeFalse(),
+			"teardown ran while an effect of the session was still running")
 
-		Eventually(done, 2*time.Second).Should(BeClosed(),
-			"shutdown blocked on an effect that will not return")
+		releaseOnce.Do(func() { close(release) })
+		Eventually(h.done, 2*time.Second).Should(BeClosed())
+		Expect(tornDown()).To(BeTrue())
 	})
 })
 
