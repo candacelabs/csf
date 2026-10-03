@@ -58,22 +58,19 @@ layer's hiccups make the motors stutter. LITHE
 ([Lim and Clites, 2026](../README.md#ref-lithe)) fixes this by giving each layer its
 own CPU [core](../csf/docs/generated/ontology_cgen.md#term-core).
 
-**Picture.** LITHE's four cores on one quad-core board:
+**Picture.** Figure 1 is LITHE's own diagram of its system.
 
-```mermaid
-flowchart LR
-    subgraph board["one quad-core computer"]
-        c0["CPU 0: Housekeeping<br/>OS chores, SSH, interrupts,<br/>prepares the next controller"]
-        c1["CPU 1: Spine<br/>real-time control loop, alone"]
-        c2["CPU 2: Brain<br/>planning and learned policies"]
-        c3["CPU 3: Transport<br/>motor bus I/O"]
-    end
-    c2 -- "proposes a controller" --> c1
-    c1 -- "drives" --> c3
-    c0 -. "absorbs jitter, loads controllers" .-> c1
-```
+<a id="figure-1"></a>
 
-The [Brain](../csf/docs/generated/ontology_cgen.md#term-brain) proposes and the
+![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](assets/lithe-system-architecture.png)
+
+**Figure 1.** LITHE's system architecture: the Brain, Spine, Housekeeping and
+Transport roles, each on its own core of one Raspberry Pi, driving a
+one-degree-of-freedom robot. Reproduced from LITHE, Figure 2
+([Lim and Clites, 2026](../README.md#ref-lithe)).
+
+On LITHE's board, CPU 0 does housekeeping, CPU 1 runs the Spine's control loop
+alone, CPU 2 runs the Brain and CPU 3 carries the motor bus. The [Brain](../csf/docs/generated/ontology_cgen.md#term-brain) proposes and the
 [Spine](../csf/docs/generated/ontology_cgen.md#term-spine) executes. CPU 0, the
 [housekeeping](GLOSSARY.md#lit-housekeeping) core, does everything else so the
 Spine's core stays quiet. Deciding versus doing is the shape of most robot software,
@@ -82,11 +79,18 @@ so we expect the split to carry over to most robots.
 CSF lives on CPU 0. Everything an agent system needs around its decisions (tools,
 records, schedules, experiments, observation) runs there as
 [services](../csf/docs/generated/ontology_cgen.md#term-service) inside **one Go
-process**:
+process**, as Figure 2 shows:
+
+<a id="figure-2"></a>
 
 <p align="center">
   <img src="assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
 </p>
+
+**Figure 2.** CSF inside LITHE's CPU 0: one Go process holding typed tools,
+sessions, schedules, knowledge, observation and bounded workers. LITHE's Brain,
+Spine and Transport cores, and the external systems CSF talks to, sit outside it.
+Drawn by hand as our mapping onto LITHE; it is not generated.
 
 **What it looks like.** The usual way to build the housekeeping side is one
 program per capability, so every handoff is IPC. CSF composes them in one process,
@@ -113,7 +117,9 @@ diagram someone drew once. Nothing checks it, so it goes stale the first week. C
 writes the description as code instead, and the [compiler](#3-the-compiler-csfc)
 checks the real Go against it on every change.
 
-**Picture.**
+**Picture.** See Figure 3.
+
+<a id="figure-3"></a>
 
 ```mermaid
 flowchart LR
@@ -124,6 +130,8 @@ flowchart LR
     code["the Go source"] --> c
     c --> out["checked: yes or no<br/>generated: glossary, dictionary, diagrams"]
 ```
+
+**Figure 3.** The two CSF languages. Each grammar defines a language, each `.csf` file is written in one, and `csfc` checks both against the Go source and generates the documentation.
 
 Both grammars are written in **EBNF** (Extended Backus-Naur Form), the standard
 notation for "which sentences does this language accept". Read `=` as "is made
@@ -208,8 +216,9 @@ the documentation that used to be written by hand.
 **Why it exists.** A description is only useful if something notices when it
 stops being true.
 
-**Picture.** Each stage answers a different question; passing one does not mean
-passing the next:
+**Picture.** See Figure 4.
+
+<a id="figure-4"></a>
 
 ```mermaid
 flowchart LR
@@ -219,6 +228,8 @@ flowchart LR
   validate --> source[Do the selected source files obey the policy?]
   source --> output[Typed declarations, diagram, outstanding obligations]
 ```
+
+**Figure 4.** The compiler's stages. Each stage answers a different question, and passing one does not imply passing the next. Adapted from the [compiler walkthrough](../csf/compiler/architecture/WALKTHROUGH.md).
 
 **What it looks like.** What the checks catch, from the compiler's own example run:
 
@@ -252,7 +263,9 @@ own program, and it gives you typed tools served as HTTP, a CLI and
 agent tooling ships as a separate server you must run and secure. CSF hands you a
 handler instead, and your process stays yours.
 
-**Picture.**
+**Picture.** See Figure 5.
+
+<a id="figure-5"></a>
 
 ```mermaid
 flowchart TB
@@ -265,6 +278,8 @@ flowchart TB
     agent["an AI agent"] -- "MCP at /mcp" --> router
     you["you, or a script"] -- "HTTP / CLI" --> router
 ```
+
+**Figure 5.** CSF inside your binary. Your `main` owns the process and the router; CSF registers its routes, so agents reach over MCP the same tools you reach over HTTP and the CLI.
 
 **What it looks like.** From [`examples/csf-consumer/main.go`](../examples/csf-consumer/main.go):
 
@@ -312,7 +327,9 @@ same truth.
 copies disagree. gotth-live keeps the only copy on the server: no npm, no CDN, no
 client framework.
 
-**Picture.** One click, two tabs:
+**Picture.** Figure 6 follows one click across two tabs.
+
+<a id="figure-6"></a>
 
 ```mermaid
 sequenceDiagram
@@ -324,6 +341,8 @@ sequenceDiagram
     S-->>A: re-rendered fragment
     S-->>B: re-rendered fragment
 ```
+
+**Figure 6.** One click in gotth-live. The event goes to the Go process, the reducer computes the new state once, and every open tab receives the re-rendered fragment.
 
 **What it looks like.** From [`examples/gotth/counter`](../examples/gotth/counter).
 The button in [`view.templ`](../examples/gotth/counter/view.templ) names an event,
@@ -372,7 +391,9 @@ in its own git worktree, with a gate on every shell command and every commit.
 a loop forever, works for an hour without showing you anything, or edits files it
 should not. Writing "please don't" in a prompt does not stop it. A gate does.
 
-**Picture.**
+**Picture.** See Figure 7.
+
+<a id="figure-7"></a>
 
 ```mermaid
 flowchart LR
@@ -385,6 +406,8 @@ flowchart LR
     s -->|first commit| pr["draft pull request"]
     h --> chat["chat page<br/>in your browser"]
 ```
+
+**Figure 7.** A harness session. A typed recipe becomes a session in its own git worktree; every command passes the session gate, and the first commit opens a draft pull request.
 
 **What it looks like.** A session starts from a typed recipe. This is the sample
 `csf init` writes, from [`app/harness/cmd/recipe/agent.json`](../app/harness/cmd/recipe/agent.json):
@@ -443,7 +466,9 @@ each one into a gate, after proving it on history.
 **Why it exists.** Gates only stop the mistakes someone thought of in advance.
 Every new mistake the operator flags is evidence for the next gate.
 
-**Picture.** The snake eats its tail:
+**Picture.** The snake eats its tail; Figure 8 shows how.
+
+<a id="figure-8"></a>
 
 ```mermaid
 flowchart LR
@@ -454,6 +479,8 @@ flowchart LR
     B -->|misses one| F
     G -.->|gated runs become the next record| C
 ```
+
+**Figure 8.** The Ouroboros loop. Facts from the record feed a Datalog rule; the rule becomes a gate only if a backtest on history finds every labeled case, and gated runs become the next record.
 
 **What it looks like.** A miner is a Datalog rule over facts extracted from the
 record. This one flags a session that worked longer than a measured threshold
@@ -484,7 +511,9 @@ a change, a service approves and fences it, and a watchdog,
 the same split as LITHE's: the agent proposes, something trusted executes, and
 every change is checked against one source of truth.
 
-**Picture.**
+**Picture.** See Figure 9.
+
+<a id="figure-9"></a>
 
 ```mermaid
 flowchart LR
@@ -494,6 +523,8 @@ flowchart LR
     w["Warden<br/>leader election, liveness,<br/>incidents"] -->|authoritative view| d
     ui["operator UI"] -->|watches| d
 ```
+
+**Figure 9.** Deploying with an agent. The agent only proposes; the deploy service approves each change and fences it against Warden's view, the node executor applies it, and the operator UI watches.
 
 Warden elects one leader over a fixed set of peers in the style of Raft
 ([Ongaro and Ousterhout, 2014](../README.md#ref-raft)), tracks which nodes are
@@ -535,7 +566,9 @@ on every change. Xet ([Hugging Face](../README.md#ref-xet)) splits files into
 content-defined chunks and stores each chunk once; xetcas is a server for that
 format with a Git LFS front door, so ordinary `git push` works.
 
-**Picture.**
+**Picture.** See Figure 10.
+
+<a id="figure-10"></a>
 
 ```mermaid
 flowchart LR
@@ -544,6 +577,8 @@ flowchart LR
     ch1 --> store[("xetcas: each chunk stored once")]
     ch2 -->|"only C' uploaded, about 1 MiB"| store
 ```
+
+**Figure 10.** Why xetcas uploads so little. Files are split into content-defined chunks and each chunk is stored once, so a 2% edit to a 48 MiB model sends about 1 MiB.
 
 | | example: xetcas | counterexample: plain LFS |
 |---|---|---|

@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.4"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.5"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -40,7 +40,16 @@ core: it takes the operating system's chores, absorbs timing jitter so the other
 cores never feel it, and prepares the next controller before it is swapped in.
 LITHE demonstrates this on one robot, but deciding versus doing is the shape of
 most robot software stacks, so we expect the architecture to carry over to most
-robots.
+robots. Figure 1 is LITHE's own diagram of that split.
+
+<a id="figure-1"></a>
+
+![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](docs/assets/lithe-system-architecture.png)
+
+**Figure 1.** LITHE's system architecture: the Brain, Spine, Housekeeping and
+Transport roles, each on its own core of one Raspberry Pi, driving a
+one-degree-of-freedom robot. Reproduced from LITHE, Figure 2
+([Lim and Clites, 2026](#ref-lithe)).
 
 **CSF is the LITHE philosophy applied to CPU 0.** It is the housekeeping layer:
 the tools, records, schedules and experiments around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system's
@@ -48,11 +57,18 @@ decisions, composed into one Go process so they talk through function calls
 instead of inter-process communication. In CSF the architecture is a checked
 artifact and the engineers are [agents](csf/docs/generated/ontology_cgen.md#term-agent) working under rules. It ships
 with working implementations ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live), Warden, xetcas, pgmem,
-liquidproto) that prove the loop works.
+liquidproto) that prove the loop works. Figure 2 places CSF on LITHE's CPU 0.
+
+<a id="figure-2"></a>
 
 <p align="center">
   <img src="docs/assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
 </p>
+
+**Figure 2.** CSF inside LITHE's CPU 0: one Go process holding typed tools,
+sessions, schedules, knowledge, observation and bounded workers. LITHE's Brain,
+Spine and Transport cores, and the external systems CSF talks to, sit outside it.
+Drawn by hand as our mapping onto LITHE; it is not generated.
 
 **New here? [Take the tour of CSF](docs/TOUR.md):** ten stops from the idea to the running pieces, each with a diagram, real code, an example next to a counterexample, and one command to run.
 
@@ -107,11 +123,7 @@ with a CLI.
 The name comes from the architecture that shaped it. In LITHE
 ([Lim and Clites, 2026](#ref-lithe)), a best-effort **[Brain](csf/docs/generated/ontology_cgen.md#term-brain)** proposes and a real-time **[Spine](csf/docs/generated/ontology_cgen.md#term-spine)** executes, on one
 partitioned computer. CSF is the fluid around them: the [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer that
-carries tools, records and experiments between decisions.
-
-![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](docs/assets/lithe-system-architecture.png)
-
-*LITHE, Figure 2 ([Lim and Clites, 2026](#ref-lithe)).*
+carries tools, records and experiments between decisions (Figures 1 and 2).
 
 New to the words used here? The [glossary](docs/GLOSSARY.md) explains every CSF
 term in plain language, plus the words CSF borrows from papers, with citations.
@@ -173,7 +185,7 @@ no wire serialization and no separate daemon. Separate architecture
 checks inspect selected Go ownership and [process boundaries](csf/docs/generated/ontology_cgen.md#term-process_boundary) in source; they
 establish those source constraints, not [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) timing.
 
-The diagram at the top of this page is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
+Figure 2 is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
 by hand; it is not generated from the architecture model. Its boundaries are exact:
 
 - PostgreSQL, [OpenSearch](csf/docs/generated/ontology_cgen.md#term-opensearch), Langfuse and external model or simulator processes
@@ -241,10 +253,12 @@ own job.
 - The Lean kernel, its official release build, the standard library, the
   operating system and the hardware remain trusted.
 
-The improvement loop below is generated from the same architecture model as
-every CSF diagram. *[Choose](csf/docs/generated/ontology_cgen.md#term-choose)* and controller selection are planned: the
+The improvement loop in Figure 3 is generated from the same architecture model
+as every CSF diagram. *[Choose](csf/docs/generated/ontology_cgen.md#term-choose)* and controller selection are planned: the
 low-level controller is external and ROS-side, and an [agent](csf/docs/generated/ontology_cgen.md#term-agent) choosing among
 proved options is the next step, not a shipped one.
+
+<a id="figure-3"></a>
 
 <!-- csf:diagram improvement -->
 ```mermaid
@@ -285,9 +299,12 @@ flowchart LR
 ```
 <!-- /csf:diagram improvement -->
 
+**Figure 3.** The improvement loop, generated from `architecture.csf`. Solid
+steps exist today; dashed steps are planned.
+
 ## 4. Architecture
 
-The diagram is **generated** from
+Figure 4 is **generated** from
 [`csf/compiler/language/architecture.csf`](csf/compiler/language/architecture.csf)
 by the CSF documentation compiler, which also produces the
 [shared vocabulary](csf/docs/generated/ontology_cgen.md) and the plain-language
@@ -295,6 +312,8 @@ by the CSF documentation compiler, which also produces the
 existing components or configurable integrations; dotted connections are
 planned. An integration shown here still needs its dependencies and
 configuration; it is not automatically running when you import CSF.
+
+<a id="figure-4"></a>
 
 <!-- csf:diagram architecture -->
 ```mermaid
@@ -359,6 +378,9 @@ flowchart TB
   linkStyle 16 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
 ```
 <!-- /csf:diagram architecture -->
+
+**Figure 4.** CSF's architecture, generated from `architecture.csf`. Solid
+connections exist or are configurable integrations; dotted connections are planned.
 
 ### Stores and data structures
 
@@ -542,7 +564,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.4`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.5`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -579,7 +601,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.4/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.5/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -591,7 +613,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.4
+go get github.com/candacelabs/csf@v0.2.5
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -710,7 +732,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.4},
+  version = {0.2.5},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
@@ -719,7 +741,7 @@ exact release tag you used:
 The LITHE paper and its figures are distributed under arXiv's
 [non-exclusive distribution license](http://arxiv.org/licenses/nonexclusive-distrib/1.0/),
 not a Creative Commons license. © the authors; this repository's license does
-not cover them, and no figure file is copied into it.
+not cover them. Figure 1 reproduces LITHE's Figure 2 with attribution.
 
 <a id="ref-ansi-sparc"></a>
 
