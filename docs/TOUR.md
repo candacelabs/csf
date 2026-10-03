@@ -25,10 +25,27 @@ or a database.
 | 4 | [The runtime library](#4-the-runtime-library) | 5 min |
 | 5 | [gotth-live](#5-gotth-live-live-ui-from-go) | 5 min |
 | 6 | [The agent harness: an agentic software engineer](#6-the-agent-harness-an-agentic-software-engineer) | 10 min |
-| 7 | [Ouroboros](#7-ouroboros-the-loop-that-writes-the-next-gate) | 5 min |
+| 7 | [Ouroboros and RRSI](#7-ouroboros-and-rrsi-the-system-improves-itself) | 5 min |
 | 8 | [Deploy and Warden](#8-deploy-and-warden) | 10 min |
 | 9 | [xetcas](#9-xetcas) | 10 min |
 | 10 | [The primitives](#10-the-primitives) | 5 min |
+
+## The big picture
+
+Figure 1 puts every piece of CSF on one page. Read it clockwise from the top:
+each step feeds the next, and every step runs inside one Go process on the
+robot's housekeeping core. Each stop below zooms into one part of this circle.
+Click the figure to open it full size.
+
+<a id="figure-1"></a>
+
+<p align="center"><a href="assets/tour/csf-master-diagram.svg"><img src="assets/tour/csf-master-diagram.svg" width="1000" alt="How CSF fits together on a robot's CPU 0"></a></p>
+
+**Figure 1.** How CSF fits together. Eight parts sit clockwise around CPU 0:
+declare (the languages and csfc), run (the runtime library), show (gotth-live),
+change (the agent harness), ship (deploy and Warden), learn (xetcas; amber marks
+planned work), improve (Ouroboros) and evolve (RRSI). The centre is one Go process
+built on the `pkg/` primitives.
 
 ## 0. Words you will meet
 
@@ -58,13 +75,13 @@ layer's hiccups make the motors stutter. LITHE
 ([Lim and Clites, 2026](../README.md#ref-lithe)) fixes this by giving each layer its
 own CPU [core](../csf/docs/generated/ontology_cgen.md#term-core).
 
-**Picture.** Figure 1 is LITHE's own diagram of its system.
+**Picture.** Figure 2 is LITHE's own diagram of its system.
 
-<a id="figure-1"></a>
+<a id="figure-2"></a>
 
 [![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](https://arxiv.org/html/2603.07442v1/figures/fig_architecture.png)](https://arxiv.org/html/2603.07442v1#S1.F2)
 
-**Figure 1.** LITHE's system architecture: the Brain, Spine, Housekeeping and
+**Figure 2.** LITHE's system architecture: the Brain, Spine, Housekeeping and
 Transport roles, each on its own core of one Raspberry Pi, driving a
 one-degree-of-freedom robot. LITHE, Figure 2, shown from
 [arXiv](https://arxiv.org/html/2603.07442v1#S1.F2) and not copied into this repository
@@ -77,18 +94,19 @@ alone, CPU 2 runs the Brain and CPU 3 carries the motor bus. The [Brain](../csf/
 Spine's core stays quiet. Deciding versus doing is the shape of most robot software,
 so we expect the split to carry over to most robots.
 
-CSF lives on CPU 0. Everything an agent system needs around its decisions (tools,
+CSF lives on CPU 0, and on every other core not reserved for the Spine, Brain and
+Transport. Everything an agent system needs around its decisions (tools,
 records, schedules, experiments, observation) runs there as
 [services](../csf/docs/generated/ontology_cgen.md#term-service) inside **one Go
-process**, as Figure 2 shows:
+process**, as Figure 3 shows:
 
-<a id="figure-2"></a>
+<a id="figure-3"></a>
 
 <p align="center">
   <img src="assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
 </p>
 
-**Figure 2.** CSF inside LITHE's CPU 0: one Go process holding typed tools,
+**Figure 3.** CSF inside LITHE's CPU 0: one Go process holding typed tools,
 sessions, schedules, knowledge, observation and bounded workers. LITHE's Brain,
 Spine and Transport cores, and the external systems CSF talks to, sit outside it.
 Drawn by hand as our mapping onto LITHE; it is not generated.
@@ -118,21 +136,15 @@ diagram someone drew once. Nothing checks it, so it goes stale the first week. C
 writes the description as code instead, and the [compiler](#3-the-compiler-csfc)
 checks the real Go against it on every change.
 
-**Picture.** See Figure 3.
+**On a robot.** The software running on the robot is what the architecture file says it is, checked on every change, so nothing drifts silently between what you think is deployed and what runs.
 
-<a id="figure-3"></a>
+**Picture.** See Figure 4.
 
-```mermaid
-flowchart LR
-    g1["grammar.ebnf<br/>(the vocabulary language)"] --> v["architecture.csf<br/>terms, sections, diagrams"]
-    g2["language.ebnf<br/>(the composition language)"] --> a["csf/architecture/architecture.csf<br/>processes, services, connections"]
-    v --> c["csfc"]
-    a --> c
-    code["the Go source"] --> c
-    c --> out["checked: yes or no<br/>generated: glossary, dictionary, diagrams"]
-```
+<a id="figure-4"></a>
 
-**Figure 3.** The two CSF languages. Each grammar defines a language, each `.csf` file is written in one, and `csfc` checks both against the Go source and generates the documentation.
+<p align="center"><a href="assets/tour/tour-languages.svg"><img src="assets/tour/tour-languages.svg" width="1000" alt="The two CSF languages"></a></p>
+
+**Figure 4.** The two CSF languages. Each grammar defines a language, each `.csf` file is written in one, and `csfc` checks both against the Go source and generates the documentation.
 
 Both grammars are written in **EBNF** (Extended Backus-Naur Form), the standard
 notation for "which sentences does this language accept". Read `=` as "is made
@@ -217,20 +229,13 @@ the documentation that used to be written by hand.
 **Why it exists.** A description is only useful if something notices when it
 stops being true.
 
-**Picture.** See Figure 4.
+**Picture.** See Figure 5.
 
-<a id="figure-4"></a>
+<a id="figure-5"></a>
 
-```mermaid
-flowchart LR
-  text[Architecture text] --> parse[Does the syntax fit?]
-  parse --> decode[Can every field become a typed value?]
-  decode --> validate[Do the declared relationships agree?]
-  validate --> source[Do the selected source files obey the policy?]
-  source --> output[Typed declarations, diagram, outstanding obligations]
-```
+<p align="center"><a href="assets/tour/tour-compiler.svg"><img src="assets/tour/tour-compiler.svg" width="1000" alt="The compiler's five stages"></a></p>
 
-**Figure 4.** The compiler's stages. Each stage answers a different question, and passing one does not imply passing the next. Adapted from the [compiler walkthrough](../csf/compiler/architecture/WALKTHROUGH.md).
+**Figure 5.** The compiler's stages. Each stage answers a different question, and passing one does not imply passing the next. Adapted from the [compiler walkthrough](../csf/compiler/architecture/WALKTHROUGH.md).
 
 **What it looks like.** What the checks catch, from the compiler's own example run:
 
@@ -264,23 +269,39 @@ own program, and it gives you typed tools served as HTTP, a CLI and
 agent tooling ships as a separate server you must run and secure. CSF hands you a
 handler instead, and your process stays yours.
 
-**Picture.** See Figure 5.
+**On a robot.** CPU 0 is one core with a fixed budget. One process with no IPC spends that budget on work instead of on sockets, serialization and daemons to supervise.
 
-<a id="figure-5"></a>
+**Picture.** See Figure 6.
 
-```mermaid
-flowchart TB
-    subgraph yours["your Go binary (one process)"]
-        main["your main()"] --> router["your HTTP router"]
-        csf["csf.New(options...)"] -- "Register(router)" --> router
-        csf --> tools["typed tools"]
-        csf --> know["knowledge, schedules, traces"]
-    end
-    agent["an AI agent"] -- "MCP at /mcp" --> router
-    you["you, or a script"] -- "HTTP / CLI" --> router
-```
+<a id="figure-6"></a>
 
-**Figure 5.** CSF inside your binary. Your `main` owns the process and the router; CSF registers its routes, so agents reach over MCP the same tools you reach over HTTP and the CLI.
+<p align="center"><a href="assets/tour/tour-runtime.svg"><img src="assets/tour/tour-runtime.svg" width="1000" alt="CSF inside your binary"></a></p>
+
+**Figure 6.** CSF inside your binary. Your `main` owns the process and the router; CSF registers its routes, so agents reach over MCP the same tools you reach over HTTP and the CLI.
+
+**Inside the process.** Figure 7 opens the box and colors every part by who owns
+it. The Go runtime (indigo) gives every Go program goroutines, a scheduler that
+spreads them across cores, channels and one garbage-collected heap. CSF (teal)
+builds services on top: a scheduler, agent sessions, live pages through gotth-live,
+stores and MCP tools. You (amber) supply what only you can: job handlers, pages,
+tool handlers, your data, and your `main()` with its listener, TLS, authentication
+and shutdown. You also keep three promises: own and clean up your goroutines,
+cross io only through granted capabilities, and give each mutable value one owner.
+The result is monolithic microservices: each service keeps its own boundary and
+its own page, like a microservice, but a handoff between services is a function
+call or a channel, never a network hop. On a LITHE robot the process scales
+across every core not reserved for the Spine, Brain and Transport.
+
+<a id="figure-7"></a>
+
+<p align="center"><a href="assets/tour/csf-go-runtime.svg"><img src="assets/tour/csf-go-runtime.svg" width="1000" alt="Monolithic microservices: one process, every core"></a></p>
+
+**Figure 7.** Monolithic microservices: who owns what. Teal is CSF, indigo is the
+Go runtime, amber is you, grey is the machine. Top: six services, each a CSF part
+with the piece you supply, and the four things CSF expects from you. Middle: the Go
+runtime's heap, processors with goroutine queues, and a channel handing a value
+from P0 to P2. Bottom: OS threads on cores; on a LITHE robot CPU 1 to 3 are
+reserved, so CSF runs on CPU 0, 4 and 5.
 
 **What it looks like.** From [`examples/csf-consumer/main.go`](../examples/csf-consumer/main.go):
 
@@ -328,22 +349,15 @@ same truth.
 copies disagree. gotth-live keeps the only copy on the server: no npm, no CDN, no
 client framework.
 
-**Picture.** Figure 6 follows one click across two tabs.
+**On a robot.** The web is the easiest way for a person to reach a machine: any phone or laptop works. The robot keeps the only copy of the state and sends small fragments, so it can serve several versions of its UI on scarce on-device compute, with no client state to keep in sync.
 
-<a id="figure-6"></a>
+**Picture.** Figure 8 follows one click across two tabs.
 
-```mermaid
-sequenceDiagram
-    participant A as Tab A
-    participant S as Go process
-    participant B as Tab B
-    A->>S: event "counter.increment" over the WebSocket
-    S->>S: Reducer(state, event) returns the new state
-    S-->>A: re-rendered fragment
-    S-->>B: re-rendered fragment
-```
+<a id="figure-8"></a>
 
-**Figure 6.** One click in gotth-live. The event goes to the Go process, the reducer computes the new state once, and every open tab receives the re-rendered fragment.
+<p align="center"><a href="assets/tour/tour-gotth-live.svg"><img src="assets/tour/tour-gotth-live.svg" width="1000" alt="One click in gotth-live"></a></p>
+
+**Figure 8.** One click in gotth-live. The event goes to the Go process, the reducer computes the new state once, and every open tab receives the re-rendered fragment.
 
 **What it looks like.** From [`examples/gotth/counter`](../examples/gotth/counter).
 The button in [`view.templ`](../examples/gotth/counter/view.templ) names an event,
@@ -394,23 +408,15 @@ must pass the merge gate. CSF itself is developed this way.
 a loop forever, works for an hour without showing you anything, or edits files it
 should not. Writing "please don't" in a prompt does not stop it. A gate does.
 
-**Picture.** See Figure 7.
+**On a robot.** Agents can change the robot's own software under the same gates, and every change arrives as a pull request you can review before it ships.
 
-<a id="figure-7"></a>
+**Picture.** See Figure 9.
 
-```mermaid
-flowchart LR
-    r["agent.json<br/>(the recipe)"] -->|csf submit| h["harness<br/>(one per machine)"]
-    h --> w["git worktree<br/>for this session"]
-    h --> s["agent session"]
-    s -->|every command| g{"session gate"}
-    g -->|allowed| run["runs"]
-    g -->|refused| back["agent reads why,<br/>and what to do instead"]
-    s -->|first commit| pr["draft pull request"]
-    h --> chat["chat page<br/>in your browser"]
-```
+<a id="figure-9"></a>
 
-**Figure 7.** A harness session. A typed recipe becomes a session in its own git worktree; every command passes the session gate, and the first commit opens a draft pull request.
+<p align="center"><a href="assets/tour/tour-harness.svg"><img src="assets/tour/tour-harness.svg" width="1000" alt="A harness session"></a></p>
+
+**Figure 9.** A harness session. A typed recipe becomes a session in its own git worktree; every command passes the session gate, and the first commit opens a draft pull request.
 
 **What it looks like.** A session starts from a typed recipe. This is the sample
 `csf init` writes, from [`app/harness/cmd/recipe/agent.json`](../app/harness/cmd/recipe/agent.json):
@@ -460,7 +466,7 @@ chat page. Typing there sends the session a new turn.
 **Go deeper:** [Quick start](../README.md#5-quick-start) and the
 [kit guide](../tools/kit/README.md).
 
-## 7. Ouroboros: the loop that writes the next gate
+## 7. Ouroboros and RRSI: the system improves itself
 
 **In one sentence:** [Ouroboros](../csf/docs/generated/ontology_cgen.md#term-ouroboros)
 mines the record of what agents did for mistakes no gate catches yet, and turns
@@ -469,21 +475,13 @@ each one into a gate, after proving it on history.
 **Why it exists.** Gates only stop the mistakes someone thought of in advance.
 Every new mistake the operator flags is evidence for the next gate.
 
-**Picture.** The snake eats its tail; Figure 8 shows how.
+**Picture.** The snake eats its tail; Figure 10 shows how.
 
-<a id="figure-8"></a>
+<a id="figure-10"></a>
 
-```mermaid
-flowchart LR
-    C[("record<br/>session logs, tickets, PRs")] -->|extract| F["facts"]
-    F -->|Datalog rule| V["verdicts, with proof"]
-    V --> B{"backtest on history:<br/>fit on the earlier half,<br/>judge on the later half"}
-    B -->|finds every labeled case| G["new gate"]
-    B -->|misses one| F
-    G -.->|gated runs become the next record| C
-```
+<p align="center"><a href="assets/tour/tour-ouroboros.svg"><img src="assets/tour/tour-ouroboros.svg" width="1000" alt="The Ouroboros loop"></a></p>
 
-**Figure 8.** The Ouroboros loop. Facts from the record feed a Datalog rule; the rule becomes a gate only if a backtest on history finds every labeled case, and gated runs become the next record.
+**Figure 10.** The Ouroboros loop. Facts from the record feed a Datalog rule; the rule becomes a gate only if a backtest on history finds every labeled case, and gated runs become the next record.
 
 **What it looks like.** A miner is a Datalog rule over facts extracted from the
 record. This one flags a session that worked longer than a measured threshold
@@ -514,6 +512,51 @@ worked example, the knee math and a step-by-step guide to writing a miner. The
 contract and template ship today; the CSF service around them is milestone 6 of
 the [north star](../README.md#north-star).
 
+### RRSI: evolving the harness itself
+
+**In one sentence:** RRSI, Regularized Recursive Self-Improvement
+([Xia et al., 2026](../README.md#ref-rrsi)), rewrites an agent's *harness* (its
+prompts, tools and loop, not the model) and keeps only the changes that beat
+measured noise on an exam the search never sees.
+
+**Why it exists.** Ouroboros turns one mistake into one gate. RRSI improves the
+agent as a whole. A harness change that fixes one bug can break ten others, so
+RRSI scores every change on many tasks and keeps it only when it clearly wins; the
+newest tasks are held back as a final exam, so a change cannot win by memorizing.
+
+**What it looks like.** Candace Labs' fork, [candacelabs/rrsi](https://github.com/candacelabs/rrsi),
+builds that exam from your own git history. A commit that changes code and its
+tests becomes a question when its tests fail before the real fix and pass after
+it, offline. Measured on our Go monorepo:
+
+| step | result |
+|---|---|
+| recent commits that change code and tests | 86 candidates |
+| valid questions: tests fail before the fix and pass after | 70 of 86 |
+| exam-ready after the fairness checks | 25 of 70 |
+
+| | example: a fair question | counterexample: what each check prevents |
+|---|---|---|
+| tests | fail before the fix, pass after | tests that already passed: an agent that does nothing "passes" |
+| instructions | describe the behaviour and the API | quote the fix: the agent copies it |
+| the final exam | as hard and as broad as practice | harder or narrower: a lower score looks like overfitting when the exam is just harder |
+
+**Try it** (mined tasks contain your source, so `--out` must be outside every git
+work tree; the tool enforces this):
+
+```bash
+cargo build --release --manifest-path tools/rrsi-mine/Cargo.toml
+tools/rrsi-mine/target/release/rrsi-mine mine --repo PATH --out DIR --jobs 8
+```
+
+Run these inside a clone of [candacelabs/rrsi](https://github.com/candacelabs/rrsi).
+**You should see** an `exam.jsonl` of validated questions in `DIR`. The exam
+pipeline runs today; whether RRSI rounds then improve an agent on that exam is not
+measured yet.
+
+**On a robot.** Every mistake the fleet makes becomes evidence: Ouroboros turns it
+into a gate, and RRSI makes the agents that maintain the robot better over time.
+
 ## 8. Deploy and Warden
 
 **In one sentence:** an agent-operated deployment system where an agent proposes
@@ -524,20 +567,15 @@ a change, a service approves and fences it, and a watchdog,
 the same split as LITHE's: the agent proposes, something trusted executes, and
 every change is checked against one source of truth.
 
-**Picture.** See Figure 9.
+**On a robot.** New versions roll out across a fleet of robots one fenced change at a time, and a node that has lost leadership cannot keep writing.
 
-<a id="figure-9"></a>
+**Picture.** See Figure 11.
 
-```mermaid
-flowchart LR
-    a["agent harness"] -->|proposes a change| d["deploy service"]
-    d -->|"approved and fenced"| n["node executor"]
-    n -->|reconciles| c["Compose applications"]
-    w["Warden<br/>leader election, liveness,<br/>incidents"] -->|authoritative view| d
-    ui["operator UI"] -->|watches| d
-```
+<a id="figure-11"></a>
 
-**Figure 9.** Deploying with an agent. The agent only proposes; the deploy service approves each change and fences it against Warden's view, the node executor applies it, and the operator UI watches.
+<p align="center"><a href="assets/tour/tour-deploy.svg"><img src="assets/tour/tour-deploy.svg" width="1000" alt="Deploying with an agent"></a></p>
+
+**Figure 11.** Deploying with an agent. The agent only proposes; the deploy service approves each change and fences it against Warden's view, the node executor applies it, and the operator UI watches.
 
 Warden elects one leader over a fixed set of peers in the style of Raft
 ([Ongaro and Ousterhout, 2014](../README.md#ref-raft)), tracks which nodes are
@@ -579,19 +617,15 @@ on every change. Xet ([Hugging Face](../README.md#ref-xet)) splits files into
 content-defined chunks and stores each chunk once; xetcas is a server for that
 format with a Git LFS front door, so ordinary `git push` works.
 
-**Picture.** See Figure 10.
+**On a robot.** Models and data move as changed chunks, which is what makes it practical for a robot to retrain and update its own weights in the field. That self-training is planned, not built.
 
-<a id="figure-10"></a>
+**Picture.** See Figure 12.
 
-```mermaid
-flowchart LR
-    f1["model v1, 48 MiB"] --> ch1["chunks: A B C D ... (all new)"]
-    f2["model v2, 2% edited"] --> ch2["chunks: A B C' D ... (C' is new)"]
-    ch1 --> store[("xetcas: each chunk stored once")]
-    ch2 -->|"only C' uploaded, about 1 MiB"| store
-```
+<a id="figure-12"></a>
 
-**Figure 10.** Why xetcas uploads so little. Files are split into content-defined chunks and each chunk is stored once, so a 2% edit to a 48 MiB model sends about 1 MiB.
+<p align="center"><a href="assets/tour/tour-xetcas.svg"><img src="assets/tour/tour-xetcas.svg" width="1000" alt="Why xetcas uploads so little"></a></p>
+
+**Figure 12.** Why xetcas uploads so little. Files are split into content-defined chunks and each chunk is stored once, so a 2% edit to a 48 MiB model sends about 1 MiB.
 
 | | example: xetcas | counterexample: plain LFS |
 |---|---|---|
@@ -614,6 +648,8 @@ doubles as the acceptance test.
 
 **In one sentence:** small Go packages under [`pkg/`](../pkg) that import nothing
 from the rest of CSF, so you can use any of them on its own.
+
+**On a robot.** No database server and no client library with its own daemon: the primitives keep CPU 0 down to one process.
 
 ### pgmem: PostgreSQL tests without a server
 

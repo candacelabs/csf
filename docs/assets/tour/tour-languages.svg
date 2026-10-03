@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 450" width="1000" height="450" role="img" aria-labelledby="title description">
+  <title id="title">The two CSF languages</title>
+  <desc id="description">Two EBNF grammars define the vocabulary language and the composition language. architecture.csf and csf/architecture/architecture.csf are written in them. The compiler csfc reads both with the Go source and outputs a check result and generated documentation.</desc>
+  <!-- Hand-drawn tour figure in the style of docs/assets/csf-cpu0-mapping.svg; not generated from architecture.csf. -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .card { fill: #FFFFFF; stroke: #64748B; stroke-width: 1.5; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .gate { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .good { fill: #ECFDF5; stroke: #047857; stroke-width: 2; }
+    .bad { fill: #FEF2F2; stroke: #B91C1C; stroke-width: 2; }
+    .newchunk { fill: #0F766E; }
+    .stored { fill: #E2E8F0; stroke: #94A3B8; stroke-width: 1; }
+    .changed { fill: #D97706; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    .dash { fill: none; stroke: #0F766E; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .badwire { fill: none; stroke: #B91C1C; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .bad-head { fill: #B91C1C; }
+    .life { fill: none; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .tag-a { fill: #0F766E; }
+    .tag-b { fill: #4338CA; }
+    .tag-c { fill: #475569; }
+    .reserved { fill: #F1F5F9; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .band { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+    .tag-n { fill: #334155; }
+    .own-csf { fill: #F0FDFA; stroke: #0F766E; stroke-width: 2.5; }
+    .own-go { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .own-you { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .own-hw { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .strip-you { fill: #FEF3C7; stroke: #B45309; stroke-width: 1; }
+    .go-dot { fill: #4338CA; }
+    .gowire { fill: none; stroke: #4338CA; stroke-width: 2; }
+    .godash { fill: none; stroke: #4338CA; stroke-width: 2; stroke-dasharray: 6 4; }
+    .go-head { fill: #4338CA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .card { fill: #0D1117; stroke: #8B949E; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #1F1A0E; stroke: #F59E0B; }
+      .good { fill: #0B2018; stroke: #34D399; }
+      .bad { fill: #2A1215; stroke: #F87171; }
+      .newchunk { fill: #14B8A6; }
+      .stored { fill: #21262D; stroke: #484F58; }
+      .changed { fill: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+      .dash { stroke: #2DD4BF; }
+      .badwire { stroke: #F87171; }
+      .bad-head { fill: #F87171; }
+      .life { stroke: #484F58; }
+      .tag-a { fill: #115E59; }
+      .tag-b { fill: #3730A3; }
+      .tag-c { fill: #30363D; }
+      .reserved { fill: #161B22; stroke: #484F58; }
+      .band { fill: #0D1117; stroke: #30363D; }
+      .tag-n { fill: #30363D; }
+      .own-csf { fill: #0B1F1E; stroke: #2DD4BF; }
+      .own-go { fill: #1E1B4B; stroke: #818CF8; }
+      .own-you { fill: #1F1A0E; stroke: #F59E0B; }
+      .own-hw { fill: #161B22; stroke: #8B949E; }
+      .strip-you { fill: #3A2A08; stroke: #F59E0B; }
+      .go-dot { fill: #6366F1; }
+      .gowire { stroke: #818CF8; }
+      .godash { stroke: #818CF8; }
+      .go-head { fill: #818CF8; }
+    }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="link-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="450" rx="16"/>
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">Two small languages describe CSF; csfc checks the code against both.</text>
+  <text class="muted" x="24" y="58" font-size="13">Each grammar defines a language, each .csf file is written in one, and the compiler reads them with the Go source.</text>
+  <text class="muted" x="24" y="98" font-size="11.5" font-weight="700">GRAMMARS · EBNF</text>
+  <text class="muted" x="270" y="98" font-size="11.5" font-weight="700">WRITTEN IN THEM</text>
+  <text class="muted" x="600" y="98" font-size="11.5" font-weight="700">COMPILER</text>
+  <text class="muted" x="760" y="98" font-size="11.5" font-weight="700">OUTPUT</text>
+  <rect class="panel" x="24" y="110" width="200" height="70" rx="10"/>
+  <text class="ink" x="124.0" y="141.0" font-size="14" font-weight="700" text-anchor="middle">grammar.ebnf</text>
+  <text class="muted" x="124.0" y="160.0" font-size="12.5" text-anchor="middle">the vocabulary language</text>
+  <rect class="panel" x="24" y="230" width="200" height="70" rx="10"/>
+  <text class="ink" x="124.0" y="261.0" font-size="14" font-weight="700" text-anchor="middle">language.ebnf</text>
+  <text class="muted" x="124.0" y="280.0" font-size="12.5" text-anchor="middle">the composition language</text>
+  <rect class="process" x="270" y="110" width="280" height="70" rx="10"/>
+  <text class="ink" x="410.0" y="141.0" font-size="14" font-weight="700" text-anchor="middle">architecture.csf</text>
+  <text class="muted" x="410.0" y="160.0" font-size="12.5" text-anchor="middle">terms, sections, diagrams, north star</text>
+  <rect class="process" x="270" y="230" width="280" height="70" rx="10"/>
+  <text class="ink" x="410.0" y="261.0" font-size="14" font-weight="700" text-anchor="middle">csf/architecture/architecture.csf</text>
+  <text class="muted" x="410.0" y="280.0" font-size="12.5" text-anchor="middle">processes, services, connections</text>
+  <rect class="lithe" x="270" y="350" width="280" height="70" rx="10"/>
+  <text class="ink" x="410.0" y="381.0" font-size="14" font-weight="700" text-anchor="middle">the Go source</text>
+  <text class="muted" x="410.0" y="400.0" font-size="12.5" text-anchor="middle">what actually runs</text>
+  <rect class="chip" x="600" y="190" width="110" height="110" rx="14"/>
+  <text class="chip-text" x="655" y="243" font-size="22" font-weight="700" text-anchor="middle">csfc</text>
+  <text class="chip-text" x="655" y="265" font-size="12" text-anchor="middle">the compiler</text>
+  <rect class="good" x="760" y="130" width="216" height="70" rx="10"/>
+  <text class="ink" x="868.0" y="161.0" font-size="14" font-weight="700" text-anchor="middle">check</text>
+  <text class="muted" x="868.0" y="180.0" font-size="12.5" text-anchor="middle">pass, or fail with the reason</text>
+  <rect class="process" x="760" y="250" width="216" height="90" rx="10"/>
+  <text class="ink" x="868.0" y="283.0" font-size="14" font-weight="700" text-anchor="middle">generated</text>
+  <text class="muted" x="868.0" y="302.0" font-size="12.5" text-anchor="middle">glossary, dictionary,</text>
+  <text class="muted" x="868.0" y="318.0" font-size="12.5" text-anchor="middle">diagrams, north star</text>
+  <path class="wire" d="M224,145 L268,145" marker-end="url(#wire-end)"/>
+  <text class="muted" x="246" y="138" font-size="11" text-anchor="middle">defines</text>
+  <path class="wire" d="M224,265 L268,265" marker-end="url(#wire-end)"/>
+  <text class="muted" x="246" y="258" font-size="11" text-anchor="middle">defines</text>
+  <path class="link" d="M550,145 L575,145 L575,215 L598,215" marker-end="url(#link-end)"/>
+  <path class="link" d="M550,265 L598,265" marker-end="url(#link-end)"/>
+  <path class="link" d="M550,385 L575,385 L575,285 L598,285" marker-end="url(#link-end)"/>
+  <path class="link" d="M710,225 L735,225 L735,165 L758,165" marker-end="url(#link-end)"/>
+  <path class="link" d="M710,275 L735,275 L735,295 L758,295" marker-end="url(#link-end)"/>
+</svg>

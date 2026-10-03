@@ -685,7 +685,6 @@ func (service *AgentSessionService) own(ctx context.Context, record *sessionReco
 	state := open.State()
 	record.receipt = &pb.AgentAssignmentReceipt{Plan: open.Plan(), SessionId: state.SessionID, WorktreeId: state.Worktree, Branch: state.Branch, TraceId: state.TraceID}
 	record.open = open
-	close(record.opened)
 	service.transition(record, func(current *harnessv1.AgentSessionState) {
 		current.TraceId, current.Branch, current.Worktree = state.TraceID, state.Branch, state.Worktree
 		current.Phase = harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN
@@ -708,6 +707,7 @@ func (service *AgentSessionService) own(ctx context.Context, record *sessionReco
 		service.persistQueue(record)
 		return nil
 	})
+	close(record.opened)
 	phase, err := service.turns(ctx, record, open)
 	closeContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), service.closeBudget)
 	defer cancel()

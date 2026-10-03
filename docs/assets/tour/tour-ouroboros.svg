@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 450" width="1000" height="450" role="img" aria-labelledby="title description">
+  <title id="title">The Ouroboros loop</title>
+  <desc id="description">The record of session logs, tickets and pull requests is turned into facts by extract.ml. A Datalog rule derives verdicts, each with its proof. A backtest fits on the earlier half of the labeled history and judges the later half. If it finds every labeled case the miner becomes a new gate, and gated runs become the next record; if it misses one, the extractor or rule is fixed.</desc>
+  <!-- Hand-drawn tour figure in the style of docs/assets/csf-cpu0-mapping.svg; not generated from architecture.csf. -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .card { fill: #FFFFFF; stroke: #64748B; stroke-width: 1.5; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .gate { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .good { fill: #ECFDF5; stroke: #047857; stroke-width: 2; }
+    .bad { fill: #FEF2F2; stroke: #B91C1C; stroke-width: 2; }
+    .newchunk { fill: #0F766E; }
+    .stored { fill: #E2E8F0; stroke: #94A3B8; stroke-width: 1; }
+    .changed { fill: #D97706; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    .dash { fill: none; stroke: #0F766E; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .badwire { fill: none; stroke: #B91C1C; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .bad-head { fill: #B91C1C; }
+    .life { fill: none; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .tag-a { fill: #0F766E; }
+    .tag-b { fill: #4338CA; }
+    .tag-c { fill: #475569; }
+    .reserved { fill: #F1F5F9; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .band { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+    .tag-n { fill: #334155; }
+    .own-csf { fill: #F0FDFA; stroke: #0F766E; stroke-width: 2.5; }
+    .own-go { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .own-you { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .own-hw { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .strip-you { fill: #FEF3C7; stroke: #B45309; stroke-width: 1; }
+    .go-dot { fill: #4338CA; }
+    .gowire { fill: none; stroke: #4338CA; stroke-width: 2; }
+    .godash { fill: none; stroke: #4338CA; stroke-width: 2; stroke-dasharray: 6 4; }
+    .go-head { fill: #4338CA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .card { fill: #0D1117; stroke: #8B949E; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #1F1A0E; stroke: #F59E0B; }
+      .good { fill: #0B2018; stroke: #34D399; }
+      .bad { fill: #2A1215; stroke: #F87171; }
+      .newchunk { fill: #14B8A6; }
+      .stored { fill: #21262D; stroke: #484F58; }
+      .changed { fill: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+      .dash { stroke: #2DD4BF; }
+      .badwire { stroke: #F87171; }
+      .bad-head { fill: #F87171; }
+      .life { stroke: #484F58; }
+      .tag-a { fill: #115E59; }
+      .tag-b { fill: #3730A3; }
+      .tag-c { fill: #30363D; }
+      .reserved { fill: #161B22; stroke: #484F58; }
+      .band { fill: #0D1117; stroke: #30363D; }
+      .tag-n { fill: #30363D; }
+      .own-csf { fill: #0B1F1E; stroke: #2DD4BF; }
+      .own-go { fill: #1E1B4B; stroke: #818CF8; }
+      .own-you { fill: #1F1A0E; stroke: #F59E0B; }
+      .own-hw { fill: #161B22; stroke: #8B949E; }
+      .strip-you { fill: #3A2A08; stroke: #F59E0B; }
+      .go-dot { fill: #6366F1; }
+      .gowire { stroke: #818CF8; }
+      .godash { stroke: #818CF8; }
+      .go-head { fill: #818CF8; }
+    }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="link-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="450" rx="16"/>
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">Ouroboros: mistakes in the record become gates, once history proves them.</text>
+  <text class="muted" x="24" y="58" font-size="13">A miner earns its gate only by finding every labeled case in data it was not fitted on.</text>
+  <path class="lithe" d="M40,192 L40,278 A90.0,12 0 0 0 220,278 L220,192 A90.0,12 0 0 0 40,192 Z"/>
+  <ellipse class="lithe" cx="130.0" cy="192" rx="90.0" ry="12"/>
+  <text class="ink" x="130.0" y="229.0" font-size="14" font-weight="700" text-anchor="middle">record</text>
+  <text class="muted" x="130.0" y="248.0" font-size="12.5" text-anchor="middle">session logs,</text>
+  <text class="muted" x="130.0" y="264.0" font-size="12.5" text-anchor="middle">tickets, PRs</text>
+  <rect class="card" x="290" y="100" width="180" height="64" rx="10"/>
+  <text class="ink" x="380.0" y="128.0" font-size="14" font-weight="700" text-anchor="middle">facts</text>
+  <text class="muted" x="380.0" y="147.0" font-size="12.5" text-anchor="middle">relation, args, source line</text>
+  <rect class="process" x="530" y="100" width="200" height="64" rx="10"/>
+  <text class="ink" x="630.0" y="128.0" font-size="14" font-weight="700" text-anchor="middle">Datalog rule</text>
+  <text class="muted" x="630.0" y="147.0" font-size="12.5" text-anchor="middle">rules.dl</text>
+  <rect class="card" x="780" y="100" width="196" height="64" rx="10"/>
+  <text class="ink" x="878.0" y="128.0" font-size="14" font-weight="700" text-anchor="middle">verdicts</text>
+  <text class="muted" x="878.0" y="147.0" font-size="12.5" text-anchor="middle">each with its proof</text>
+  <polygon class="gate" points="878,240.0 976.0,300 878,360.0 780.0,300"/>
+  <text class="ink" x="878" y="289.0" font-size="13.5" font-weight="700" text-anchor="middle">backtest</text>
+  <text class="muted" x="878" y="307.0" font-size="11.5" text-anchor="middle">fit on the earlier half,</text>
+  <text class="muted" x="878" y="322.0" font-size="11.5" text-anchor="middle">judge the later half</text>
+  <rect class="good" x="530" y="268" width="200" height="64" rx="10"/>
+  <text class="ink" x="630.0" y="296.0" font-size="14" font-weight="700" text-anchor="middle">new gate</text>
+  <text class="muted" x="630.0" y="315.0" font-size="12.5" text-anchor="middle">an accepted miner</text>
+  <path class="wire" d="M220,215 L250,215 L250,132 L288,132" marker-end="url(#wire-end)"/>
+  <text class="muted" x="256" y="205" font-size="11">extract.ml</text>
+  <path class="link" d="M470,132 L528,132" marker-end="url(#link-end)"/>
+  <path class="link" d="M730,132 L778,132" marker-end="url(#link-end)"/>
+  <path class="link" d="M878,164 L878,238" marker-end="url(#link-end)"/>
+  <path class="link" d="M780,300 L732,300" marker-end="url(#link-end)"/>
+  <text class="muted" x="756" y="352" font-size="11" text-anchor="middle">finds every labeled case</text>
+  <path class="badwire" d="M878,360 L878,420 L450,420 L450,166" marker-end="url(#bad-end)"/>
+  <text class="muted" x="630" y="412" font-size="11.5" text-anchor="middle">misses one: fix the extractor or the rule</text>
+  <path class="dash" d="M530,300 L240,300 L240,262 L222,262" marker-end="url(#link-end)"/>
+  <text class="accent" x="335" y="292" font-size="11.5" font-weight="700" text-anchor="middle">gated runs become the next record</text>
+</svg>

@@ -288,8 +288,8 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(first.GetCheck().GetWorkerCap()).To(BeNumerically("==", cores-2), "8 cores minus a load of 1.5, floored")
 			Expect(second.GetSession().GetAssignmentId()).To(Equal(secondAssignment))
 
-			Expect(<-firstScript.prompts).To(ContainSubstring("Add one line to notes.txt"), "the first turn is the task")
-			Expect(<-secondScript.prompts).To(ContainSubstring("Assignment: " + secondAssignment))
+			Eventually(firstScript.prompts, settleBudget.Within).Should(Receive(ContainSubstring("Add one line to notes.txt")), "the first turn is the task")
+			Eventually(secondScript.prompts, settleBudget.Within).Should(Receive(ContainSubstring("Assignment: " + secondAssignment)))
 			listed, err := service.List(ctx, &harnessv1.ListAgentSessionsRequest{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listed.GetHostPid()).To(BeNumerically("==", hostPID))
@@ -365,7 +365,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).To(ContainSubstring("Add one line"))
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(ContainSubstring("Add one line")))
 
 			queued, err := service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: firstAssignment, Message: "Now address the review."})
 			Expect(err).NotTo(HaveOccurred())
@@ -376,9 +376,9 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(third.GetTurnId()).To(Equal("3"))
 
 			script.release <- struct{}{}
-			Expect(<-script.prompts).To(Equal("Now address the review."))
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Equal("Now address the review.")))
 			script.release <- struct{}{}
-			Expect(<-script.prompts).To(Equal("And then rebase."))
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Equal("And then rebase.")))
 			script.release <- struct{}{}
 			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
 			got, err := service.Get(ctx, &harnessv1.GetAgentSessionRequest{AssignmentId: firstAssignment})
@@ -400,7 +400,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			script.release <- struct{}{}
 			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
 			_, err = service.Cancel(ctx, &harnessv1.CancelAgentSessionRequest{AssignmentId: firstAssignment})
@@ -418,7 +418,7 @@ var _ = Describe("AgentSessionService", func() {
 			executor, script := opened()
 			closed := make(chan struct{})
 			executor.executor.EXPECT().Close(gomock.Any()).DoAndReturn(func(_ context.Context) error { close(closed); return nil })
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			script.release <- struct{}{}
 			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
 			outputBase := filepath.Join(state, firstAssignment, harness.BazelOutputDirectory)
@@ -442,7 +442,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			Expect(phaseOf(firstAssignment)).To(Equal(harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_RUNNING))
 
 			canceled, err := service.Cancel(ctx, &harnessv1.CancelAgentSessionRequest{AssignmentId: firstAssignment})
@@ -463,7 +463,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			// This executor ignores the interrupt: Propose returns only when
 			// its context ends.
 			script.ignoreInterrupts.Store(true)
@@ -506,7 +506,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			check := response.GetCheck()
 			Expect(check.GetReportOnly()).To(BeTrue())
 			Expect(check.GetAdmitted()).To(BeFalse())
@@ -527,7 +527,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			response, err := service.Stop(ctx, &harnessv1.StopHarnessRequest{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(response.GetSessionsRunning()).To(BeNumerically("==", 1))
@@ -543,8 +543,8 @@ var _ = Describe("AgentSessionService", func() {
 			_, err = service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(secondAssignment, "h2/second", repository)})
 			Expect(err).NotTo(HaveOccurred())
 			second, secondScript := opened()
-			Expect(<-firstScript.prompts).NotTo(BeEmpty())
-			Expect(<-secondScript.prompts).NotTo(BeEmpty())
+			Eventually(firstScript.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
+			Eventually(secondScript.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 			secondScript.release <- struct{}{}
 			awaitPhase(secondAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
 			closed := make(chan string, 2)
@@ -649,7 +649,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			executor, script := opened()
 			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
-			Expect(<-script.prompts).NotTo(BeEmpty())
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Not(BeEmpty())))
 
 			tail, err := service.OpenTail(ctx, firstAssignment, 0)
 			Expect(err).NotTo(HaveOccurred())

@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 460" width="1000" height="460" role="img" aria-labelledby="title description">
+  <title id="title">CSF inside your binary</title>
+  <desc id="description">Your Go binary is one process. Your main starts your HTTP router. csf.New with options holds typed tools, knowledge and search, and schedules and traces, and registers its routes on your router. An AI agent reaches the router over MCP at /mcp; you or a script reach it over HTTP and the CLI.</desc>
+  <!-- Hand-drawn tour figure in the style of docs/assets/csf-cpu0-mapping.svg; not generated from architecture.csf. -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .card { fill: #FFFFFF; stroke: #64748B; stroke-width: 1.5; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .gate { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .good { fill: #ECFDF5; stroke: #047857; stroke-width: 2; }
+    .bad { fill: #FEF2F2; stroke: #B91C1C; stroke-width: 2; }
+    .newchunk { fill: #0F766E; }
+    .stored { fill: #E2E8F0; stroke: #94A3B8; stroke-width: 1; }
+    .changed { fill: #D97706; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    .dash { fill: none; stroke: #0F766E; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .badwire { fill: none; stroke: #B91C1C; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .bad-head { fill: #B91C1C; }
+    .life { fill: none; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .tag-a { fill: #0F766E; }
+    .tag-b { fill: #4338CA; }
+    .tag-c { fill: #475569; }
+    .reserved { fill: #F1F5F9; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .band { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+    .tag-n { fill: #334155; }
+    .own-csf { fill: #F0FDFA; stroke: #0F766E; stroke-width: 2.5; }
+    .own-go { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .own-you { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .own-hw { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .strip-you { fill: #FEF3C7; stroke: #B45309; stroke-width: 1; }
+    .go-dot { fill: #4338CA; }
+    .gowire { fill: none; stroke: #4338CA; stroke-width: 2; }
+    .godash { fill: none; stroke: #4338CA; stroke-width: 2; stroke-dasharray: 6 4; }
+    .go-head { fill: #4338CA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .card { fill: #0D1117; stroke: #8B949E; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #1F1A0E; stroke: #F59E0B; }
+      .good { fill: #0B2018; stroke: #34D399; }
+      .bad { fill: #2A1215; stroke: #F87171; }
+      .newchunk { fill: #14B8A6; }
+      .stored { fill: #21262D; stroke: #484F58; }
+      .changed { fill: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+      .dash { stroke: #2DD4BF; }
+      .badwire { stroke: #F87171; }
+      .bad-head { fill: #F87171; }
+      .life { stroke: #484F58; }
+      .tag-a { fill: #115E59; }
+      .tag-b { fill: #3730A3; }
+      .tag-c { fill: #30363D; }
+      .reserved { fill: #161B22; stroke: #484F58; }
+      .band { fill: #0D1117; stroke: #30363D; }
+      .tag-n { fill: #30363D; }
+      .own-csf { fill: #0B1F1E; stroke: #2DD4BF; }
+      .own-go { fill: #1E1B4B; stroke: #818CF8; }
+      .own-you { fill: #1F1A0E; stroke: #F59E0B; }
+      .own-hw { fill: #161B22; stroke: #8B949E; }
+      .strip-you { fill: #3A2A08; stroke: #F59E0B; }
+      .go-dot { fill: #6366F1; }
+      .gowire { stroke: #818CF8; }
+      .godash { stroke: #818CF8; }
+      .go-head { fill: #818CF8; }
+    }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="link-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="460" rx="16"/>
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">CSF is a library you mount; your process stays yours.</text>
+  <text class="muted" x="24" y="58" font-size="13">CSF registers routes on your router. Agents reach the same tools over MCP that you reach over HTTP and the CLI.</text>
+  <rect class="panel" x="300" y="80" width="676" height="350" rx="14"/>
+  <text class="ink" x="320" y="106" font-size="16" font-weight="700">your Go binary · one process</text>
+  <rect class="card" x="330" y="130" width="210" height="64" rx="10"/>
+  <text class="ink" x="435.0" y="158.0" font-size="14" font-weight="700" text-anchor="middle">your main()</text>
+  <text class="muted" x="435.0" y="177.0" font-size="12.5" text-anchor="middle">owns the process</text>
+  <rect class="card" x="330" y="300" width="210" height="80" rx="10"/>
+  <text class="ink" x="435.0" y="336.0" font-size="14" font-weight="700" text-anchor="middle">your HTTP router</text>
+  <text class="muted" x="435.0" y="355.0" font-size="12.5" text-anchor="middle">your port, TLS and shutdown</text>
+  <rect class="process" x="600" y="130" width="350" height="250" rx="12"/>
+  <rect class="chip" x="620" y="145" width="150" height="22" rx="11"/>
+  <text class="chip-text" x="695.0" y="160.5" font-size="12" font-weight="700" text-anchor="middle">csf.New(options…)</text>
+  <rect class="lithe" x="625" y="185" width="300" height="48" rx="10"/>
+  <text class="ink" x="775.0" y="213.0" font-size="14" font-weight="700" text-anchor="middle">typed tools</text>
+  <rect class="lithe" x="625" y="245" width="300" height="48" rx="10"/>
+  <text class="ink" x="775.0" y="273.0" font-size="14" font-weight="700" text-anchor="middle">knowledge and search</text>
+  <rect class="lithe" x="625" y="305" width="300" height="48" rx="10"/>
+  <text class="ink" x="775.0" y="333.0" font-size="14" font-weight="700" text-anchor="middle">schedules and traces</text>
+  <path class="wire" d="M435,194 L435,298" marker-end="url(#wire-end)"/>
+  <text class="muted" x="445" y="250" font-size="11.5">starts</text>
+  <path class="link" d="M600,340 L542,340" marker-end="url(#link-end)"/>
+  <text class="muted" x="571" y="332" font-size="11" text-anchor="middle">Register</text>
+  <rect class="lithe" x="24" y="270" width="220" height="60" rx="10"/>
+  <text class="ink" x="134.0" y="296.0" font-size="14" font-weight="700" text-anchor="middle">an AI agent</text>
+  <text class="muted" x="134.0" y="315.0" font-size="12.5" text-anchor="middle">Claude, Copilot, …</text>
+  <rect class="lithe" x="24" y="350" width="220" height="60" rx="10"/>
+  <text class="ink" x="134.0" y="384.0" font-size="14" font-weight="700" text-anchor="middle">you, or a script</text>
+  <path class="link" d="M244,300 L328,320" marker-end="url(#link-end)"/>
+  <text class="muted" x="286" y="282" font-size="11" text-anchor="middle">MCP at /mcp</text>
+  <path class="wire" d="M244,380 L328,362" marker-end="url(#wire-end)"/>
+  <text class="muted" x="286" y="392" font-size="11" text-anchor="middle">HTTP and CLI</text>
+</svg>
