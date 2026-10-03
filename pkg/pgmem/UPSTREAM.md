@@ -13,7 +13,7 @@ against the documented API and PostgreSQL behavior. Compatibility fixtures
 derived from upstream examples or tests retain their attribution when added.
 
 The AST approach follows the operator's earlier
-[`go-pg-sqlc-crud`](https://github.com/kaashmonee/go-pg-sqlc-crud) project:
+`go-pg-sqlc-crud` project:
 parse PostgreSQL into a structural tree with `pg_query_go` and consume that
 tree explicitly. `pg_query_go` and the embedded PostgreSQL parser retain their
 own BSD-3-Clause and PostgreSQL licenses; see [THIRD_PARTY_NOTICES](./THIRD_PARTY_NOTICES).
