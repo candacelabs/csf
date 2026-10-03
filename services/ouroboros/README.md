@@ -42,16 +42,7 @@ Figure 1 shows one turn of the loop.
 
 <a id="figure-1"></a>
 
-```mermaid
-flowchart LR
-    C[("corpus<br/>events.jsonl · issues · PRs · files at a revision")] -->|extract.ml| F["facts<br/>relation, args, source span"]
-    F -->|rules.dl| V["verdicts<br/>with proof traces"]
-    V --> B{"walk-forward backtest<br/>fit on Λ≤t, accept on Λ>t"}
-    B -->|FN = 0| T["typed finding<br/>in the PR body"]
-    B -->|FN > 0| F
-    T -->|tools/close-ticket.sh| X["ticket closed"]
-    X -.->|the next runs are the next corpus| C
-```
+<p align="center"><a href="../../docs/assets/tour/tour-ouroboros.svg"><img src="../../docs/assets/tour/tour-ouroboros.svg" width="1000" alt="The Ouroboros loop"></a></p>
 
 **Figure 1.** The Ouroboros loop. A miner extracts facts from the corpus, a Datalog rule derives verdicts with proofs, and a walk-forward backtest decides: a miner with no missed offense becomes a typed finding that can close its ticket, and the next runs become the next corpus.
 

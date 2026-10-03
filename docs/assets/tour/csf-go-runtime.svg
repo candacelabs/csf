@@ -1,0 +1,244 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 996" width="1000" height="996" role="img" aria-labelledby="title description">
+  <title id="title">Monolithic microservices: who owns what</title>
+  <desc id="description">Colors mark ownership: teal is CSF, indigo is the Go runtime, amber is you, the consumer, and grey is the machine. Top band, your process: six services built from CSF parts, each split into what CSF does and what you supply: the scheduler (CSF fires jobs, you declare triggers), a task queue (CSF types the jobs, you write handlers), agent sessions (CSF runs them, you write the recipe and brief), gotth-live pages (CSF handles the WebSocket and patches, you write the page and reducer), an in-memory store (CSF provides stores and the mailbox owner, you supply data structures) and MCP tools (CSF serves MCP and checks schemas, you write handlers). Below them, what CSF expects from you: your main with its listener, TLS, authentication and shutdown; owning and cleaning up your goroutines; io only through granted capabilities; one owner per mutable value. Middle band, the Go runtime: one garbage-collected heap, processors P0 to P2 with queues of goroutines, and channels. Bottom band: OS threads the runtime manages, running on cores; on a LITHE robot CPU 1, 2 and 3 are reserved and CSF runs on CPU 0, 4 and 5.</desc>
+  <!-- Hand-drawn tour figure in the style of docs/assets/csf-cpu0-mapping.svg; not generated from architecture.csf. -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .card { fill: #FFFFFF; stroke: #64748B; stroke-width: 1.5; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .gate { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .good { fill: #ECFDF5; stroke: #047857; stroke-width: 2; }
+    .bad { fill: #FEF2F2; stroke: #B91C1C; stroke-width: 2; }
+    .newchunk { fill: #0F766E; }
+    .stored { fill: #E2E8F0; stroke: #94A3B8; stroke-width: 1; }
+    .changed { fill: #D97706; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    .dash { fill: none; stroke: #0F766E; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .badwire { fill: none; stroke: #B91C1C; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .bad-head { fill: #B91C1C; }
+    .life { fill: none; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .tag-a { fill: #0F766E; }
+    .tag-b { fill: #4338CA; }
+    .tag-c { fill: #475569; }
+    .reserved { fill: #F1F5F9; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .band { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+    .tag-n { fill: #334155; }
+    .own-csf { fill: #F0FDFA; stroke: #0F766E; stroke-width: 2.5; }
+    .own-go { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .own-you { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .own-hw { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .strip-you { fill: #FEF3C7; stroke: #B45309; stroke-width: 1; }
+    .go-dot { fill: #4338CA; }
+    .gowire { fill: none; stroke: #4338CA; stroke-width: 2; }
+    .godash { fill: none; stroke: #4338CA; stroke-width: 2; stroke-dasharray: 6 4; }
+    .go-head { fill: #4338CA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .card { fill: #0D1117; stroke: #8B949E; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #1F1A0E; stroke: #F59E0B; }
+      .good { fill: #0B2018; stroke: #34D399; }
+      .bad { fill: #2A1215; stroke: #F87171; }
+      .newchunk { fill: #14B8A6; }
+      .stored { fill: #21262D; stroke: #484F58; }
+      .changed { fill: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+      .dash { stroke: #2DD4BF; }
+      .badwire { stroke: #F87171; }
+      .bad-head { fill: #F87171; }
+      .life { stroke: #484F58; }
+      .tag-a { fill: #115E59; }
+      .tag-b { fill: #3730A3; }
+      .tag-c { fill: #30363D; }
+      .reserved { fill: #161B22; stroke: #484F58; }
+      .band { fill: #0D1117; stroke: #30363D; }
+      .tag-n { fill: #30363D; }
+      .own-csf { fill: #0B1F1E; stroke: #2DD4BF; }
+      .own-go { fill: #1E1B4B; stroke: #818CF8; }
+      .own-you { fill: #1F1A0E; stroke: #F59E0B; }
+      .own-hw { fill: #161B22; stroke: #8B949E; }
+      .strip-you { fill: #3A2A08; stroke: #F59E0B; }
+      .go-dot { fill: #6366F1; }
+      .gowire { stroke: #818CF8; }
+      .godash { stroke: #818CF8; }
+      .go-head { fill: #818CF8; }
+    }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="link-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="996" rx="16"/>
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">Monolithic microservices: who owns what, from your code down to the cores.</text>
+  <text class="muted" x="24" y="58" font-size="13">Color shows ownership. Each service is a CSF part (teal) with the piece you supply (amber), running on the Go runtime (indigo).</text>
+  <rect class="own-csf" x="24" y="80" width="18" height="18" rx="4"/>
+  <text class="ink" x="50" y="94" font-size="13" font-weight="700">CSF owns</text>
+  <rect class="own-go" x="184" y="80" width="18" height="18" rx="4"/>
+  <text class="ink" x="210" y="94" font-size="13" font-weight="700">the Go runtime owns</text>
+  <rect class="own-you" x="404" y="80" width="18" height="18" rx="4"/>
+  <text class="ink" x="430" y="94" font-size="13" font-weight="700">you provide (the consumer)</text>
+  <rect class="own-hw" x="654" y="80" width="18" height="18" rx="4"/>
+  <text class="ink" x="680" y="94" font-size="13" font-weight="700">the machine</text>
+  <rect class="band" x="24" y="112" width="952" height="324" rx="14"/>
+  <rect class="tag-n" x="24" y="112" width="40" height="324" rx="14"/>
+  <text class="chip-text" font-size="12" font-weight="700" text-anchor="middle" transform="translate(49,274.0) rotate(-90)">YOUR PROCESS</text>
+  <text class="ink" x="86" y="136" font-size="15" font-weight="700">Your process: services built from CSF parts, and what each expects from you</text>
+  <rect class="own-csf" x="86" y="150" width="264" height="82" rx="10"/>
+  <text class="ink" x="100" y="172" font-size="14" font-weight="700">scheduler</text>
+  <text class="muted" x="100" y="190" font-size="12">CSF: the cron service fires jobs</text>
+  <rect class="strip-you" x="94" y="200" width="248" height="24" rx="6"/>
+  <text class="ink" x="102" y="216.5" font-size="12">you: declare the triggers</text>
+  <rect class="own-csf" x="392" y="150" width="264" height="82" rx="10"/>
+  <text class="ink" x="406" y="172" font-size="14" font-weight="700">task queue</text>
+  <text class="muted" x="406" y="190" font-size="12">CSF: typed jobs on a channel</text>
+  <rect class="strip-you" x="400" y="200" width="248" height="24" rx="6"/>
+  <text class="ink" x="408" y="216.5" font-size="12">you: the job handlers</text>
+  <rect class="own-csf" x="698" y="150" width="264" height="82" rx="10"/>
+  <text class="ink" x="712" y="172" font-size="14" font-weight="700">agent sessions</text>
+  <text class="muted" x="712" y="190" font-size="12">CSF: the harness runs each one</text>
+  <rect class="strip-you" x="706" y="200" width="248" height="24" rx="6"/>
+  <text class="ink" x="714" y="216.5" font-size="12">you: the recipe and the brief</text>
+  <rect class="own-csf" x="86" y="252" width="264" height="82" rx="10"/>
+  <text class="ink" x="100" y="274" font-size="14" font-weight="700">gotth-live pages</text>
+  <text class="muted" x="100" y="292" font-size="12">CSF: WebSocket, patches, reconnects</text>
+  <rect class="strip-you" x="94" y="302" width="248" height="24" rx="6"/>
+  <text class="ink" x="102" y="318.5" font-size="12">you: the page and its reducer</text>
+  <rect class="own-csf" x="392" y="252" width="264" height="82" rx="10"/>
+  <text class="ink" x="406" y="274" font-size="14" font-weight="700">in-memory store</text>
+  <text class="muted" x="406" y="292" font-size="12">CSF: stores and their mailbox owner</text>
+  <rect class="strip-you" x="400" y="302" width="248" height="24" rx="6"/>
+  <text class="ink" x="408" y="318.5" font-size="12">you: your data structures</text>
+  <rect class="own-csf" x="698" y="252" width="264" height="82" rx="10"/>
+  <text class="ink" x="712" y="274" font-size="14" font-weight="700">MCP tools</text>
+  <text class="muted" x="712" y="292" font-size="12">CSF: serves MCP, checks schemas</text>
+  <rect class="strip-you" x="706" y="302" width="248" height="24" rx="6"/>
+  <text class="ink" x="714" y="318.5" font-size="12">you: each tool's handler</text>
+  <path class="gowire" d="M350,191 L390,191" marker-end="url(#go-end)"/>
+  <text class="muted" x="370" y="183" font-size="11" text-anchor="middle">chan</text>
+  <path class="gowire" d="M656,191 L696,191" marker-end="url(#go-end)"/>
+  <text class="muted" x="676" y="183" font-size="11" text-anchor="middle">chan</text>
+  <path class="wire" d="M392,293 L352,293" marker-end="url(#wire-end)"/>
+  <text class="muted" x="372" y="285" font-size="11" text-anchor="middle">read</text>
+  <path class="wire" d="M698,293 L658,293" marker-end="url(#wire-end)"/>
+  <text class="muted" x="678" y="285" font-size="11" text-anchor="middle">write</text>
+  <path class="gowire" d="M524,232 L524,250" marker-end="url(#go-end)"/>
+  <text class="ink" x="532" y="245" font-size="11" font-weight="700">same heap, no copy</text>
+  <path class="wire" d="M830,232 L830,250" marker-end="url(#wire-end)"/>
+  <text class="muted" x="838" y="245" font-size="11">function call</text>
+  <rect class="own-you" x="86" y="354" width="210" height="66" rx="10"/>
+  <text class="ink" x="191.0" y="383.0" font-size="13.5" font-weight="700" text-anchor="middle">your main()</text>
+  <text class="muted" x="191.0" y="402.0" font-size="12.5" text-anchor="middle">listener, TLS, auth, shutdown</text>
+  <rect class="own-you" x="308" y="354" width="210" height="66" rx="10"/>
+  <text class="ink" x="413.0" y="383.0" font-size="13.5" font-weight="700" text-anchor="middle">your goroutines</text>
+  <text class="muted" x="413.0" y="402.0" font-size="12.5" text-anchor="middle">you own them and clean up</text>
+  <rect class="own-you" x="530" y="354" width="210" height="66" rx="10"/>
+  <text class="ink" x="635.0" y="383.0" font-size="13.5" font-weight="700" text-anchor="middle">your io</text>
+  <text class="muted" x="635.0" y="402.0" font-size="12.5" text-anchor="middle">via granted capabilities</text>
+  <rect class="own-you" x="752" y="354" width="210" height="66" rx="10"/>
+  <text class="ink" x="857.0" y="383.0" font-size="13.5" font-weight="700" text-anchor="middle">your mutable values</text>
+  <text class="muted" x="857.0" y="402.0" font-size="12.5" text-anchor="middle">one owner each (mailbox)</text>
+  <rect class="band" x="24" y="452" width="952" height="206" rx="14"/>
+  <rect class="tag-n" x="24" y="452" width="40" height="206" rx="14"/>
+  <text class="chip-text" font-size="12" font-weight="700" text-anchor="middle" transform="translate(49,555.0) rotate(-90)">GO RUNTIME</text>
+  <text class="ink" x="86" y="476" font-size="15" font-weight="700">The Go runtime: goroutines, scheduling, channels and one heap, in every Go program</text>
+  <rect class="own-go" x="86" y="490" width="876" height="38" rx="10"/>
+  <text class="ink" x="100" y="514" font-size="13.5" font-weight="700">one garbage-collected heap</text>
+  <rect class="card" x="320" y="496" width="148" height="26" rx="8"/>
+  <text class="ink" x="394" y="513.5" font-size="12" text-anchor="middle">queue buffer</text>
+  <rect class="card" x="480" y="496" width="148" height="26" rx="8"/>
+  <text class="ink" x="554" y="513.5" font-size="12" text-anchor="middle">store map</text>
+  <rect class="card" x="640" y="496" width="148" height="26" rx="8"/>
+  <text class="ink" x="714" y="513.5" font-size="12" text-anchor="middle">page state</text>
+  <rect class="card" x="800" y="496" width="148" height="26" rx="8"/>
+  <text class="ink" x="874" y="513.5" font-size="12" text-anchor="middle">session state</text>
+  <rect class="own-go" x="86" y="540" width="264" height="86" rx="10"/>
+  <text class="ink" x="98" y="558" font-size="13" font-weight="700">P0</text>
+  <text class="muted" x="122" y="558" font-size="11.5">scheduler queue of goroutines</text>
+  <circle class="go-dot" cx="116" cy="588" r="13"/>
+  <text class="chip-text" x="116" y="592.5" font-size="12" font-weight="700" text-anchor="middle">S</text>
+  <circle class="go-dot" cx="154" cy="588" r="13"/>
+  <text class="chip-text" x="154" y="592.5" font-size="12" font-weight="700" text-anchor="middle">Q</text>
+  <circle class="go-dot" cx="192" cy="588" r="13"/>
+  <text class="chip-text" x="192" y="592.5" font-size="12" font-weight="700" text-anchor="middle">A</text>
+  <circle class="go-dot" cx="230" cy="588" r="13"/>
+  <text class="chip-text" x="230" y="592.5" font-size="12" font-weight="700" text-anchor="middle">A</text>
+  <rect class="own-go" x="392" y="540" width="264" height="86" rx="10"/>
+  <text class="ink" x="404" y="558" font-size="13" font-weight="700">P1</text>
+  <text class="muted" x="428" y="558" font-size="11.5">scheduler queue of goroutines</text>
+  <circle class="go-dot" cx="422" cy="588" r="13"/>
+  <text class="chip-text" x="422" y="592.5" font-size="12" font-weight="700" text-anchor="middle">U</text>
+  <circle class="go-dot" cx="460" cy="588" r="13"/>
+  <text class="chip-text" x="460" y="592.5" font-size="12" font-weight="700" text-anchor="middle">T</text>
+  <circle class="go-dot" cx="498" cy="588" r="13"/>
+  <text class="chip-text" x="498" y="592.5" font-size="12" font-weight="700" text-anchor="middle">Q</text>
+  <rect class="own-go" x="698" y="540" width="264" height="86" rx="10"/>
+  <text class="ink" x="710" y="558" font-size="13" font-weight="700">P2</text>
+  <text class="muted" x="734" y="558" font-size="11.5">scheduler queue of goroutines</text>
+  <circle class="go-dot" cx="728" cy="588" r="13"/>
+  <text class="chip-text" x="728" y="592.5" font-size="12" font-weight="700" text-anchor="middle">A</text>
+  <circle class="go-dot" cx="766" cy="588" r="13"/>
+  <text class="chip-text" x="766" y="592.5" font-size="12" font-weight="700" text-anchor="middle">U</text>
+  <circle class="go-dot" cx="804" cy="588" r="13"/>
+  <text class="chip-text" x="804" y="592.5" font-size="12" font-weight="700" text-anchor="middle">T</text>
+  <circle class="go-dot" cx="842" cy="588" r="13"/>
+  <text class="chip-text" x="842" y="592.5" font-size="12" font-weight="700" text-anchor="middle">S</text>
+  <path class="godash" d="M106,601 C106,630 728,630 728,603" marker-end="url(#go-end)"/>
+  <rect class="band" x="24" y="674" width="952" height="236" rx="14"/>
+  <rect class="tag-n" x="24" y="674" width="40" height="236" rx="14"/>
+  <text class="chip-text" font-size="12" font-weight="700" text-anchor="middle" transform="translate(49,792.0) rotate(-90)">OS + CORES</text>
+  <rect class="own-go" x="86" y="734" width="264" height="34" rx="8"/>
+  <text class="ink" x="218" y="756" font-size="12.5" text-anchor="middle">M0 · OS thread the runtime manages</text>
+  <rect class="own-go" x="392" y="734" width="264" height="34" rx="8"/>
+  <text class="ink" x="524" y="756" font-size="12.5" text-anchor="middle">M1 · OS thread the runtime manages</text>
+  <rect class="own-go" x="698" y="734" width="264" height="34" rx="8"/>
+  <text class="ink" x="830" y="756" font-size="12.5" text-anchor="middle">M2 · OS thread the runtime manages</text>
+  <path class="gowire" d="M218,626 L218,732" marker-end="url(#go-end)"/>
+  <path class="gowire" d="M524,626 L524,732" marker-end="url(#go-end)"/>
+  <path class="gowire" d="M830,626 L830,732" marker-end="url(#go-end)"/>
+  <rect class="own-hw" x="86" y="828" width="136" height="56" rx="10"/>
+  <text class="ink" x="154.0" y="852.0" font-size="13.5" font-weight="700" text-anchor="middle">CPU 0</text>
+  <text class="muted" x="154.0" y="871.0" font-size="11.5" text-anchor="middle">housekeeping</text>
+  <rect class="reserved" x="234" y="828" width="136" height="56" rx="10"/>
+  <text class="ink" x="302.0" y="852.0" font-size="13.5" font-weight="700" text-anchor="middle">CPU 1</text>
+  <text class="muted" x="302.0" y="871.0" font-size="11.5" text-anchor="middle">Spine · reserved</text>
+  <rect class="reserved" x="382" y="828" width="136" height="56" rx="10"/>
+  <text class="ink" x="450.0" y="852.0" font-size="13.5" font-weight="700" text-anchor="middle">CPU 2</text>
+  <text class="muted" x="450.0" y="871.0" font-size="11.5" text-anchor="middle">Brain · reserved</text>
+  <rect class="reserved" x="530" y="828" width="136" height="56" rx="10"/>
+  <text class="ink" x="598.0" y="852.0" font-size="13.5" font-weight="700" text-anchor="middle">CPU 3</text>
+  <text class="muted" x="598.0" y="871.0" font-size="11.5" text-anchor="middle">Transport · reserved</text>
+  <rect class="own-hw" x="678" y="828" width="136" height="56" rx="10"/>
+  <text class="ink" x="746.0" y="852.0" font-size="13.5" font-weight="700" text-anchor="middle">CPU 4</text>
+  <text class="muted" x="746.0" y="871.0" font-size="11.5" text-anchor="middle">unreserved</text>
+  <rect class="own-hw" x="826" y="828" width="136" height="56" rx="10"/>
+  <text class="ink" x="894.0" y="852.0" font-size="13.5" font-weight="700" text-anchor="middle">CPU 5</text>
+  <text class="muted" x="894.0" y="871.0" font-size="11.5" text-anchor="middle">unreserved</text>
+  <path class="wire" d="M218,768 L218,798 L154,798 L154,826" marker-end="url(#wire-end)"/>
+  <path class="wire" d="M524,768 L524,798 L746,798 L746,826" marker-end="url(#wire-end)"/>
+  <path class="wire" d="M830,768 L830,808 L894,808 L894,826" marker-end="url(#wire-end)"/>
+  <text class="muted" x="24" y="936" font-size="13">Indigo arrows are the runtime's channels and shared heap; the dashed one hands a value from a goroutine on P0 to one on P2.</text>
+  <text class="muted" x="24" y="956" font-size="13">Services keep microservice boundaries, yet a handoff between them is a call or a channel, never a network hop.</text>
+  <text class="muted" x="24" y="976" font-size="13">On a LITHE robot CPU 1 to 3 are reserved for real time, so CSF's process scales across every other core: here CPU 0, 4 and 5.</text>
+</svg>

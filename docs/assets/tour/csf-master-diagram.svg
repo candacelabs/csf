@@ -1,0 +1,170 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 975" width="1000" height="975" role="img" aria-labelledby="title description">
+  <title id="title">How CSF fits together on a robot's CPU 0</title>
+  <desc id="description">Eight parts arranged clockwise around CPU 0, one Go process built on the pkg primitives. 1 declare: the languages and csfc say what the software is and check the code still matches. 2 run: the runtime library puts every CPU 0 capability in one Go process, with no IPC and typed tools over MCP. 3 show: gotth-live makes the robot's UI a web page anyone can use, with no client state, so many versions can be served on scarce compute. 4 change: the agent harness lets AI agents change the code in worktrees under gates. 5 ship: deploy and Warden roll versions out to the fleet, fenced against one view. 6 learn, planned: xetcas stores weights and data once so the robot can retrain itself. 7 improve: Ouroboros turns mistakes in the record into gates proven on history. 8 evolve: RRSI rewrites the agent harness and keeps only changes that beat noise on a held-out exam.</desc>
+  <!-- Hand-drawn tour figure in the style of docs/assets/csf-cpu0-mapping.svg; not generated from architecture.csf. -->
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .card { fill: #FFFFFF; stroke: #64748B; stroke-width: 1.5; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .gate { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .good { fill: #ECFDF5; stroke: #047857; stroke-width: 2; }
+    .bad { fill: #FEF2F2; stroke: #B91C1C; stroke-width: 2; }
+    .newchunk { fill: #0F766E; }
+    .stored { fill: #E2E8F0; stroke: #94A3B8; stroke-width: 1; }
+    .changed { fill: #D97706; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    .dash { fill: none; stroke: #0F766E; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .badwire { fill: none; stroke: #B91C1C; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .bad-head { fill: #B91C1C; }
+    .life { fill: none; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .tag-a { fill: #0F766E; }
+    .tag-b { fill: #4338CA; }
+    .tag-c { fill: #475569; }
+    .reserved { fill: #F1F5F9; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .band { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+    .tag-n { fill: #334155; }
+    .own-csf { fill: #F0FDFA; stroke: #0F766E; stroke-width: 2.5; }
+    .own-go { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .own-you { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .own-hw { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .strip-you { fill: #FEF3C7; stroke: #B45309; stroke-width: 1; }
+    .go-dot { fill: #4338CA; }
+    .gowire { fill: none; stroke: #4338CA; stroke-width: 2; }
+    .godash { fill: none; stroke: #4338CA; stroke-width: 2; stroke-dasharray: 6 4; }
+    .go-head { fill: #4338CA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .card { fill: #0D1117; stroke: #8B949E; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #1F1A0E; stroke: #F59E0B; }
+      .good { fill: #0B2018; stroke: #34D399; }
+      .bad { fill: #2A1215; stroke: #F87171; }
+      .newchunk { fill: #14B8A6; }
+      .stored { fill: #21262D; stroke: #484F58; }
+      .changed { fill: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+      .dash { stroke: #2DD4BF; }
+      .badwire { stroke: #F87171; }
+      .bad-head { fill: #F87171; }
+      .life { stroke: #484F58; }
+      .tag-a { fill: #115E59; }
+      .tag-b { fill: #3730A3; }
+      .tag-c { fill: #30363D; }
+      .reserved { fill: #161B22; stroke: #484F58; }
+      .band { fill: #0D1117; stroke: #30363D; }
+      .tag-n { fill: #30363D; }
+      .own-csf { fill: #0B1F1E; stroke: #2DD4BF; }
+      .own-go { fill: #1E1B4B; stroke: #818CF8; }
+      .own-you { fill: #1F1A0E; stroke: #F59E0B; }
+      .own-hw { fill: #161B22; stroke: #8B949E; }
+      .strip-you { fill: #3A2A08; stroke: #F59E0B; }
+      .go-dot { fill: #6366F1; }
+      .gowire { stroke: #818CF8; }
+      .godash { stroke: #818CF8; }
+      .go-head { fill: #818CF8; }
+    }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="link-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="975" rx="16"/>
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">Everything in CSF is shaped for one job: middleware for a robot's CPU 0.</text>
+  <text class="muted" x="24" y="58" font-size="13">Read clockwise from the top: declare, run, show, change, ship, learn, improve, evolve. All of it lives in one Go process.</text>
+  <circle class="life" cx="500" cy="510" r="345"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(632.0,191.3) rotate(22.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(818.7,378.0) rotate(67.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(818.7,642.0) rotate(112.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(632.0,828.7) rotate(157.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(368.0,828.7) rotate(202.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(181.3,642.0) rotate(247.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(181.3,378.0) rotate(292.5)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(368.0,191.3) rotate(337.5)"/>
+  <rect class="process" x="395" y="104" width="210" height="122" rx="12"/>
+  <rect class="chip" x="407" y="116" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="453.0" y="131.5" font-size="11.5" font-weight="700" text-anchor="middle">1 · declare</text>
+  <text class="ink" x="409" y="160" font-size="15" font-weight="700">Languages and csfc</text>
+  <text class="muted" x="409" y="180" font-size="12.5">say what the software is;</text>
+  <text class="muted" x="409" y="196" font-size="12.5">csfc checks the code</text>
+  <text class="muted" x="409" y="212" font-size="12.5">still matches it</text>
+  <rect class="process" x="639" y="205" width="210" height="122" rx="12"/>
+  <rect class="chip" x="651" y="217" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="697.0" y="232.5" font-size="11.5" font-weight="700" text-anchor="middle">2 · run</text>
+  <text class="ink" x="653" y="261" font-size="15" font-weight="700">Runtime library</text>
+  <text class="muted" x="653" y="281" font-size="12.5">every CPU 0 capability</text>
+  <text class="muted" x="653" y="297" font-size="12.5">in one Go process: no IPC,</text>
+  <text class="muted" x="653" y="313" font-size="12.5">typed tools over MCP</text>
+  <rect class="process" x="740" y="449" width="210" height="122" rx="12"/>
+  <rect class="chip" x="752" y="461" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="798.0" y="476.5" font-size="11.5" font-weight="700" text-anchor="middle">3 · show</text>
+  <text class="ink" x="754" y="505" font-size="15" font-weight="700">gotth-live</text>
+  <text class="muted" x="754" y="525" font-size="12.5">a web page anyone can use;</text>
+  <text class="muted" x="754" y="541" font-size="12.5">no client state, so many</text>
+  <text class="muted" x="754" y="557" font-size="12.5">versions on scarce compute</text>
+  <rect class="process" x="639" y="693" width="210" height="122" rx="12"/>
+  <rect class="chip" x="651" y="705" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="697.0" y="720.5" font-size="11.5" font-weight="700" text-anchor="middle">4 · change</text>
+  <text class="ink" x="653" y="749" font-size="15" font-weight="700">Agent harness</text>
+  <text class="muted" x="653" y="769" font-size="12.5">AI agents change the code</text>
+  <text class="muted" x="653" y="785" font-size="12.5">in worktrees, every step</text>
+  <text class="muted" x="653" y="801" font-size="12.5">under a gate</text>
+  <rect class="process" x="395" y="794" width="210" height="122" rx="12"/>
+  <rect class="chip" x="407" y="806" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="453.0" y="821.5" font-size="11.5" font-weight="700" text-anchor="middle">5 · ship</text>
+  <text class="ink" x="409" y="850" font-size="15" font-weight="700">Deploy and Warden</text>
+  <text class="muted" x="409" y="870" font-size="12.5">versions out to the fleet,</text>
+  <text class="muted" x="409" y="886" font-size="12.5">each change fenced</text>
+  <text class="muted" x="409" y="902" font-size="12.5">against one view</text>
+  <rect class="gate" x="151" y="693" width="210" height="122" rx="12"/>
+  <rect class="chip" x="163" y="705" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="209.0" y="720.5" font-size="11.5" font-weight="700" text-anchor="middle">6 · learn</text>
+  <text class="ink" x="165" y="749" font-size="15" font-weight="700">xetcas</text>
+  <text class="muted" x="165" y="769" font-size="12.5">weights and data stored</text>
+  <text class="muted" x="165" y="785" font-size="12.5">once, so the robot can</text>
+  <text class="muted" x="165" y="801" font-size="12.5">retrain itself (planned)</text>
+  <rect class="process" x="50" y="449" width="210" height="122" rx="12"/>
+  <rect class="chip" x="62" y="461" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="108.0" y="476.5" font-size="11.5" font-weight="700" text-anchor="middle">7 · improve</text>
+  <text class="ink" x="64" y="505" font-size="15" font-weight="700">Ouroboros</text>
+  <text class="muted" x="64" y="525" font-size="12.5">mistakes in the record</text>
+  <text class="muted" x="64" y="541" font-size="12.5">become the next gates,</text>
+  <text class="muted" x="64" y="557" font-size="12.5">proven on history</text>
+  <rect class="process" x="151" y="205" width="210" height="122" rx="12"/>
+  <rect class="chip" x="163" y="217" width="92" height="22" rx="11"/>
+  <text class="chip-text" x="209.0" y="232.5" font-size="11.5" font-weight="700" text-anchor="middle">8 · evolve</text>
+  <text class="ink" x="165" y="261" font-size="15" font-weight="700">RRSI</text>
+  <text class="muted" x="165" y="281" font-size="12.5">rewrites the harness, keeps</text>
+  <text class="muted" x="165" y="297" font-size="12.5">only changes that beat</text>
+  <text class="muted" x="165" y="313" font-size="12.5">noise on a held-out exam</text>
+  <circle class="chip" cx="500" cy="510" r="128"/>
+  <text class="chip-text" x="500" y="466" font-size="28" font-weight="700" text-anchor="middle">CPU 0</text>
+  <text class="chip-text" x="500" y="492" font-size="12.5" text-anchor="middle">and every core not reserved</text>
+  <text class="chip-text" x="500" y="512" font-size="12.5" font-weight="700" text-anchor="middle">one Go process</text>
+  <text class="chip-text" x="500" y="544" font-size="11.5" text-anchor="middle">built on pkg/:</text>
+  <text class="chip-text" x="500" y="562" font-size="11.5" text-anchor="middle">pgmem · liquidproto</text>
+  <text class="chip-text" x="500" y="580" font-size="11.5" text-anchor="middle">mailbox · telemetry</text>
+  <text class="muted" x="24" y="941" font-size="12.5">Amber marks planned work. Each step feeds the next: what the robot runs, shows and ships becomes the record</text>
+  <text class="muted" x="24" y="959" font-size="12.5">that Ouroboros mines for gates and RRSI uses to evolve the harness.</text>
+</svg>
