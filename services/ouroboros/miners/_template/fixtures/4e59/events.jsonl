@@ -1,0 +1,4 @@
+{"time":"2026-10-02T18:04:45.97034759Z","event_type":"harness_run_started","assignment_id":"6c1f2a10-3b7e-4d6a-9e51-0a1b2c3d4e59"}
+{"time":"2026-10-02T18:04:52.961897183Z","event_type":"session_gate_decision","gate":"wait","decision":"allow"}
+{"time":"2026-10-02T18:12:33.54973256Z","event_type":"session_gate_decision","gate":"commit","decision":"opened"}
+{"time":"2026-10-02T18:53:51.454692964Z","event_type":"session_gate_decision"}

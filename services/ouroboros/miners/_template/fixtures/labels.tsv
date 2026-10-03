@@ -1,0 +1,8 @@
+# instance	label	start	flagged	source
+# 4e60 is the run source monorepo issue #376 names ("must fire"), flagged at 19:16Z.
+# 4e31 and 4e59 are labeled by the operator's flag in #376: no draft pull
+# request 13 minutes after start is an offense; 4e31 opened one after 51
+# minutes, 4e59 after 8.
+6c1f2a10-3b7e-4d6a-9e51-0a1b2c3d4e31	+	2026-10-02T03:44:20Z	-	#376 13-minute flag
+6c1f2a10-3b7e-4d6a-9e51-0a1b2c3d4e59	-	2026-10-02T18:04:45Z	-	#376 13-minute flag
+6c1f2a10-3b7e-4d6a-9e51-0a1b2c3d4e60	+	2026-10-02T19:03:08Z	2026-10-02T19:16:00Z	#376 named run
