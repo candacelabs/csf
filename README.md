@@ -3,12 +3,13 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.1"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.2"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
   </p>
   <p>
+    <a href="docs/TOUR.md"><b>Take the tour</b></a> ·
     <a href="#what-is-csf"><b>What is CSF</b></a> ·
     <a href="#north-star"><b>North star</b></a> ·
     <a href="#2-why-csf-no-ipc-inside-cpu-0"><b>Why CSF</b></a> ·
@@ -36,6 +37,8 @@ communication, in which the architecture is a checked artifact and the engineers
 <p align="center">
   <img src="docs/assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
 </p>
+
+**New here? [Take the tour of CSF](docs/TOUR.md):** nine stops from the idea to the running pieces, each with one command to run and what you should see.
 
 It has four parts, and together they form one loop:
 
@@ -523,7 +526,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.1`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.2`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -560,7 +563,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.1/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.2/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -572,7 +575,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.1
+go get github.com/candacelabs/csf@v0.2.2
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -691,7 +694,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.1},
+  version = {0.2.2},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
