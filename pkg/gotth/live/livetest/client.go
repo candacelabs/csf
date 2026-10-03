@@ -17,7 +17,11 @@ import (
 
 	"github.com/candacelabs/csf/pkg/gotth/internal/protocol"
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
+	"github.com/candacelabs/csf/runtime"
 )
+
+// readerOwner names the scope a Client's read goroutine runs in.
+const readerOwner = "livetest client reader"
 
 // ClientOptions configures a dial.
 //
@@ -84,7 +88,10 @@ type Client struct {
 
 	incoming chan *Frame
 	readErr  chan error
-	done     chan struct{}
+
+	// reader is the scope the read goroutine runs in; release joins it.
+	reader *runtime.Scope
+	done   chan struct{}
 
 	closeOnce sync.Once
 	closeErr  error
@@ -169,7 +176,17 @@ func NewClient(tb testing.TB, h http.Handler, opts ClientOptions) *Client {
 		readErr:  make(chan error, 1),
 		done:     make(chan struct{}),
 	}
-	go c.pump()
+	c.reader = runtime.NewScope(ctx, readerOwner)
+	if err := c.reader.Go(func(_ context.Context) error {
+		c.pump()
+		return nil
+	}); err != nil {
+		cancel()
+		_ = conn.CloseNow()
+		server.Close()
+		tb.Fatalf("livetest.NewClient: could not start the read goroutine: %v", err)
+		return nil
+	}
 
 	// The teardown a spec that never calls Close still gets. It is the same
 	// release, reached without the close handshake — and it is guarded by the
@@ -557,5 +574,6 @@ func (c *Client) release() {
 	_ = c.conn.CloseNow()
 	c.cancel()
 	<-c.done
+	_ = c.reader.Wait()
 	c.server.Close()
 }

@@ -16,7 +16,7 @@ flowchart LR
   n_plan["Prepared assignment (existing)"]:::csf_existing
   n_requests["Generated Workbench requests (existing)"]:::csf_existing
   n_session["Session and worktree records (existing)"]:::csf_existing
-  n_copilot["Consumer Copilot backend (existing)"]:::csf_existing
+  n_copilot["Copilot brain provider (existing)"]:::csf_existing
   n_receipt["Assignment receipt (existing)"]:::csf_existing
   n_recipe --> n_prepare
   n_prepare --> n_plan
@@ -99,9 +99,13 @@ requests, err := csf.NewAgentWorkbenchRequests(plan)
 // and requests.Prompt to SubmitPrompt, with its returned session ID.
 ```
 
-The standalone example uses `SubmitAgentAssignmentHTTP` because its Workbench
-already runs elsewhere. A host embedding both capabilities can call the
-adapter directly. Registering the `csf.Service` exposes `PrepareAgentAssignment`
+The standalone example hands the plan to a brain: `csf.SubmitAgentAssignment`
+asks an `IAgentAssignmentBrain` (the `ipc/model` contract) to propose one agent
+turn. Production wires `copilot.NewCopilotBrain` over the adapter's generated
+client because its Workbench already runs elsewhere; specs wire
+`stub.NewCannedBrain` and need no model. A proposal is never permission to
+execute: the turn's tool calls still wait on the session's permission policy.
+A host embedding both capabilities can call the adapter directly. Registering the `csf.Service` exposes `PrepareAgentAssignment`
 through the existing HTTP and MCP handlers; no additional listener is required.
 
 ## Ownership in this slice

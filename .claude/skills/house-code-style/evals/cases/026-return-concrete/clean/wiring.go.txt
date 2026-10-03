@@ -1,0 +1,191 @@
+package fixture
+
+import (
+	"context"
+	"time"
+)
+
+// IProbe is the liveness check the supervisor runs.
+type IProbe interface {
+	Check(ctx context.Context, target string) error
+}
+
+// HTTPProbe checks a target over HTTP.
+type HTTPProbe struct {
+	timeoutMillis int
+}
+
+// Check performs the HTTP liveness request.
+// The probe modes a configuration can select, and the subjects a probe
+// reports. CS-13: the value a switch dispatches on is declared once, named.
+const (
+	probeModeHTTP    = "http"
+	probeModeScript  = "script"
+	subjectAnonymous = "anonymous"
+	kindPing         = "ping"
+	kindResync       = "resync"
+)
+
+func (probe *HTTPProbe) Check(ctx context.Context, target string) error { return nil }
+
+// NewHTTPProbe returns the concrete probe it builds. A caller that wants the
+// abstraction declares it; a caller that wants the type keeps it.
+func NewHTTPProbe(timeoutMillis int) *HTTPProbe {
+	return &HTTPProbe{timeoutMillis: timeoutMillis}
+}
+
+// ScriptProbe runs an external script against a target.
+type ScriptProbe struct {
+	path string
+}
+
+// Check runs the script.
+func (probe *ScriptProbe) Check(ctx context.Context, target string) error { return nil }
+
+// NewScriptProbe returns the concrete probe it builds.
+func NewScriptProbe(path string) *ScriptProbe { return &ScriptProbe{path: path} }
+
+// Supervise declares the interface at the seam that accepts one and assigns
+// concrete constructors into it. The "none" arm assigns nothing, so the
+// variable holds an untyped nil rather than a nil pointer wrapped in an
+// interface — which is the one value `probe == nil` can read correctly.
+func Supervise(ctx context.Context, mode string, timeoutMillis int, path string, target string) error {
+	var probe IProbe
+	switch mode {
+	case probeModeHTTP:
+		probe = NewHTTPProbe(timeoutMillis)
+	case probeModeScript:
+		probe = NewScriptProbe(path)
+	default: // "none": no probe, and nothing is assigned.
+	}
+	if probe == nil {
+		return nil
+	}
+	return probe.Check(ctx, target)
+}
+
+// --- what CS-8 permits, in the fixture rather than only in the prose --------
+//
+// CS-5, CS-6 and CS-7 each had an exemption their gate could not see, so each
+// of their clean fixtures had to omit the very shape the rule allows. CS-8's
+// exemptions are structural and the lexer sees all three, so both of them can
+// stand here — which is what makes them checkable rather than promised.
+
+// IIdentity is the authenticated subject a session is bound to.
+type IIdentity interface {
+	Subject() string
+}
+
+// Authenticator derives an identity from a credential. It is the seam: the
+// interface is declared here, in a type the consumer holds.
+type Authenticator func(token string) (IIdentity, error)
+
+type anonymous struct{}
+
+// Subject names the anonymous subject.
+func (anonymous) Subject() string { return subjectAnonymous }
+
+// AllowAnyone is an Authenticator implementation, not a factory. Its result
+// type is the hook's, and narrowing it would stop it fitting the field, so
+// CS-8 does not report it.
+func AllowAnyone(token string) (IIdentity, error) { return anonymous{}, nil }
+
+// IEvent is a closed sum type over the frames a client may send. The
+// unexported method is what closes it: no package but this one can add a
+// variant, so this is Go's spelling of a tagged union rather than an
+// abstraction over swappable implementations.
+type IEvent interface {
+	isEvent()
+	Kind() string
+}
+
+// Ping is the liveness variant.
+type Ping struct{}
+
+func (Ping) isEvent()      {}
+func (Ping) Kind() string  { return kindPing }
+
+// Resync is the full-resend variant.
+type Resync struct{}
+
+func (Resync) isEvent()     {}
+func (Resync) Kind() string { return kindResync }
+
+// ParseEvent returns whichever variant the input names. The caller cannot be
+// handed one concrete type because which type it is, is a property of the
+// bytes — so CS-8 does not report a sealed sum type.
+func ParseEvent(raw string) (IEvent, error) {
+	if raw == kindPing {
+		return Ping{}, nil
+	}
+	return Resync{}, nil
+}
+
+// Render hands back the view type gotth's own IWidget.Render is declared to
+// return. That interface belongs to the library, not to this package, and no
+// concrete type was ever available to return instead — a pass-through of
+// somebody else's contract is not an erasure choice, and CS-8 does not reach
+// it. The gate agrees by construction: it reports a result type only when the
+// corpus declares an interface of that name, and `Component` is templ's.
+func Render(target string) templ.Component {
+	return nil
+}
+
+// --- the data-shaped test, added 2026-09-02 --------------------------------
+//
+// CS-8's method exemption says a method's result type is fixed by the
+// interface it satisfies, so a method is never reported. It now carries a
+// precondition, and the precondition is what this half of the fixture is: ask
+// first whether the returned abstraction is an abstraction. A channel plus
+// function values is data, and data gets a struct.
+//
+// Neither declaration below is reportable — the gate does not read method
+// position at all — so what they are here for is the other job a clean fixture
+// does: being the shape an agent copies.
+
+// Timer is what a clock hands back. A channel to receive on, and the two
+// operations that cancel or re-arm it: there is nothing behind these fields to
+// swap, no state of its own, and nothing that could dispatch. Written as an
+// interface it would need a defence; written as a struct it needs none, and
+// the method exemption never arises because no interface is left to exempt.
+type Timer struct {
+	// C receives the time the timer fired.
+	C <-chan time.Time
+	// Stop cancels a pending fire and reports whether it prevented one.
+	Stop func() bool
+	// Reset re-arms with duration d and reports whether it was still armed.
+	Reset func(d time.Duration) bool
+}
+
+// IClock is the abstraction that survives the test, because Now and NewTimer
+// genuinely differ in behaviour between a real clock and a simulated one.
+type IClock interface {
+	Now() time.Time
+	NewTimer(d time.Duration) Timer
+}
+
+// RealClock is the production clock.
+type RealClock struct{}
+
+// Now reads the wall clock.
+func (RealClock) Now() time.Time { return time.Now() }
+
+// NewTimer fills the struct from the standard library's own method values, so
+// the semantics are time.Timer's rather than a re-implementation of them. A
+// simulated clock fills the same struct from its own machinery.
+func (RealClock) NewTimer(d time.Duration) Timer {
+	timer := time.NewTimer(d)
+	return Timer{C: timer.C, Stop: timer.Stop, Reset: timer.Reset}
+}
+
+// Directory is a session registry, and the counterweight: not every
+// method-position interface return is a disguised struct.
+type Directory struct{}
+
+// Principal returns the identity bound at the handshake. It keeps its
+// interface, and the reason is not the method exemption: IIdentity is the
+// *application's* type, produced by an Authenticator the application wrote and
+// asserted back to a concrete type the application owns. There is no concrete
+// type in this package to narrow to, so this is open polymorphism in the
+// strict sense rather than a data shape wearing an interface.
+func (Directory) Principal(session string) IIdentity { return anonymous{} }

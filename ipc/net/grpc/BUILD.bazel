@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "grpc",
+    srcs = ["connector.go"],
+    importpath = "github.com/candacelabs/csf/ipc/net/grpc",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/net",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+    ],
+)
+
+go_test(
+    name = "grpc_test",
+    srcs = [
+        "connector_test.go",
+        "grpc_suite_test.go",
+        "mock_network_test.go",
+    ],
+    deps = [
+        ":grpc",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//health",
+        "@org_golang_google_grpc//health/grpc_health_v1",
+        "@org_golang_google_grpc//test/bufconn",
+        "@org_uber_go_mock//gomock",
+    ],
+)

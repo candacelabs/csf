@@ -17,9 +17,11 @@
 | terminals | Verify automatic scope cleanup&#44; child cancellation and joining&#44; and cleanup error reporting&#46; A test reference is evidence to inspect&#44; not proof that tests pass or execution guarantees hold&#46; | Reference only&#59; not executed&#58; services&#47;copilot&#45;adapter&#47;terminaladapter&#47;manager&#95;test&#46;go |
 | repository&#95;probe | Verify the declared borrowed ownership and lifetime contract&#59; verification remains pending&#46; | Pending&#59; no evidence reference supplied |
 | worktrees | Verify the declared borrowed ownership and lifetime contract&#59; verification remains pending&#46; | Pending&#59; no evidence reference supplied |
+| agent&#95;relay | Verify automatic scope cleanup&#44; child cancellation and joining&#44; and cleanup error reporting&#46; A test reference is evidence to inspect&#44; not proof that tests pass or execution guarantees hold&#46; | Reference only&#59; not executed&#58; services&#47;relay&#47;relay&#95;test&#46;go |
+| relay&#95;inboxes | Verify start on first use&#44; idle retirement that cancels and joins the run&#44; restart on the next use&#44; and that no work in hand is lost to retirement&#46; A test reference is evidence to inspect&#44; not proof&#46; | Reference only&#59; not executed&#58; services&#47;relay&#47;relay&#95;test&#46;go |
+| proc | Verify the declared borrowed ownership and lifetime contract&#59; verification remains pending&#46; | Reference only&#59; not executed&#58; ipc&#47;proc&#47;launcher&#95;test&#46;go |
 | terminal&#95;shell | Verify the declared borrowed ownership and lifetime contract&#59; verification remains pending&#46; | Pending&#59; no evidence reference supplied |
 | git | Verify the declared borrowed ownership and lifetime contract&#59; verification remains pending&#46; | Pending&#59; no evidence reference supplied |
-| csf | Consolidate existing subprocess ownership into one audited gateway&#59; current gateways&#58; repository&#95;probe&#44; terminals&#44; worktrees&#46; | Pending&#59; no evidence reference supplied |
 
 | Component | Verification declaration |
 | --- | --- |
@@ -30,10 +32,13 @@
 | terminals | Test reference only&#59; not executed&#58; services&#47;copilot&#45;adapter&#47;terminaladapter&#47;manager&#95;test&#46;go |
 | repository&#95;probe | Pending |
 | worktrees | Pending |
+| agent&#95;relay | Test reference only&#59; not executed&#58; services&#47;relay&#47;relay&#95;test&#46;go |
+| relay&#95;inboxes | Test reference only&#59; not executed&#58; services&#47;relay&#47;relay&#95;test&#46;go |
+| proc | Test reference only&#59; not executed&#58; ipc&#47;proc&#47;launcher&#95;test&#46;go |
 | terminal&#95;shell | Pending |
 | git | Pending |
 
 | Lifecycle | Declarative order | Meaning |
 | --- | --- | --- |
-| Start | csf&#95;services &#45;&#62; kanban&#95;widgets &#45;&#62; terminals &#45;&#62; repository&#95;probe &#45;&#62; worktrees &#45;&#62; workbench &#45;&#62; composition &#45;&#62; terminal&#95;shell &#45;&#62; git | Declared ordering only&#59; not execution |
-| Stop | git &#45;&#62; terminal&#95;shell &#45;&#62; composition &#45;&#62; workbench &#45;&#62; worktrees &#45;&#62; repository&#95;probe &#45;&#62; terminals &#45;&#62; kanban&#95;widgets &#45;&#62; csf&#95;services | Declared ordering only&#59; not cleanup or shutdown evidence |
+| Start | csf&#95;services &#45;&#62; kanban&#95;widgets &#45;&#62; agent&#95;relay &#45;&#62; relay&#95;inboxes &#45;&#62; proc &#45;&#62; terminals &#45;&#62; repository&#95;probe &#45;&#62; worktrees &#45;&#62; workbench &#45;&#62; composition &#45;&#62; terminal&#95;shell &#45;&#62; git | Declared ordering only&#59; not execution |
+| Stop | git &#45;&#62; terminal&#95;shell &#45;&#62; composition &#45;&#62; workbench &#45;&#62; worktrees &#45;&#62; repository&#95;probe &#45;&#62; terminals &#45;&#62; proc &#45;&#62; relay&#95;inboxes &#45;&#62; agent&#95;relay &#45;&#62; kanban&#95;widgets &#45;&#62; csf&#95;services | Declared ordering only&#59; not cleanup or shutdown evidence |

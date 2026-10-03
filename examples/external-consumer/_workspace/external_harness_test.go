@@ -8,8 +8,8 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	candaceosv1 "github.com/candacelabs/csf/proto/candace/candaceos/v1"
-	"github.com/candacelabs/csf/services/candaceos/harness"
+	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
+	"github.com/candacelabs/csf/services/harness"
 
 	"example.com/candace-external-consumer/customharness"
 	"example.com/candace-external-consumer/steering"
@@ -17,7 +17,7 @@ import (
 
 func TestExternalConsumer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "External CandaceOS Consumer Suite")
+	RunSpecs(t, "External Deploy Consumer Suite")
 }
 
 var _ harness.IHost = (*MockIHost)(nil)
@@ -28,7 +28,7 @@ var _ = Describe("an external harness", func() {
 		host := NewMockIHost(controller)
 		gomock.InOrder(
 			host.EXPECT().Publish(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, event *candaceosv1.HarnessEvent) error {
+				func(ctx context.Context, event *deployv1.HarnessEvent) error {
 					Expect(ctx).NotTo(BeNil())
 					Expect(event.GetRunId()).To(Equal("external-run-1"))
 					Expect(event.GetAssistantMessage()).NotTo(BeNil())
@@ -37,7 +37,7 @@ var _ = Describe("an external harness", func() {
 				},
 			),
 			host.EXPECT().Publish(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, event *candaceosv1.HarnessEvent) error {
+				func(ctx context.Context, event *deployv1.HarnessEvent) error {
 					Expect(ctx).NotTo(BeNil())
 					Expect(event.GetRunId()).To(Equal("external-run-1"))
 					Expect(event.GetIdle()).NotTo(BeNil())
@@ -46,12 +46,12 @@ var _ = Describe("an external harness", func() {
 			),
 		)
 
-		instance, err := customharness.NewFactory(steering.Instance()).New(&candaceosv1.HarnessContext{
+		instance, err := customharness.NewFactory(steering.Instance()).New(&deployv1.HarnessContext{
 			Workspace: "/external/workspace",
 		}, host)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(instance.Identity).To(Equal(&candaceosv1.HarnessRuntimeIdentity{
-			Backend:        candaceosv1.HarnessBackend_HARNESS_BACKEND_EMBEDDED,
+		Expect(instance.Identity).To(Equal(&deployv1.HarnessRuntimeIdentity{
+			Backend:        deployv1.HarnessBackend_HARNESS_BACKEND_EMBEDDED,
 			Implementation: "external-echo",
 			Model:          "echo-v1",
 		}))
@@ -60,10 +60,10 @@ var _ = Describe("an external harness", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(session.GetId()).To(Equal("external-echo-session"))
 		Expect(instance.Runtime.Activate(context.Background())).To(Succeed())
-		Expect(instance.Runtime.Send(context.Background(), &candaceosv1.HarnessPrompt{
+		Expect(instance.Runtime.Send(context.Background(), &deployv1.HarnessPrompt{
 			RunId:    "external-run-1",
 			Content:  "hello from another repository",
-			Delivery: candaceosv1.HarnessDelivery_HARNESS_DELIVERY_IMMEDIATE,
+			Delivery: deployv1.HarnessDelivery_HARNESS_DELIVERY_IMMEDIATE,
 		})).To(Succeed())
 		Expect(instance.Runtime.Close()).To(Succeed())
 	})

@@ -1,0 +1,60 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "jobs",
+    srcs = [
+        "batch.go",
+        "database.go",
+        "doc.go",
+        "docker.go",
+        "errors.go",
+        "executor.go",
+        "job.go",
+        "ledger.go",
+        "observation.go",
+        "projection.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/jobs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/db/csfpg",
+        "@com_github_aws_aws_sdk_go_v2//aws",
+        "@com_github_aws_aws_sdk_go_v2_service_batch//:batch",
+        "@com_github_aws_aws_sdk_go_v2_service_batch//types",
+        "@com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs//:cloudwatchlogs",
+        "@com_github_containerd_errdefs//:errdefs",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_moby_moby_api//pkg/stdcopy",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_client//:client",
+    ],
+)
+
+go_test(
+    name = "jobs_test",
+    srcs = [
+        "executors_test.go",
+        "jobs_suite_test.go",
+        "ledger_test.go",
+        "observation_test.go",
+    ],
+    embed = [":jobs"],
+    deps = [
+        "//ipc/db/csfpg",
+        "//services/jobs/jobsmock",
+        "@com_github_aws_aws_sdk_go_v2//aws",
+        "@com_github_aws_aws_sdk_go_v2_service_batch//:batch",
+        "@com_github_aws_aws_sdk_go_v2_service_batch//types",
+        "@com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs//:cloudwatchlogs",
+        "@com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs//types",
+        "@com_github_containerd_errdefs//:errdefs",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgtype",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_api//types/mount",
+        "@com_github_moby_moby_client//:client",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

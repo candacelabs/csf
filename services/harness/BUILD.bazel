@@ -1,0 +1,60 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "harness",
+    srcs = [
+        "check.go",
+        "events.go",
+        "harness.go",
+        "instructions.go",
+        "runner.go",
+        "sessions.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//ipc/model/claudecode",
+        "//pkg/httpserver",
+        "//pkg/mailbox",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//proto/candace/deploy/v1:deploy",
+        "//proto/candace/harness/v1:harness",
+        "//runtime",
+        "//services/harness/session",
+        "@com_github_gin_gonic_gin//:gin",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "harness_test",
+    srcs = [
+        "harness_test.go",
+        "helpers_sessions_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+        "runner_test.go",
+        "sessions_test.go",
+    ],
+    deps = [
+        ":harness",
+        "//csf",
+        "//ipc/model",
+        "//ipc/model/claudecode",
+        "//ipc/proc",
+        "//pkg/eventually",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//proto/candace/deploy/v1:deploy",
+        "//proto/candace/harness/v1:harness",
+        "//runtime",
+        "//services/harness/mocks",
+        "//services/harness/session",
+        "//services/harness/session/mocks",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

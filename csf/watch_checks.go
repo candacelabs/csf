@@ -27,12 +27,12 @@ const (
 
 // ImportantSourcePaths is a fresh explicit allowlist, never a recursive scan.
 func ImportantSourcePaths() []string {
-	return []string{compilerWatchPath, runtimeWatchPath, contractWatchPath, openAPIWatchPath, generatorWatchPath}
+	return []string{spineWatchPath, serviceWatchPath, contractWatchPath, openAPIWatchPath, generatorWatchPath}
 }
 
 const (
-	compilerWatchPath  = "csf/compiler.go"
-	runtimeWatchPath   = "csf/runtime.go"
+	spineWatchPath     = "ipc/ros/spine.go"
+	serviceWatchPath   = "csf/service.go"
 	contractWatchPath  = "proto/candace/brainspine/v1/brainspine.proto"
 	openAPIWatchPath   = "csf/tools/codegen/generated/brainspine.openapi.yaml"
 	generatorWatchPath = "pkg/liquidproto/cmd/protoc-gen-liquidproto/internal/gen/gen.go"

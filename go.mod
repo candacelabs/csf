@@ -3,6 +3,7 @@ module github.com/candacelabs/csf
 go 1.26.0
 
 require (
+	github.com/fsnotify/fsnotify v1.9.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/github/copilot-sdk/go v1.0.11
 	github.com/google/uuid v1.6.0
@@ -14,17 +15,22 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/zerolog v1.33.0
 	github.com/soheilhy/cmux v0.1.5
+	github.com/sourcegraph/conc v0.3.0
 	github.com/sst/opencode-sdk-go v0.19.2
+	github.com/yuin/goldmark v1.8.6
 	go.opentelemetry.io/otel/sdk v1.45.0
 	go.opentelemetry.io/otel/trace v1.45.0
+	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.6.0
 	google.golang.org/grpc v1.83.0
 	google.golang.org/protobuf v1.36.11
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.56.0
+	mvdan.cc/sh/v3 v3.14.1
 )
 
 require (
+	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.20 // indirect
 	github.com/aws/aws-sdk-go-v2/credentials v1.20.5 // indirect
@@ -64,6 +70,8 @@ require (
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
 	go.mongodb.org/mongo-driver/v2 v2.5.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.61.0 // indirect
+	go.uber.org/atomic v1.7.0 // indirect
+	go.uber.org/multierr v1.9.0 // indirect
 	golang.org/x/time v0.15.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260803160001-6ac0973c030d // indirect
 )

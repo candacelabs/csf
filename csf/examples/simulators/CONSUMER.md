@@ -30,7 +30,7 @@ The current host profiles select CARLA or Isaac. Forks fitting those entrypoint 
 | Recover a trace | `RebuildSimulationTrace` | `logIndex`, the shared OpenSearch client, Langfuse export configuration, and an archived terminal local run. Spans are derived from OpenSearch source bytes; PostgreSQL still owns admission/state. |
 | Search source evidence | `IngestDocument`, `GetDocument`, `Search` | Source material and, for semantic search, a configured embedding model; the response identifies lexical/semantic mode. |
 | Inspect symbolic relationships | `PutNode`, `PutEdge`, `GetGraph` | Domain meanings and useful relationships. |
-| Inspect the current controller contract | `Compile`, `GetSnapshot` | A recipe accepted by the existing small driving-controller grammar. General compiler verification is separate work. |
+| Inspect the spine connection | `GetSnapshot` | Its issues report `no spine connected` until the host grants a ROS-side spine through `ipc/ros`. CSF compiles no controller. |
 | Browse aggregated logs | Optional native OpenSearch MCP (`SearchIndexTool`) | Endpoint/authentication and allowed indexes. Indexing is automatic Go-worker work, not an agent tool. |
 | Inspect agent/simulator traces | Optional Langfuse MCP; browser trace links | Endpoint/project credentials and explicit sharing policy. No Langfuse token is needed by the simulator image. |
 | Inspect training runs | Consumer's MLflow API/MCP when training is added | Experiment, metrics, model/dataset provenance and artifact storage. A complete training loop is not delivered by these workers. |

@@ -9,17 +9,18 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/copilot-adapter/workbench",
     visibility = ["//visibility:public"],
     deps = [
+        "//ipc/db/csfpg",
+        "//ipc/proc",
         "//pkg/boundedbuffer",
         "//pkg/boundedbuffer/v1:boundedbuffer",
-        "//pkg/cron/postgres",
-        "//pkg/sqlmigrate",
-        "//pkg/workcontinuity",
         "//services/copilot-adapter",
         "//services/copilot-adapter/gen/api",
         "//services/copilot-adapter/kanban",
         "//services/copilot-adapter/store",
         "//services/copilot-adapter/terminaladapter",
         "//services/copilot-adapter/worktreeadapter",
+        "//services/cron",
+        "//services/workcontinuity",
         "@com_github_gin_gonic_gin//:gin",
     ],
 )
@@ -27,11 +28,13 @@ go_library(
 go_test(
     name = "workbench_test",
     srcs = [
+        "launcher_support_test.go",
         "suite_test.go",
         "ui_test.go",
     ],
     embed = [":workbench"],
     deps = [
+        "//ipc/proc",
         "//pkg/httpserver",
         "@com_github_gin_gonic_gin//:gin",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

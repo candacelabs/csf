@@ -16,22 +16,36 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
+
+var _ = Describe("trace exporter construction", func() {
+	It("refuses to build without a network capability or a trace client", func() {
+		config := &copilotv1.TraceExportConfig{}
+		document, err := os.ReadFile("config/traces.defaults.json")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(protojson.Unmarshal(document, config)).To(Succeed())
+		config.EndpointUrl, config.PublicKey, config.SecretKey = "http://collector.invalid/api/public/otel/v1/traces", "public-fixture", "secret-fixture"
+		_, err = copilotadapter.NewTraceExporter(NewMockIStore(gomock.NewController(GinkgoT())), config)
+		Expect(err).To(MatchError(ContainSubstring("requires a network capability or a trace client")))
+	})
+})
 
 var _ = Describe("durable trace delivery", func() {
 	var (
 		queries   *MockIStore
 		transport *MockClient
 		exporter  *copilotadapter.TraceExporter
+		config    *copilotv1.TraceExportConfig
 		claim     storedb.ClaimTraceDeliveryRow
 		usage     storedb.ProviderUsageEvent
 	)
 	BeforeEach(func() {
 		controller := gomock.NewController(GinkgoT())
 		queries, transport = NewMockIStore(controller), NewMockClient(controller)
-		config := &copilotv1.TraceExportConfig{}
+		config = &copilotv1.TraceExportConfig{}
 		document, err := os.ReadFile("config/traces.defaults.json")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(protojson.Unmarshal(document, config)).To(Succeed())
@@ -88,6 +102,22 @@ var _ = Describe("durable trace delivery", func() {
 		worked, err := exporter.DeliverNext(context.Background())
 		Expect(worked).To(BeTrue())
 		Expect(err).To(MatchError(rejection))
+	})
+
+	It("dials the collector only through the granted network capability", func(ctx SpecContext) {
+		network := adaptertest.NewMockIDialer(gomock.NewController(GinkgoT()))
+		refused := errors.New("collector unreachable")
+		network.EXPECT().DialContext(gomock.Any(), "tcp", "collector.invalid:80").Return(nil, refused).MinTimes(1)
+		queries.EXPECT().FailTraceDelivery(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, failure storedb.FailTraceDeliveryParams) (storedb.TraceDelivery, error) {
+			Expect(failure.DeliveryID).To(Equal(claim.DeliveryID))
+			Expect(failure.LastError).To(ContainSubstring(refused.Error()))
+			return storedb.TraceDelivery{}, nil
+		})
+		networked, err := copilotadapter.NewTraceExporter(queries, config, copilotadapter.WithTraceNetwork(network))
+		Expect(err).NotTo(HaveOccurred())
+		worked, err := networked.DeliverNext(ctx)
+		Expect(worked).To(BeTrue())
+		Expect(err).To(MatchError(ContainSubstring(refused.Error())))
 	})
 
 	It("leaves the lease recoverable when shutdown interrupts an upload", func() {

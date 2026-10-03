@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,13 +9,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/candacelabs/csf/pkg/workcontinuity"
 	workv1 "github.com/candacelabs/csf/proto/candace/work/v1"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
+	"github.com/candacelabs/csf/services/workcontinuity"
 )
 
 // workspaceTasks caches immutable, verified authority observations. The mutex
@@ -102,7 +102,7 @@ func (adapter *CopilotAdapter) LinkWorkspaceTask(ctx context.Context, sessionID 
 		}
 		return err
 	})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.WorkspaceTaskLink{}, fail(http.StatusConflict, errorCodeInvalidRequest, "session missing or task association changed; refresh before retrying")
 	}
 	if err != nil {
@@ -144,7 +144,7 @@ func (adapter *CopilotAdapter) MoveWorkspaceTask(ctx context.Context, link api.W
 	unlock := adapter.mutations.lock(link.SessionId)
 	defer unlock()
 	retained, err := adapter.store.GetSessionTask(ctx, link.SessionId)
-	if errors.Is(err, sql.ErrNoRows) || (err == nil && (retained.TaskUrl != link.TaskUrl || retained.Generation != link.Generation)) {
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && (retained.TaskUrl != link.TaskUrl || retained.Generation != link.Generation)) {
 		adapter.InvalidateWorkspace()
 		return nil, fmt.Errorf("%w: task association changed; refresh before moving it", workcontinuity.ErrStale)
 	}

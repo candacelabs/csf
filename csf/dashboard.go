@@ -20,9 +20,11 @@ import (
 //go:embed dashboard.html
 var dashboardHTML []byte
 
+// SchemaVersion is the research event schema the dashboard accepts.
+const SchemaVersion = 1
+
 const (
 	SnapshotPath  = "/api/snapshot"
-	CompilePath   = "/api/compile"
 	maxEventBytes = 16 * 1024 * 1024
 	maxMetrics    = 128
 	maxViewEvents = 20000

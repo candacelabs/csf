@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "stub",
+    srcs = ["stub.go"],
+    importpath = "github.com/candacelabs/csf/ipc/model/stub",
+    visibility = ["//visibility:public"],
+    deps = ["//ipc/model"],
+)
+
+go_test(
+    name = "stub_test",
+    srcs = [
+        "stub_suite_test.go",
+        "stub_test.go",
+    ],
+    deps = [
+        ":stub",
+        "//ipc/model",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

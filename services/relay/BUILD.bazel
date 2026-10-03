@@ -1,0 +1,51 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "relay",
+    srcs = [
+        "doc.go",
+        "envelope.go",
+        "inbox.go",
+        "messenger.go",
+        "metrics.go",
+        "registry.go",
+        "relay.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/relay",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc",
+        "//ipc/model",
+        "//pkg/mailbox",
+        "//runtime",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_prometheus_client_golang//prometheus",
+    ],
+)
+
+go_test(
+    name = "relay_test",
+    srcs = [
+        "mock_network_test.go",
+        "mock_registry_test.go",
+        "registry_test.go",
+        "relay_suite_test.go",
+        "relay_test.go",
+    ],
+    deps = [
+        ":relay",
+        "//ipc",
+        "//ipc/model/claudecode",
+        "//ipc/model/copilot",
+        "//ipc/net",
+        "//pkg/eventually",
+        "//runtime",
+        "//services/relay/relaytest",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

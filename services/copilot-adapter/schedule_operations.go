@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,16 +12,21 @@ import (
 	"github.com/candacelabs/csf/pkg/cron"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/candacelabs/csf/ipc/clock"
+	"github.com/candacelabs/csf/runtime"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
+	cronservice "github.com/candacelabs/csf/services/cron"
 )
 
 const (
 	errorCodeInvalidSchedule  = "invalid_schedule"
 	errorCodeScheduleNotFound = "schedule_not_found"
-	scheduleJobPrefix         = "chat/"
+	scheduleTriggerPrefix     = "chat/"
 	scheduledAuthor           = "Scheduled task"
+	scheduleScopeOwner        = "copilot-adapter schedules"
 )
 
 var errScheduleRuntimeNotRunning = errors.New("copilot-adapter schedules: runtime is not running")
@@ -45,9 +49,11 @@ type scheduleReloadResult struct {
 	err      error
 }
 
-// RunSchedules owns the reloadable Candace cron runtime. The mounting binary
-// runs it beside HTTP; each active product row becomes an actual cron job, so
-// cron owns recurrence, catch-up, overlap, leases and occurrence completion.
+// RunSchedules owns the reloadable cron scheduler. The mounting binary runs
+// it beside HTTP; each active product row becomes a cron trigger, so the cron
+// service owns recurrence, catch-up, overlap, leases and occurrence
+// completion. Every reload starts a new scheduler on a scope of its own and
+// joins the previous one.
 func (adapter *CopilotAdapter) RunSchedules(ctx context.Context) error {
 	runDone, err := adapter.beginScheduleRun()
 	if err != nil {
@@ -78,21 +84,26 @@ func (adapter *CopilotAdapter) RunSchedules(ctx context.Context) error {
 				continue
 			}
 		}
-		runtime, err := cron.New(options...)
+		scheduler, err := cronservice.NewScheduler(options...)
 		if err != nil {
-			return fmt.Errorf("copilot-adapter schedules: construct runtime: %w", err)
+			return fmt.Errorf("copilot-adapter schedules: construct scheduler: %w", err)
 		}
-		runContext, cancel := context.WithCancel(ctx)
-		finished := make(chan error, 1)
-		go func() { finished <- runtime.Run(runContext) }()
+		scope := runtime.NewScope(ctx, scheduleScopeOwner)
+		if err := scheduler.Start(scope); err != nil {
+			_ = scope.Close()
+			if ctx.Err() != nil {
+				// A stop that arrived between the reconcile and the start
+				// is a stop, not a failure to start.
+				return nil
+			}
+			return fmt.Errorf("copilot-adapter schedules: start scheduler: %w", err)
+		}
 		select {
 		case <-ctx.Done():
-			cancel()
-			<-finished
+			_ = scope.Close()
 			return nil
 		case request := <-adapter.scheduleReload:
-			cancel()
-			if err := <-finished; err != nil {
+			if err := scope.Close(); err != nil {
 				if request.response != nil {
 					acknowledgeScheduleReloads([]chan scheduleReloadResult{request.response}, cron.StoreSnapshot{}, err)
 				}
@@ -101,8 +112,11 @@ func (adapter *CopilotAdapter) RunSchedules(ctx context.Context) error {
 			if request.response != nil {
 				acknowledgements = append(acknowledgements, request.response)
 			}
-		case err := <-finished:
-			cancel()
+		case <-scope.Done():
+			err := scope.Wait()
+			if ctx.Err() != nil {
+				return nil
+			}
 			return err
 		}
 	}
@@ -112,7 +126,7 @@ func (adapter *CopilotAdapter) beginScheduleRun() (chan struct{}, error) {
 	adapter.scheduleRunMutex.Lock()
 	defer adapter.scheduleRunMutex.Unlock()
 	if adapter.scheduleRunActive {
-		return nil, fmt.Errorf("copilot-adapter schedules: %w", cron.ErrAlreadyRunning)
+		return nil, fmt.Errorf("copilot-adapter schedules: %w", cronservice.ErrAlreadyStarted)
 	}
 	done := make(chan struct{})
 	adapter.scheduleRunActive = true
@@ -138,8 +152,8 @@ func (adapter *CopilotAdapter) scheduleRunState() (bool, <-chan struct{}) {
 }
 
 func (adapter *CopilotAdapter) reconcileSchedules(ctx context.Context) (
-	[]cron.Option,
-	[]cron.JobDefinition,
+	[]cronservice.Option,
+	[]cron.TriggerDefinition,
 	cron.StoreSnapshot,
 	error,
 ) {
@@ -147,8 +161,8 @@ func (adapter *CopilotAdapter) reconcileSchedules(ctx context.Context) (
 	if err != nil {
 		return nil, nil, cron.StoreSnapshot{}, fmt.Errorf("copilot-adapter schedules: list: %w", err)
 	}
-	options := []cron.Option{cron.WithStore(adapter.scheduleStore)}
-	definitions := make([]cron.JobDefinition, 0, len(rows))
+	options := []cronservice.Option{cronservice.WithStore(adapter.scheduleStore), cronservice.WithClock(clock.NewSystemClock())}
+	definitions := make([]cron.TriggerDefinition, 0, len(rows))
 	for _, row := range rows {
 		if row.Status != string(api.ChatScheduleStatusActive) {
 			continue
@@ -161,16 +175,16 @@ func (adapter *CopilotAdapter) reconcileSchedules(ctx context.Context) (
 		if err != nil {
 			return nil, nil, cron.StoreSnapshot{}, fmt.Errorf("copilot-adapter schedules: define %s: %w", row.ID, err)
 		}
-		definitions = append(definitions, cron.JobDefinition{
-			Name: scheduleJobName(row.ID), Schedule: definition,
+		definitions = append(definitions, cron.TriggerDefinition{
+			Name: scheduleTriggerName(row.ID), Schedule: definition,
 			CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
 		})
 		captured := row
-		options = append(options, cron.WithJob(
-			scheduleJobName(row.ID), schedule,
-			adapter.chatScheduleJob(captured),
-			cron.WithCatchUp(cron.CatchUpLatest),
-			cron.WithOverlap(cron.OverlapSkip),
+		options = append(options, cronservice.WithTrigger(
+			scheduleTriggerName(row.ID), schedule,
+			adapter.chatScheduleOperation(captured),
+			cronservice.WithCatchUp(cron.CatchUpLatest),
+			cronservice.WithOverlap(cron.OverlapSkip),
 		))
 	}
 	if _, err := adapter.scheduleStore.Reconcile(ctx, definitions, time.Now().UTC()); err != nil {
@@ -189,15 +203,15 @@ func acknowledgeScheduleReloads(responses []chan scheduleReloadResult, snapshot 
 	}
 }
 
-func (adapter *CopilotAdapter) chatScheduleJob(captured storedb.ChatSchedule) cron.JobFunc {
-	return func(ctx context.Context, invocation cron.Invocation) error {
+func (adapter *CopilotAdapter) chatScheduleOperation(captured storedb.ChatSchedule) cronservice.Operation {
+	return func(ctx context.Context, occurrence cronservice.Occurrence) error {
 		unlock := adapter.mutations.lock(captured.SessionID)
 		defer unlock()
 		if err := ctx.Err(); err != nil {
 			return err
 		}
 		current, err := adapter.store.GetChatSchedule(ctx, captured.ID)
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
 		if err != nil {
@@ -212,7 +226,7 @@ func (adapter *CopilotAdapter) chatScheduleJob(captured storedb.ChatSchedule) cr
 		}
 		_, _, err = adapter.submitPromptLocked(ctx, current.SessionID, promptSubmission{
 			Text: current.Prompt, Mode: api.Queue, Author: scheduledAuthor,
-			ScheduleOccurrenceID: invocation.ID,
+			ScheduleOccurrenceID: occurrence.ID,
 		})
 		return err
 	}
@@ -387,7 +401,7 @@ func (adapter *CopilotAdapter) persistChatScheduleCreation(
 			Prompt: submission.Prompt, CronExpression: submission.CronExpression,
 			Timezone: submission.Timezone, CreatedAt: now,
 		})
-		if errors.Is(claimErr, sql.ErrNoRows) {
+		if errors.Is(claimErr, pgx.ErrNoRows) {
 			var replayed bool
 			row, replayed, claimErr = loadChatScheduleCreation(ctx, queries, submission)
 			if claimErr == nil && !replayed {
@@ -432,7 +446,7 @@ func loadChatScheduleCreation(
 	submission chatScheduleSubmission,
 ) (storedb.ChatSchedule, bool, error) {
 	receipt, err := queries.GetChatScheduleCreation(ctx, submission.IdempotencyKey)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return storedb.ChatSchedule{}, false, nil
 	}
 	if err != nil {
@@ -563,7 +577,7 @@ func (adapter *CopilotAdapter) persistChatScheduleUpdate(
 
 func (adapter *CopilotAdapter) deleteChatSchedule(ctx context.Context, scheduleID uuid.UUID) error {
 	row, err := adapter.store.GetChatSchedule(ctx, scheduleID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fail(http.StatusNotFound, errorCodeScheduleNotFound, "no schedule with that id")
 	}
 	if err != nil {
@@ -592,7 +606,7 @@ func (adapter *CopilotAdapter) persistChatScheduleDeletion(
 	unlock := adapter.mutations.lock(sessionID)
 	defer unlock()
 	row, err := adapter.store.GetChatSchedule(ctx, scheduleID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fail(http.StatusNotFound, errorCodeScheduleNotFound, "no schedule with that id")
 	}
 	if err != nil {
@@ -608,7 +622,7 @@ func (adapter *CopilotAdapter) persistChatScheduleDeletion(
 	_, err = adapter.store.DeleteChatSchedule(ctx, storedb.DeleteChatScheduleParams{
 		ID: scheduleID, DeletedAt: null.TimeFrom(time.Now().UTC()),
 	})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fail(http.StatusNotFound, errorCodeScheduleNotFound, "no schedule with that id")
 	}
 	if err != nil {
@@ -632,8 +646,8 @@ func parseChatSchedule(expression string, timezone string) (cron.Schedule, error
 	return schedule, nil
 }
 
-func scheduleJobName(identifier uuid.UUID) string {
-	return scheduleJobPrefix + identifier.String()
+func scheduleTriggerName(identifier uuid.UUID) string {
+	return scheduleTriggerPrefix + identifier.String()
 }
 
 func chatScheduleView(row storedb.ChatSchedule, snapshot cron.StoreSnapshot) api.ChatSchedule {
@@ -644,10 +658,10 @@ func chatScheduleView(row storedb.ChatSchedule, snapshot cron.StoreSnapshot) api
 		CronExpression: row.CronExpression, Timezone: row.Timezone,
 		Status: api.ChatScheduleStatus(row.Status), CreatedAt: &created, UpdatedAt: &updated,
 	}
-	jobName := scheduleJobName(row.ID)
-	for _, job := range snapshot.Jobs {
-		if job.Definition.Name == jobName && row.Status == string(api.ChatScheduleStatusActive) {
-			next := job.NextRunAt.UTC()
+	triggerName := scheduleTriggerName(row.ID)
+	for _, trigger := range snapshot.Triggers {
+		if trigger.Definition.Name == triggerName && row.Status == string(api.ChatScheduleStatusActive) {
+			next := trigger.NextRunAt.UTC()
 			view.NextRunAt = &next
 			break
 		}
@@ -655,7 +669,7 @@ func chatScheduleView(row storedb.ChatSchedule, snapshot cron.StoreSnapshot) api
 	var latest *cron.OccurrenceRecord
 	for index := range snapshot.Occurrences {
 		occurrence := &snapshot.Occurrences[index]
-		if occurrence.JobName == jobName && (latest == nil || occurrence.ScheduledAt.After(latest.ScheduledAt)) {
+		if occurrence.TriggerName == triggerName && (latest == nil || occurrence.ScheduledAt.After(latest.ScheduledAt)) {
 			latest = occurrence
 		}
 	}

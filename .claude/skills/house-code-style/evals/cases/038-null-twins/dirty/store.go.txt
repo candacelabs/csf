@@ -1,0 +1,40 @@
+package store
+
+import (
+	"database/sql"
+	"time"
+)
+
+// SessionRow is the row this store reads and writes.
+type SessionRow struct {
+	ID        string
+	EndedAt   sql.NullTime
+	LastError sql.NullString
+}
+
+// optionalTime turns a nullable timestamp into the pointer the API layer holds.
+func optionalTime(value sql.NullTime) *time.Time {
+	if !value.Valid {
+		return nil
+	}
+	return &value.Time
+}
+
+// nullableString turns an empty string into the NULL the database wants.
+func nullableString(value string) sql.NullString {
+	return sql.NullString{String: value, Valid: value != ""}
+}
+
+// endedRow carries a nullable timestamp through to the row without converting
+// it, which is not what CS-14 is about: the value stays in the library's own
+// type on both sides, so there is no second spelling to keep in sync.
+func endedRow(endedAt sql.NullTime) *SessionRow {
+	return &SessionRow{EndedAt: endedAt}
+}
+
+// EndSession records the end of a session and what it failed with.
+func EndSession(row *SessionRow, endedAt time.Time, failure string) *time.Time {
+	row.EndedAt = sql.NullTime{Time: endedAt, Valid: !endedAt.IsZero()}
+	row.LastError = nullableString(failure)
+	return optionalTime(row.EndedAt)
+}

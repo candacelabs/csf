@@ -4,20 +4,23 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/candacelabs/csf/ipc/proc"
 )
 
 const (
-	sdkModule  = "github.com/opensearch-project/opensearch-go/v5"
-	outputFile = "opensearch_client_cgen.go"
+	sdkModule    = "github.com/opensearch-project/opensearch-go/v5"
+	outputFile   = "opensearch_client_cgen.go"
+	goExecutable = "go"
 )
 
 var operations = []struct{ file, receiver, method string }{
@@ -26,17 +29,22 @@ var operations = []struct{ file, receiver, method string }{
 }
 
 func main() {
-	if err := generate(); err != nil {
+	launcher, err := proc.NewHostLauncher()
+	if err == nil {
+		err = generate(context.Background(), launcher)
+	}
+	if err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func generate() error {
-	if err := run("mod", "download", sdkModule); err != nil {
+func generate(ctx context.Context, launcher proc.ILauncher) error {
+	if err := run(ctx, launcher, "mod", "download", sdkModule); err != nil {
 		return err
 	}
-	directory, err := exec.Command("go", "list", "-m", "-f", "{{.Dir}}", sdkModule).Output()
+	listed, err := launcher.Run(ctx, proc.Command{Executable: goExecutable, Arguments: []string{"list", "-m", "-f", "{{.Dir}}", sdkModule}})
+	directory := listed.Stdout
 	if err != nil {
 		return fmt.Errorf("locate pinned OpenSearch SDK: %w", err)
 	}
@@ -44,15 +52,14 @@ func generate() error {
 	imports := map[string]bool{}
 	var importLines []string
 	for _, operation := range operations {
-		command := exec.Command("go", "run", "github.com/vburenin/ifacemaker@v1.4.0",
+		generated, err := launcher.Run(ctx, proc.Command{Executable: goExecutable, Arguments: []string{"run", "github.com/vburenin/ifacemaker@v1.4.0",
 			"-f", filepath.Join(strings.TrimSpace(string(directory)), "opensearchapi", "clients_gen.go"),
 			"-f", filepath.Join(strings.TrimSpace(string(directory)), "opensearchapi", operation.file+"_gen.go"),
-			"-s", operation.receiver, "-i", "IOpenSearchClient", "-p", "csf", "-d=false")
-		command.Stderr = os.Stderr
-		source, err := command.Output()
+			"-s", operation.receiver, "-i", "IOpenSearchClient", "-p", "csf", "-d=false"}, Stderr: os.Stderr})
 		if err != nil {
 			return err
 		}
+		source := generated.Stdout
 		set := token.NewFileSet()
 		file, err := parser.ParseFile(set, "interface.go", source, 0)
 		if err != nil {
@@ -107,12 +114,11 @@ func generate() error {
 	if err := os.WriteFile(outputFile, formatted, 0644); err != nil {
 		return err
 	}
-	return run("run", "go.uber.org/mock/mockgen@v0.6.0", "-source="+outputFile,
+	return run(ctx, launcher, "run", "go.uber.org/mock/mockgen@v0.6.0", "-source="+outputFile,
 		"-destination=internal/mocks/opensearch.gen.go", "-package=csfmocks")
 }
 
-func run(arguments ...string) error {
-	command := exec.Command("go", arguments...)
-	command.Stdout, command.Stderr = os.Stdout, os.Stderr
-	return command.Run()
+func run(ctx context.Context, launcher proc.ILauncher, arguments ...string) error {
+	_, err := launcher.Run(ctx, proc.Command{Executable: goExecutable, Arguments: arguments, Stdout: os.Stdout, Stderr: os.Stderr})
+	return err
 }

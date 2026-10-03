@@ -1,0 +1,50 @@
+<!--
+  Bounded ClickHouse self-telemetry for the Langfuse trace store.
+
+  The image default logs at trace level and keeps every system log table
+  forever. In a 3 GiB container that grew a 53 GB trace_log and a 15 GB
+  text_log, and left a metric_log whose hundreds of columns could not be
+  merged inside the memory limit: every failed merge rewrote its inputs and
+  was retried, writing about 109 TB in seven days. Langfuse's own tables in
+  the default database are not affected by anything here.
+
+  Mounted read-only into /etc/clickhouse-server/config.d/ by Compose.
+-->
+<clickhouse>
+  <logger>
+    <level>warning</level>
+    <size>100M</size>
+    <count>3</count>
+  </logger>
+
+  <!-- Sampling profiler stacks and the server log mirrored into a table. -->
+  <trace_log remove="1"/>
+  <text_log remove="1"/>
+  <!-- Wide periodic metric snapshots; their merges exceed the memory limit. -->
+  <metric_log remove="1"/>
+  <query_metric_log remove="1"/>
+  <asynchronous_metric_log remove="1"/>
+  <latency_log remove="1"/>
+  <!-- Per-query and per-task profiling nobody reads in this deployment. -->
+  <processors_profile_log remove="1"/>
+  <opentelemetry_span_log remove="1"/>
+  <background_schedule_pool_log remove="1"/>
+  <instrumentation_trace_log remove="1"/>
+
+  <!-- Kept for diagnosis, each bounded to three days. -->
+  <query_log>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+  </query_log>
+  <query_views_log>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+  </query_views_log>
+  <part_log>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+  </part_log>
+  <error_log>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+  </error_log>
+  <asynchronous_insert_log>
+    <ttl>event_date + INTERVAL 3 DAY DELETE</ttl>
+  </asynchronous_insert_log>
+</clickhouse>

@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 
 	adapterconfig "github.com/candacelabs/csf/services/copilot-adapter/config"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
@@ -389,7 +389,7 @@ func (adapter *CopilotAdapter) projectAssistantDeltas(
 			_, claimErr := queries.ClaimBridgeEventProjection(ctx, storedb.ClaimBridgeEventProjectionParams{
 				SessionID: sessionID, EventID: event.ID, ProjectedAt: event.OccurredAt,
 			})
-			if errors.Is(claimErr, sql.ErrNoRows) {
+			if errors.Is(claimErr, pgx.ErrNoRows) {
 				continue
 			}
 			if claimErr != nil {
@@ -466,7 +466,7 @@ func (adapter *CopilotAdapter) projectEvent(ctx context.Context, sessionID uuid.
 		}
 		if _, err = queries.ClaimBridgeEventProjection(ctx, storedb.ClaimBridgeEventProjectionParams{
 			SessionID: sessionID, EventID: event.ID, ProjectedAt: occurredAt,
-		}); errors.Is(err, sql.ErrNoRows) {
+		}); errors.Is(err, pgx.ErrNoRows) {
 			if event.Kind == BridgeEventTurnAborted {
 				_, _, err = finalizeAbortedTurn(ctx, queries, sessionID, event.TurnID, occurredAt)
 				return err
@@ -598,7 +598,7 @@ func projectTurnState(
 			ID: *turnID, Status: string(status), CompletedAt: null.TimeFrom(occurredAt),
 		})
 	}
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
 	}
 	if err != nil {
@@ -796,7 +796,7 @@ func (adapter *CopilotAdapter) failTurnDelivery(ctx context.Context, sessionID u
 		failed, err := queries.MarkTurnDeliveryFailed(ctx, storedb.MarkTurnDeliveryFailedParams{
 			ID: turnID, CompletedAt: null.TimeFrom(failedAt),
 		})
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			turn, err = queries.GetTurn(ctx, turnID)
 			return err
 		}

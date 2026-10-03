@@ -1,0 +1,53 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "session",
+    srcs = [
+        "eventlog.go",
+        "open.go",
+        "runner.go",
+        "settings.go",
+        "state.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/session",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//ipc/model",
+        "//ipc/model/claudecode",
+        "//ipc/proc",
+        "//pkg/telemetry",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//proto/candace/telemetry/v1:telemetry",
+        "@cc_mvdan_sh_v3//syntax",
+        "@com_github_google_uuid//:uuid",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_test(
+    name = "session_test",
+    srcs = [
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+        "open_test.go",
+        "runner_test.go",
+        "session_suite_test.go",
+        "settings_internal_test.go",
+    ],
+    embed = [":session"],
+    deps = [
+        "//csf",
+        "//ipc/model",
+        "//ipc/model/claudecode",
+        "//ipc/proc",
+        "//pkg/telemetry",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//services/harness/session/mocks",
+        "@cc_mvdan_sh_v3//syntax",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_mock//gomock",
+    ],
+)

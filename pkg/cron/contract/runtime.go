@@ -11,12 +11,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// NewJobDefinitionCodec returns a validating Liquid Proto codec for portable
-// desired job definitions.
-func NewJobDefinitionCodec() (*liquidproto.Codec[*cronv1.JobDefinition], error) {
+// NewTriggerDefinitionCodec returns a validating Liquid Proto codec for portable
+// trigger declarations.
+func NewTriggerDefinitionCodec() (*liquidproto.Codec[*cronv1.TriggerDefinition], error) {
 	return liquidproto.NewCodec(
-		func() *cronv1.JobDefinition { return new(cronv1.JobDefinition) },
-		ValidateJobDefinition,
+		func() *cronv1.TriggerDefinition { return new(cronv1.TriggerDefinition) },
+		ValidateTriggerDefinition,
 	)
 }
 
@@ -29,12 +29,12 @@ func NewStatusSnapshotCodec() (*liquidproto.Codec[*cronv1.StatusSnapshot], error
 	)
 }
 
-// JobDefinitionToProto maps a persistence-neutral domain definition to its
+// TriggerDefinitionToProto maps a persistence-neutral domain definition to its
 // portable boundary representation.
-func JobDefinitionToProto(definition cron.JobDefinition) (*cronv1.JobDefinition, error) {
+func TriggerDefinitionToProto(definition cron.TriggerDefinition) (*cronv1.TriggerDefinition, error) {
 	schedule, err := cron.ScheduleFromDefinition(definition.Schedule)
 	if err != nil {
-		return nil, fmt.Errorf("%w: job %q schedule: %v", ErrInvalid, definition.Name, err)
+		return nil, fmt.Errorf("%w: trigger %q schedule: %v", ErrInvalid, definition.Name, err)
 	}
 	scheduleMessage, err := ScheduleToProto(schedule)
 	if err != nil {
@@ -48,44 +48,44 @@ func JobDefinitionToProto(definition cron.JobDefinition) (*cronv1.JobDefinition,
 	if err != nil {
 		return nil, err
 	}
-	message := &cronv1.JobDefinition{
+	message := &cronv1.TriggerDefinition{
 		Name:          definition.Name,
 		Schedule:      scheduleMessage,
 		CatchUpPolicy: catchUp,
 		OverlapPolicy: overlap,
 	}
-	if err := ValidateJobDefinition(message); err != nil {
+	if err := ValidateTriggerDefinition(message); err != nil {
 		return nil, err
 	}
 	return message, nil
 }
 
-// JobDefinitionFromProto validates and maps a boundary job definition into
+// TriggerDefinitionFromProto validates and maps a boundary trigger definition into
 // the domain without introducing a wire-shaped persistence model.
-func JobDefinitionFromProto(message *cronv1.JobDefinition) (cron.JobDefinition, error) {
+func TriggerDefinitionFromProto(message *cronv1.TriggerDefinition) (cron.TriggerDefinition, error) {
 	if message == nil {
-		return cron.JobDefinition{}, fmt.Errorf("%w: job definition is required", ErrInvalid)
+		return cron.TriggerDefinition{}, fmt.Errorf("%w: trigger definition is required", ErrInvalid)
 	}
-	if err := cronv1.ValidateJobDefinition(message); err != nil {
-		return cron.JobDefinition{}, fmt.Errorf("%w: job scalar refinements: %w", ErrInvalid, err)
+	if err := cronv1.ValidateTriggerDefinition(message); err != nil {
+		return cron.TriggerDefinition{}, fmt.Errorf("%w: trigger scalar refinements: %w", ErrInvalid, err)
 	}
 	schedule, err := ScheduleFromProto(message.GetSchedule())
 	if err != nil {
-		return cron.JobDefinition{}, err
+		return cron.TriggerDefinition{}, err
 	}
 	scheduleDefinition, err := schedule.Definition()
 	if err != nil {
-		return cron.JobDefinition{}, fmt.Errorf("%w: normalized schedule: %v", ErrInvalid, err)
+		return cron.TriggerDefinition{}, fmt.Errorf("%w: normalized schedule: %v", ErrInvalid, err)
 	}
 	catchUp, err := catchUpFromProto(message.GetCatchUpPolicy())
 	if err != nil {
-		return cron.JobDefinition{}, err
+		return cron.TriggerDefinition{}, err
 	}
 	overlap, err := overlapFromProto(message.GetOverlapPolicy())
 	if err != nil {
-		return cron.JobDefinition{}, err
+		return cron.TriggerDefinition{}, err
 	}
-	return cron.JobDefinition{
+	return cron.TriggerDefinition{
 		Name:     message.GetName(),
 		Schedule: scheduleDefinition,
 		CatchUp:  catchUp,
@@ -93,10 +93,10 @@ func JobDefinitionFromProto(message *cronv1.JobDefinition) (cron.JobDefinition, 
 	}, nil
 }
 
-// ValidateJobDefinition completes generated scalar validation with nested
+// ValidateTriggerDefinition completes generated scalar validation with nested
 // schedule and policy semantics.
-func ValidateJobDefinition(message *cronv1.JobDefinition) error {
-	_, err := JobDefinitionFromProto(message)
+func ValidateTriggerDefinition(message *cronv1.TriggerDefinition) error {
+	_, err := TriggerDefinitionFromProto(message)
 	return err
 }
 
@@ -108,7 +108,7 @@ func OccurrenceToProto(record cron.OccurrenceRecord) (*cronv1.RunSummary, error)
 	}
 	invocation := &cronv1.Invocation{
 		OccurrenceId: record.ID,
-		JobName:      record.JobName,
+		TriggerName:  record.TriggerName,
 		ScheduledAt:  timestamppb.New(record.ScheduledAt),
 		Attempt:      record.Attempt,
 	}
@@ -208,16 +208,16 @@ func StoreSnapshotToProto(snapshot cron.StoreSnapshot, observedAt time.Time) (*c
 	})
 
 	message := &cronv1.StatusSnapshot{ObservedAt: timestamppb.New(observedAt)}
-	jobs := append([]cron.JobState(nil), snapshot.Jobs...)
-	sort.Slice(jobs, func(left, right int) bool {
-		return jobs[left].Definition.Name < jobs[right].Definition.Name
+	triggers := append([]cron.TriggerState(nil), snapshot.Triggers...)
+	sort.Slice(triggers, func(left, right int) bool {
+		return triggers[left].Definition.Name < triggers[right].Definition.Name
 	})
-	for _, state := range jobs {
-		definition, err := JobDefinitionToProto(state.Definition)
+	for _, state := range triggers {
+		definition, err := TriggerDefinitionToProto(state.Definition)
 		if err != nil {
 			return nil, err
 		}
-		status := &cronv1.JobStatus{
+		status := &cronv1.TriggerStatus{
 			Definition: definition,
 			NextRunAt:  timestamppb.New(state.NextRunAt),
 		}
@@ -225,7 +225,7 @@ func StoreSnapshotToProto(snapshot cron.StoreSnapshot, observedAt time.Time) (*c
 			status.IntervalAnchor = timestamppb.New(state.Definition.Schedule.Anchor)
 		}
 		for _, occurrence := range occurrences {
-			if occurrence.JobName != state.Definition.Name {
+			if occurrence.TriggerName != state.Definition.Name {
 				continue
 			}
 			if occurrence.Status == cron.OccurrenceRunning {
@@ -237,7 +237,7 @@ func StoreSnapshotToProto(snapshot cron.StoreSnapshot, observedAt time.Time) (*c
 			}
 			status.LastRun = run
 		}
-		message.Jobs = append(message.Jobs, status)
+		message.Triggers = append(message.Triggers, status)
 	}
 	if err := ValidateStatusSnapshot(message); err != nil {
 		return nil, err
@@ -256,39 +256,39 @@ func ValidateStatusSnapshot(message *cronv1.StatusSnapshot) error {
 	if err := message.GetObservedAt().CheckValid(); err != nil {
 		return fmt.Errorf("%w: observed_at: %v", ErrInvalid, err)
 	}
-	seen := make(map[string]struct{}, len(message.GetJobs()))
-	for _, status := range message.GetJobs() {
+	seen := make(map[string]struct{}, len(message.GetTriggers()))
+	for _, status := range message.GetTriggers() {
 		if status == nil {
-			return fmt.Errorf("%w: nil job status", ErrInvalid)
+			return fmt.Errorf("%w: nil trigger status", ErrInvalid)
 		}
-		if err := cronv1.ValidateJobStatus(status); err != nil {
-			return fmt.Errorf("%w: job status scalar refinements: %w", ErrInvalid, err)
+		if err := cronv1.ValidateTriggerStatus(status); err != nil {
+			return fmt.Errorf("%w: trigger status scalar refinements: %w", ErrInvalid, err)
 		}
-		if err := ValidateJobDefinition(status.GetDefinition()); err != nil {
+		if err := ValidateTriggerDefinition(status.GetDefinition()); err != nil {
 			return err
 		}
 		name := status.GetDefinition().GetName()
 		if _, duplicate := seen[name]; duplicate {
-			return fmt.Errorf("%w: duplicate job status %q", ErrInvalid, name)
+			return fmt.Errorf("%w: duplicate trigger status %q", ErrInvalid, name)
 		}
 		seen[name] = struct{}{}
 		if status.GetNextRunAt() == nil {
-			return fmt.Errorf("%w: job %q next_run_at is required", ErrInvalid, name)
+			return fmt.Errorf("%w: trigger %q next_run_at is required", ErrInvalid, name)
 		}
 		if err := status.GetNextRunAt().CheckValid(); err != nil {
-			return fmt.Errorf("%w: job %q next_run_at: %v", ErrInvalid, name, err)
+			return fmt.Errorf("%w: trigger %q next_run_at: %v", ErrInvalid, name, err)
 		}
 		if status.GetIntervalAnchor() != nil {
 			if err := status.GetIntervalAnchor().CheckValid(); err != nil {
-				return fmt.Errorf("%w: job %q interval_anchor: %v", ErrInvalid, name, err)
+				return fmt.Errorf("%w: trigger %q interval_anchor: %v", ErrInvalid, name, err)
 			}
 		}
 		if status.GetLastRun() != nil {
 			if err := ValidateRunSummary(status.GetLastRun()); err != nil {
 				return err
 			}
-			if status.GetLastRun().GetInvocation().GetJobName() != name {
-				return fmt.Errorf("%w: job status/run name mismatch", ErrInvalid)
+			if status.GetLastRun().GetInvocation().GetTriggerName() != name {
+				return fmt.Errorf("%w: trigger status/run name mismatch", ErrInvalid)
 			}
 		}
 	}
@@ -308,8 +308,8 @@ func validateInvocation(message *cronv1.Invocation, allowUnattempted bool) error
 	if err := message.GetScheduledAt().CheckValid(); err != nil {
 		return fmt.Errorf("%w: scheduled_at: %v", ErrInvalid, err)
 	}
-	if message.GetOccurrenceId() != cron.OccurrenceID(message.GetJobName(), message.GetScheduledAt().AsTime()) {
-		return fmt.Errorf("%w: occurrence_id does not match job_name and scheduled_at", ErrInvalid)
+	if message.GetOccurrenceId() != cron.OccurrenceID(message.GetTriggerName(), message.GetScheduledAt().AsTime()) {
+		return fmt.Errorf("%w: occurrence_id does not match trigger_name and scheduled_at", ErrInvalid)
 	}
 	if message.GetAttempt() == 0 && !allowUnattempted {
 		return fmt.Errorf("%w: attempted invocation requires a nonzero attempt", ErrInvalid)

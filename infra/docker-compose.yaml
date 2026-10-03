@@ -148,7 +148,10 @@ services:
       CLICKHOUSE_DB: default
       CLICKHOUSE_USER: langfuse
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?Run csf}
-    volumes: [clickhouse-data:/var/lib/clickhouse, clickhouse-logs:/var/log/clickhouse-server]
+    volumes:
+      - clickhouse-data:/var/lib/clickhouse
+      - clickhouse-logs:/var/log/clickhouse-server
+      - ./clickhouse-system-logs.xml:/etc/clickhouse-server/config.d/system-logs.xml:ro
     healthcheck:
       test: [CMD-SHELL, 'wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1']
       interval: 5s

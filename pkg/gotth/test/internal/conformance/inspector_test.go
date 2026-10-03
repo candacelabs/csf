@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/candacelabs/csf/pkg/gotth/live"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -216,10 +218,10 @@ type inspectorPanel struct {
 // is the only way in — and is also why "the page looks right" cannot be
 // substituted for it: nothing the application renders is affected by the
 // inspector working or not.
-func readPanel(c *chrome) inspectorPanel {
+func readPanel(c *livetest.Browser) inspectorPanel {
 	GinkgoHelper()
 	var p inspectorPanel
-	c.evalJSON(`(() => {
+	c.EvalJSON(`(() => {
 		const errors = window.__pageErrors || [];
 		const host = document.getElementById("gotth-live-inspector");
 		if (!host) return {mounted:false, errors:errors};
@@ -284,7 +286,7 @@ func panelReport(p inspectorPanel) string {
 // panel ends up with no rows — it threw, or nothing arrived — need different
 // fixes and the difference is free to record here and expensive to work out
 // later.
-func waitPanel(c *chrome, atLeast int) inspectorPanel {
+func waitPanel(c *livetest.Browser, atLeast int) inspectorPanel {
 	GinkgoHelper()
 	var last inspectorPanel
 	Eventually(func() int {
@@ -304,9 +306,9 @@ func waitPanel(c *chrome, atLeast int) inspectorPanel {
 // It must be before, not after: the defect class this file is about throws
 // while the inspector is booting, which is finished by the time a spec could
 // attach a listener from Go.
-func catchPageErrors(c *chrome) {
+func catchPageErrors(c *livetest.Browser) {
 	GinkgoHelper()
-	c.onNewDocument(`
+	c.OnNewDocument(`
 		window.__pageErrors = [];
 		window.addEventListener("error", e => {
 			window.__pageErrors.push(String((e.error && e.error.stack) || e.message));
@@ -319,12 +321,12 @@ func catchPageErrors(c *chrome) {
 
 // clickInc dispatches one real click on the +1 button and waits for the value
 // to move, so that everything the panel is then asked about has happened.
-func clickInc(c *chrome) {
+func clickInc(c *livetest.Browser) {
 	GinkgoHelper()
-	before := c.evalString(`document.querySelector(` + jsStr(selInc) + `).parentNode.querySelector("[data-bench-id=value]").textContent.trim()`)
-	c.evalJSON(`(() => { document.querySelector(`+jsStr(selInc)+`).click(); return null; })()`, nil)
+	before := c.EvalString(`document.querySelector(` + livetest.JSString(selInc) + `).parentNode.querySelector("[data-bench-id=value]").textContent.trim()`)
+	c.EvalJSON(`(() => { document.querySelector(`+livetest.JSString(selInc)+`).click(); return null; })()`, nil)
 	Eventually(func() string {
-		return c.evalString(`document.querySelector("[data-bench-id=value]").textContent.trim()`)
+		return c.EvalString(`document.querySelector("[data-bench-id=value]").textContent.trim()`)
 	}, 30*time.Second, 100*time.Millisecond).ShouldNot(Equal(before),
 		"the click never reached the DOM, so there is no chain for the inspector to show")
 }
@@ -349,7 +351,7 @@ var _ = Describe("The session inspector in a real browser (FR-44)", Label("brows
 
 		catchPageErrors(c)
 
-		c.navigate(server.URL + "/")
+		c.Navigate(server.URL + "/")
 
 		// The panel is mounted before anything is clicked, and it paints the
 		// mount snapshot on its own.
@@ -417,7 +419,7 @@ var _ = Describe("The session inspector in a real browser (FR-44)", Label("brows
 		}
 
 		AddReportEntry("FR-44 — the causal chain after one real click", fmt.Sprintf(
-			"browser %s\n%s", c.version, panelReport(panel)))
+			"browser %s\n%s", c.Version(), panelReport(panel)))
 	})
 
 	// The documented path, which is a different application and a different
@@ -439,7 +441,7 @@ var _ = Describe("The session inspector in a real browser (FR-44)", Label("brows
 		c := launchChrome()
 		catchPageErrors(c)
 
-		c.navigate("http://" + server.addr + "/")
+		c.Navigate("http://" + server.addr + "/")
 		waitLive(c)
 
 		panel := waitPanel(c, 3)
@@ -460,6 +462,6 @@ var _ = Describe("The session inspector in a real browser (FR-44)", Label("brows
 				"edge back to the click this application produces:\n%s", panelReport(panel))
 
 		AddReportEntry("FR-44 — examples/counter under the inspector", fmt.Sprintf(
-			"browser %s\n%s", c.version, panelReport(panel)))
+			"browser %s\n%s", c.Version(), panelReport(panel)))
 	})
 })

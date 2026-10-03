@@ -6,5 +6,5 @@ go_library(
     embedsrcs = ["overlay/templates/status_pill.html"],
     importpath = "example.com/candace-external-consumer/identity",
     visibility = ["//visibility:public"],
-    deps = ["@csf//services/candaceos/webui"],
+    deps = ["@csf//web/deploy/webui"],
 )

@@ -624,7 +624,7 @@
         "tags": [
           "Research"
         ],
-        "summary": "Show the latest measured work and health report.",
+        "summary": "Show the latest measured work and health report, including whether the external spine controller is connected.",
         "operationId": "Research_GetSnapshot",
         "responses": {
           "default": {
@@ -643,52 +643,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/candace.brainspine.v1.GetSnapshotResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/compile": {
-      "post": {
-        "tags": [
-          "Research"
-        ],
-        "summary": "Prepare a driving recipe: check the recipe and turn it into steps the controller can run.",
-        "operationId": "Research_Compile",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "controller": {
-                    "$ref": "#/components/schemas/candace.brainspine.v1.Controller"
-                  }
-                }
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "default": {
-            "description": "An unexpected error response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/google.rpc.Status"
-                }
-              }
-            }
-          },
-          "200": {
-            "description": "A successful response.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/candace.brainspine.v1.CompileResponse"
                 }
               }
             }
@@ -992,6 +946,275 @@
         }
       }
     },
+    "/api/harness/sessions/submit": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Admit one agent assignment recipe as a session of this host's agent harness: the worktree is created, the session gates are installed and the turn executor is kept open for later messages. The receipt links the session, branch and trace; it does not prove the task succeeded.",
+        "operationId": "Research_SubmitAgentSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipe": {
+                    "$ref": "#/components/schemas/candace.brainspine.v1.AgentAssignmentRecipe"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.SubmitAgentSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/send": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Queue one message for an open session; its owner starts the turn at the next safepoint. The turn identifier acknowledges acceptance, not completion. Follow the session's event stream to read the turn.",
+        "operationId": "Research_SendAgentSessionMessage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignmentId": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A turn identifier acknowledges that the message was queued for the\nsession's next safepoint; it does not prove the turn ran or succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.SendAgentSessionMessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/list": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "List every session this harness process holds, with its phase, turns and queue, and the one process they all run in.",
+        "operationId": "Research_ListAgentSessions",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.ListAgentSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/get": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Read one session's state by its assignment identifier.",
+        "operationId": "Research_GetAgentSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignmentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.GetAgentSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/cancel": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Ask a session's owner to stop at its next safepoint: at once between turns, or after the running turn is interrupted. Read the session again to see it reach CANCELED.",
+        "operationId": "Research_CancelAgentSession",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignmentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The state at the moment the request was recorded: CANCELING while a turn\nis still running, CANCELED once the owner has stopped at its safepoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.CancelAgentSessionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/stop": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Stop the harness process in order: listeners first, then every open session. Running sessions are closed, not completed.",
+        "operationId": "Research_StopHarness",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.StopHarnessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/knowledge/graph": {
       "post": {
         "tags": [
@@ -1062,6 +1285,37 @@
           }
         }
       },
+      "candace.brainspine.v1.AgentAssignmentReceipt": {
+        "type": "object",
+        "description": "The consumer retains session links even if prompt acceptance is unconfirmed:\nan empty turn_id identifies a partial receipt. A populated turn_id records\nacknowledged acceptance, not successful completion of the turn or its task.",
+        "properties": {
+          "branch": {
+            "type": "string",
+            "description": "For a harness run: the work branch, the draft pull request the commit\ngate opened (empty when none exists yet) and the run's trace."
+          },
+          "plan": {
+            "$ref": "#/components/schemas/candace.brainspine.v1.AgentAssignmentPlan"
+          },
+          "pullRequestUrl": {
+            "type": "string"
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "sessionUrl": {
+            "type": "string"
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "turnId": {
+            "type": "string"
+          },
+          "worktreeId": {
+            "type": "string"
+          }
+        }
+      },
       "candace.brainspine.v1.AgentAssignmentRecipe": {
         "type": "object",
         "description": "One immutable assignment recipe. Retain this file to retry the assignment;\nchanging its contents requires a new assignment_id. Model and repository\nidentifiers come from the Workbench catalog. This slice creates a worktree.",
@@ -1083,6 +1337,10 @@
           },
           "ticketUrl": {
             "type": "string"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/candace.brainspine.v1.AgentWorkspace",
+            "description": "Present when the harness runs the assignment itself as a Claude Code\nsession; absent for a Workbench submission. Set only fields change the\nrecipe fingerprint, so recipes without a workspace keep their hashes."
           }
         }
       },
@@ -1169,6 +1427,39 @@
           },
           "index": {
             "type": "string"
+          }
+        }
+      },
+      "candace.brainspine.v1.AgentWorkspace": {
+        "type": "object",
+        "description": "Where and how the harness runs an assignment: a git worktree it creates\nfrom a local repository on a branch of its own, the tools the session may\nuse, and the title of the draft pull request the commit gate opens.",
+        "properties": {
+          "allowedTools": {
+            "type": "array",
+            "description": "Claude Code tool rules the session may use without asking, such as\n\"Bash\", \"Edit\" or \"Bash(git *)\". Everything else is denied.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "baseBranch": {
+            "type": "string",
+            "description": "The ref the work branch starts from and the pull request targets."
+          },
+          "branch": {
+            "type": "string",
+            "description": "The work branch the worktree checks out; created from base_branch."
+          },
+          "briefPath": {
+            "type": "string",
+            "description": "A file holding the task, read by the launcher in place of an inline\ntask; relative paths resolve against the recipe file."
+          },
+          "pullRequestTitle": {
+            "type": "string",
+            "description": "Title of the draft pull request opened after the first commit."
+          },
+          "repositoryPath": {
+            "type": "string",
+            "description": "Absolute path of the local repository the worktree is created from."
           }
         }
       },
@@ -1282,32 +1573,6 @@
           }
         }
       },
-      "candace.brainspine.v1.CompileResponse": {
-        "type": "object",
-        "properties": {
-          "program": {
-            "$ref": "#/components/schemas/candace.brainspine.v1.Program"
-          }
-        }
-      },
-      "candace.brainspine.v1.Controller": {
-        "type": "object",
-        "properties": {
-          "acceleration": {
-            "$ref": "#/components/schemas/candace.brainspine.v1.Expression"
-          },
-          "name": {
-            "type": "string"
-          },
-          "schemaVersion": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "steering": {
-            "$ref": "#/components/schemas/candace.brainspine.v1.Expression"
-          }
-        }
-      },
       "candace.brainspine.v1.CopilotHistoryResult": {
         "type": "object",
         "description": "CopilotHistoryResult records one typed native session projection. The\nembedded ingestion receipt remains the durable queue and provenance result.",
@@ -1349,36 +1614,6 @@
           },
           "text": {
             "type": "string"
-          }
-        }
-      },
-      "candace.brainspine.v1.Expression": {
-        "type": "object",
-        "properties": {
-          "arguments": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/candace.brainspine.v1.Expression"
-            }
-          },
-          "inputIndex": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "lower": {
-            "type": "string",
-            "format": "int64"
-          },
-          "opcode": {
-            "$ref": "#/components/schemas/candace.brainspine.v1.Opcode"
-          },
-          "upper": {
-            "type": "string",
-            "format": "int64"
-          },
-          "value": {
-            "type": "string",
-            "format": "int64"
           }
         }
       },
@@ -1488,30 +1723,6 @@
         "properties": {
           "run": {
             "$ref": "#/components/schemas/candace.brainspine.v1.SimulationRun"
-          }
-        }
-      },
-      "candace.brainspine.v1.Instruction": {
-        "type": "object",
-        "properties": {
-          "inputIndex": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "lower": {
-            "type": "string",
-            "format": "int64"
-          },
-          "opcode": {
-            "$ref": "#/components/schemas/candace.brainspine.v1.Opcode"
-          },
-          "upper": {
-            "type": "string",
-            "format": "int64"
-          },
-          "value": {
-            "type": "string",
-            "format": "int64"
           }
         }
       },
@@ -1691,47 +1902,11 @@
           }
         }
       },
-      "candace.brainspine.v1.Opcode": {
-        "type": "string",
-        "description": "All expression values are dimensionless fixed-point scalars with scale 1000.\nThe simulator adapter owns physical-unit normalization; actuator conversion\nis fixed by the spine, never supplied by a candidate. Every operation saturates\nto [-1000000000, 1000000000]. SCALE divides by 1000 toward zero.",
-        "enum": [
-          "OPCODE_UNSPECIFIED",
-          "OPCODE_CONSTANT",
-          "OPCODE_INPUT",
-          "OPCODE_ADD",
-          "OPCODE_SCALE",
-          "OPCODE_CLAMP"
-        ]
-      },
       "candace.brainspine.v1.PrepareAgentAssignmentResponse": {
         "type": "object",
         "properties": {
           "plan": {
             "$ref": "#/components/schemas/candace.brainspine.v1.AgentAssignmentPlan"
-          }
-        }
-      },
-      "candace.brainspine.v1.Program": {
-        "type": "object",
-        "properties": {
-          "acceleration": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/candace.brainspine.v1.Instruction"
-            }
-          },
-          "controllerHash": {
-            "type": "string"
-          },
-          "schemaVersion": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "steering": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/candace.brainspine.v1.Instruction"
-            }
           }
         }
       },
@@ -2282,6 +2457,185 @@
         "properties": {
           "receipt": {
             "$ref": "#/components/schemas/candace.email.v1.EmailReceipt"
+          }
+        }
+      },
+      "candace.harness.v1.AgentSessionPhase": {
+        "type": "string",
+        "description": "Where a session is in its life. The harness service owns the transitions:\na session is OPEN between turns, RUNNING while its turn executor carries\nout a turn, and ends CANCELED, FAILED or CLOSED.",
+        "enum": [
+          "AGENT_SESSION_PHASE_UNSPECIFIED",
+          "AGENT_SESSION_PHASE_STARTING",
+          "AGENT_SESSION_PHASE_RUNNING",
+          "AGENT_SESSION_PHASE_OPEN",
+          "AGENT_SESSION_PHASE_CANCELING",
+          "AGENT_SESSION_PHASE_CANCELED",
+          "AGENT_SESSION_PHASE_FAILED",
+          "AGENT_SESSION_PHASE_CLOSED"
+        ]
+      },
+      "candace.harness.v1.AgentSessionState": {
+        "type": "object",
+        "description": "The state of one session the harness runs. It is a projection of the run\nrecord and the owner's position; the events.jsonl of the run is the full\nrecord.",
+        "properties": {
+          "agentId": {
+            "type": "string"
+          },
+          "assignmentId": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "error": {
+            "type": "string",
+            "description": "The failure that ended the session, when the phase is FAILED."
+          },
+          "phase": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionPhase"
+          },
+          "pullRequestUrl": {
+            "type": "string"
+          },
+          "queued": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Messages accepted by Send and not yet started as turns."
+          },
+          "sessionId": {
+            "type": "string"
+          },
+          "startedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "traceId": {
+            "type": "string"
+          },
+          "turns": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Turns started on the session so far."
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "worktree": {
+            "type": "string"
+          }
+        }
+      },
+      "candace.harness.v1.CancelAgentSessionResponse": {
+        "type": "object",
+        "description": "The state at the moment the request was recorded: CANCELING while a turn\nis still running, CANCELED once the owner has stopped at its safepoint.",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+          }
+        }
+      },
+      "candace.harness.v1.GetAgentSessionResponse": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+          }
+        }
+      },
+      "candace.harness.v1.LaunchCheck": {
+        "type": "object",
+        "description": "The check made before a session is launched, with its measurements. Both\nbounds are derived from what the host measures; while the check is\nreport-only a failing bound is recorded and the session is admitted anyway.",
+        "properties": {
+          "admitted": {
+            "type": "boolean"
+          },
+          "cores": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "diskFloorBytes": {
+            "type": "string",
+            "format": "uint64",
+            "description": "The disk floor: the free bytes a new session must leave."
+          },
+          "findings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "freeBytes": {
+            "type": "string",
+            "format": "uint64"
+          },
+          "loadOneMinute": {
+            "type": "number",
+            "format": "double"
+          },
+          "reportOnly": {
+            "type": "boolean"
+          },
+          "runningSessions": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "workerCap": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The worker cap: how many sessions the measured idle capacity admits."
+          }
+        }
+      },
+      "candace.harness.v1.ListAgentSessionsResponse": {
+        "type": "object",
+        "properties": {
+          "hostPid": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The one harness process every listed session runs in."
+          },
+          "sessions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+            }
+          }
+        }
+      },
+      "candace.harness.v1.SendAgentSessionMessageResponse": {
+        "type": "object",
+        "description": "A turn identifier acknowledges that the message was queued for the\nsession's next safepoint; it does not prove the turn ran or succeeded.",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+          },
+          "turnId": {
+            "type": "string"
+          }
+        }
+      },
+      "candace.harness.v1.StopHarnessResponse": {
+        "type": "object",
+        "properties": {
+          "sessionsRunning": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Sessions still running when the stop was requested; each is closed in\nthe harness's ordered shutdown."
+          }
+        }
+      },
+      "candace.harness.v1.SubmitAgentSessionResponse": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "$ref": "#/components/schemas/candace.harness.v1.LaunchCheck"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/candace.brainspine.v1.AgentAssignmentReceipt"
+          },
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
           }
         }
       },

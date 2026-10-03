@@ -13,5 +13,7 @@ go_library(
     deps = [
         "@com_github_google_uuid//:uuid",
         "@com_github_guregu_null_v5//:null",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgconn",
     ],
 )

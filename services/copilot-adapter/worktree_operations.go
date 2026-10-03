@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
@@ -361,7 +361,7 @@ func (adapter *CopilotAdapter) currentWorktreeView(ctx context.Context, row stor
 }
 
 func worktreeLookupError(err error) error {
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return fail(http.StatusNotFound, errorCodeWorktreeNotFound, "no worktree with that id")
 	}
 	return storeFailure(err)

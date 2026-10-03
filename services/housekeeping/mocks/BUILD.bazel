@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = ["mock_housekeeping.go"],
+    importpath = "github.com/candacelabs/csf/services/housekeeping/mocks",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/docker",
+        "@com_github_moby_moby_client//:client",
+        "@org_uber_go_mock//gomock",
+    ],
+)

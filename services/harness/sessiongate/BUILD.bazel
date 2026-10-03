@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sessiongate",
+    srcs = [
+        "commit.go",
+        "gate.go",
+        "ready.go",
+        "shell.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/sessiongate",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/proc",
+        "//pkg/argv",
+        "//services/harness/session",
+        "@cc_mvdan_sh_v3//syntax",
+    ],
+)
+
+go_test(
+    name = "sessiongate_test",
+    srcs = [
+        "gate_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+        "sessiongate_suite_test.go",
+        "shell_internal_test.go",
+        "shell_test.go",
+    ],
+    embed = [":sessiongate"],
+    deps = [
+        "//ipc/proc",
+        "//pkg/telemetry",
+        "//services/harness/session",
+        "@cc_mvdan_sh_v3//syntax",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

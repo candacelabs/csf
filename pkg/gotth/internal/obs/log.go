@@ -112,6 +112,13 @@ func (l *Logger) Info(ctx context.Context, msg string, fields ...Field) {
 	l.emit(ctx, slog.LevelInfo, msg, fields)
 }
 
+// Lifecycle emits a record of the live UI service's own lifecycle — its
+// sessions drained, its goroutines joined — at Info and never sampled: there
+// is one per stop, and the operator reading a shutdown needs every one.
+func (l *Logger) Lifecycle(ctx context.Context, msg string, fields ...Field) {
+	l.emit(ctx, slog.LevelInfo, msg, fields)
+}
+
 // Warn emits a degradation record: coalescing engaged, a slow client
 // degrading, a rate limit engaging, telemetry dropped.
 func (l *Logger) Warn(ctx context.Context, msg string, fields ...Field) {

@@ -1,4 +1,4 @@
-// Command custom-brand is CandaceOS Core wearing another product's identity.
+// Command custom-brand is deploy wearing another product's identity.
 //
 // Harborlight is invented for this example. It is not a real product, company,
 // or service, and it exists only to show how far the operator UI bends without
@@ -40,7 +40,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/candacelabs/csf/app/candaceos-core/bootstrap"
+	"github.com/candacelabs/csf/app/deploy/bootstrap"
 )
 
 // version is what Core reports as its build. A real embedding binary stamps

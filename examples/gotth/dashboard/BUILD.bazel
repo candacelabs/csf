@@ -49,9 +49,9 @@ go_test(
     ],
     embed = [":dashboard_lib"],
     deps = [
+        "//pkg/eventually",
         "//pkg/gotth/live",
         "//pkg/gotth/live/livetest",
-        "//pkg/patience",
         "@com_github_a_h_templ//:templ",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_ginkgo_v2//types",

@@ -8,8 +8,8 @@
 package composition
 
 import (
-	"github.com/candacelabs/csf/app/candaceos-core/bootstrap"
-	"github.com/candacelabs/csf/services/candaceos/component"
+	"github.com/candacelabs/csf/app/deploy/bootstrap"
+	"github.com/candacelabs/csf/services/deploy/component"
 
 	"example.com/candace-external-consumer/customharness"
 	"example.com/candace-external-consumer/identity"

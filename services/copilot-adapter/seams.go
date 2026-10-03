@@ -355,8 +355,8 @@ type StoreTransaction func(queries storedb.Querier) error
 // IStore is the persistence seam. Its method set is sqlc's own generated
 // Querier (emit_interface in store/sqlc.yaml), plus the one transaction
 // capability SQLC deliberately does not generate. The concrete store binds a
-// callback to *sql.Tx so related domain facts and their event pointer commit
-// together.
+// callback to one pgx.Tx so related domain facts and their event pointer
+// commit together.
 type IStore interface {
 	storedb.Querier
 	Transact(ctx context.Context, transaction StoreTransaction) error

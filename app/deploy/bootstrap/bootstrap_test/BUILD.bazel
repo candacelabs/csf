@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "bootstrap_test_test",
+    srcs = ["bootstrap_integration_test.go"],
+    deps = [
+        "//app/deploy/bootstrap",
+        "//web/deploy/webui",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -109,6 +109,7 @@
       "type": "CHOICE",
       "members": [
         { "type": "STRING", "value": "scoped" },
+        { "type": "STRING", "value": "lazy" },
         { "type": "STRING", "value": "borrowed" }
       ]
     },

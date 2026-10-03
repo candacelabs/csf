@@ -1,0 +1,10 @@
+{
+  "case_id": "022-composable-checks",
+  "tier": 1,
+  "rule_under_test": "CS-6",
+  "summary": "Four same-signature document checks accumulated as methods on a mutable validator and wired by a hardcoded call list; the clean version registers them as named pure function values in a slice the code iterates, which can carry each check's finding classes and be asserted complete by a spec.",
+  "dirty_must_fire": ["CS-6"],
+  "dirty_min_findings": {"CS-6": 1},
+  "clean_must_not_fire": ["CS-1", "CS-2", "CS-5", "CS-6"],
+  "notes": "The clean fixture deliberately contains NO method chain, not even the short ordered sequence CS-6 permits. This is the second instance of the collision CS-5 hit first: the heuristic flags any method whose body is three or more argument-less sibling calls, a permitted three-step chain is exactly that shape, and the runner requires that nothing at all fires on a clean fixture. Narrowing the heuristic to auto-detect 'will never grow' was rejected as impossible — no lexer can tell a family from a sequence — and a marker comment was rejected as an escape hatch the gate would then be graded on. So CS-6 splits across the tiers exactly as CS-5 does: the shape is tier 1 (here), the judgment is tier 2 (case 023-composability-judgment, whose correct answer keeps a three-step chain). See ../../README.md § 'When a rule's exemption cannot live in a fixture'. Note also that the clean fixture's `type Check func(document *Document) []Finding` names its parameter on purpose: converting a method set multiplies the func types in the tree, so CS-6 compliance is the most likely way to introduce CS-2 debt, and an exemplar that did it wrong would teach it."
+}

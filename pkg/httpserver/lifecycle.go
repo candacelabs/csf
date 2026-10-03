@@ -21,13 +21,41 @@ func Serve(ctx context.Context, server *http.Server) error {
 	if server == nil {
 		return errors.New("httpserver: server is nil")
 	}
+	restore := BindLifecycle(ctx, server)
+	defer restore()
+	serverError := make(chan error, 1)
+	go func() {
+		serverError <- server.ListenAndServe()
+	}()
+
+	select {
+	case err := <-serverError:
+		if errors.Is(err, http.ErrServerClosed) {
+			return nil
+		}
+		return fmt.Errorf("serve HTTP: %w", err)
+	case <-ctx.Done():
+		shutdownErr := Shutdown(server)
+		err := <-serverError
+		if shutdownErr != nil {
+			return shutdownErr
+		}
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return fmt.Errorf("serve HTTP while shutting down: %w", err)
+		}
+		return nil
+	}
+}
+
+// BindLifecycle merges ctx into the server's base context and returns the
+// function that restores the original. Shutdown waits for active handlers but
+// deliberately does not cancel them; with the process lifecycle merged in, an
+// SSE or WebSocket handler observing request.Context exits before that drain,
+// while any values or earlier cancellation the caller put on BaseContext are
+// preserved.
+func BindLifecycle(ctx context.Context, server *http.Server) (restore func()) {
 	originalBaseContext := server.BaseContext
 	baseContextCleanup := make(chan func(), 1)
-	// Shutdown waits for active handlers but deliberately does not cancel
-	// them. Merge the process lifecycle into the listener's base context so an
-	// SSE or WebSocket handler observing request.Context exits before that
-	// drain, while preserving any values or earlier cancellation the caller put
-	// on BaseContext.
 	server.BaseContext = func(listener net.Listener) context.Context {
 		if originalBaseContext == nil {
 			return ctx
@@ -44,39 +72,32 @@ func Serve(ctx context.Context, server *http.Server) error {
 		}
 		return merged
 	}
-	defer func() {
+	return func() {
 		server.BaseContext = originalBaseContext
 		select {
 		case cleanup := <-baseContextCleanup:
 			cleanup()
 		default:
 		}
-	}()
-	serverError := make(chan error, 1)
-	go func() {
-		serverError <- server.ListenAndServe()
-	}()
-
-	select {
-	case err := <-serverError:
-		if errors.Is(err, http.ErrServerClosed) {
-			return nil
-		}
-		return fmt.Errorf("serve HTTP: %w", err)
-	case <-ctx.Done():
-		shutdownContext, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
-		defer cancel()
-		if err := server.Shutdown(shutdownContext); err != nil {
-			_ = server.Close()
-			<-serverError
-			return fmt.Errorf("shutdown HTTP server: %w", err)
-		}
-		err := <-serverError
-		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			return fmt.Errorf("serve HTTP while shutting down: %w", err)
-		}
-		return nil
 	}
+}
+
+// Shutdown performs the bounded graceful shutdown every server here shares:
+// drain within the shutdown budget, then close whatever is left.
+func Shutdown(server *http.Server) error {
+	return ShutdownWithin(server, shutdownTimeout)
+}
+
+// ShutdownWithin is [Shutdown] with an explicit drain budget, for a binary
+// whose stop sequence must fit its supervisor's grace period.
+func ShutdownWithin(server *http.Server, budget time.Duration) error {
+	shutdownContext, cancel := context.WithTimeout(context.Background(), budget)
+	defer cancel()
+	if err := server.Shutdown(shutdownContext); err != nil {
+		_ = server.Close()
+		return fmt.Errorf("shutdown HTTP server: %w", err)
+	}
+	return nil
 }
 
 // Probe requests a health endpoint and requires a 2xx response.

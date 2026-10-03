@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "config",
+    srcs = [
+        "config.go",
+        "environment_generated.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/deploy/config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/config",
+        "//proto/candace/deploy/v1:deploy",
+        "//runtime/config",
+        "//services/harness",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+    ],
+)
+
+go_test(
+    name = "config_test",
+    srcs = [
+        "config_suite_test.go",
+        "config_test.go",
+    ],
+    deps = [
+        ":config",
+        "//proto/candace/deploy/v1:deploy",
+        "//runtime/config",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

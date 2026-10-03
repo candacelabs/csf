@@ -87,7 +87,7 @@ Three rules hold everywhere and are the reason the rest is simple:
 | **Mount** | `http.Handler` from `live.Handler(app)`; origin → authenticate → CSRF → subprotocol (protocol.md §8.1). **No per-session memory is allocated in this phase** (checklist §5.2) | `403` / `401` / `426`, no state |
 | **Open** | `101`; `session_id` minted; actor goroutine spawned; `Mount` hook runs as the first transition (`Origin{kind: MOUNT}`); `Snapshot` emitted with `server_seq = 1` | actor spawn failure → `500` before upgrade |
 | **Live** | events up, patches down, heartbeats both ways (20 s default), acks per §7 | see §12 |
-| **Close** | Every close names a code from protocol.md §8.3. Ordered: stop accepting events → cancel session context → in-flight effects observe cancellation → drain-or-abandon per §3.6 → close frame → deregister exactly once (checklist §6.8) | a close without an enumerated code is a bug (FR-8) |
+| **Close** | Every close names a code from protocol.md §8.3. Ordered: stop accepting events → cancel session context → in-flight effects observe cancellation → join per §3.6 → close frame → deregister exactly once (checklist §6.8) | a close without an enumerated code is a bug (FR-8) |
 
 **Idle eviction (FR-22):** a session with no inbound frame other than heartbeats
 for `idle_timeout` (default 30 min, configurable) closes `4011 SESSION_EVICTED`.
@@ -222,6 +222,15 @@ internal/` over non-test files returns **five** sites, and the rule they actuall
 satisfy is the one checklist §6.4 asks for — a named owner, a stop condition, and
 a place that waits:
 
+**Superseded 2026-10-01: no site below is a bare `go` statement any more.** The
+live UI service (`live.App`) is a runtime service and owns a sessions scope
+(`candace/runtime.Scope`); each session runs in its own child of it. The read
+pump, the actor's `Run`, every effect (`spawn`) and the shutdown's effect waiter
+start through that child with `Scope.Go`, `Close`'s close fan-out runs in a
+`drain` child, and `waitFor`'s unjoined deadline goroutine is gone: the actor
+joins its effects, and the service's stop joins the sessions scope. The table is
+kept as the record of what was replaced.
+
 | Site | What it is | Owner | Waited by |
 |---|---|---|---|
 | `session/effects.go:36` | the `spawn` helper itself — panic guard, `Goroutines` metric, `WaitGroup` | the actor | `a.effects`, drained at shutdown under `EffectDrainTimeout` |
@@ -272,10 +281,12 @@ can say what the interface should be.
 ### 3.6 Shutdown (checklist §6.8)
 
 Cancel session ctx → stop accepting inbound → in-flight effects observe
-cancellation and have `effect_drain_timeout` (default 5 s) to return → emit any
-final `Error` → close frame with the enumerated code → deregister once. Effects
-that do not return within the drain window are abandoned with
-`gotthlive_effects_abandoned_total`; the actor does not block shutdown on them.
+cancellation and are joined → emit any final `Error` → close frame with the
+enumerated code → deregister once. An effect that has not returned within
+`effect_drain_timeout` (default 5 s) is counted with
+`gotthlive_effects_overran_total` and logged, and the actor keeps waiting for it:
+the session owns its effects and joins them (amended 2026-10-01, when the live
+UI service became a runtime service; until then such an effect was abandoned).
 
 ---
 

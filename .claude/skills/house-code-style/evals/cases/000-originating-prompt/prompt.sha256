@@ -1,0 +1,22 @@
+# The sha256 of the verbatim prompt block in prompt.md — the content BETWEEN
+# the two ``` fences, nothing else. `evals/run_eval.py` recomputes it on every
+# run and fails when it does not match.
+#
+# The fenced block alone, rather than the whole file, because the two halves of
+# prompt.md have opposite doctrines. The block is the operator message this
+# program came from, preserved byte-for-byte with its typos; it is immutable,
+# and a revised or follow-up prompt becomes a sibling case (000a-…), never an
+# edit here. The prose around it — the provenance table, the note on why the
+# misspellings stay, "What actually happened" — is commentary on an outcome
+# that was still unfolding when it was written, and it is expected to grow. A
+# digest over the whole file would have forced a choice between never recording
+# what the case turned into and re-stamping the digest so often that a
+# mismatch stopped meaning anything.
+#
+# If this line and prompt.md disagree, the fix is a `git checkout` of
+# prompt.md, not a new digest. The value of the case is that it is the exact
+# input that produced this skill; edit it and the eval measures a prompt nobody
+# sent. Re-stamping is correct in exactly one situation — the operator sends a
+# corrected transcript of the same message — and that situation is a sibling
+# case, which is a different directory with a different digest of its own.
+b6236a098d4f09f77c5c4ce6824e323ca289762e977e1dc31161413f0d01de4b

@@ -14,9 +14,9 @@ import (
 
 var (
 	_liquidScheduleSpecTimezoneRe0   = regexp.MustCompile("^[A-Za-z0-9_+.-]+(/[A-Za-z0-9_+.-]+)*$")
-	_liquidJobDefinitionNameRe0      = regexp.MustCompile("^[a-z][a-z0-9._/-]*$")
+	_liquidTriggerDefinitionNameRe0  = regexp.MustCompile("^[a-z][a-z0-9._/-]*$")
 	_liquidInvocationOccurrenceIdRe0 = regexp.MustCompile("^occ_[0-9a-f]{64}$")
-	_liquidInvocationJobNameRe0      = regexp.MustCompile("^[a-z][a-z0-9._/-]*$")
+	_liquidInvocationTriggerNameRe0  = regexp.MustCompile("^[a-z][a-z0-9._/-]*$")
 )
 
 // ValidateTimeOfDay checks this message's annotated fields; it does not recurse.
@@ -112,15 +112,15 @@ func ValidateScheduleSpec(message *ScheduleSpec) error {
 	return nil
 }
 
-// ValidateJobDefinition checks this message's annotated fields; it does not recurse.
+// ValidateTriggerDefinition checks this message's annotated fields; it does not recurse.
 // A failed predicate returns *liquidproto.Error. Nil input also returns an error.
-func ValidateJobDefinition(message *JobDefinition) error {
+func ValidateTriggerDefinition(message *TriggerDefinition) error {
 	if message == nil {
-		return fmt.Errorf("ValidateJobDefinition: nil *JobDefinition")
+		return fmt.Errorf("ValidateTriggerDefinition: nil *TriggerDefinition")
 	}
-	if !(len(message.Name) >= 1 && len(message.Name) <= 128 && _liquidJobDefinitionNameRe0.MatchString(message.Name)) {
+	if !(len(message.Name) >= 1 && len(message.Name) <= 128 && _liquidTriggerDefinitionNameRe0.MatchString(message.Name)) {
 		return &liquidproto.Error{
-			Message:   "candace.cron.v1.JobDefinition",
+			Message:   "candace.cron.v1.TriggerDefinition",
 			Field:     "name",
 			Predicate: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)",
 			Value:     message.Name,
@@ -143,12 +143,12 @@ func ValidateInvocation(message *Invocation) error {
 			Value:     message.OccurrenceId,
 		}
 	}
-	if !(len(message.JobName) >= 1 && len(message.JobName) <= 128 && _liquidInvocationJobNameRe0.MatchString(message.JobName)) {
+	if !(len(message.TriggerName) >= 1 && len(message.TriggerName) <= 128 && _liquidInvocationTriggerNameRe0.MatchString(message.TriggerName)) {
 		return &liquidproto.Error{
 			Message:   "candace.cron.v1.Invocation",
-			Field:     "job_name",
+			Field:     "trigger_name",
 			Predicate: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)",
-			Value:     message.JobName,
+			Value:     message.TriggerName,
 		}
 	}
 	return nil
@@ -187,15 +187,15 @@ func ValidateRunSummary(message *RunSummary) error {
 	return nil
 }
 
-// ValidateJobStatus checks this message's annotated fields; it does not recurse.
+// ValidateTriggerStatus checks this message's annotated fields; it does not recurse.
 // A failed predicate returns *liquidproto.Error. Nil input also returns an error.
-func ValidateJobStatus(message *JobStatus) error {
+func ValidateTriggerStatus(message *TriggerStatus) error {
 	if message == nil {
-		return fmt.Errorf("ValidateJobStatus: nil *JobStatus")
+		return fmt.Errorf("ValidateTriggerStatus: nil *TriggerStatus")
 	}
 	if !(message.ActiveRuns <= 1000000) {
 		return &liquidproto.Error{
-			Message:   "candace.cron.v1.JobStatus",
+			Message:   "candace.cron.v1.TriggerStatus",
 			Field:     "active_runs",
 			Predicate: "this <= 1000000",
 			Value:     message.ActiveRuns,

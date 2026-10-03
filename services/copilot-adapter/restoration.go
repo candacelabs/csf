@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
@@ -198,7 +198,7 @@ func (adapter *CopilotAdapter) restoreIncompleteCreations(ctx context.Context) e
 	for _, receipt := range receipts {
 		if _, lookupErr := adapter.store.GetSession(ctx, receipt.SessionID); lookupErr == nil {
 			continue
-		} else if !errors.Is(lookupErr, sql.ErrNoRows) {
+		} else if !errors.Is(lookupErr, pgx.ErrNoRows) {
 			return fmt.Errorf("copilot-adapter: inspect incomplete session %s: %w", receipt.SessionID, lookupErr)
 		}
 		unlockCreation := adapter.creations.lock(receipt.IdempotencyKey)

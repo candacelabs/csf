@@ -21,7 +21,7 @@
 #      library also exports (redis's Entry, which ginkgo's DescribeTable helper
 #      is also named) cannot dot-import that library without a redeclaration
 #      compile error, so that import stays qualified. Production code that wraps
-#      gomega as a library (candace/pkg/patience) is not a test file and is out
+#      gomega as a library (candace/pkg/eventually) is not a test file and is out
 #      of scope entirely.
 #
 # CS-11 is also carried by the Python gate (check_style.py, rule CS-11) so the

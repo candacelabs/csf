@@ -97,7 +97,7 @@ service workbench in host scope application
 | [Generated vocabulary](symbol_codegen.ml) | Creates `Terminal.Service` and maps it to `Model.Service`. | Separate handwritten dictionaries could disagree about the same spelling. |
 | [Typed tree](typed_tree.ml) | Converts grammar rule labels and keyword text to generated variants once. Identifiers and paths remain text because they are user data. | Semantic code would keep comparing strings such as `"role"` and `"service"`. |
 | [Decoder](decode.ml) | Builds a `Model.component`; rejects fields it cannot consume. | A newly added grammar field could silently disappear before validation. |
-| [Validator](validate.ml) | Resolves `host` and `application`; requires a scoped service lifetime. | A service could claim to borrow a lifetime without declaring its cleanup obligations. |
+| [Validator](validate.ml) and [rules](rules.dl) | Resolves `host` and `application` through Datalog rules over the model's facts; requires a scoped service lifetime. | A service could claim to borrow a lifetime without declaring its cleanup obligations. |
 | [Source check](source_check.ml) | Checks the declared path and recognized Go process-boundary APIs. | A valid declaration could refer to a missing implementation. |
 | [Emitter](emit.ml) | Produces typed OCaml, a diagram and unresolved obligations from the same model. | Three independently authored descriptions could drift. |
 

@@ -1,0 +1,36 @@
+package ledger_test
+
+import (
+	"context"
+
+	"github.com/candacelabs/csf/pkg/pgmem"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"go.uber.org/mock/gomock"
+
+	"example.invalid/ledger"
+)
+
+var _ = Describe("the ledger", func() {
+	var (
+		controller *gomock.Controller
+		notifier   *MockINotifier
+		book       *ledger.PostgresLedger
+	)
+
+	BeforeEach(func() {
+		controller = gomock.NewController(GinkgoT())
+		notifier = NewMockINotifier(controller)
+		book = ledger.NewPostgresLedger(pgmem.MustNew(), notifier)
+	})
+
+	It("records an entry and notifies once", func(ctx context.Context) {
+		notifier.EXPECT().Notify(gomock.Any(), ledger.Entry{Amount: 5}).Return(nil)
+		Expect(book.Record(ctx, ledger.Entry{Amount: 5})).To(Succeed())
+	})
+
+	It("rejects a record after Close with the defined error", func(ctx context.Context) {
+		Expect(book.Close()).To(Succeed())
+		Expect(book.Record(ctx, ledger.Entry{Amount: 5})).To(MatchError(ledger.ErrClosed))
+	})
+})

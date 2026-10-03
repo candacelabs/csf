@@ -1,4 +1,4 @@
-//go:build integration
+//go:build acceptance
 
 package csf_test
 
@@ -10,8 +10,8 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/httpserver"
-	"github.com/candacelabs/csf/pkg/patience"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -63,7 +63,7 @@ var _ = Describe("CSF onboarding PostgreSQL integration", func() {
 		DeferCleanup(workers.Close)
 		for _, receipt := range queued.Ingested {
 			identity := &pb.DocumentRequest{SourceId: receipt.Document.SourceId, Revision: receipt.Document.Revision}
-			patience.Await(GinkgoT(), "onboarding projection", csfPostgresDatabaseBudget, func() *pb.ProjectionTask {
+			eventually.Await(GinkgoT(), "onboarding projection", csfPostgresDatabaseBudget, func() *pb.ProjectionTask {
 				task, err := fixture.store.GetProjection(ctx, identity)
 				Expect(err).NotTo(HaveOccurred())
 				return task

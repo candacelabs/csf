@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/a-h/templ"
 
@@ -18,14 +19,61 @@ import (
 	"github.com/candacelabs/csf/pkg/gotth/internal/render"
 	"github.com/candacelabs/csf/pkg/gotth/internal/session"
 	"github.com/candacelabs/csf/pkg/gotth/internal/wsx"
+	"github.com/candacelabs/csf/runtime"
 )
 
-// App is a validated live application. It is safe for concurrent use, and one
-// App serves any number of sessions.
+// ErrServiceStarted is returned by a second [App.Start]: the service mounts
+// into one host runtime, once.
+var ErrServiceStarted = errors.New("gotth-live: the live UI service is already started: " +
+	"mount one App into one host runtime, once")
+
+// ErrServiceStopped is returned by [App.Start] after the service has stopped,
+// by Close or by an earlier host runtime's stop. An App is not reusable.
+var ErrServiceStopped = errors.New("gotth-live: the live UI service has stopped and is not reusable: " +
+	"build a new App with live.New")
+
+// errNilScope is returned by [App.Start] when it is handed no scope.
+var errNilScope = errors.New("gotth-live: App.Start needs the scope the host runtime grants: " +
+	"mount the App with HostRuntime.Mount rather than calling Start yourself")
+
+// Scope owners, as the runtime's lifecycle logs and errors name them.
+const (
+	sessionsScopeOwner = "gotth-live sessions"
+	serviceOwner       = "gotth-live drain"
+)
+
+// App is the gotth-live service: the in-process capability that manages live
+// UI connections and every goroutine they need for a host binary. It is safe
+// for concurrent use, and one App serves any number of sessions.
+//
+// It is a [runtime.IService]. A binary mounts it into its host runtime after
+// everything its sessions read and before the HTTP listener that serves its
+// [App.Handler], so the runtime's reverse shutdown stops new upgrades first,
+// then drains and joins every session, then stops what the sessions used:
+//
+//	host.Mount("live", app)
+//	host.Mount("http", listener) // serves app.Handler()
+//
+// Every goroutine the service starts — each connection's read pump, its actor
+// and its effects — starts in the service's own sessions scope, and the
+// service's stop joins that scope: when the host runtime reports the service
+// stopped, none of them is still running.
 type App[S any, I IIdentity] struct {
 	cfg          Config[S, I]
 	handler      *wsx.Handler[I]
 	routeHandler http.HandlerFunc
+
+	// sessions is the scope every session goroutine starts in. The App owns
+	// it: Close and the stop Start registers drain every session and then
+	// join it.
+	sessions *runtime.Scope
+
+	// started and stopped are the service's lifecycle, each set once:
+	// started by the one Start a host runtime makes, stopped when Close or
+	// the host's stop begins. Atomic flags rather than a guarded state
+	// machine, because nothing is sequenced through them (CS-5).
+	started atomic.Bool
+	stopped atomic.Bool
 
 	// logger is the same sink the session actor writes to, held here so that
 	// the request-scoped routes this type serves itself — PageHandler's
@@ -85,7 +133,14 @@ func New[S any, I IIdentity](cfg Config[S, I]) (*App[S, I], error) {
 	}
 
 	behaviour := &appAdapter[S, I]{cfg: cfg, reg: reg, events: events, comparable: comparableState[S]()}
-	app := &App[S, I]{cfg: cfg, logger: obs.NewLogger(cfg.Logger)}
+	// The sessions scope's lifetime is the App's, not any request's or any
+	// host's: it ends only when Close or the host's stop joins it, after every
+	// session has been drained, which is why it is rooted at Background.
+	app := &App[S, I]{
+		cfg:      cfg,
+		logger:   obs.NewLogger(cfg.Logger),
+		sessions: runtime.NewScope(context.Background(), sessionsScopeOwner),
+	}
 
 	app.handler, err = wsx.NewHandler(wsx.Options[I]{
 		Origins:                cfg.Origins,
@@ -99,6 +154,7 @@ func New[S any, I IIdentity](cfg Config[S, I]) (*App[S, I], error) {
 		Dev:                    cfg.Dev,
 		MaxSessions:            cfg.Limits.MaxSessions,
 		MaxSessionsPerIdentity: orDefault(cfg.Limits.MaxSessionsPerIdentity, DefaultLimits().MaxSessionsPerIdentity),
+		Scope:                  app.sessions,
 	})
 	if err != nil {
 		return nil, &ConfigError{Field: "Origins", Detail: err.Error()}
@@ -234,7 +290,8 @@ func validate[S any, I IIdentity](cfg Config[S, I]) error {
 // # The live route returns at the upgrade, and the session outlives the request
 //
 // ServeHTTP RETURNS once the WebSocket handshake completes; the session then
-// runs on a goroutine this package owns, for as long as the connection lasts.
+// runs on a goroutine of the App's sessions scope, for as long as the
+// connection lasts.
 // It does NOT block for the life of the session, which is what most WebSocket
 // handlers do and what this one used to do. Three consequences a caller can
 // observe, all deliberate:
@@ -250,8 +307,8 @@ func validate[S any, I IIdentity](cfg Config[S, I]) error {
 //     and cancelling the request no longer ends it. In practice nothing
 //     changes: that cancellation used to fire when ServeHTTP returned, which
 //     was the end of the session.
-//   - Close is how a session is ended from outside. There is no request to
-//     cancel.
+//   - Close, or the host runtime stopping the App, is how a session is ended
+//     from outside. There is no request to cancel.
 //
 // The reason is memory, and it is measured: net/http holds a *conn — with two
 // 4 KiB bufio buffers, a *response carrying a third, and the *Request — for as
@@ -265,8 +322,13 @@ func (a *App[S, I]) Handler() http.Handler { return a.routeHandler }
 // reconnects can briefly overlap. It is safe to call concurrently with Close.
 func (a *App[S, I]) ActiveConnections() int { return a.handler.Sessions() }
 
-// Close drains every session, closing each with the going-away code, and waits
-// for in-flight effects up to the context's deadline.
+// Close drains every session, closing each with the going-away code, waits
+// for each session's read pump, actor and effects up to the context's
+// deadline, and then joins the sessions scope.
+//
+// It is the explicit stop for a binary that does not mount the App into a host
+// runtime. A mounted App is stopped by its scope instead (see [App.Start]),
+// with no deadline of its own.
 //
 // "Every session" is exact and is held by a spec rather than by this sentence
 // (C-34): a connection that has been admitted but not yet registered when Close
@@ -275,12 +337,76 @@ func (a *App[S, I]) ActiveConnections() int { return a.handler.Sessions() }
 // session it did not touch. When Close returns nil, no session remains
 // registered and every client that had one has been sent a close frame.
 //
-// Close returns an error if the context's deadline passes before in-flight
-// effects finish draining. It does not wait for a client to answer the close
-// handshake beyond that deadline.
+// Close returns an error if the context's deadline passes before every session
+// has ended; the sessions scope is then not joined, and a later Close may try
+// again. It does not wait for a client to answer the close handshake beyond
+// that deadline.
 //
 // After Close, the handler refuses new upgrades. It is not reusable.
-func (a *App[S, I]) Close(ctx context.Context) error { return a.handler.Close(ctx) }
+func (a *App[S, I]) Close(ctx context.Context) error {
+	a.stopped.Store(true)
+	if err := a.handler.Close(ctx); err != nil {
+		return err
+	}
+	return a.join(ctx)
+}
+
+// Start implements [runtime.IService]. It starts one goroutine in scope, which
+// waits for the scope's cancellation and then stops the service: every session
+// is sent the going-away close, every session's read pump, actor and effects
+// are waited for with no deadline, and the sessions scope is joined. The host
+// runtime's join of this service is therefore a join of every goroutine the
+// service ever started.
+//
+// An effect that ignores its cancelled context holds the stop open. That is
+// the contract rather than a defect of it: the service owns its goroutines and
+// joins them. Limits.EffectDrainTimeout is when such an effect is counted and
+// logged.
+//
+// Start is called once, by the one host runtime the App is mounted into. A
+// second Start returns [ErrServiceStarted], and a Start after the service has
+// stopped — by Close or by an earlier host's stop — returns
+// [ErrServiceStopped]; neither starts anything.
+func (a *App[S, I]) Start(scope *runtime.Scope) error {
+	if scope == nil {
+		return errNilScope
+	}
+	if a.stopped.Load() {
+		return ErrServiceStopped
+	}
+	if !a.started.CompareAndSwap(false, true) {
+		return ErrServiceStarted
+	}
+	err := scope.GoOwner(serviceOwner, func(ctx context.Context) error {
+		<-ctx.Done()
+		a.stopped.Store(true)
+		stopping := context.WithoutCancel(ctx)
+		if err := a.handler.Close(stopping); err != nil {
+			return err
+		}
+		return a.join(stopping)
+	})
+	if err != nil {
+		// The scope refused the goroutine, so nothing started: the App can
+		// still be mounted into a scope that is running.
+		a.started.Store(false)
+	}
+	return err
+}
+
+// join cancels the sessions scope — the backstop for anything still running
+// once every session has been drained — and waits for every goroutine it
+// started.
+func (a *App[S, I]) join(ctx context.Context) error {
+	err := a.sessions.Close()
+	// The sessions scope's own goroutines are one join per session and the
+	// drain's close fan-out; each session's read pump, actor and effects ran
+	// in that session's child scope and are counted by the transport.
+	a.logger.Lifecycle(ctx, "gotth-live: joined every session goroutine",
+		obs.Int("goroutines_joined", int(a.sessions.Goroutines()+a.handler.SessionGoroutines())),
+		obs.Bool("clean", err == nil))
+	return err
+}
 
 // routes adds asset dispatch to the existing WebSocket handler. The host owns
 // routing and path canonicalization; this wrapper creates no router or listener.

@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/candacelabs/csf/csf"
+	"github.com/candacelabs/csf/ipc/model/copilot"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 )
@@ -63,7 +64,11 @@ func submitPlan(endpoint string, timeout time.Duration, plan *pb.AgentAssignment
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	receipt, submitErr := csf.SubmitAgentAssignmentHTTP(ctx, client, endpoint, plan)
+	brain, err := copilot.NewCopilotBrain(client)
+	if err != nil {
+		return err
+	}
+	receipt, submitErr := csf.SubmitAgentAssignment(ctx, brain, endpoint, plan)
 	if receipt != nil {
 		if err := printMessage(receipt); err != nil {
 			return err

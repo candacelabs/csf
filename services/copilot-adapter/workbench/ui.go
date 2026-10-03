@@ -6,16 +6,17 @@ import (
 	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
+	"github.com/candacelabs/csf/ipc/proc"
 	"github.com/candacelabs/csf/pkg/boundedbuffer"
 	boundedbufferv1 "github.com/candacelabs/csf/pkg/boundedbuffer/v1"
 	"github.com/gin-gonic/gin"
 )
 
 const (
+	gitExecutable        = "git"
 	repositoryProbeBytes = 8 << 10
 	assetsRoute          = "/assets"
 	uiRoute              = "/ui"
@@ -23,7 +24,9 @@ const (
 	uiDocument           = "index.html"
 )
 
-func CanonicalRepositoryRoot(ctx context.Context, path string) (string, error) {
+// CanonicalRepositoryRoot resolves path to its Git work tree's top level,
+// running Git through launcher.
+func CanonicalRepositoryRoot(ctx context.Context, launcher proc.ILauncher, path string) (string, error) {
 	configured, err := filepath.EvalSymlinks(path)
 	if err != nil {
 		return "", fmt.Errorf("copilot-adapter: resolve repository root: %w", err)
@@ -41,10 +44,10 @@ func CanonicalRepositoryRoot(ctx context.Context, path string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	command := exec.CommandContext(ctx, "git", "-C", configured, "rev-parse", "--show-toplevel")
-	command.Stdout = stdout
-	command.Stderr = stderr
-	if err := command.Run(); err != nil {
+	if _, err := launcher.Run(ctx, proc.Command{
+		Executable: gitExecutable, Arguments: []string{"-C", configured, "rev-parse", "--show-toplevel"},
+		Stdout: stdout, Stderr: stderr,
+	}); err != nil {
 		return "", fmt.Errorf("copilot-adapter: find repository root: %w: %s", err, stderr.String())
 	}
 	root := strings.TrimSpace(stdout.String())

@@ -11,10 +11,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	candaceosv1 "github.com/candacelabs/csf/proto/candace/candaceos/v1"
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
-	"github.com/candacelabs/csf/services/candaceos/httpserver"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/httpserver"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 func TestCustomUIPage(t *testing.T) {
@@ -28,8 +28,8 @@ func TestCustomUIPage(t *testing.T) {
 func mount() *httptest.Server {
 	GinkgoHelper()
 	ui, err := webui.New(
-		webui.SnapshotFunc(func(ctx context.Context) (*candaceosv1.WebUISnapshot, error) {
-			return &candaceosv1.WebUISnapshot{}, nil
+		webui.SnapshotFunc(func(ctx context.Context) (*deployv1.WebUISnapshot, error) {
+			return &deployv1.WebUISnapshot{}, nil
 		}),
 		webui.WithNavItem(entry),
 	)

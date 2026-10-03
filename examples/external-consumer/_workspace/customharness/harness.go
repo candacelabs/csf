@@ -1,5 +1,5 @@
 // Package customharness is a complete harness implementation compiled outside
-// the CandaceOS source tree.
+// the deploy source tree.
 package customharness
 
 import (
@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	candaceosv1 "github.com/candacelabs/csf/proto/candace/candaceos/v1"
-	"github.com/candacelabs/csf/services/candaceos/harness"
+	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
+	"github.com/candacelabs/csf/services/harness"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"example.com/candace-external-consumer/steering"
@@ -34,10 +34,10 @@ func NewFactory(steeringService *steering.Service) Factory {
 
 // New binds the custom runtime to Core's host capabilities.
 func (factory Factory) New(
-	harnessContext *candaceosv1.HarnessContext,
+	harnessContext *deployv1.HarnessContext,
 	host harness.IHost,
 ) (*harness.Instance, error) {
-	if err := candaceosv1.ValidateHarnessContext(harnessContext); err != nil {
+	if err := deployv1.ValidateHarnessContext(harnessContext); err != nil {
 		return nil, fmt.Errorf("external echo harness context: %w", err)
 	}
 	if host == nil {
@@ -46,12 +46,12 @@ func (factory Factory) New(
 	if factory.steering == nil {
 		return nil, errors.New("external echo harness requires a steering service")
 	}
-	identity := &candaceosv1.HarnessRuntimeIdentity{
-		Backend:        candaceosv1.HarnessBackend_HARNESS_BACKEND_EMBEDDED,
+	identity := &deployv1.HarnessRuntimeIdentity{
+		Backend:        deployv1.HarnessBackend_HARNESS_BACKEND_EMBEDDED,
 		Model:          "echo-v1",
 		Implementation: implementation,
 	}
-	if err := candaceosv1.ValidateHarnessRuntimeIdentity(identity); err != nil {
+	if err := deployv1.ValidateHarnessRuntimeIdentity(identity); err != nil {
 		return nil, fmt.Errorf("external echo identity: %w", err)
 	}
 	return &harness.Instance{
@@ -77,7 +77,7 @@ func newRuntime(host harness.IHost, steeringService *steering.Service) *Runtime 
 }
 
 // Start creates the external harness session.
-func (runtime *Runtime) Start(ctx context.Context) (*candaceosv1.HarnessSession, error) {
+func (runtime *Runtime) Start(ctx context.Context) (*deployv1.HarnessSession, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -89,8 +89,8 @@ func (runtime *Runtime) Start(ctx context.Context) (*candaceosv1.HarnessSession,
 	}, nil); err != nil {
 		return nil, fmt.Errorf("installing external echo adapter: %w", err)
 	}
-	session := &candaceosv1.HarnessSession{Id: "external-echo-session"}
-	if err := candaceosv1.ValidateHarnessSession(session); err != nil {
+	session := &deployv1.HarnessSession{Id: "external-echo-session"}
+	if err := deployv1.ValidateHarnessSession(session); err != nil {
 		return nil, fmt.Errorf("external echo session: %w", err)
 	}
 	return session, nil
@@ -108,26 +108,26 @@ func (runtime *Runtime) Activate(ctx context.Context) error {
 // Send publishes the custom reply through Core's event boundary.
 func (runtime *Runtime) Send(
 	ctx context.Context,
-	prompt *candaceosv1.HarnessPrompt,
+	prompt *deployv1.HarnessPrompt,
 ) error {
 	return runtime.runner.Send(ctx, prompt)
 }
 
 func (runtime *Runtime) send(
 	ctx context.Context,
-	prompt *candaceosv1.HarnessPrompt,
+	prompt *deployv1.HarnessPrompt,
 ) error {
-	if err := candaceosv1.ValidateHarnessPrompt(prompt); err != nil {
+	if err := deployv1.ValidateHarnessPrompt(prompt); err != nil {
 		return fmt.Errorf("external echo prompt: %w", err)
 	}
 	runtime.steering.Observe(prompt.GetContent())
 	firstEventID, secondEventID := runtime.nextEventIDs()
 	now := timestamppb.Now()
-	if err := runtime.publish(ctx, &candaceosv1.HarnessEvent{
+	if err := runtime.publish(ctx, &deployv1.HarnessEvent{
 		Id: firstEventID, RunId: prompt.GetRunId(),
 		At: now,
-		Payload: &candaceosv1.HarnessEvent_AssistantMessage{
-			AssistantMessage: &candaceosv1.HarnessAssistantMessage{
+		Payload: &deployv1.HarnessEvent_AssistantMessage{
+			AssistantMessage: &deployv1.HarnessAssistantMessage{
 				MessageId: firstEventID,
 				Content:   "external echo: " + prompt.GetContent(),
 			},
@@ -135,10 +135,10 @@ func (runtime *Runtime) send(
 	}); err != nil {
 		return err
 	}
-	return runtime.publish(ctx, &candaceosv1.HarnessEvent{
+	return runtime.publish(ctx, &deployv1.HarnessEvent{
 		Id: secondEventID, RunId: prompt.GetRunId(),
 		At:      now,
-		Payload: &candaceosv1.HarnessEvent_Idle{Idle: &candaceosv1.HarnessIdle{}},
+		Payload: &deployv1.HarnessEvent_Idle{Idle: &deployv1.HarnessIdle{}},
 	})
 }
 
@@ -148,8 +148,8 @@ func (runtime *Runtime) nextEventIDs() (string, string) {
 		fmt.Sprintf("external-event-%d", sequence)
 }
 
-func (runtime *Runtime) publish(ctx context.Context, event *candaceosv1.HarnessEvent) error {
-	if err := candaceosv1.ValidateHarnessEvent(event); err != nil {
+func (runtime *Runtime) publish(ctx context.Context, event *deployv1.HarnessEvent) error {
+	if err := deployv1.ValidateHarnessEvent(event); err != nil {
 		return fmt.Errorf("external echo event: %w", err)
 	}
 	if err := runtime.host.Publish(ctx, event); err != nil {

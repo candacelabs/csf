@@ -1,0 +1,10 @@
+{
+  "case_id": "002-unnamed-params",
+  "tier": 1,
+  "rule_under_test": "CS-2",
+  "summary": "Every parameter is named in all three places the rule reaches — interface method, func type, func declaration — while return values stay unnamed.",
+  "dirty_must_fire": ["CS-2"],
+  "dirty_min_findings": {"CS-2": 3},
+  "clean_must_not_fire": ["CS-1", "CS-2"],
+  "notes": "The minimum of 3 is one finding per signature kind. A scanner change that stops seeing func types would still report 2 and must not be allowed to pass."
+}

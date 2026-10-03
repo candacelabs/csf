@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	db "github.com/candacelabs/csf/csf/internal/brainspinedb"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -48,7 +48,7 @@ func (row agentConfigurationErrorRow) Scan(destinations ...any) error {
 
 var _ = Describe("agent configuration Postgres errors", func() {
 	It("retains both not-found classification and the database no-row error", func() {
-		store := &Postgres{queries: db.New(agentConfigurationErrorDB{err: pgx.ErrNoRows})}
+		store := &Postgres{queries: csfpg.New(agentConfigurationErrorDB{err: pgx.ErrNoRows})}
 
 		_, err := store.GetAgentConfiguration(context.Background(), configurationAgentID)
 
@@ -58,7 +58,7 @@ var _ = Describe("agent configuration Postgres errors", func() {
 	})
 
 	It("retains both create-conflict classification and the database no-row error", func() {
-		store := &Postgres{queries: db.New(agentConfigurationErrorDB{err: pgx.ErrNoRows})}
+		store := &Postgres{queries: csfpg.New(agentConfigurationErrorDB{err: pgx.ErrNoRows})}
 
 		_, err := store.PutAgentConfiguration(context.Background(), configurationAgentID, 0, validAgentConfigurationInput(configurationAgentID))
 
@@ -68,7 +68,7 @@ var _ = Describe("agent configuration Postgres errors", func() {
 	})
 
 	It("retains both update-conflict classification and the database no-row error", func() {
-		store := &Postgres{queries: db.New(agentConfigurationErrorDB{err: pgx.ErrNoRows})}
+		store := &Postgres{queries: csfpg.New(agentConfigurationErrorDB{err: pgx.ErrNoRows})}
 
 		_, err := store.PutAgentConfiguration(context.Background(), configurationAgentID, 1, validAgentConfigurationInput(configurationAgentID))
 
@@ -79,7 +79,7 @@ var _ = Describe("agent configuration Postgres errors", func() {
 
 	It("adds operation context while preserving typed database errors", func() {
 		databaseError := &pgconn.PgError{Code: "08006", Message: "connection failure"}
-		store := &Postgres{queries: db.New(agentConfigurationErrorDB{err: databaseError})}
+		store := &Postgres{queries: csfpg.New(agentConfigurationErrorDB{err: databaseError})}
 
 		_, err := store.GetAgentConfiguration(context.Background(), configurationAgentID)
 

@@ -4,7 +4,7 @@
 # compiling. Compiling is not running, so the authority for whether they PASS
 # is named per target below, and every one of them has one:
 #
-#   * the four Go targets are run by the `Go build and test` job in
+#   * the five Go targets are run by the `Go build and test` job in
 #     .github/workflows/ci.yml, which is the `go test ./...` battery the README
 #     documents, in the pinned golang container;
 #   * the Rust one is run by the monorepo's own cargo job, which has git. This
@@ -25,6 +25,10 @@
 # schedule location, and Go names the local zone "UTC" rather than "Local" when
 # it cannot read that file. The pinned Bazel image has no time zone data at all.
 //pkg/cron:cron_test
+# Needs the source tree as directories: reads the gate workflows under
+# .github/, which no Bazel package owns, and checks that one representative
+# file per ontology-score input exists across the tree.
+//tools/gates:gates_test
 # Needs a `git` binary on PATH: it clones from and pushes to xetcasd's own
 # smart-HTTP routes. The pinned Bazel image has no git. The monorepo's cargo
 # job runs it; nothing in THIS repository does, because the only way to would be

@@ -1,0 +1,124 @@
+// Case 020 fixture — DIRTY. It violates CS-5 and nothing else: a worker-pool
+// state machine whose transitions three different goroutines negotiate over,
+// held together by one RWMutex. Every interface is absent by design and every
+// parameter is named, so a gate run over this file must report CS-5 findings
+// and zero CS-1 and CS-2 findings.
+//
+// This is the shape CS-5 exists to name. The lock is not protecting a counter;
+// it is standing in for a protocol. `state` moves idle -> running -> draining
+// -> closed, and which goroutine is allowed to move it depends on what the
+// others have already done — which is a conversation, and a conversation is
+// what channels are for.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import (
+	"errors"
+	"sync"
+)
+
+// metricsSink is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const metricsSink = "198.51.100.20:9100"
+
+var errPoolClosed = errors.New("worker pool is closed")
+
+// poolState is the state machine at the centre of the problem.
+type poolState int
+
+const (
+	poolIdle poolState = iota
+	poolRunning
+	poolDraining
+	poolClosed
+)
+
+// Job is one unit of work handed to the pool.
+type Job struct {
+	Key     string
+	Payload []byte
+}
+
+// WorkerPool accepts jobs until it is drained. Every field is reachable from
+// every goroutine, and the lock is the only thing keeping the transitions
+// apart — miss one Lock and the state machine runs backwards.
+type WorkerPool struct {
+	mu       sync.RWMutex
+	state    poolState
+	pending  []Job
+	inFlight int
+	workers  int
+}
+
+// NewWorkerPool returns an idle pool sized for the given worker count.
+func NewWorkerPool(workers int) *WorkerPool {
+	return &WorkerPool{state: poolIdle, workers: workers}
+}
+
+// Submit queues one job unless the pool has started draining.
+func (pool *WorkerPool) Submit(job Job) error {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	if pool.state == poolDraining || pool.state == poolClosed {
+		return errPoolClosed
+	}
+	pool.state = poolRunning
+	pool.pending = append(pool.pending, job)
+	return nil
+}
+
+// claim hands the next job to a worker goroutine, if the state still allows
+// one to run. Two locks deep into the same transition and the reason the
+// RWMutex is here stops being "protect a field" and starts being "sequence
+// three goroutines".
+func (pool *WorkerPool) claim() (Job, bool) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	if pool.state == poolClosed || len(pool.pending) == 0 {
+		return Job{}, false
+	}
+	job := pool.pending[0]
+	pool.pending = pool.pending[1:]
+	pool.inFlight++
+	return job, true
+}
+
+// complete records that a worker finished, and closes the pool if it was the
+// last job of a drain.
+func (pool *WorkerPool) complete(job Job) {
+	pool.mu.Lock()
+	defer pool.mu.Unlock()
+	pool.inFlight--
+	if pool.state == poolDraining && pool.inFlight == 0 && len(pool.pending) == 0 {
+		pool.state = poolClosed
+	}
+}
+
+// Drain stops new submissions and waits for the in-flight jobs by polling its
+// own state under the read lock — the tell that the lock has become a
+// substitute for a message.
+func (pool *WorkerPool) Drain() {
+	pool.mu.Lock()
+	if pool.state != poolClosed {
+		pool.state = poolDraining
+	}
+	pool.mu.Unlock()
+	for {
+		pool.mu.RLock()
+		done := pool.state == poolClosed
+		pool.mu.RUnlock()
+		if done {
+			return
+		}
+	}
+}
+
+// Stats reports the queue depth and the in-flight count.
+func (pool *WorkerPool) Stats() (int, int) {
+	pool.mu.RLock()
+	defer pool.mu.RUnlock()
+	return len(pool.pending), pool.inFlight
+}

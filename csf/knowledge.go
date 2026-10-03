@@ -11,6 +11,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/candacelabs/csf/ipc/ros"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"google.golang.org/protobuf/proto"
 )
@@ -42,18 +43,17 @@ type IAgentConfigurationStore interface {
 	PutAgentConfiguration(ctx context.Context, agentID string, expectedRevision uint32, configuration *pb.AgentConfigurationInput) (*pb.AgentConfiguration, error)
 }
 
-func (service *Service) Compile(ctx context.Context, request *pb.CompileRequest) (*pb.CompileResponse, error) {
-	program, err := Compile(request.GetController())
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalidRequest, err)
-	}
-	return &pb.CompileResponse{Program: program}, nil
-}
+// GetSnapshot reports the observed run and the spine's connection status. A
+// missing spine is an issue the view renders, not an operation failure.
 func (service *Service) GetSnapshot(ctx context.Context, request *pb.GetSnapshotRequest) (*pb.GetSnapshotResponse, error) {
-	if service.dashboard == nil {
-		return &pb.GetSnapshotResponse{Snapshot: &pb.Snapshot{Issues: []string{"no event source configured"}}}, nil
+	snapshot := &pb.Snapshot{Issues: []string{"no event source configured"}}
+	if service.dashboard != nil {
+		snapshot = service.dashboard.Snapshot()
 	}
-	return &pb.GetSnapshotResponse{Snapshot: service.dashboard.Snapshot()}, nil
+	if status := ros.Status(ctx, service.spine); status != "" {
+		snapshot.Issues = append(snapshot.Issues, status)
+	}
+	return &pb.GetSnapshotResponse{Snapshot: snapshot}, nil
 }
 
 func (service *Service) IngestDocument(ctx context.Context, request *pb.IngestDocumentRequest) (*pb.IngestDocumentResponse, error) {

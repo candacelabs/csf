@@ -1,0 +1,54 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "intake",
+    srcs = [
+        "address.go",
+        "doc.go",
+        "feeds.go",
+        "intake.go",
+        "options.go",
+        "poller.go",
+        "queue.go",
+        "routes.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/intake",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc",
+        "//ipc/model",
+        "//ipc/net/http",
+        "//proto/candace/intake/v1:intake",
+        "//runtime",
+        "//services/relay",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "intake_test",
+    srcs = [
+        "intake_suite_test.go",
+        "intake_test.go",
+        "internal_test.go",
+        "mock_client_test.go",
+        "mock_directory_test.go",
+        "mock_messenger_test.go",
+        "routes_test.go",
+    ],
+    embed = [":intake"],
+    deps = [
+        "//ipc",
+        "//ipc/model",
+        "//ipc/model/copilot",
+        "//pkg/eventually",
+        "//proto/candace/intake/v1:intake",
+        "//runtime",
+        "//services/relay",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

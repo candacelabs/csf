@@ -5,7 +5,6 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/candacelabs/csf/pkg/cron"
 	"github.com/getkin/kin-openapi/openapi3filter"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,6 +13,7 @@ import (
 	adapterconfig "github.com/candacelabs/csf/services/copilot-adapter/config"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
+	cron "github.com/candacelabs/csf/services/cron"
 )
 
 // CopilotAdapter is the adapter, mounted into a binary's existing Gin engine

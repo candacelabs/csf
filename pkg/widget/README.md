@@ -139,12 +139,13 @@ nil dereference; closing a resource too early can cause a logical failure even
 when its `Close` method is concurrency-safe.
 
 **Current shutdown boundary:** gotth-live's
-[`Actor.shutdown`](../gotth/internal/session/actor.go) waits for effects only up
-to `EffectDrainTimeout`, records an abandoned effect if the deadline expires,
-then calls teardown. The registry calls `Unmount` in reverse registration
-order. An effect that ignores cancellation can therefore outlive `Unmount`;
-neither that hook nor a closed session establishes that all effects have
-finished. Application-created goroutines are not automatically tracked either.
+[`Actor.shutdown`](../gotth/internal/session/actor.go) cancels and joins every
+effect of the session — counting and logging one still running after
+`EffectDrainTimeout`, and continuing to wait — then calls teardown. The
+registry calls `Unmount` in reverse registration order, so no effect the
+library started outlives `Unmount`; an effect that ignores cancellation holds
+the session's shutdown open instead. Application-created goroutines are not
+automatically tracked.
 Keep resources used by outstanding workers valid until their users finish;
 the current SDK does not enforce that ownership protocol for arbitrary widget
 implementations.

@@ -14,6 +14,7 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
+	"github.com/candacelabs/csf/ipc/ros"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	"github.com/candacelabs/csf/pkg/liquidproto"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
@@ -106,6 +107,7 @@ var _ = Describe("generated transport consumers", func() {
 		result, err := consumer.GetSnapshot(context.Background(), &pb.GetSnapshotRequest{})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.Snapshot.Issues).To(ContainElement("no event source configured"))
+		Expect(result.Snapshot.Issues).To(ContainElement(ros.NotConnectedStatus))
 	})
 	It("lists and executes real MCP tools and rejects unknown fields", func() {
 		consumer := newCSFConsumer()
@@ -120,9 +122,12 @@ var _ = Describe("generated transport consumers", func() {
 		}
 		Expect(listedNames).To(ConsistOf(names))
 		Expect(csf.CLIOperations()).To(ConsistOf(names))
+		Expect(listedNames).NotTo(ContainElement("Compile"))
 		result, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "GetSnapshot", Arguments: map[string]string{}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.IsError).To(BeFalse())
+		Expect(result.Content).To(HaveLen(1))
+		Expect(result.Content[0].(*mcp.TextContent).Text).To(ContainSubstring(ros.NotConnectedStatus))
 		result, err = session.CallTool(ctx, &mcp.CallToolParams{Name: "GetSnapshot", Arguments: map[string]string{"unknown": "rejected"}})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(result.IsError).To(BeTrue())

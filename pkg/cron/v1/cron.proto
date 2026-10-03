@@ -87,7 +87,7 @@ message MonthlyLastDaySchedule {
 
 // IntervalSchedule is elapsed-time scheduling. anchor is optional desired
 // configuration; when absent, the durable store establishes it exactly once
-// and exposes the resulting value on JobStatus.
+// and exposes the resulting value on TriggerStatus.
 message IntervalSchedule {
   int64 interval_nanoseconds = 1 [(candace.liquid.v1.field) = {
     expr: "this >= 1000"
@@ -121,9 +121,10 @@ message ScheduleSpec {
   }
 }
 
-// JobDefinition is the portable desired job configuration. The executable Go
-// handler is registered locally by name and is deliberately not serializable.
-message JobDefinition {
+// TriggerDefinition is the portable declaration of one trigger: its name, its
+// schedule and its catch-up and overlap policies. The operation it invokes is
+// registered locally by name and is deliberately not serializable.
+message TriggerDefinition {
   reserved 5;
 
   string name = 1 [(candace.liquid.v1.field) = {
@@ -135,12 +136,13 @@ message JobDefinition {
 }
 
 // Invocation identifies one scheduled occurrence. occurrence_id is stable for
-// a given job name and scheduled time and is the handler's idempotency key.
+// a given trigger name and scheduled time and is the operation's idempotency
+// key.
 message Invocation {
   string occurrence_id = 1 [(candace.liquid.v1.field) = {
     expr: "matches(this, `^occ_[0-9a-f]{64}$`)"
   }];
-  string job_name = 2 [(candace.liquid.v1.field) = {
+  string trigger_name = 2 [(candace.liquid.v1.field) = {
     expr: "len(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)"
   }];
   google.protobuf.Timestamp scheduled_at = 3;
@@ -163,12 +165,12 @@ message RunSummary {
   }];
 }
 
-// JobStatus is a read-only status projection suitable for an authenticated
-// Gin route. PostgreSQL remains relational and is mapped explicitly.
-message JobStatus {
+// TriggerStatus is a read-only status projection of one trigger. PostgreSQL
+// remains relational and is mapped explicitly.
+message TriggerStatus {
   reserved 3;
 
-  JobDefinition definition = 1;
+  TriggerDefinition definition = 1;
   google.protobuf.Timestamp next_run_at = 2;
   google.protobuf.Timestamp interval_anchor = 4;
   uint32 active_runs = 5 [(candace.liquid.v1.field) = {
@@ -179,5 +181,5 @@ message JobStatus {
 
 message StatusSnapshot {
   google.protobuf.Timestamp observed_at = 1;
-  repeated JobStatus jobs = 2;
+  repeated TriggerStatus triggers = 2;
 }

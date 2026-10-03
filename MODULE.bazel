@@ -77,6 +77,29 @@ http_archive(
     urls = ["https://github.com/tmattio/mosaic/releases/download/0.1.0/mosaic-0.1.0.tbz"],
 )
 
+# Datalog v0.7 (opam `datalog`); the compiler's relational checks run on its
+# top-down engine. Same archive and SHA-256 as the opam-repository manifest.
+http_archive(
+    name = "datalog_ocaml_source",
+    build_file = "//csf/compiler/third_party/datalog:source.BUILD.bazel",
+    sha256 = "13ca520bddf4f0c44d1468bc89347be72ec543be58fff29469a0da24956be541",
+    strip_prefix = "datalog-0.7",
+    type = "tar.bz2",
+    urls = ["https://github.com/c-cube/datalog/releases/download/v0.7/datalog-0.7.tbz"],
+)
+
+# Python v0.25.0; immutable grammar and external indentation/string scanner.
+# The house checker's PY-MAGIC-STRING rule (tools/house_lint) parses tracked
+# Python with it.
+http_archive(
+    name = "tree_sitter_python",
+    build_file = "//csf/compiler/third_party/tree_sitter:python_grammar.BUILD.bazel",
+    sha256 = "b74d8ba6730535354175436208fe1452fd464f235263959ca40b8bf32cb23dc6",
+    strip_prefix = "tree-sitter-python-293fdc02038ee2bf0e2e206711b69c90ac0d413f",
+    type = "tar.gz",
+    urls = ["https://codeload.github.com/tree-sitter/tree-sitter-python/tar.gz/293fdc02038ee2bf0e2e206711b69c90ac0d413f"],
+)
+
 http_archive(
     name = "tree_sitter_go",
     build_file = "//csf/compiler/third_party/tree_sitter:grammar.BUILD.bazel",
@@ -105,6 +128,7 @@ go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
 use_repo(
     go_deps,
+    "cc_mvdan_sh_v3",
     "com_github_a_h_templ",
     "com_github_aws_aws_sdk_go_v2",
     "com_github_aws_aws_sdk_go_v2_config",
@@ -114,6 +138,7 @@ use_repo(
     "com_github_containerd_errdefs",
     "com_github_creack_pty",
     "com_github_evanw_esbuild",
+    "com_github_fsnotify_fsnotify",
     "com_github_getkin_kin_openapi",
     "com_github_gin_contrib_sse",
     "com_github_gin_gonic_gin",
@@ -136,7 +161,9 @@ use_repo(
     "com_github_robfig_cron_v3",
     "com_github_rs_zerolog",
     "com_github_soheilhy_cmux",
+    "com_github_sourcegraph_conc",
     "com_github_sst_opencode_sdk_go",
+    "com_github_yuin_goldmark",
     "in_gopkg_yaml_v3",
     "io_opentelemetry_go_otel",
     "io_opentelemetry_go_otel_exporters_otlp_otlptrace",
@@ -152,6 +179,7 @@ use_repo(
     "org_golang_x_sync",
     "org_golang_x_tools",
     "org_modernc_sqlite",
+    "org_uber_go_goleak",
     "org_uber_go_mock",
 )
 

@@ -6,9 +6,9 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/copilot-adapter/terminaladapter",
     visibility = ["//visibility:public"],
     deps = [
+        "//ipc/proc",
         "//services/copilot-adapter",
         "//services/copilot-adapter/gen/api",
-        "@com_github_creack_pty//:pty",
         "@com_github_google_uuid//:uuid",
     ],
 )
@@ -16,12 +16,14 @@ go_library(
 go_test(
     name = "terminaladapter_test",
     srcs = [
+        "launcher_support_test.go",
         "manager_test.go",
         "terminaladapter_suite_test.go",
     ],
     deps = [
         ":terminaladapter",
-        "//pkg/patience",
+        "//ipc/proc",
+        "//pkg/eventually",
         "//services/copilot-adapter",
         "//services/copilot-adapter/gen/api",
         "@com_github_google_uuid//:uuid",

@@ -3,16 +3,17 @@ package copilotadapter_test
 import (
 	"bufio"
 	"context"
-	"database/sql"
 	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"time"
 
 	"github.com/candacelabs/csf/pkg/cron"
+	cronservice "github.com/candacelabs/csf/services/cron"
+	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/candacelabs/csf/pkg/httpserver"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
@@ -48,14 +50,15 @@ var _ = Describe("New", func() {
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithConfig(config), copilotadapter.WithBridge(bridge),
 			copilotadapter.WithStore(store), copilotadapter.WithWorktreeManager(worktrees),
-			copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
 		engine := httpserver.NewEngine("terminal-flush-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
+		Expect(err).NotTo(HaveOccurred())
 		worktreeID, terminalID := uuid.New(), uuid.New()
 		snapshot := copilotadapter.TerminalSnapshot{ID: terminalID, WorktreeID: worktreeID, Status: string(api.TerminalStatusRunning)}
 		changed := make(chan struct{})
@@ -71,10 +74,8 @@ var _ = Describe("New", func() {
 		// configured poll. Waiting for that ticker therefore cannot pass.
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/v1/worktrees/"+worktreeID.String()+"/terminals/"+terminalID.String()+"/events", nil)
-		Expect(err).NotTo(HaveOccurred())
 		started := time.Now()
-		response, err := http.DefaultClient.Do(request)
+		response, err := client.StreamTerminalEvents(ctx, worktreeID, terminalID, nil)
 		Expect(err).NotTo(HaveOccurred())
 		defer func() { Expect(response.Body.Close()).To(Succeed()) }()
 		scanner := bufio.NewScanner(response.Body)
@@ -104,7 +105,7 @@ var _ = Describe("New", func() {
 			copilotadapter.WithStore(store),
 			copilotadapter.WithWorktreeManager(worktrees),
 			copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service).NotTo(BeNil())
@@ -117,7 +118,7 @@ var _ = Describe("New", func() {
 			copilotadapter.WithStore(store),
 			copilotadapter.WithWorktreeManager(worktrees),
 			copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(cron.NewMemoryStore()),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -132,9 +133,8 @@ var _ = Describe("Handler", func() {
 		store      *MockIStore
 		worktrees  *MockIWorktreeManager
 		terminals  *MockITerminalManager
-		server     *httptest.Server
 		client     *api.ClientWithResponses
-		schedules  *cron.MemoryStore
+		schedules  cronservice.IStore
 	)
 
 	BeforeEach(func() {
@@ -144,7 +144,7 @@ var _ = Describe("Handler", func() {
 		worktrees = NewMockIWorktreeManager(controller)
 		terminals = NewMockITerminalManager(controller)
 		terminals.EXPECT().Close().Return(nil).AnyTimes()
-		schedules = cron.NewMemoryStore()
+		schedules = crontest.OpenStore(GinkgoT())
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge),
 			copilotadapter.WithStore(store),
@@ -157,9 +157,8 @@ var _ = Describe("Handler", func() {
 		DeferCleanup(service.Close)
 		engine := httpserver.NewEngine("copilot-adapter-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server = httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err = api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err = api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 	})
 
@@ -172,9 +171,7 @@ var _ = Describe("Handler", func() {
 			// A turn-start event without its required turn reference is corrupt.
 			{SessionID: sessionID, Seq: 2, Kind: string(api.SessionEventKindTurnStarted), OccurredAt: at},
 		}, nil)
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, server.URL+"/v1/sessions/"+sessionID.String()+"/events", nil)
-		Expect(err).NotTo(HaveOccurred())
-		response, err := http.DefaultClient.Do(request)
+		response, err := client.StreamSessionEvents(ctx, sessionID, nil)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(response.Body.Close)
 		body, err := io.ReadAll(response.Body)
@@ -256,7 +253,7 @@ var _ = Describe("Handler", func() {
 
 	DescribeTable("validates the model before any creation side effects", func(model string, models []copilotadapter.BridgeModel, catalogErr error, status int) {
 		key := uuid.New()
-		store.EXPECT().GetSessionCreation(gomock.Any(), key).Return(storedb.SessionCreation{}, sql.ErrNoRows)
+		store.EXPECT().GetSessionCreation(gomock.Any(), key).Return(storedb.SessionCreation{}, pgx.ErrNoRows)
 		bridge.EXPECT().ListModels(gomock.Any()).Return(models, catalogErr)
 		var body api.CreateSessionJSONRequestBody
 		Expect(body.FromCurrentWorktreeSessionRequest(api.CurrentWorktreeSessionRequest{
@@ -336,12 +333,12 @@ var _ = Describe("Handler", func() {
 			{ID: nearID, SessionID: sessionID, DisplayName: "near", Prompt: "near", CronExpression: "0 13 * * *", Timezone: "UTC", Status: "active", CreatedAt: now.Add(-3 * time.Hour), UpdatedAt: now},
 		}
 		store.EXPECT().ListChatSchedules(gomock.Any()).Return(rows, nil)
-		definitions := make([]cron.JobDefinition, 0, 2)
+		definitions := make([]cron.TriggerDefinition, 0, 2)
 		for _, row := range []storedb.ChatSchedule{rows[1], rows[3]} {
 			schedule := cron.Spec(cron.Raw(row.CronExpression)).In(time.UTC)
 			definition, err := schedule.Definition()
 			Expect(err).NotTo(HaveOccurred())
-			definitions = append(definitions, cron.JobDefinition{
+			definitions = append(definitions, cron.TriggerDefinition{
 				Name: "chat/" + row.ID.String(), Schedule: definition,
 				CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
 			})

@@ -1,0 +1,411 @@
+// Spec test for bench task candaws-roundabout-v1: the Roundabout card.
+//
+// Fixed, and graded unmodified: the implementer may not edit this file, and a
+// run that changed it is void.
+//
+// It asserts on RENDERED OUTPUT and never on source. This is the only file both
+// A/B conditions are graded against on the card, and a hand-written card and a
+// generated one share no file names, no function names and no formatting; the
+// one thing they can be held to identically is what comes out of the region.
+// Every assertion below is derived from the card described in task.md — it
+// describes a card, not a way of producing one.
+//
+// Two consequences of that rule are worth stating, because both were nearly got
+// wrong. The motion gate is the root's data-motion attribute: the scene's
+// declared motion is a property of the document rather than of state, so pulse
+// elements are drawn whether or not anything is animating, and an assertion of
+// "zero pulses when the gate is shut" would be grading a markup strategy rather
+// than the card. And the region identity is counted as its own attribute rather
+// than as a bare substring, because the title element's id has the region as a
+// prefix.
+//
+// Held as .go.txt for the reason the other bench fixture is: a tracked .go file
+// here would join the census corpus and the reuse gate's corpus. grade.sh
+// renames it on the way into the scratch module.
+
+package roundabout_test
+
+import (
+	"context"
+	"fmt"
+	"testing"
+
+	"github.com/candacelabs/candace/pkg/gotth/live"
+	"github.com/candacelabs/candace/pkg/widget/widgettest"
+
+	"roundabout"
+)
+
+// ---------------------------------------------------------------------------
+// Mounting one card in a state
+// ---------------------------------------------------------------------------
+
+// card mounts the widget, drives it to the given rotation view plus whatever
+// further events the case needs, and returns the region's markup.
+func card(t *testing.T, view roundabout.RotationView, sent ...live.Event) widgettest.Rendered {
+	t.Helper()
+
+	mounted, mountError := roundabout.MountCard(context.Background())
+	if mountError != nil {
+		t.Fatalf("MountCard: %v", mountError)
+	}
+	if region := mounted.Region(); region != roundabout.Region {
+		t.Fatalf("the card mounted on region %q, want %q", region, roundabout.Region)
+	}
+
+	events := append(
+		[]live.Event{widgettest.Deliver(roundabout.EventReport, roundabout.ReportFields(view))},
+		sent...)
+	mounted.Apply(events...)
+
+	markup, renderError := mounted.Render(context.Background())
+	if renderError != nil {
+		t.Fatalf("Render: %v", renderError)
+	}
+	return markup
+}
+
+// rotating is the pool as the console usually finds it: three healthy backends,
+// nothing ejected, the balancer accepting.
+func rotating(sequence uint64) roundabout.RotationView {
+	return roundabout.RotationView{
+		Sequence: sequence, PolicyName: "least connections",
+		Healthy: 3, Ejected: 0, Inflight: 4, Up: true,
+	}
+}
+
+// ejected is one backend out of the rotation and the pool still over its floor.
+func ejected(sequence uint64) roundabout.RotationView {
+	view := rotating(sequence)
+	view.Healthy, view.Ejected = 2, 1
+	return view
+}
+
+// belowTheFloor is two backends out, which takes the pool under its capacity.
+func belowTheFloor(sequence uint64) roundabout.RotationView {
+	view := rotating(sequence)
+	view.Healthy, view.Ejected = 1, 2
+	return view
+}
+
+// down is the balancer not accepting at all.
+func down(sequence uint64) roundabout.RotationView {
+	view := rotating(sequence)
+	view.Up = false
+	return view
+}
+
+// drain is the control's click, and slow/recovered are the runtime's two
+// signals.
+var (
+	drain     = func() live.Event { return widgettest.Deliver(roundabout.EventDrain, nil) }
+	slow      = func() live.Event { return widgettest.Deliver(live.SlowClientEvent, nil) }
+	recovered = func() live.Event { return widgettest.Deliver(live.ClientRecoveredEvent, nil) }
+)
+
+func mustHave(t *testing.T, markup widgettest.Rendered, fragments ...string) {
+	t.Helper()
+	for _, fragment := range fragments {
+		if !markup.Has(fragment) {
+			t.Fatalf("the rendered region does not carry %q\n--- markup ---\n%s", fragment, markup)
+		}
+	}
+}
+
+func mustNotHave(t *testing.T, markup widgettest.Rendered, fragments ...string) {
+	t.Helper()
+	for _, fragment := range fragments {
+		if markup.Has(fragment) {
+			t.Fatalf("the rendered region carries %q and should not\n--- markup ---\n%s", fragment, markup)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Identity and the landmark
+// ---------------------------------------------------------------------------
+
+func TestTheRegionIsNamedExactlyOnce(t *testing.T) {
+	markup := card(t, rotating(1))
+
+	attribute := fmt.Sprintf("data-gotth-region=%q", roundabout.Region)
+	if found := markup.Count(attribute); found != 1 {
+		t.Fatalf("the region attribute appears %d times, want exactly 1 — a card that names "+
+			"its own region twice patches correctly and is impossible to address\n--- markup ---\n%s",
+			found, markup)
+	}
+	mustHave(t, markup, `data-widget="Roundabout"`, `data-palette="fieldStation"`)
+}
+
+func TestTheRootIsANamedLandmark(t *testing.T) {
+	markup := card(t, rotating(2))
+
+	landmark, present := markup.Landmark()
+	if !present {
+		t.Fatalf("the card rendered no element at all")
+	}
+	if landmark.Element != "aside" {
+		t.Fatalf("the root element is <%s>, want <aside>", landmark.Element)
+	}
+	if landmark.LabelledBy != roundabout.Region+"-title" {
+		t.Fatalf("aria-labelledby is %q, want %q", landmark.LabelledBy, roundabout.Region+"-title")
+	}
+	if !landmark.Named {
+		t.Fatalf("aria-labelledby names %q and no element in the region carries that id: "+
+			"a landmark with no accessible name is not a landmark", landmark.LabelledBy)
+	}
+}
+
+func TestTheChromeCarriesTheTitleAndTheSource(t *testing.T) {
+	markup := card(t, rotating(3))
+	mustHave(t, markup, "Roundabout", "Read-only balancer stream",
+		`class="widget-title`, `class="widget-source`)
+}
+
+// ---------------------------------------------------------------------------
+// The scene
+// ---------------------------------------------------------------------------
+
+func TestTheSceneDrawsFiveNodesAndOnlyFourCaptions(t *testing.T) {
+	markup := card(t, rotating(4))
+
+	if nodes := markup.Elements("widget-node"); nodes != 5 {
+		t.Fatalf("the scene draws %d nodes, want 5", nodes)
+	}
+	if titles := markup.Elements("widget-node-title"); titles != 5 {
+		t.Fatalf("the scene draws %d node titles, want 5", titles)
+	}
+	if captions := markup.Elements("widget-node-caption"); captions != 4 {
+		t.Fatalf("the scene draws %d node captions, want 4 — the client carries none", captions)
+	}
+	if orbits := markup.Elements("widget-orbit"); orbits != 1 {
+		t.Fatalf("the scene draws %d orbits, want 1", orbits)
+	}
+	mustHave(t, markup, "client", "balancer", "backend-a", "backend-b", "backend-c")
+}
+
+func TestTheLegendCarriesBothChannelsInOrder(t *testing.T) {
+	markup := card(t, rotating(5))
+
+	if entries := markup.Elements("widget-legend-entry"); entries != 2 {
+		t.Fatalf("the legend carries %d entries, want 2", entries)
+	}
+	if !markup.InOrder("request", "response") {
+		t.Fatalf("the legend is not in channel order\n--- markup ---\n%s", markup)
+	}
+}
+
+func TestTheSceneIsDescribedByTheStateItIsIn(t *testing.T) {
+	const prefix = "A client, a balancer and three backends; "
+
+	cases := []struct {
+		name   string
+		markup widgettest.Rendered
+		tail   string
+	}{
+		{"routing", card(t, rotating(6)),
+			"requests are distributed across the rotation and answered back along the same path."},
+		{"the balancer down", card(t, down(7)),
+			"the balancer is not accepting requests."},
+		{"below the floor", card(t, belowTheFloor(8)),
+			"too few backends are passing their health checks."},
+		{"a client behind", card(t, rotating(9), slow()),
+			"the browser is behind the request stream."},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			mustHave(t, testCase.markup, prefix+testCase.tail)
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The three stat lines
+// ---------------------------------------------------------------------------
+
+func TestTheThreeStatsRenderInDeclarationOrder(t *testing.T) {
+	markup := card(t, rotating(10))
+
+	if stats := markup.Elements("widget-stat"); stats != 3 {
+		t.Fatalf("the card renders %d stat lines, want 3", stats)
+	}
+	if !markup.InOrder(
+		"policy least connections",
+		"4 requests in flight",
+		"3 of 3 backends healthy",
+	) {
+		t.Fatalf("the three stats are not in declaration order\n--- markup ---\n%s", markup)
+	}
+}
+
+func TestTheStatsFollowTheStateTheyReport(t *testing.T) {
+	mustHave(t, card(t, down(11)), "no requests in flight")
+	mustHave(t, card(t, rotating(12), slow()), "no requests in flight")
+	mustHave(t, card(t, belowTheFloor(13)), "1 of 3 backends healthy · below the floor")
+	mustHave(t, card(t, ejected(14)), "2 of 3 backends healthy")
+	mustNotHave(t, card(t, ejected(15)), "below the floor")
+}
+
+// ---------------------------------------------------------------------------
+// The balancer's caption, in each of its three states
+// ---------------------------------------------------------------------------
+
+func TestTheBalancerIsCaptionedByWhatItIsDoing(t *testing.T) {
+	mustHave(t, card(t, rotating(16)), "rotating")
+	mustHave(t, card(t, rotating(17), drain()), "draining")
+	mustHave(t, card(t, down(18)), "closed")
+
+	// Draining wins over routing, and a balancer that is both down and
+	// draining still captions as draining: the clauses are ordered.
+	mustHave(t, card(t, down(19), drain()), "draining")
+}
+
+func TestTheBackendsAreCaptionedByTheRotation(t *testing.T) {
+	mustHave(t, card(t, rotating(20)), "in rotation")
+	mustHave(t, card(t, ejected(21)), "partly ejected")
+}
+
+// ---------------------------------------------------------------------------
+// The indicator
+// ---------------------------------------------------------------------------
+
+func TestTheIndicatorTurnsWithTheRotation(t *testing.T) {
+	full := card(t, rotating(22))
+	if indicators := full.Elements("widget-indicator"); indicators != 1 {
+		t.Fatalf("the card renders %d indicators, want 1", indicators)
+	}
+	if tone := full.Count(`data-tone="positive"`); tone != 1 {
+		t.Fatalf("a full rotation renders %d positive tones, want 1", tone)
+	}
+	mustHave(t, full, "every backend in rotation")
+
+	short := card(t, ejected(23))
+	if tone := short.Count(`data-tone="warning"`); tone != 1 {
+		t.Fatalf("an ejected backend renders %d warning tones, want 1", tone)
+	}
+	mustHave(t, short, "1 backends ejected")
+}
+
+func TestTheIndicatorTextIsOrdered(t *testing.T) {
+	// Every clause of the indicator's text, in the order it is decided.
+	mustHave(t, card(t, down(24)), "balancer down")
+	mustHave(t, card(t, down(25), drain()), "balancer down")
+	mustHave(t, card(t, rotating(26), drain()), "draining by operator")
+	mustHave(t, card(t, rotating(27), slow()), "browser catching up")
+	mustHave(t, card(t, rotating(28)), "every backend in rotation")
+	mustHave(t, card(t, belowTheFloor(29)), "2 backends ejected")
+}
+
+// ---------------------------------------------------------------------------
+// The control
+// ---------------------------------------------------------------------------
+
+func TestTheDrainControlReportsItsPressedState(t *testing.T) {
+	idle := card(t, rotating(30))
+	if controls := idle.Elements("widget-control"); controls != 1 {
+		t.Fatalf("the card renders %d controls, want 1", controls)
+	}
+	mustHave(t, idle, `aria-pressed="false"`, "Drain the pool")
+
+	pressed := card(t, rotating(31), drain())
+	mustHave(t, pressed, `aria-pressed="true"`, "Return the pool to the rotation")
+
+	// The control is a toggle: a second click returns it.
+	released := card(t, rotating(32), drain(), drain())
+	mustHave(t, released, `aria-pressed="false"`, "Drain the pool")
+}
+
+// ---------------------------------------------------------------------------
+// Motion — the gate is an attribute, and the pulses are the declared scene
+// ---------------------------------------------------------------------------
+
+func TestTheSceneCarriesItsEightPulsesWhileTheGateIsOpen(t *testing.T) {
+	markup := card(t, rotating(33))
+	if !markup.MotionOpen() {
+		t.Fatalf("the gate is shut on a routing balancer that is not draining")
+	}
+	if pulses := markup.Pulses(); pulses != 8 {
+		t.Fatalf("the scene carries %d pulse elements, want 8 — one per channel per edge", pulses)
+	}
+}
+
+func TestTheMotionGateIsOpenOnlyWhileRoutingAndNotDraining(t *testing.T) {
+	cases := []struct {
+		name   string
+		markup widgettest.Rendered
+		open   bool
+	}{
+		{"routing", card(t, rotating(34)), true},
+		{"one backend ejected but still over the floor", card(t, ejected(35)), true},
+		{"draining", card(t, rotating(36), drain()), false},
+		{"drained and returned", card(t, rotating(37), drain(), drain()), true},
+		{"the balancer down", card(t, down(38)), false},
+		{"below the floor", card(t, belowTheFloor(39)), false},
+		{"a client behind", card(t, rotating(40), slow()), false},
+		{"a client recovered", card(t, rotating(41), slow(), recovered()), true},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if open := testCase.markup.MotionOpen(); open != testCase.open {
+				t.Fatalf("the motion gate is open=%v, want %v\n--- markup ---\n%s",
+					open, testCase.open, testCase.markup)
+			}
+			// The gate is an attribute rather than absent markup: what is
+			// declared is drawn either way.
+			if pulses := testCase.markup.Pulses(); pulses != 8 {
+				t.Fatalf("the scene carries %d pulse elements with the gate open=%v, want 8 "+
+					"in every state — declared motion is a property of the scene, not of state",
+					pulses, testCase.open)
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// The seam itself
+// ---------------------------------------------------------------------------
+
+func TestTheReportEventCarriesEveryWireField(t *testing.T) {
+	filled := roundabout.ReportFields(rotating(42))
+
+	for _, wire := range []string{
+		"dispatch_sequence", "policy_name", "healthy_backends",
+		"ejected_backends", "inflight", "balancer_up",
+	} {
+		if _, present := filled[wire]; !present {
+			t.Fatalf("ReportFields does not fill %s", wire)
+		}
+	}
+	if len(filled) != 6 {
+		t.Fatalf("ReportFields fills %d wire fields, want exactly the 6 the report declares", len(filled))
+	}
+	if filled["dispatch_sequence"] != "42" || filled["healthy_backends"] != "3" ||
+		filled["ejected_backends"] != "0" || filled["inflight"] != "4" ||
+		filled["balancer_up"] != "true" || filled["policy_name"] != "least connections" {
+		t.Fatalf("ReportFields rendered the view as %v", filled)
+	}
+}
+
+func TestTheCardFollowsTheStreamRatherThanItsFirstReport(t *testing.T) {
+	// A card is patched by a stream, so the second report has to land.
+	mounted, mountError := roundabout.MountCard(context.Background())
+	if mountError != nil {
+		t.Fatalf("MountCard: %v", mountError)
+	}
+	mounted.Apply(widgettest.Deliver(roundabout.EventReport, roundabout.ReportFields(rotating(43))))
+	first, renderError := mounted.Render(context.Background())
+	if renderError != nil {
+		t.Fatalf("Render: %v", renderError)
+	}
+	mustHave(t, first, "every backend in rotation")
+
+	mounted.Apply(widgettest.Deliver(roundabout.EventReport, roundabout.ReportFields(belowTheFloor(44))))
+	second, renderError := mounted.Render(context.Background())
+	if renderError != nil {
+		t.Fatalf("Render: %v", renderError)
+	}
+	mustHave(t, second, "2 backends ejected", "1 of 3 backends healthy · below the floor")
+	if second.MotionOpen() {
+		t.Fatalf("the gate stayed open across a report that took the pool below its floor")
+	}
+}

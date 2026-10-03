@@ -1,0 +1,27 @@
+package ledger_test
+
+import (
+	"context"
+	"net/http/httptest"
+	"os"
+
+	"github.com/jackc/pgx/v5/pgxpool"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+
+	"example.invalid/ledger"
+)
+
+var _ = Describe("the ledger", func() {
+	It("records an entry and notifies the webhook", func(ctx context.Context) {
+		pool, err := pgxpool.New(ctx, os.Getenv("LEDGER_DATABASE_URL"))
+		Expect(err).NotTo(HaveOccurred())
+		DeferCleanup(pool.Close)
+
+		webhook := httptest.NewServer(nil)
+		DeferCleanup(webhook.Close)
+
+		book := ledger.NewPostgresLedger(pool, webhook.URL)
+		Expect(book.Record(ctx, ledger.Entry{Amount: 5})).To(Succeed())
+	})
+})

@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "relaytest",
+    srcs = [
+        "registry_conformance.go",
+        "relay_conformance.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/relay/relaytest",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc",
+        "//ipc/model",
+        "//ipc/model/claudecode",
+        "//ipc/model/copilot",
+        "//runtime",
+        "//services/relay",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

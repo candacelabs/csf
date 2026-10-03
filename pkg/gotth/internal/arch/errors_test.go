@@ -72,7 +72,7 @@ var errorCensus = map[string]int{
 	"internal/protocol":           40,
 	"internal/render":             13, // namespace overlap plus four distinct child contract refusals; audit §3.7
 	"internal/session":            8,
-	"internal/wsx":                10,
+	"internal/wsx":                11, // the sessions-scope construction refusal added with the live UI service; audit §3.8
 	// 37 at the walk, then 38 at revision 2: Config.Init's missing-hook
 	// ConfigError is gone, because FR-53 made the field optional, and
 	// live/page.go authors two. docs/error-audit.md §3.3.1 grades the two;
@@ -107,12 +107,20 @@ var errorCensus = map[string]int{
 	// that shape are gone: the adapter's, and page.go's errNoIdentity. A type
 	// parameter deleting two error messages is the strongest form of the
 	// argument for it — the failure is not handled better, it is unreachable.
-	"live": 37,
+	//
+	// Then 40: live.App became a runtime IService, and Start refuses a nil
+	// scope, a second start and a start after stop (audit §3.1.1).
+	"live": 40,
 	// 7 at the walk, then 8 at revision 3: Client.NextErr now wraps whatever
 	// ended the wait with the client's name and its session, so the value a
 	// caller holds carries FR-58's session clause and not only the tb.Fatalf
 	// paths. docs/error-audit.md §3.4 grades the wrap.
-	"live/livetest": 8,
+	//
+	// Then 16 at revision 4: the Chrome DevTools driver moved here from the
+	// conformance suite as livetest.Browser, and its one protocol call site
+	// (try) and TryEvalJSON author eight messages a spec's reader meets.
+	// docs/error-audit.md §3.4.1 grades them.
+	"live/livetest": 16,
 }
 
 // outOfScope names the packages the audit deliberately does not cover, with

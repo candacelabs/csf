@@ -1,0 +1,14 @@
+package postgres
+
+import "database/sql"
+
+// PostgresStore is the relational metadata store.
+type PostgresStore struct {
+	db *sql.DB
+}
+
+// NewPostgresStore returns the store over db. The name says what the caller
+// holds; the package qualifier is not part of the name at a call site.
+func NewPostgresStore(db *sql.DB) *PostgresStore {
+	return &PostgresStore{db: db}
+}

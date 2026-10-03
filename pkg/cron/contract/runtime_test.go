@@ -15,10 +15,10 @@ import (
 )
 
 var _ = Describe("Liquid Proto runtime boundary", func() {
-	definition := func() cron.JobDefinition {
+	definition := func() cron.TriggerDefinition {
 		schedule, err := cron.Spec(cron.Daily(cron.At(3).AM())).Definition()
 		Expect(err).NotTo(HaveOccurred())
-		return cron.JobDefinition{
+		return cron.TriggerDefinition{
 			Name:     "daily-rollup",
 			Schedule: schedule,
 			CatchUp:  cron.CatchUpAll,
@@ -28,7 +28,7 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 	invocation := func(scheduledAt time.Time, attempt uint32) *cronv1.Invocation {
 		message := &cronv1.Invocation{
 			OccurrenceId: cron.OccurrenceID("daily-rollup", scheduledAt),
-			JobName:      "daily-rollup",
+			TriggerName:  "daily-rollup",
 			ScheduledAt:  timestamppb.New(scheduledAt),
 			Attempt:      attempt,
 		}
@@ -39,27 +39,27 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 	}
 
 	It("round-trips desired definitions without SQLC rows", func() {
-		message, err := contract.JobDefinitionToProto(definition())
+		message, err := contract.TriggerDefinitionToProto(definition())
 		Expect(err).NotTo(HaveOccurred())
 		Expect(message.GetCatchUpPolicy()).To(Equal(cronv1.CatchUpPolicy_CATCH_UP_POLICY_ALL))
 
-		rebuilt, err := contract.JobDefinitionFromProto(message)
+		rebuilt, err := contract.TriggerDefinitionFromProto(message)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rebuilt).To(Equal(definition()))
 	})
 
 	It("rejects unspecified policies at the contract boundary", func() {
-		message, err := contract.JobDefinitionToProto(definition())
+		message, err := contract.TriggerDefinitionToProto(definition())
 		Expect(err).NotTo(HaveOccurred())
 		message.CatchUpPolicy = cronv1.CatchUpPolicy_CATCH_UP_POLICY_UNSPECIFIED
-		Expect(errors.Is(contract.ValidateJobDefinition(message), contract.ErrInvalid)).To(BeTrue())
+		Expect(errors.Is(contract.ValidateTriggerDefinition(message), contract.ErrInvalid)).To(BeTrue())
 	})
 
 	It("maps deterministic skipped occurrences without inventing an attempt", func() {
 		scheduledAt := time.Date(2026, time.August, 10, 3, 0, 0, 0, time.UTC)
 		run, err := contract.OccurrenceToProto(cron.OccurrenceRecord{
 			ID:          cron.OccurrenceID("daily-rollup", scheduledAt),
-			JobName:     "daily-rollup",
+			TriggerName: "daily-rollup",
 			ScheduledAt: scheduledAt,
 			Status:      cron.OccurrenceSkipped,
 			FinishedAt:  scheduledAt.Add(time.Second),
@@ -74,7 +74,7 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 		scheduledAt := time.Date(2026, time.August, 10, 3, 0, 0, 0, time.UTC)
 		run, err := contract.OccurrenceToProto(cron.OccurrenceRecord{
 			ID:          cron.OccurrenceID("daily-rollup", scheduledAt),
-			JobName:     "daily-rollup",
+			TriggerName: "daily-rollup",
 			ScheduledAt: scheduledAt,
 			Status:      cron.OccurrenceSkipped,
 			FinishedAt:  scheduledAt.Add(time.Second),
@@ -87,13 +87,13 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 
 	It("derives stable status projections from durable domain state", func() {
 		now := time.Date(2026, time.August, 10, 12, 0, 0, 0, time.UTC)
-		state := cron.JobState{Definition: definition(), NextRunAt: now.Add(time.Hour)}
+		state := cron.TriggerState{Definition: definition(), NextRunAt: now.Add(time.Hour)}
 		runningAt := now.Add(-time.Minute)
 		snapshot, err := contract.StoreSnapshotToProto(cron.StoreSnapshot{
-			Jobs: []cron.JobState{state},
+			Triggers: []cron.TriggerState{state},
 			Occurrences: []cron.OccurrenceRecord{{
 				ID:          cron.OccurrenceID("daily-rollup", runningAt),
-				JobName:     "daily-rollup",
+				TriggerName: "daily-rollup",
 				ScheduledAt: runningAt,
 				Status:      cron.OccurrenceRunning,
 				Attempt:     1,
@@ -102,17 +102,17 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 			}},
 		}, now)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(snapshot.GetJobs()).To(HaveLen(1))
-		Expect(snapshot.GetJobs()[0].GetActiveRuns()).To(Equal(uint32(1)))
-		Expect(snapshot.GetJobs()[0].GetLastRun().GetInvocation().GetOccurrenceId()).To(HavePrefix("occ_"))
+		Expect(snapshot.GetTriggers()).To(HaveLen(1))
+		Expect(snapshot.GetTriggers()[0].GetActiveRuns()).To(Equal(uint32(1)))
+		Expect(snapshot.GetTriggers()[0].GetLastRun().GetInvocation().GetOccurrenceId()).To(HavePrefix("occ_"))
 	})
 
 	It("round-trips definitions through the validating codec", func() {
-		codec, err := contract.NewJobDefinitionCodec()
+		codec, err := contract.NewTriggerDefinitionCodec()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(codec.MessageType()).To(Equal("candace.cron.v1.JobDefinition"))
+		Expect(codec.MessageType()).To(Equal("candace.cron.v1.TriggerDefinition"))
 
-		message, err := contract.JobDefinitionToProto(definition())
+		message, err := contract.TriggerDefinitionToProto(definition())
 		Expect(err).NotTo(HaveOccurred())
 		wire, err := codec.Marshal(message)
 		Expect(err).NotTo(HaveOccurred())
@@ -120,7 +120,7 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(proto.Equal(decoded, message)).To(BeTrue())
 
-		_, err = codec.Marshal(&cronv1.JobDefinition{Name: "Not-A-Job"})
+		_, err = codec.Marshal(&cronv1.TriggerDefinition{Name: "Not-A-Trigger"})
 		Expect(err).To(MatchError(ContainSubstring("validate before marshal")))
 	})
 
@@ -142,18 +142,18 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 		Expect(err).To(MatchError(ContainSubstring("validate after unmarshal")))
 	})
 
-	DescribeTable("round-trips every job policy",
+	DescribeTable("round-trips every trigger policy",
 		func(catchUp cron.CatchUpPolicy, overlap cron.OverlapPolicy, wantCatchUp cronv1.CatchUpPolicy, wantOverlap cronv1.OverlapPolicy) {
 			domain := definition()
 			domain.CatchUp = catchUp
 			domain.Overlap = overlap
 
-			message, err := contract.JobDefinitionToProto(domain)
+			message, err := contract.TriggerDefinitionToProto(domain)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(message.GetCatchUpPolicy()).To(Equal(wantCatchUp))
 			Expect(message.GetOverlapPolicy()).To(Equal(wantOverlap))
 
-			rebuilt, err := contract.JobDefinitionFromProto(message)
+			rebuilt, err := contract.TriggerDefinitionFromProto(message)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rebuilt).To(Equal(domain))
 		},
@@ -165,34 +165,34 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 	It("rejects malformed domain and boundary definitions", func() {
 		invalidSchedule := definition()
 		invalidSchedule.Schedule = cron.ScheduleDefinition{}
-		_, err := contract.JobDefinitionToProto(invalidSchedule)
+		_, err := contract.TriggerDefinitionToProto(invalidSchedule)
 		Expect(err).To(MatchError(ContainSubstring("schedule")))
 
 		invalidCatchUp := definition()
 		invalidCatchUp.CatchUp = cron.CatchUpPolicy("sometimes")
-		_, err = contract.JobDefinitionToProto(invalidCatchUp)
+		_, err = contract.TriggerDefinitionToProto(invalidCatchUp)
 		Expect(err).To(MatchError(ContainSubstring("unknown catch-up policy")))
 
 		invalidOverlap := definition()
 		invalidOverlap.Overlap = cron.OverlapPolicy("queue")
-		_, err = contract.JobDefinitionToProto(invalidOverlap)
+		_, err = contract.TriggerDefinitionToProto(invalidOverlap)
 		Expect(err).To(MatchError(ContainSubstring("unknown overlap policy")))
 
-		_, err = contract.JobDefinitionFromProto(nil)
-		Expect(err).To(MatchError(ContainSubstring("job definition is required")))
-		_, err = contract.JobDefinitionFromProto(&cronv1.JobDefinition{Name: "Not-A-Job"})
+		_, err = contract.TriggerDefinitionFromProto(nil)
+		Expect(err).To(MatchError(ContainSubstring("trigger definition is required")))
+		_, err = contract.TriggerDefinitionFromProto(&cronv1.TriggerDefinition{Name: "Not-A-Trigger"})
 		Expect(err).To(MatchError(ContainSubstring("scalar refinements")))
 
-		message, err := contract.JobDefinitionToProto(definition())
+		message, err := contract.TriggerDefinitionToProto(definition())
 		Expect(err).NotTo(HaveOccurred())
 		message.Schedule = nil
-		_, err = contract.JobDefinitionFromProto(message)
+		_, err = contract.TriggerDefinitionFromProto(message)
 		Expect(err).To(MatchError(ContainSubstring("schedule is required")))
 
-		message, err = contract.JobDefinitionToProto(definition())
+		message, err = contract.TriggerDefinitionToProto(definition())
 		Expect(err).NotTo(HaveOccurred())
 		message.OverlapPolicy = cronv1.OverlapPolicy_OVERLAP_POLICY_UNSPECIFIED
-		_, err = contract.JobDefinitionFromProto(message)
+		_, err = contract.TriggerDefinitionFromProto(message)
 		Expect(err).To(MatchError(ContainSubstring("overlap policy is required")))
 	})
 
@@ -231,7 +231,7 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 			scheduledAt := time.Date(2026, time.August, 10, 3, 0, 0, 0, time.UTC)
 			record := cron.OccurrenceRecord{
 				ID:          cron.OccurrenceID("daily-rollup", scheduledAt),
-				JobName:     "daily-rollup",
+				TriggerName: "daily-rollup",
 				ScheduledAt: scheduledAt,
 				Status:      status,
 				FinishedAt:  scheduledAt.Add(2 * time.Second),
@@ -319,9 +319,9 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 
 	It("rejects malformed status projections", func() {
 		observedAt := time.Date(2026, time.August, 10, 12, 0, 0, 0, time.UTC)
-		message, err := contract.JobDefinitionToProto(definition())
+		message, err := contract.TriggerDefinitionToProto(definition())
 		Expect(err).NotTo(HaveOccurred())
-		validStatus := &cronv1.JobStatus{
+		validStatus := &cronv1.TriggerStatus{
 			Definition: message,
 			NextRunAt:  timestamppb.New(observedAt.Add(time.Hour)),
 		}
@@ -333,55 +333,55 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 		})).To(MatchError(ContainSubstring("observed_at")))
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{nil},
-		})).To(MatchError(ContainSubstring("nil job status")))
+			Triggers:   []*cronv1.TriggerStatus{nil},
+		})).To(MatchError(ContainSubstring("nil trigger status")))
 
-		scalarInvalid := proto.Clone(validStatus).(*cronv1.JobStatus)
+		scalarInvalid := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		scalarInvalid.ActiveRuns = 1_000_001
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{scalarInvalid},
+			Triggers:   []*cronv1.TriggerStatus{scalarInvalid},
 		})).To(MatchError(ContainSubstring("scalar refinements")))
 
-		invalidDefinition := proto.Clone(validStatus).(*cronv1.JobStatus)
+		invalidDefinition := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		invalidDefinition.Definition.CatchUpPolicy = cronv1.CatchUpPolicy_CATCH_UP_POLICY_UNSPECIFIED
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{invalidDefinition},
+			Triggers:   []*cronv1.TriggerStatus{invalidDefinition},
 		})).NotTo(Succeed())
 
-		duplicate := proto.Clone(validStatus).(*cronv1.JobStatus)
+		duplicate := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{validStatus, duplicate},
-		})).To(MatchError(ContainSubstring("duplicate job status")))
+			Triggers:   []*cronv1.TriggerStatus{validStatus, duplicate},
+		})).To(MatchError(ContainSubstring("duplicate trigger status")))
 
-		missingNext := proto.Clone(validStatus).(*cronv1.JobStatus)
+		missingNext := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		missingNext.NextRunAt = nil
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{missingNext},
+			Triggers:   []*cronv1.TriggerStatus{missingNext},
 		})).To(MatchError(ContainSubstring("next_run_at is required")))
 
-		invalidNext := proto.Clone(validStatus).(*cronv1.JobStatus)
+		invalidNext := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		invalidNext.NextRunAt = &timestamppb.Timestamp{Seconds: 253402300800}
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{invalidNext},
+			Triggers:   []*cronv1.TriggerStatus{invalidNext},
 		})).To(MatchError(ContainSubstring("next_run_at")))
 
-		invalidAnchor := proto.Clone(validStatus).(*cronv1.JobStatus)
+		invalidAnchor := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		invalidAnchor.IntervalAnchor = &timestamppb.Timestamp{Seconds: 253402300800}
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{invalidAnchor},
+			Triggers:   []*cronv1.TriggerStatus{invalidAnchor},
 		})).To(MatchError(ContainSubstring("interval_anchor")))
 
-		mismatchedRun := proto.Clone(validStatus).(*cronv1.JobStatus)
+		mismatchedRun := proto.Clone(validStatus).(*cronv1.TriggerStatus)
 		mismatchedRun.LastRun = &cronv1.RunSummary{
 			Invocation: &cronv1.Invocation{
-				OccurrenceId: cron.OccurrenceID("other-job", observedAt),
-				JobName:      "other-job",
+				OccurrenceId: cron.OccurrenceID("other-trigger", observedAt),
+				TriggerName:  "other-trigger",
 				ScheduledAt:  timestamppb.New(observedAt),
 			},
 			State:      cronv1.RunState_RUN_STATE_SKIPPED,
@@ -390,7 +390,7 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 		}
 		Expect(contract.ValidateStatusSnapshot(&cronv1.StatusSnapshot{
 			ObservedAt: timestamppb.New(observedAt),
-			Jobs:       []*cronv1.JobStatus{mismatchedRun},
+			Triggers:   []*cronv1.TriggerStatus{mismatchedRun},
 		})).To(MatchError(ContainSubstring("name mismatch")))
 	})
 
@@ -399,18 +399,18 @@ var _ = Describe("Liquid Proto runtime boundary", func() {
 		_, err := contract.StoreSnapshotToProto(cron.StoreSnapshot{}, time.Time{})
 		Expect(err).To(MatchError(ContainSubstring("observed_at is required")))
 
-		invalidJob := definition()
-		invalidJob.Overlap = cron.OverlapPolicy("queue")
+		invalidTrigger := definition()
+		invalidTrigger.Overlap = cron.OverlapPolicy("queue")
 		_, err = contract.StoreSnapshotToProto(cron.StoreSnapshot{
-			Jobs: []cron.JobState{{Definition: invalidJob, NextRunAt: now}},
+			Triggers: []cron.TriggerState{{Definition: invalidTrigger, NextRunAt: now}},
 		}, now)
 		Expect(err).To(MatchError(ContainSubstring("unknown overlap policy")))
 
 		_, err = contract.StoreSnapshotToProto(cron.StoreSnapshot{
-			Jobs: []cron.JobState{{Definition: definition(), NextRunAt: now.Add(time.Hour)}},
+			Triggers: []cron.TriggerState{{Definition: definition(), NextRunAt: now.Add(time.Hour)}},
 			Occurrences: []cron.OccurrenceRecord{{
 				ID:          cron.OccurrenceID("daily-rollup", now),
-				JobName:     "daily-rollup",
+				TriggerName: "daily-rollup",
 				ScheduledAt: now,
 				Status:      cron.OccurrenceStatus("lost"),
 			}},

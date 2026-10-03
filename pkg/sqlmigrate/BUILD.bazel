@@ -13,10 +13,12 @@ go_test(
         "sqlmigrate_postgres_test.go",
         "sqlmigrate_suite_test.go",
         "sqlmigrate_test.go",
+        "versioned_test.go",
     ],
+    data = glob(["testdata/**"]),
     deps = [
         ":sqlmigrate",
-        "//pkg/patience",
+        "//pkg/eventually",
         "//pkg/pgmem",
         "@com_github_jackc_pgx_v5//:pgx",
         "@com_github_jackc_pgx_v5//stdlib",

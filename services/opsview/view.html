@@ -1,0 +1,68 @@
+{{define "page"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSF ops view</title>
+<style>
+:root { --ink: #1c1b1a; --muted: #6b6760; --line: #e3dfd7; --paper: #faf8f4; --card: #ffffff; --accent: #0b6e4f; --warn: #a1340a; --wait: #8a6d00; }
+@media (prefers-color-scheme: dark) { :root { --ink: #ecebe7; --muted: #a39f97; --line: #35322d; --paper: #15140f; --card: #1e1c17; --accent: #5bc49a; --warn: #f28c5b; --wait: #e0b94a; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 ui-sans-serif, system-ui, sans-serif; }
+header.top { padding: 12px 16px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+header.top h1 { font-size: 18px; margin: 0; }
+header.top span { color: var(--muted); font-size: 13px; }
+main { padding: 12px 16px 24px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+.notice { color: var(--warn); grid-column: 1 / -1; }
+.empty { color: var(--muted); grid-column: 1 / -1; }
+article.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; overflow-wrap: anywhere; }
+article.card .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+article.card .agent { font-weight: 600; font-size: 17px; }
+article.card .status { text-transform: uppercase; letter-spacing: .04em; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
+article.card.running .status { border-color: var(--accent); color: var(--accent); }
+article.card.failed .status { border-color: var(--warn); color: var(--warn); }
+article.card.finished .status { border-color: var(--wait); color: var(--wait); }
+article.card .elapsed { margin-left: auto; color: var(--muted); font-size: 13px; }
+dl.facts { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px; }
+dl.facts div { display: grid; gap: 1px; }
+dl.facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+dl.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
+dl.facts dd code { font-size: 12px; }
+dl.facts .wide { grid-column: 1 / -1; }
+.links { margin: 0; display: flex; gap: 12px; font-size: 14px; }
+.links a { color: var(--accent); }
+.error { margin: 0; color: var(--warn); font-size: 13px; }
+ol.recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
+ol.recent li .time { font-variant-numeric: tabular-nums; margin-right: 6px; }
+ol.recent li.gate { color: var(--warn); }
+ol.recent li.harness { color: var(--ink); }
+button.expand { justify-self: start; font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; }
+</style>
+</head>
+<body>
+<header class="top"><h1>CSF ops view</h1><span>harness sessions, live from their event logs</span></header>
+{{.Board}}
+{{.Script}}
+</body>
+</html>{{end}}
+
+{{define "board"}}<main id="{{.Region}}" data-gotth-region="{{.Region}}" aria-live="polite">
+{{if .Notice}}<p class="notice">{{.Notice}}</p>{{end}}
+{{range .Cards}}{{.}}{{else}}<p class="empty">No harness sessions yet. A card appears when a run directory gains its run record.</p>{{end}}
+</main>{{end}}
+
+{{define "card"}}<article id="{{.Region}}" data-gotth-region="{{.Region}}" class="card {{.Status}}" data-opsview-assignment="{{.Assignment}}">
+<div class="head"><span class="agent">{{if .Agent}}{{.Agent}}{{else}}(no agent yet){{end}}</span><span class="status">{{.Status}}</span><span class="elapsed">{{.Elapsed}}</span></div>
+<dl class="facts">
+<div class="wide"><dt>assignment</dt><dd><code>{{.Assignment}}</code></dd></div>
+<div class="wide"><dt>branch</dt><dd>{{.Branch}}</dd></div>
+<div><dt>model</dt><dd>{{.Model}}</dd></div>
+<div><dt>turns</dt><dd>{{.Turns}}</dd></div>
+<div><dt>tool calls</dt><dd data-opsview="tool-calls">{{.ToolCalls}}</dd></div>
+<div><dt>gate denials</dt><dd data-opsview="gate-denials">{{.GateDenials}}</dd></div>
+</dl>
+{{if or .PullRequestURL .TicketURL}}<p class="links">{{if .PullRequestURL}}<a href="{{.PullRequestURL}}" target="_blank" rel="noreferrer">pull request ↗</a>{{end}}{{if .TicketURL}}<a href="{{.TicketURL}}" target="_blank" rel="noreferrer">ticket ↗</a>{{end}}</p>{{end}}
+{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+<ol class="recent" aria-label="recent events">{{range .Shown}}<li class="{{.Kind}}"><span class="time">{{.Time}}</span>{{.Text}}</li>{{end}}</ol>
+{{if .Hidden}}<button type="button" class="expand" {{.OnExpand}}>show {{.Hidden}} earlier</button>{{else if .Expanded}}<button type="button" class="expand" {{.OnExpand}}>show fewer</button>{{end}}
+</article>{{end}}

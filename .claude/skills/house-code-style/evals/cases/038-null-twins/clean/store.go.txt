@@ -1,0 +1,32 @@
+package store
+
+import (
+	"time"
+
+	"github.com/guregu/null/v5"
+)
+
+// SessionRow is the row sqlc emits for the sessions table. Each nullable
+// column arrives as a guregu/null value because sqlc.yaml carries a `go_type`
+// override for it, so no conversion exists on either side to be written twice.
+type SessionRow struct {
+	ID        string
+	EndedAt   null.Time
+	LastError null.String
+}
+
+// endedRow carries a nullable timestamp through to the row. The value never
+// leaves the library's own type, so nothing here is a conversion.
+func endedRow(endedAt null.Time) *SessionRow {
+	return &SessionRow{EndedAt: endedAt}
+}
+
+// EndSession records the end of a session and what it failed with. The
+// library's own constructors and accessors ARE the conversion — null.TimeFrom
+// on the way in, .Ptr() on the way out — and there is no helper in between to
+// drift from them.
+func EndSession(row *SessionRow, endedAt time.Time, failure string) *time.Time {
+	row.EndedAt = null.TimeFrom(endedAt)
+	row.LastError = null.NewString(failure, failure != "")
+	return row.EndedAt.Ptr()
+}

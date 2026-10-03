@@ -15,13 +15,13 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/gotth/live"
-	"github.com/candacelabs/csf/pkg/patience"
 	"github.com/candacelabs/csf/pkg/widget"
 	"github.com/candacelabs/csf/pkg/widget/internal/mocks"
 )
 
-var connectionBudget = patience.Budget{Within: 10 * time.Second}
+var connectionBudget = eventually.Budget{Within: 10 * time.Second}
 
 var _ = Describe("Widget connection ownership", func() {
 	DescribeTable("shares one connection independently of widgets and effect workers", func(widgets, workers int) {
@@ -48,7 +48,7 @@ var _ = Describe("Widget connection ownership", func() {
 		DeferCleanup(func() { _ = connection.CloseNow() })
 		_, _, err = connection.Read(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		patience.Await(GinkgoT(), "widget effects started", connectionBudget, started.Load,
+		eventually.Await(GinkgoT(), "widget effects started", connectionBudget, started.Load,
 			func(count int64) bool { return count == int64(widgets*workers) })
 		Expect(app.ActiveConnections()).To(Equal(1))
 		Expect(connection.CloseNow()).To(Succeed())

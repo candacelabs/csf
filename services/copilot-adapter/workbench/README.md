@@ -1,8 +1,11 @@
 # Shared Workbench composition
 
-`NewWorkbench(ctx, db, WithBridge(...), WithRepository(...), ...)` composes the
-existing adapter, SQLC store, cron store, worktree manager and terminal manager.
-The caller owns its database, Copilot bridge, listener and process context.
+`NewWorkbench(ctx, db, WithBridge(...), WithRepository(...), WithLauncher(...), ...)`
+composes the existing adapter, SQLC store, cron store, worktree manager and
+terminal manager. The caller owns its database, Copilot bridge, listener and
+process context: it grants the pool as a `csfpg.IDB` after applying
+`store.Migrations` to it, and grants the `ipc/proc` launcher that Git and
+terminal shells start through.
 `MountUI(router, directory)` serves the existing built browser bundle at `/ui/`.
 
 Call `Register(router)` to mount the generated API and `Restore(ctx)` to reconnect

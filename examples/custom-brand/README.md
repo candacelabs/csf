@@ -1,6 +1,6 @@
 # The custom-brand example
 
-CandaceOS Core wearing another product's identity: a different name, a
+Deploy wearing another product's identity: a different name, a
 different agent, a different mark, a different palette, an extra sidebar entry,
 and a page of the embedding product's own.
 
@@ -48,7 +48,7 @@ All four are in [`main.go`](main.go)'s `seams`; the values are in
 ### The two brand-bearing strings
 
 `ProductName` and `AgentName` are the only UI copy the seam makes data. They
-replace "CandaceOS" and "Claw" in titles, aria-labels, and the sentences that
+replace "Candace Deploy" and "Claw" in titles, aria-labels, and the sentences that
 name the system or the thing acting for the operator. Everything else stays
 literal: the page still says "Harborlight, across your whole fleet" over a
 sentence nobody had to translate.
@@ -87,7 +87,7 @@ no change to the page's `'self'` Content-Security-Policy.
 Values are validated rather than escaped, because a custom property value is
 substituted into the stylesheet as CSS. Anything that could end the declaration,
 end the rule, open a comment, or fetch a remote resource fails assembly instead
-of reaching a page — see [`palette.go`](../../services/candaceos/webui/palette.go)
+of reaching a page — see [`palette.go`](../../web/deploy/webui/palette.go)
 for the exact rules.
 
 Only the tokens this identity changes are set; an unset token keeps its shipped
@@ -106,7 +106,7 @@ the same asset URLs, with the same cache and `nosniff` headers.
 The overlay's other half, redefining named template blocks, is not exercised
 here. The block names, the data each receives, and the two the browser client
 depends on are listed in the
-[`webui` package documentation](../../services/candaceos/webui/webui.go).
+[`webui` package documentation](../../web/deploy/webui/webui.go).
 Overlay templates are operator-trusted markup on the same footing as the
 wordmark.
 
@@ -141,8 +141,8 @@ that needs live state reads the snapshot endpoint like any other client.
 
 - [`examples/custom-ui-page`](../custom-ui-page) — the same UI seams at their
   smallest: stock identity, one entry, one page.
-- [`services/candaceos/webui`](../../services/candaceos/webui) — the package
+- [`web/deploy/webui`](../../web/deploy/webui) — the package
   documentation is the contract: override points, the data each block receives,
   and what a caller may rely on.
-- [`candaceos/README.md`](../../candaceos/README.md) — where these options sit
+- [`infra/deploy-kit/README.md`](../../infra/deploy-kit/README.md) — where these options sit
   among Core's other compile-time boundaries.

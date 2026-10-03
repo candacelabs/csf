@@ -1,0 +1,9 @@
+{
+  "case_id": "032-dot-import-assertions",
+  "tier": 1,
+  "rule_under_test": "CS-11",
+  "summary": "A test file plain-imports gomega and reads gomega.Expect/gomega.Succeed; the fix dot-imports both ginkgo and gomega so the spec reads Expect/Succeed unqualified, as this module's suites already do. The clean fixture also imports a gomega SUB-package, gomega/gstruct, qualified — and that must NOT fire, because CS-11 governs exactly the two full paths and a namespaced helper stays qualified.",
+  "dirty_must_fire": ["CS-11"],
+  "dirty_min_findings": {"CS-11": 1},
+  "clean_must_not_fire": ["CS-11"]
+}

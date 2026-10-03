@@ -110,7 +110,7 @@ dependency.
 | `gotthlive_slow_client_events_total` | — | backpressure stage 2 |
 | `gotthlive_wire_bytes_total` | `direction` | `in`, `out` |
 | `gotthlive_effects_total` | `source`, `result` | `ok`, `error`, `cancelled`, `panicked` |
-| `gotthlive_effects_abandoned_total` | — | drain-timeout expiry (RFC §3.6) |
+| `gotthlive_effects_overran_total` | — | drain-timeout expiry; shutdown still joins the effect (RFC §3.6). Was `gotthlive_effects_abandoned_total` |
 | `gotthlive_panics_total` | `site` | `reduce`, `render`, `effect` |
 | `gotthlive_connections_total` | — | opened |
 | `gotthlive_connections_closed_total` | `code` | the **lower-case label names** in protocol.md §8.3's `code` column — `normal`, `going_away`, `protocol_violation`, `unsupported_version`, `unauthenticated`, `forbidden_origin`, `unauthorized`, `frame_too_large`, `rate_limited`, `slow_client`, `heartbeat_timeout`, `session_evicted`, `internal_error`, `resync_failed`. Never the numeric code, never the upper-case constant name (A-11) |
@@ -797,7 +797,7 @@ error construction site.
 | `Debug` | per-event and per-patch records. **Off in production by default.** |
 | `Info` | session open/close, resync issued. **Sampled 1:100 above 100 connections/s**, with the sampling stated in the record. |
 | `Warn` | coalescing engaged, slow-client degrade, rate limit engaged, client telemetry dropped, identical-render suppression rate above threshold |
-| `Error` | recovered panic, abandoned effect, protocol violation, fatal authorization denial, fragment-ID collision |
+| `Error` | recovered panic, protocol violation, fatal authorization denial, fragment-ID collision |
 
 An operator should act on `Error`. Nothing routine reaches it.
 

@@ -6639,13 +6639,17 @@ func (x *UpdateOwnAgentConfigurationResponse) GetConfiguration() *AgentConfigura
 // changing its contents requires a new assignment_id. Model and repository
 // identifiers come from the Workbench catalog. This slice creates a worktree.
 type AgentAssignmentRecipe struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
-	Agent         *AgentDefinition       `protobuf:"bytes,2,opt,name=agent,proto3" json:"agent,omitempty"`
-	TicketUrl     string                 `protobuf:"bytes,3,opt,name=ticket_url,json=ticketUrl,proto3" json:"ticket_url,omitempty"`
-	Task          string                 `protobuf:"bytes,4,opt,name=task,proto3" json:"task,omitempty"`
-	Model         string                 `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
-	RepositoryId  string                 `protobuf:"bytes,6,opt,name=repository_id,json=repositoryId,proto3" json:"repository_id,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	Agent        *AgentDefinition       `protobuf:"bytes,2,opt,name=agent,proto3" json:"agent,omitempty"`
+	TicketUrl    string                 `protobuf:"bytes,3,opt,name=ticket_url,json=ticketUrl,proto3" json:"ticket_url,omitempty"`
+	Task         string                 `protobuf:"bytes,4,opt,name=task,proto3" json:"task,omitempty"`
+	Model        string                 `protobuf:"bytes,5,opt,name=model,proto3" json:"model,omitempty"`
+	RepositoryId string                 `protobuf:"bytes,6,opt,name=repository_id,json=repositoryId,proto3" json:"repository_id,omitempty"`
+	// Present when the harness runs the assignment itself as a Claude Code
+	// session; absent for a Workbench submission. Set only fields change the
+	// recipe fingerprint, so recipes without a workspace keep their hashes.
+	Workspace     *AgentWorkspace `protobuf:"bytes,7,opt,name=workspace,proto3" json:"workspace,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6722,6 +6726,108 @@ func (x *AgentAssignmentRecipe) GetRepositoryId() string {
 	return ""
 }
 
+func (x *AgentAssignmentRecipe) GetWorkspace() *AgentWorkspace {
+	if x != nil {
+		return x.Workspace
+	}
+	return nil
+}
+
+// Where and how the harness runs an assignment: a git worktree it creates
+// from a local repository on a branch of its own, the tools the session may
+// use, and the title of the draft pull request the commit gate opens.
+type AgentWorkspace struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Absolute path of the local repository the worktree is created from.
+	RepositoryPath string `protobuf:"bytes,1,opt,name=repository_path,json=repositoryPath,proto3" json:"repository_path,omitempty"`
+	// The ref the work branch starts from and the pull request targets.
+	BaseBranch string `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
+	// The work branch the worktree checks out; created from base_branch.
+	Branch string `protobuf:"bytes,3,opt,name=branch,proto3" json:"branch,omitempty"`
+	// A file holding the task, read by the launcher in place of an inline
+	// task; relative paths resolve against the recipe file.
+	BriefPath string `protobuf:"bytes,4,opt,name=brief_path,json=briefPath,proto3" json:"brief_path,omitempty"`
+	// Claude Code tool rules the session may use without asking, such as
+	// "Bash", "Edit" or "Bash(git *)". Everything else is denied.
+	AllowedTools []string `protobuf:"bytes,5,rep,name=allowed_tools,json=allowedTools,proto3" json:"allowed_tools,omitempty"`
+	// Title of the draft pull request opened after the first commit.
+	PullRequestTitle string `protobuf:"bytes,6,opt,name=pull_request_title,json=pullRequestTitle,proto3" json:"pull_request_title,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *AgentWorkspace) Reset() {
+	*x = AgentWorkspace{}
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[91]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentWorkspace) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentWorkspace) ProtoMessage() {}
+
+func (x *AgentWorkspace) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[91]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentWorkspace.ProtoReflect.Descriptor instead.
+func (*AgentWorkspace) Descriptor() ([]byte, []int) {
+	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{91}
+}
+
+func (x *AgentWorkspace) GetRepositoryPath() string {
+	if x != nil {
+		return x.RepositoryPath
+	}
+	return ""
+}
+
+func (x *AgentWorkspace) GetBaseBranch() string {
+	if x != nil {
+		return x.BaseBranch
+	}
+	return ""
+}
+
+func (x *AgentWorkspace) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *AgentWorkspace) GetBriefPath() string {
+	if x != nil {
+		return x.BriefPath
+	}
+	return ""
+}
+
+func (x *AgentWorkspace) GetAllowedTools() []string {
+	if x != nil {
+		return x.AllowedTools
+	}
+	return nil
+}
+
+func (x *AgentWorkspace) GetPullRequestTitle() string {
+	if x != nil {
+		return x.PullRequestTitle
+	}
+	return ""
+}
+
 // A prepared recipe is inspectable data, not a dispatched or completed task.
 // Fingerprints bind evidence to the exact definition and complete recipe.
 type AgentAssignmentPlan struct {
@@ -6737,7 +6843,7 @@ type AgentAssignmentPlan struct {
 
 func (x *AgentAssignmentPlan) Reset() {
 	*x = AgentAssignmentPlan{}
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[91]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[92]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6749,7 +6855,7 @@ func (x *AgentAssignmentPlan) String() string {
 func (*AgentAssignmentPlan) ProtoMessage() {}
 
 func (x *AgentAssignmentPlan) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[91]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[92]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6762,7 +6868,7 @@ func (x *AgentAssignmentPlan) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentAssignmentPlan.ProtoReflect.Descriptor instead.
 func (*AgentAssignmentPlan) Descriptor() ([]byte, []int) {
-	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{91}
+	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{92}
 }
 
 func (x *AgentAssignmentPlan) GetRecipe() *AgentAssignmentRecipe {
@@ -6809,7 +6915,7 @@ type PrepareAgentAssignmentRequest struct {
 
 func (x *PrepareAgentAssignmentRequest) Reset() {
 	*x = PrepareAgentAssignmentRequest{}
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[92]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[93]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6821,7 +6927,7 @@ func (x *PrepareAgentAssignmentRequest) String() string {
 func (*PrepareAgentAssignmentRequest) ProtoMessage() {}
 
 func (x *PrepareAgentAssignmentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[92]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[93]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6834,7 +6940,7 @@ func (x *PrepareAgentAssignmentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareAgentAssignmentRequest.ProtoReflect.Descriptor instead.
 func (*PrepareAgentAssignmentRequest) Descriptor() ([]byte, []int) {
-	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{92}
+	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{93}
 }
 
 func (x *PrepareAgentAssignmentRequest) GetRecipe() *AgentAssignmentRecipe {
@@ -6853,7 +6959,7 @@ type PrepareAgentAssignmentResponse struct {
 
 func (x *PrepareAgentAssignmentResponse) Reset() {
 	*x = PrepareAgentAssignmentResponse{}
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[93]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[94]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6865,7 +6971,7 @@ func (x *PrepareAgentAssignmentResponse) String() string {
 func (*PrepareAgentAssignmentResponse) ProtoMessage() {}
 
 func (x *PrepareAgentAssignmentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[93]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[94]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6878,7 +6984,7 @@ func (x *PrepareAgentAssignmentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareAgentAssignmentResponse.ProtoReflect.Descriptor instead.
 func (*PrepareAgentAssignmentResponse) Descriptor() ([]byte, []int) {
-	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{93}
+	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{94}
 }
 
 func (x *PrepareAgentAssignmentResponse) GetPlan() *AgentAssignmentPlan {
@@ -6892,19 +6998,24 @@ func (x *PrepareAgentAssignmentResponse) GetPlan() *AgentAssignmentPlan {
 // an empty turn_id identifies a partial receipt. A populated turn_id records
 // acknowledged acceptance, not successful completion of the turn or its task.
 type AgentAssignmentReceipt struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Plan          *AgentAssignmentPlan   `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
-	SessionId     string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
-	TurnId        string                 `protobuf:"bytes,3,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
-	WorktreeId    string                 `protobuf:"bytes,4,opt,name=worktree_id,json=worktreeId,proto3" json:"worktree_id,omitempty"`
-	SessionUrl    string                 `protobuf:"bytes,5,opt,name=session_url,json=sessionUrl,proto3" json:"session_url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	Plan       *AgentAssignmentPlan   `protobuf:"bytes,1,opt,name=plan,proto3" json:"plan,omitempty"`
+	SessionId  string                 `protobuf:"bytes,2,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`
+	TurnId     string                 `protobuf:"bytes,3,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	WorktreeId string                 `protobuf:"bytes,4,opt,name=worktree_id,json=worktreeId,proto3" json:"worktree_id,omitempty"`
+	SessionUrl string                 `protobuf:"bytes,5,opt,name=session_url,json=sessionUrl,proto3" json:"session_url,omitempty"`
+	// For a harness run: the work branch, the draft pull request the commit
+	// gate opened (empty when none exists yet) and the run's trace.
+	Branch         string `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
+	PullRequestUrl string `protobuf:"bytes,7,opt,name=pull_request_url,json=pullRequestUrl,proto3" json:"pull_request_url,omitempty"`
+	TraceId        string `protobuf:"bytes,8,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *AgentAssignmentReceipt) Reset() {
 	*x = AgentAssignmentReceipt{}
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[94]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[95]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -6916,7 +7027,7 @@ func (x *AgentAssignmentReceipt) String() string {
 func (*AgentAssignmentReceipt) ProtoMessage() {}
 
 func (x *AgentAssignmentReceipt) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[94]
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[95]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -6929,7 +7040,7 @@ func (x *AgentAssignmentReceipt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AgentAssignmentReceipt.ProtoReflect.Descriptor instead.
 func (*AgentAssignmentReceipt) Descriptor() ([]byte, []int) {
-	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{94}
+	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{95}
 }
 
 func (x *AgentAssignmentReceipt) GetPlan() *AgentAssignmentPlan {
@@ -6963,6 +7074,27 @@ func (x *AgentAssignmentReceipt) GetWorktreeId() string {
 func (x *AgentAssignmentReceipt) GetSessionUrl() string {
 	if x != nil {
 		return x.SessionUrl
+	}
+	return ""
+}
+
+func (x *AgentAssignmentReceipt) GetBranch() string {
+	if x != nil {
+		return x.Branch
+	}
+	return ""
+}
+
+func (x *AgentAssignmentReceipt) GetPullRequestUrl() string {
+	if x != nil {
+		return x.PullRequestUrl
+	}
+	return ""
+}
+
+func (x *AgentAssignmentReceipt) GetTraceId() string {
+	if x != nil {
+		return x.TraceId
 	}
 	return ""
 }
@@ -7507,7 +7639,7 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x11expected_revision\x18\x01 \x01(\rR\x10expectedRevision\x12T\n" +
 	"\rconfiguration\x18\x02 \x01(\v2..candace.brainspine.v1.AgentConfigurationInputR\rconfiguration\"v\n" +
 	"#UpdateOwnAgentConfigurationResponse\x12O\n" +
-	"\rconfiguration\x18\x01 \x01(\v2).candace.brainspine.v1.AgentConfigurationR\rconfiguration\"\xe6\x03\n" +
+	"\rconfiguration\x18\x01 \x01(\v2).candace.brainspine.v1.AgentConfigurationR\rconfiguration\"\xb3\x04\n" +
 	"\x15AgentAssignmentRecipe\x12z\n" +
 	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
 	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12<\n" +
@@ -7520,7 +7652,22 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x05model\x18\x05 \x01(\tB'\x92\x82\x19#\n" +
 	"!len(this) > 0 && len(this) <= 200R\x05model\x12L\n" +
 	"\rrepository_id\x18\x06 \x01(\tB'\x92\x82\x19#\n" +
-	"!len(this) > 0 && len(this) <= 128R\frepositoryId\"\xed\x01\n" +
+	"!len(this) > 0 && len(this) <= 128R\frepositoryId\x12K\n" +
+	"\tworkspace\x18\a \x01(\v2%.candace.brainspine.v1.AgentWorkspaceB\x06\x92\x82\x19\x02 \x01R\tworkspace\"\xd0\x03\n" +
+	"\x0eAgentWorkspace\x12Y\n" +
+	"\x0frepository_path\x18\x01 \x01(\tB0\x92\x82\x19,\n" +
+	"*len(this) <= 4096 && matches(this, `^/.+`)R\x0erepositoryPath\x12[\n" +
+	"\vbase_branch\x18\x02 \x01(\tB:\x92\x82\x196\n" +
+	"4matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)R\n" +
+	"baseBranch\x12R\n" +
+	"\x06branch\x18\x03 \x01(\tB:\x92\x82\x196\n" +
+	"4matches(this, `^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$`)R\x06branch\x126\n" +
+	"\n" +
+	"brief_path\x18\x04 \x01(\tB\x17\x92\x82\x19\x13\n" +
+	"\x11len(this) <= 4096R\tbriefPath\x12#\n" +
+	"\rallowed_tools\x18\x05 \x03(\tR\fallowedTools\x12U\n" +
+	"\x12pull_request_title\x18\x06 \x01(\tB'\x92\x82\x19#\n" +
+	"!len(this) > 0 && len(this) <= 256R\x10pullRequestTitle\"\xed\x01\n" +
 	"\x13AgentAssignmentPlan\x12D\n" +
 	"\x06recipe\x18\x01 \x01(\v2,.candace.brainspine.v1.AgentAssignmentRecipeR\x06recipe\x12+\n" +
 	"\x11definition_sha256\x18\x02 \x01(\tR\x10definitionSha256\x12#\n" +
@@ -7532,7 +7679,7 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x1dPrepareAgentAssignmentRequest\x12D\n" +
 	"\x06recipe\x18\x01 \x01(\v2,.candace.brainspine.v1.AgentAssignmentRecipeR\x06recipe\"`\n" +
 	"\x1ePrepareAgentAssignmentResponse\x12>\n" +
-	"\x04plan\x18\x01 \x01(\v2*.candace.brainspine.v1.AgentAssignmentPlanR\x04plan\"\xd2\x01\n" +
+	"\x04plan\x18\x01 \x01(\v2*.candace.brainspine.v1.AgentAssignmentPlanR\x04plan\"\xaf\x02\n" +
 	"\x16AgentAssignmentReceipt\x12>\n" +
 	"\x04plan\x18\x01 \x01(\v2*.candace.brainspine.v1.AgentAssignmentPlanR\x04plan\x12\x1d\n" +
 	"\n" +
@@ -7541,7 +7688,10 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\vworktree_id\x18\x04 \x01(\tR\n" +
 	"worktreeId\x12\x1f\n" +
 	"\vsession_url\x18\x05 \x01(\tR\n" +
-	"sessionUrl*{\n" +
+	"sessionUrl\x12\x16\n" +
+	"\x06branch\x18\x06 \x01(\tR\x06branch\x12(\n" +
+	"\x10pull_request_url\x18\a \x01(\tR\x0epullRequestUrl\x12\x19\n" +
+	"\btrace_id\x18\b \x01(\tR\atraceId*{\n" +
 	"\x06Opcode\x12\x16\n" +
 	"\x12OPCODE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fOPCODE_CONSTANT\x10\x01\x12\x10\n" +
@@ -7622,7 +7772,7 @@ func file_candace_brainspine_v1_brainspine_proto_rawDescGZIP() []byte {
 }
 
 var file_candace_brainspine_v1_brainspine_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_candace_brainspine_v1_brainspine_proto_msgTypes = make([]protoimpl.MessageInfo, 95)
+var file_candace_brainspine_v1_brainspine_proto_msgTypes = make([]protoimpl.MessageInfo, 96)
 var file_candace_brainspine_v1_brainspine_proto_goTypes = []any{
 	(Opcode)(0),                                 // 0: candace.brainspine.v1.Opcode
 	(RequestKind)(0),                            // 1: candace.brainspine.v1.RequestKind
@@ -7725,11 +7875,12 @@ var file_candace_brainspine_v1_brainspine_proto_goTypes = []any{
 	(*UpdateOwnAgentConfigurationRequest)(nil),  // 98: candace.brainspine.v1.UpdateOwnAgentConfigurationRequest
 	(*UpdateOwnAgentConfigurationResponse)(nil), // 99: candace.brainspine.v1.UpdateOwnAgentConfigurationResponse
 	(*AgentAssignmentRecipe)(nil),               // 100: candace.brainspine.v1.AgentAssignmentRecipe
-	(*AgentAssignmentPlan)(nil),                 // 101: candace.brainspine.v1.AgentAssignmentPlan
-	(*PrepareAgentAssignmentRequest)(nil),       // 102: candace.brainspine.v1.PrepareAgentAssignmentRequest
-	(*PrepareAgentAssignmentResponse)(nil),      // 103: candace.brainspine.v1.PrepareAgentAssignmentResponse
-	(*AgentAssignmentReceipt)(nil),              // 104: candace.brainspine.v1.AgentAssignmentReceipt
-	(*timestamppb.Timestamp)(nil),               // 105: google.protobuf.Timestamp
+	(*AgentWorkspace)(nil),                      // 101: candace.brainspine.v1.AgentWorkspace
+	(*AgentAssignmentPlan)(nil),                 // 102: candace.brainspine.v1.AgentAssignmentPlan
+	(*PrepareAgentAssignmentRequest)(nil),       // 103: candace.brainspine.v1.PrepareAgentAssignmentRequest
+	(*PrepareAgentAssignmentResponse)(nil),      // 104: candace.brainspine.v1.PrepareAgentAssignmentResponse
+	(*AgentAssignmentReceipt)(nil),              // 105: candace.brainspine.v1.AgentAssignmentReceipt
+	(*timestamppb.Timestamp)(nil),               // 106: google.protobuf.Timestamp
 }
 var file_candace_brainspine_v1_brainspine_proto_depIdxs = []int32{
 	0,   // 0: candace.brainspine.v1.Expression.opcode:type_name -> candace.brainspine.v1.Opcode
@@ -7751,10 +7902,10 @@ var file_candace_brainspine_v1_brainspine_proto_depIdxs = []int32{
 	21,  // 16: candace.brainspine.v1.ResearchEvent.measurement:type_name -> candace.brainspine.v1.Measurement
 	26,  // 17: candace.brainspine.v1.ResearchEvent.status:type_name -> candace.brainspine.v1.RunStatus
 	23,  // 18: candace.brainspine.v1.ResearchEvent.receipt:type_name -> candace.brainspine.v1.CommandReceipt
-	105, // 19: candace.brainspine.v1.CommandReceipt.started_at:type_name -> google.protobuf.Timestamp
-	105, // 20: candace.brainspine.v1.CommandReceipt.finished_at:type_name -> google.protobuf.Timestamp
+	106, // 19: candace.brainspine.v1.CommandReceipt.started_at:type_name -> google.protobuf.Timestamp
+	106, // 20: candace.brainspine.v1.CommandReceipt.finished_at:type_name -> google.protobuf.Timestamp
 	24,  // 21: candace.brainspine.v1.CommandReceipt.evidence:type_name -> candace.brainspine.v1.ArtifactEvidence
-	105, // 22: candace.brainspine.v1.TokenUsage.observed_at:type_name -> google.protobuf.Timestamp
+	106, // 22: candace.brainspine.v1.TokenUsage.observed_at:type_name -> google.protobuf.Timestamp
 	22,  // 23: candace.brainspine.v1.Snapshot.events:type_name -> candace.brainspine.v1.ResearchEvent
 	28,  // 24: candace.brainspine.v1.GetSnapshotResponse.snapshot:type_name -> candace.brainspine.v1.Snapshot
 	12,  // 25: candace.brainspine.v1.CompileRequest.controller:type_name -> candace.brainspine.v1.Controller
@@ -7824,15 +7975,16 @@ var file_candace_brainspine_v1_brainspine_proto_depIdxs = []int32{
 	94,  // 89: candace.brainspine.v1.UpdateOwnAgentConfigurationRequest.configuration:type_name -> candace.brainspine.v1.AgentConfigurationInput
 	95,  // 90: candace.brainspine.v1.UpdateOwnAgentConfigurationResponse.configuration:type_name -> candace.brainspine.v1.AgentConfiguration
 	91,  // 91: candace.brainspine.v1.AgentAssignmentRecipe.agent:type_name -> candace.brainspine.v1.AgentDefinition
-	100, // 92: candace.brainspine.v1.AgentAssignmentPlan.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
-	100, // 93: candace.brainspine.v1.PrepareAgentAssignmentRequest.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
-	101, // 94: candace.brainspine.v1.PrepareAgentAssignmentResponse.plan:type_name -> candace.brainspine.v1.AgentAssignmentPlan
-	101, // 95: candace.brainspine.v1.AgentAssignmentReceipt.plan:type_name -> candace.brainspine.v1.AgentAssignmentPlan
-	96,  // [96:96] is the sub-list for method output_type
-	96,  // [96:96] is the sub-list for method input_type
-	96,  // [96:96] is the sub-list for extension type_name
-	96,  // [96:96] is the sub-list for extension extendee
-	0,   // [0:96] is the sub-list for field type_name
+	101, // 92: candace.brainspine.v1.AgentAssignmentRecipe.workspace:type_name -> candace.brainspine.v1.AgentWorkspace
+	100, // 93: candace.brainspine.v1.AgentAssignmentPlan.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
+	100, // 94: candace.brainspine.v1.PrepareAgentAssignmentRequest.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
+	102, // 95: candace.brainspine.v1.PrepareAgentAssignmentResponse.plan:type_name -> candace.brainspine.v1.AgentAssignmentPlan
+	102, // 96: candace.brainspine.v1.AgentAssignmentReceipt.plan:type_name -> candace.brainspine.v1.AgentAssignmentPlan
+	97,  // [97:97] is the sub-list for method output_type
+	97,  // [97:97] is the sub-list for method input_type
+	97,  // [97:97] is the sub-list for extension type_name
+	97,  // [97:97] is the sub-list for extension extendee
+	0,   // [0:97] is the sub-list for field type_name
 }
 
 func init() { file_candace_brainspine_v1_brainspine_proto_init() }
@@ -7854,7 +8006,7 @@ func file_candace_brainspine_v1_brainspine_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_candace_brainspine_v1_brainspine_proto_rawDesc), len(file_candace_brainspine_v1_brainspine_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   95,
+			NumMessages:   96,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

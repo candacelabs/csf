@@ -1,0 +1,85 @@
+package fixture
+
+import "context"
+
+// IProbe is the liveness check the supervisor runs. Every parameter is named
+// and the type carries the house prefix, so this fixture exercises CS-8 alone.
+type IProbe interface {
+	Check(ctx context.Context, target string) error
+}
+
+// HTTPProbe checks a target over HTTP.
+type HTTPProbe struct {
+	timeoutMillis int
+}
+
+// Check performs the HTTP liveness request.
+// The probe modes a configuration can select, and the subjects a probe
+// reports. CS-13: the value a switch dispatches on is declared once, named.
+const (
+	probeModeHTTP    = "http"
+	probeModeScript  = "script"
+	subjectAnonymous = "anonymous"
+	kindPing         = "ping"
+	kindResync       = "resync"
+)
+
+func (probe *HTTPProbe) Check(ctx context.Context, target string) error { return nil }
+
+// NewHTTPProbe builds an HTTP probe.
+func NewHTTPProbe(timeoutMillis int) *HTTPProbe {
+	return &HTTPProbe{timeoutMillis: timeoutMillis}
+}
+
+// ScriptProbe runs an external script against a target.
+type ScriptProbe struct {
+	path string
+}
+
+// Check runs the script.
+func (probe *ScriptProbe) Check(ctx context.Context, target string) error { return nil }
+
+// NewScriptProbe builds a script probe.
+func NewScriptProbe(path string) *ScriptProbe { return &ScriptProbe{path: path} }
+
+// buildProbe is the config-selected factory CS-8 is about: the choice is made
+// here, the concrete type is thrown away here, and the "none" arm returns a
+// nil that the caller receives wrapped in a non-nil interface as soon as any
+// arm is edited to return a typed nil pointer.
+func buildProbe(mode string, timeoutMillis int, path string) IProbe {
+	switch mode {
+	case probeModeHTTP:
+		return NewHTTPProbe(timeoutMillis)
+	case probeModeScript:
+		return NewScriptProbe(path)
+	default: // "none"
+		return nil
+	}
+}
+
+// Supervise wires a probe from configuration and runs it.
+func Supervise(ctx context.Context, mode string, timeoutMillis int, path string, target string) error {
+	probe := buildProbe(mode, timeoutMillis, path)
+	if probe == nil {
+		return nil
+	}
+	return probe.Check(ctx, target)
+}
+
+// allProbes is the shape the 2026-09-03 amendment added, and the shape that
+// let a repo-owned framework contract sit at zero findings for a month: a
+// SLICE of interfaces. The detector used to read `[]IProbe` as "a container,
+// not this function handing back one implementation", so this declaration was
+// silent. A caller that receives a slice of interfaces receives interfaces.
+func allProbes(timeoutMillis int, path string) []IProbe {
+	return []IProbe{NewHTTPProbe(timeoutMillis), NewScriptProbe(path)}
+}
+
+// probesByMode is the same handover through a map, which is in scope for the
+// same reason and by the same peel.
+func probesByMode(timeoutMillis int, path string) map[string]IProbe {
+	return map[string]IProbe{
+		probeModeHTTP: NewHTTPProbe(timeoutMillis),
+		probeModeScript: NewScriptProbe(path),
+	}
+}

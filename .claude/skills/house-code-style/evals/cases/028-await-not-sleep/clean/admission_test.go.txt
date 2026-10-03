@@ -1,0 +1,35 @@
+package fleet_test
+
+import (
+	"testing"
+	"time"
+
+	"github.com/candacelabs/candace/pkg/eventually"
+)
+
+// admissionBudget is how long this specification waits for a four-node fleet
+// to agree on its voting set.
+//
+// Named, and generous on purpose. What is being waited for is four processes
+// exchanging votes on a machine that may be running anything else, so the
+// budget guards against a fleet that never converges rather than against a
+// busy afternoon: too large costs a slow failure on a run that was going to
+// fail, too small costs a red build on a correct one.
+var admissionBudget = eventually.Budget{Within: time.Minute, Interval: 250 * time.Millisecond}
+
+func TestFleetAdmitsAJoiner(t *testing.T) {
+	fleet := startFleet(t, "node-a", "node-b", "node-c")
+	fleet.join("node-d")
+
+	ids := []string{"node-a", "node-b", "node-c", "node-d"}
+	eventually.Await(t, "every node to agree on a four-voter membership", admissionBudget,
+		func() map[string]int { return fleet.voterCounts(ids) },
+		func(counts map[string]int) bool {
+			for _, id := range ids {
+				if counts[id] != 4 {
+					return false
+				}
+			}
+			return true
+		})
+}

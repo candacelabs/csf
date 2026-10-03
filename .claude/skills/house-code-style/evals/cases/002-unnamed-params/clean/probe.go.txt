@@ -1,0 +1,27 @@
+// Case 002 fixture — CLEAN. The same three signatures with every parameter
+// named. A gate run over this file must report nothing at all.
+//
+// Return values are deliberately left unnamed: CS-2 covers parameters, and
+// `go/CLAUDE.md` keeps named returns optional and driven by readability. A
+// "fix" that named the returns here would be over-applying the rule.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "context"
+
+// IProbe checks one widget endpoint for liveness.
+type IProbe interface {
+	Check(ctx context.Context, target string) error
+	Describe() string
+}
+
+// HandlerFunc is a func type, and CS-2 reaches it.
+type HandlerFunc func(ctx context.Context, payload []byte) error
+
+// Retry re-runs a probe until it succeeds or the attempt budget runs out.
+func Retry(ctx context.Context, attempts int, probe IProbe) error {
+	return nil
+}

@@ -1,4 +1,4 @@
-let usage = "usage: generate --root ROOT write|check|metrics [--manifest PATH]"
+let usage = "usage: generate --root ROOT write|check|metrics [--manifest PATH] | lint FILE..."
 
 let documentation root command =
   let mode = match command with
@@ -8,6 +8,12 @@ let documentation root command =
   let changed = Compiler.run root mode in
   Printf.printf "CSF documentation: %s (%d changed files)\n"
     (if mode = Compiler.Check then "current" else "generated") (List.length changed)
+
+(* Read-only vocabulary report for any Markdown files; exits 1 on a finding. *)
+let lint root paths =
+  let findings = Compiler.lint root paths in
+  List.iter print_endline findings;
+  if findings <> [] then exit 1
 
 let metrics root manifest =
   let records = Generation_metrics.read_manifest manifest in
@@ -20,6 +26,7 @@ let () =
     | [_; "--root"; root; "metrics"] -> metrics root (Filename.concat root "SOURCE_RECEIPT.json")
     | [_; "--root"; root; "metrics"; "--manifest"; manifest] -> metrics root manifest
     | [_; "--root"; root; ("write" | "check" as command)] -> documentation root command
+    | _ :: "--root" :: root :: "lint" :: (_ :: _ as paths) -> lint root paths
     | _ -> raise (Compiler.Error usage))
   with
   | Compiler.Error message | Generation_metrics.Error message | Metric_text.Error message

@@ -1,1 +1,0 @@
-../../../queries/highlights.scm

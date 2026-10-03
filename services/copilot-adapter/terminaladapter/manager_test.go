@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -44,11 +44,11 @@ const (
 	testBoundedShellScript     = testScriptShebang + "printf '%s'\n"
 )
 
-var terminalBudget = patience.Budget{Within: 5 * time.Second, Interval: 10 * time.Millisecond}
+var terminalBudget = eventually.Budget{Within: 5 * time.Second, Interval: 10 * time.Millisecond}
 
 var _ = Describe("TerminalManager", func() {
 	It("owns a PTY through input, replay, resize, exit and cleanup", func() {
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Shell: testShellPath, ReplayBytes: 64, ExitedHistoryLimit: 2})
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(), Shell: testShellPath, ReplayBytes: 64, ExitedHistoryLimit: 2})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(manager.Close)
 		worktreeID := uuid.New()
@@ -73,7 +73,7 @@ var _ = Describe("TerminalManager", func() {
 		marker := testTerminalOutputMarker
 		_, err = manager.Write(created.ID, testTerminalOutputCommand)
 		Expect(err).NotTo(HaveOccurred())
-		output := patience.Await(GinkgoT(), "terminal output", terminalBudget, func() string {
+		output := eventually.Await(GinkgoT(), "terminal output", terminalBudget, func() string {
 			replay, _ := manager.EventsAfter(created.ID, 0)
 			var output strings.Builder
 			for _, event := range replay.Events {
@@ -89,7 +89,7 @@ var _ = Describe("TerminalManager", func() {
 		Expect(replay.Events[0].ReplayTruncated).To(BeTrue())
 		_, err = manager.Write(created.ID, testExitSevenCommand)
 		Expect(err).NotTo(HaveOccurred())
-		status := patience.Await(GinkgoT(), "terminal natural exit", terminalBudget, func() string {
+		status := eventually.Await(GinkgoT(), "terminal natural exit", terminalBudget, func() string {
 			snapshot, _ := manager.Get(created.ID)
 			return snapshot.Status
 		}, func(status string) bool { return status == string(api.TerminalStatusExited) })
@@ -101,7 +101,7 @@ var _ = Describe("TerminalManager", func() {
 	})
 
 	It("wakes every subscriber when output arrives after an atomic replay read", func() {
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Shell: testShellPath, ReplayBytes: 4096, ExitedHistoryLimit: 2})
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(), Shell: testShellPath, ReplayBytes: 4096, ExitedHistoryLimit: 2})
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(manager.Close)
 		created, err := manager.Create(context.Background(), copilotadapter.TerminalSpec{
@@ -128,7 +128,7 @@ var _ = Describe("TerminalManager", func() {
 		shell := filepath.Join(directory, testUTF8OutputName)
 		body := testSplitUTF8ShellScript
 		Expect(os.WriteFile(shell, []byte(body), 0o700)).To(Succeed())
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: shell, ReplayBytes: 64, ExitedHistoryLimit: 2,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -137,7 +137,7 @@ var _ = Describe("TerminalManager", func() {
 			WorktreeID: uuid.New(), Directory: directory, Rows: 24, Columns: 80,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		patience.Await(GinkgoT(), "UTF-8 terminal exit", terminalBudget, func() string {
+		eventually.Await(GinkgoT(), "UTF-8 terminal exit", terminalBudget, func() string {
 			snapshot, _ := manager.Get(created.ID)
 			return snapshot.Status
 		}, func(status string) bool { return status == string(api.TerminalStatusExited) })
@@ -158,7 +158,7 @@ var _ = Describe("TerminalManager", func() {
 		directory := GinkgoT().TempDir()
 		shell := filepath.Join(directory, testExitNowName)
 		Expect(os.WriteFile(shell, []byte(testExitNineShellScript), 0o700)).To(Succeed())
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: shell, ReplayBytes: 128, ExitedHistoryLimit: 2,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -168,7 +168,7 @@ var _ = Describe("TerminalManager", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
-		replay := patience.Await(GinkgoT(), "terminal replay", terminalBudget, func() copilotadapter.TerminalEventReplay {
+		replay := eventually.Await(GinkgoT(), "terminal replay", terminalBudget, func() copilotadapter.TerminalEventReplay {
 			replay, _ := manager.EventsAfter(created.ID, 0)
 			return replay
 		}, func(replay copilotadapter.TerminalEventReplay) bool {
@@ -191,7 +191,7 @@ var _ = Describe("TerminalManager", func() {
 		directory := GinkgoT().TempDir()
 		shell := filepath.Join(directory, testBoundedUTF8OutputName)
 		Expect(os.WriteFile(shell, []byte(fmt.Sprintf(testBoundedShellScript, escapedOutput)), 0o700)).To(Succeed())
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: shell, ReplayBytes: replayBytes, ExitedHistoryLimit: 2,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -200,7 +200,7 @@ var _ = Describe("TerminalManager", func() {
 			WorktreeID: uuid.New(), Directory: directory, Rows: 24, Columns: 80,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		patience.Await(GinkgoT(), "bounded UTF-8 terminal exit", terminalBudget, func() string {
+		eventually.Await(GinkgoT(), "bounded UTF-8 terminal exit", terminalBudget, func() string {
 			snapshot, _ := manager.Get(created.ID)
 			return snapshot.Status
 		}, func(status string) bool { return status == string(api.TerminalStatusExited) })
@@ -226,7 +226,7 @@ var _ = Describe("TerminalManager", func() {
 	)
 
 	It("lists terminal sessions newest first", func() {
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: testShellPath, ReplayBytes: 128, ExitedHistoryLimit: 3,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -248,7 +248,7 @@ var _ = Describe("TerminalManager", func() {
 	})
 
 	It("kills the shell process group before closing its PTY", func() {
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: testShellPath, ReplayBytes: 4096, ExitedHistoryLimit: 2,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -260,7 +260,7 @@ var _ = Describe("TerminalManager", func() {
 		_, err = manager.Write(created.ID, testBackgroundChildCommand)
 		Expect(err).NotTo(HaveOccurred())
 		pattern := regexp.MustCompile(testChildOutputPattern)
-		child := patience.Await(GinkgoT(), "child process id", terminalBudget, func() int {
+		child := eventually.Await(GinkgoT(), "child process id", terminalBudget, func() int {
 			replay, _ := manager.EventsAfter(created.ID, 0)
 			var output strings.Builder
 			for _, event := range replay.Events {
@@ -275,7 +275,7 @@ var _ = Describe("TerminalManager", func() {
 		}, func(identifier int) bool { return identifier > 0 })
 		_, err = manager.Stop(created.ID)
 		Expect(err).NotTo(HaveOccurred())
-		gone := patience.Await(GinkgoT(), "terminal child process cleanup", terminalBudget, func() bool {
+		gone := eventually.Await(GinkgoT(), "terminal child process cleanup", terminalBudget, func() bool {
 			err := syscall.Kill(child, 0)
 			if errors.Is(err, syscall.ESRCH) {
 				return true
@@ -287,7 +287,7 @@ var _ = Describe("TerminalManager", func() {
 	})
 
 	It("bounds exited terminal replay histories", func() {
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: testShellPath, ReplayBytes: 128, ExitedHistoryLimit: 2,
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -301,7 +301,7 @@ var _ = Describe("TerminalManager", func() {
 			identifiers = append(identifiers, created.ID)
 			_, writeErr := manager.Write(created.ID, testExitZeroCommand)
 			Expect(writeErr).NotTo(HaveOccurred())
-			patience.Await(GinkgoT(), "terminal retained after exit", terminalBudget, func() string {
+			eventually.Await(GinkgoT(), "terminal retained after exit", terminalBudget, func() string {
 				snapshot, _ := manager.Get(created.ID)
 				return snapshot.Status
 			}, func(status string) bool { return status == string(api.TerminalStatusExited) })
@@ -316,7 +316,7 @@ var _ = Describe("TerminalManager", func() {
 		directory := GinkgoT().TempDir()
 		shell := filepath.Join(directory, testExitNowName)
 		Expect(os.WriteFile(shell, []byte(testExitZeroShellScript), 0o700)).To(Succeed())
-		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
+		manager, err := terminaladapter.NewTerminalManager(terminaladapter.Config{Launcher: hostLauncher(),
 			Shell: shell, ReplayBytes: 128, ExitedHistoryLimit: 2,
 		})
 		Expect(err).NotTo(HaveOccurred())

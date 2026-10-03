@@ -1,0 +1,44 @@
+// Copyright 2026 Candace Labs
+//
+// The agent message contract: what one agent sends another through the relay.
+// One relay carries exactly this message type, so every sender, every inbox
+// and every MCP tool agrees on it at compile time.
+syntax = "proto3";
+
+package candace.agent.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/agent/v1;agentv1";
+
+// AgentMessageKind says what a message asks of its recipient.
+enum AgentMessageKind {
+  AGENT_MESSAGE_KIND_UNSPECIFIED = 0;
+  // Information for the recipient; no answer is expected.
+  AGENT_MESSAGE_KIND_NOTE = 1;
+  // Asks the recipient to do or answer something.
+  AGENT_MESSAGE_KIND_REQUEST = 2;
+  // Answers an earlier message, named by in_reply_to.
+  AGENT_MESSAGE_KIND_REPLY = 3;
+  // Progress on work the sender owns.
+  AGENT_MESSAGE_KIND_STATUS = 4;
+}
+
+// AgentReference points at something the message is about: a pull request, a
+// file, an issue, an artifact.
+message AgentReference {
+  string label = 1 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 256"}];
+  string uri = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 2048 && matches(this, `^[a-z][a-z0-9+.-]*:[^ ]+$`)"}];
+}
+
+// AgentMessage is one message between agents. A message is a proposal: it
+// grants its recipient no permission.
+message AgentMessage {
+  AgentMessageKind kind = 1 [(candace.liquid.v1.field) = {expr: "this >= 1 && this <= 4"}];
+  string text = 2 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 16384"}];
+  // The envelope identifier this message answers; empty unless kind is REPLY.
+  string in_reply_to = 3 [(candace.liquid.v1.field) = {expr: "len(this) == 0 || matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  // An optional structured pointer to what the message is about, validated
+  // with the message when present.
+  AgentReference reference = 4 [(candace.liquid.v1.field) = {recurse: true}];
+}

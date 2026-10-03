@@ -27,6 +27,7 @@ import (
 	"github.com/candacelabs/csf/pkg/gotth/internal/render"
 	"github.com/candacelabs/csf/pkg/gotth/internal/session"
 	"github.com/candacelabs/csf/pkg/gotth/internal/wsx"
+	csfruntime "github.com/candacelabs/csf/runtime"
 )
 
 func TestWSX(t *testing.T) {
@@ -88,6 +89,7 @@ func (a *app) StateComparable() bool { return true }
 // would.
 type server struct {
 	handler *wsx.Handler[subject]
+	scope   *csfruntime.Scope
 	http    *httptest.Server
 	url     string
 }
@@ -102,6 +104,7 @@ func newServer(mutate func(options *wsx.Options[subject])) *server {
 		CSRF:         func(request *http.Request) error { return nil },
 		NewApp:       func(request *http.Request) session.IApp[subject] { return behaviour },
 		Limits:       session.DefaultLimits(),
+		Scope:        csfruntime.NewScope(context.Background(), "transport spec"),
 	}
 	if mutate != nil {
 		mutate(&opts)
@@ -111,11 +114,14 @@ func newServer(mutate func(options *wsx.Options[subject])) *server {
 	Expect(err).NotTo(HaveOccurred())
 
 	ts := httptest.NewServer(h)
-	return &server{handler: h, http: ts, url: "ws" + strings.TrimPrefix(ts.URL, "http")}
+	return &server{handler: h, scope: opts.Scope, http: ts, url: "ws" + strings.TrimPrefix(ts.URL, "http")}
 }
 
+// stop drains every session and then joins the sessions scope, which is the
+// order the live UI service stops in: after it, no session goroutine runs.
 func (s *server) stop() {
 	Expect(s.handler.Close(contextWithTimeout(2 * time.Second))).To(Succeed())
+	Expect(s.scope.Close()).To(Succeed())
 	s.http.Close()
 }
 
@@ -704,7 +710,7 @@ var _ = Describe("Connection lifecycle", func() {
 //
 // CS-9 keep: a best-effort quiesce is not an await. It asserts nothing and
 // cannot fail — a count that never stops moving is returned anyway — so there
-// is no condition for patience.Await to own, and making one up here would turn
+// is no condition for eventually.Await to own, and making one up here would turn
 // a sampling helper into an assertion its callers never asked for.
 func settled() int {
 	var last int

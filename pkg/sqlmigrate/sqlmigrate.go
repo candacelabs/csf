@@ -10,23 +10,51 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"regexp"
 	"sort"
 	"strings"
 )
 
 const sqlLineCommentPrefix = "--"
 
-const schemaMigrationsDDL = `CREATE TABLE IF NOT EXISTS schema_migrations (
+// defaultVersionTable is the ledger Apply and ApplyPrefixed share.
+const defaultVersionTable = "schema_migrations"
+
+const versionTableDDL = `CREATE TABLE IF NOT EXISTS %s (
     name TEXT PRIMARY KEY,
     applied_at TIMESTAMPTZ NOT NULL
 )`
 
+// Migration file suffixes: Apply and ApplyPrefixed read forward-only
+// *.up.sql files; ApplyVersioned reads every *.sql file except *.down.sql.
+const (
+	upMigrationSuffix   = ".up.sql"
+	sqlMigrationSuffix  = ".sql"
+	downMigrationSuffix = ".down.sql"
+)
+
+// versionTableName is the form a version table's name must take: a lower-case
+// PostgreSQL identifier that needs no quoting.
+var versionTableName = regexp.MustCompile(`^[a-z_][a-z0-9_]{0,62}$`)
+
+// ErrInvalidVersionTable means a version table name is not a plain identifier.
+var ErrInvalidVersionTable = errors.New("sqlmigrate: a version table name must be a lower-case identifier")
+
 const sqlStateUniqueViolation = "23505"
 const sqlStateDuplicateTable = "42P07"
 
-const claimMigrationSQL = `INSERT INTO schema_migrations (name, applied_at)
+const claimMigrationSQL = `INSERT INTO %s (name, applied_at)
 VALUES ($1, CURRENT_TIMESTAMP)
 ON CONFLICT (name) DO NOTHING`
+
+const recordedMigrationSQL = "SELECT COUNT(*) FROM %s WHERE name = $1"
+
+// ledger is where one migration set records the files it applied.
+type ledger struct {
+	table  string
+	prefix string
+	suffix func(name string) bool
+}
 
 type iSQLStateError interface {
 	SQLState() string
@@ -44,10 +72,32 @@ func Apply(ctx context.Context, db *sql.DB, files fs.FS, dir string) error {
 // receipts in a database shared with an owning application. Prefix is only a
 // ledger namespace; it never changes the embedded filename or execution order.
 func ApplyPrefixed(ctx context.Context, db *sql.DB, files fs.FS, dir string, prefix string) error {
+	return apply(ctx, db, files, dir, ledger{table: defaultVersionTable, prefix: prefix, suffix: isUpMigration})
+}
+
+// ApplyVersioned applies every *.sql file under dir (except *.down.sql), in
+// name order, recording each in versionTable. A migration set with its own
+// version table is numbered independently: a component such as CSF and the
+// application that embeds it each keep their own table in one database, and
+// neither run sees the other's files.
+func ApplyVersioned(ctx context.Context, db *sql.DB, files fs.FS, dir string, versionTable string) error {
+	if !versionTableName.MatchString(versionTable) {
+		return fmt.Errorf("%w: %q", ErrInvalidVersionTable, versionTable)
+	}
+	return apply(ctx, db, files, dir, ledger{table: versionTable, suffix: isSQLMigration})
+}
+
+func isUpMigration(name string) bool { return strings.HasSuffix(name, upMigrationSuffix) }
+
+func isSQLMigration(name string) bool {
+	return strings.HasSuffix(name, sqlMigrationSuffix) && !strings.HasSuffix(name, downMigrationSuffix)
+}
+
+func apply(ctx context.Context, db *sql.DB, files fs.FS, dir string, versions ledger) error {
 	if db == nil {
 		return fmt.Errorf("sqlmigrate: a database handle is required")
 	}
-	if err := createMigrationLedger(ctx, db); err != nil {
+	if err := createMigrationLedger(ctx, db, versions.table); err != nil {
 		return err
 	}
 	entries, err := fs.ReadDir(files, dir)
@@ -56,17 +106,17 @@ func ApplyPrefixed(ctx context.Context, db *sql.DB, files fs.FS, dir string, pre
 	}
 	names := make([]string, 0, len(entries))
 	for _, entry := range entries {
-		if strings.HasSuffix(entry.Name(), ".up.sql") {
+		if !entry.IsDir() && versions.suffix(entry.Name()) {
 			names = append(names, entry.Name())
 		}
 	}
 	sort.Strings(names)
 	for _, name := range names {
 		receipt := name
-		if prefix != "" {
-			receipt = prefix + ":" + name
+		if versions.prefix != "" {
+			receipt = versions.prefix + ":" + name
 		}
-		applied, err := recorded(ctx, db, receipt)
+		applied, err := recorded(ctx, db, versions.table, receipt)
 		if err != nil {
 			return err
 		}
@@ -77,27 +127,28 @@ func ApplyPrefixed(ctx context.Context, db *sql.DB, files fs.FS, dir string, pre
 		if err != nil {
 			return fmt.Errorf("sqlmigrate: read %s: %w", name, err)
 		}
-		if err := applyOne(ctx, db, name, receipt, Statements(string(body))); err != nil {
+		if err := applyOne(ctx, db, versions.table, name, receipt, Statements(string(body))); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func createMigrationLedger(ctx context.Context, db *sql.DB) error {
-	_, err := db.ExecContext(ctx, schemaMigrationsDDL)
+func createMigrationLedger(ctx context.Context, db *sql.DB, table string) error {
+	ddl := fmt.Sprintf(versionTableDDL, table)
+	_, err := db.ExecContext(ctx, ddl)
 	if err == nil {
 		return nil
 	}
 	if !isConcurrentBootstrapConflict(err) {
-		return fmt.Errorf("sqlmigrate: create schema_migrations: %w", err)
+		return fmt.Errorf("sqlmigrate: create %s: %w", table, err)
 	}
 
 	// PostgreSQL's IF NOT EXISTS check can race before either transaction's
 	// catalog row is visible. The losing CREATE reports the resolved catalog
 	// conflict, so one immediate retry observes the winner's committed table.
-	if _, err := db.ExecContext(ctx, schemaMigrationsDDL); err != nil {
-		return fmt.Errorf("sqlmigrate: create schema_migrations after concurrent bootstrap: %w", err)
+	if _, err := db.ExecContext(ctx, ddl); err != nil {
+		return fmt.Errorf("sqlmigrate: create %s after concurrent bootstrap: %w", table, err)
 	}
 	return nil
 }
@@ -120,7 +171,7 @@ func isConcurrentBootstrapConflict(err error) bool {
 // lock: a concurrent claimant waits for the owner to commit or roll back, then
 // either skips the committed migration or becomes the new owner. The claim,
 // statements, and receipt therefore land together or not at all.
-func applyOne(ctx context.Context, db *sql.DB, name string, receipt string, statements []string) error {
+func applyOne(ctx context.Context, db *sql.DB, table string, name string, receipt string, statements []string) error {
 	transaction, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("sqlmigrate: begin %s: %w", name, err)
@@ -130,7 +181,7 @@ func applyOne(ctx context.Context, db *sql.DB, name string, receipt string, stat
 		// takes effect on the error paths below.
 		_ = transaction.Rollback()
 	}()
-	claim, err := transaction.ExecContext(ctx, claimMigrationSQL, receipt)
+	claim, err := transaction.ExecContext(ctx, fmt.Sprintf(claimMigrationSQL, table), receipt)
 	if err != nil {
 		return fmt.Errorf("sqlmigrate: claim %s: %w", name, err)
 	}
@@ -152,9 +203,9 @@ func applyOne(ctx context.Context, db *sql.DB, name string, receipt string, stat
 	return nil
 }
 
-func recorded(ctx context.Context, db *sql.DB, name string) (bool, error) {
+func recorded(ctx context.Context, db *sql.DB, table string, name string) (bool, error) {
 	var count int64
-	row := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM schema_migrations WHERE name = $1", name)
+	row := db.QueryRowContext(ctx, fmt.Sprintf(recordedMigrationSQL, table), name)
 	if err := row.Scan(&count); err != nil {
 		return false, fmt.Errorf("sqlmigrate: look up %s: %w", name, err)
 	}

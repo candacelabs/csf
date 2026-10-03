@@ -1,0 +1,60 @@
+// Copyright 2026 Candace Labs
+
+// Actionable repository events, normalized by services/intake and delivered
+// through the relay to the agent that owns the pull request or issue.
+syntax = "proto3";
+
+package candace.intake.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/intake/v1;intakev1";
+
+// What happened. Only kinds an agent can act on are normalized; everything
+// else a source reports is discarded before it reaches the queue.
+enum EventKind {
+  EVENT_KIND_UNSPECIFIED = 0;
+  // A conversation comment on a pull request or an issue.
+  EVENT_KIND_COMMENT = 1;
+  // A submitted pull request review: approval, changes requested or comment.
+  EVENT_KIND_REVIEW = 2;
+  // An inline comment on a pull request's diff.
+  EVENT_KIND_REVIEW_COMMENT = 3;
+  // A continuous-integration run that concluded in failure.
+  EVENT_KIND_CHECK_FAILURE = 4;
+}
+
+// Which thread an event belongs to.
+enum SubjectKind {
+  SUBJECT_KIND_UNSPECIFIED = 0;
+  SUBJECT_KIND_PULL_REQUEST = 1;
+  SUBJECT_KIND_ISSUE = 2;
+  // The repository itself: a CI failure on a branch with no pull request.
+  SUBJECT_KIND_REPOSITORY = 3;
+}
+
+// The pull request, issue or repository an event is about; it is what routing
+// keys on.
+message Subject {
+  // owner/name.
+  string repository = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$`)"}];
+  SubjectKind kind = 2;
+  // The pull request or issue number; zero for a repository subject.
+  uint64 number = 3;
+}
+
+// One actionable event. The identifier is source-qualified and stable across
+// polls, so a consumer deduplicates on it alone.
+message Event {
+  string id = 1 [(candace.liquid.v1.field) = {expr: "len(this) >= 1 && len(this) <= 256"}];
+  EventKind kind = 2;
+  Subject subject = 3;
+  // The login of the account that caused the event.
+  string actor = 4;
+  // Where a human reads the event.
+  string url = 5;
+  // A short excerpt: the comment body, the review state, the failed run's name.
+  string summary = 6 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096"}];
+  google.protobuf.Timestamp occurred_at = 7;
+}

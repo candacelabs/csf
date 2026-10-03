@@ -76,3 +76,5 @@ let run mode config = io_result config.output_path (fun () ->
     | Emit -> write config.output_path resolved
     | Check_generated -> check_generated config.output_path resolved in
   Ok {architecture_name = resolved.architecture.name; mode; obligations = List.length resolved.obligations})
+
+let json config = Result.map Emit.json (compile config)

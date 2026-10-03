@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "cmd_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/app/nodeexec/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//app/nodeexec/internal/config",
+        "//ipc/proc",
+        "//pkg/telemetry",
+        "//proto/candace/deploy/v1:deploy",
+        "//proto/candace/telemetry/v1:telemetry",
+        "//services/nodeexec",
+        "//web/nodeexec/httpapi",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)

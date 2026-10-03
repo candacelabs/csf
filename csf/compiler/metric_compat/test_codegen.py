@@ -287,6 +287,26 @@ class CodegenTest(unittest.TestCase):
                 self.assertEqual(docs["generated_lines"], 1)
                 self.assertEqual(docs["handwritten_lines"], 6)
 
+    def test_every_generator_block_kind_counts_as_generated(self):
+        # The kinds come from the generator (generated_blocks_cgen.py), so a new
+        # kind is counted without a change to codegen.py.
+        self.assertIn("north_star", codegen.BLOCK_KINDS)
+        for kind in codegen.BLOCK_KINDS:
+            with self.subTest(kind=kind):
+                source = (f"Authored.\n<!-- csf:{kind} goal -->\n## North star\n\n"
+                          f"| row |\n<!-- /csf:{kind} goal -->\n")
+                docs = codegen.calculate(self.root, [self.add("README.md", source)])["documentation"]
+                self.assertEqual(docs["generated_lines"], 3)
+                self.assertEqual(docs["handwritten_lines"], 3)
+        for source, message in (
+            ("<!-- csf:north_star a -->\n<!-- /csf:diagram a -->\n", "unmatched diagram end"),
+            ("<!-- csf:north_star -->\n", "malformed north_star"),
+            ("<!-- csf:north_star a -->\n", "unclosed north_star marker a"),
+        ):
+            with self.subTest(source=source):
+                with self.assertRaisesRegex(ValueError, message):
+                    codegen.calculate(self.root, [self.add("README.md", source)])
+
     def test_fence_closing_requires_matching_character_and_length(self):
         source = ("````markdown\n```\n~~~\n<!-- csf:diagram unmatched -->\n````\n")
         docs = codegen.calculate(self.root, [self.add("README.md", source)])["documentation"]

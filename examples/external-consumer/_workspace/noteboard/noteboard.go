@@ -21,8 +21,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/candacelabs/csf/services/candaceos/component"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	"github.com/candacelabs/csf/services/deploy/component"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 // Capacity bounds the notes the board retains. The oldest is discarded first;

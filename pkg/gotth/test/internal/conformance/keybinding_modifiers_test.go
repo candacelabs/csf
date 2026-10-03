@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/candacelabs/csf/pkg/gotth/live"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -240,14 +242,14 @@ window.__kbm = {
 // pressMod is press with the CDP modifier bitmask set — Alt 1, Ctrl 2, Meta 4,
 // Shift 8 — which is how a chord goes in through the browser's own input
 // pipeline rather than being written onto an event object by the spec.
-func (c *chrome) pressMod(key, code, text string, modifiers int) {
+func pressMod(c *livetest.Browser, key, code, text string, modifiers int) {
 	GinkgoHelper()
 	down := map[string]any{"type": "keyDown", "key": key, "code": code, "modifiers": modifiers}
 	if text != "" {
 		down["text"] = text
 	}
-	c.call(c.sessionID, "Input.dispatchKeyEvent", down, nil)
-	c.call(c.sessionID, "Input.dispatchKeyEvent",
+	c.Call("Input.dispatchKeyEvent", down, nil)
+	c.Call("Input.dispatchKeyEvent",
 		map[string]any{"type": "keyUp", "key": key, "code": code, "modifiers": modifiers}, nil)
 }
 
@@ -260,13 +262,13 @@ func (c *chrome) pressMod(key, code, text string, modifiers int) {
 //
 // The coordinates come from the element's own box, so the click lands on the
 // element under test rather than on a guess.
-func (c *chrome) clickMod(sel string, modifiers int) {
+func clickMod(c *livetest.Browser, sel string, modifiers int) {
 	GinkgoHelper()
 	var at struct {
 		X float64 `json:"x"`
 		Y float64 `json:"y"`
 	}
-	c.evalJSON(`(() => {
+	c.EvalJSON(`(() => {
 	  const r = document.querySelector(`+strconv.Quote(sel)+`).getBoundingClientRect();
 	  if (r.width === 0 || r.height === 0) throw new Error(`+strconv.Quote(sel)+` + " has no box to click");
 	  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
@@ -281,7 +283,7 @@ func (c *chrome) clickMod(sel string, modifiers int) {
 		for k, v := range base {
 			phase[k] = v
 		}
-		c.call(c.sessionID, "Input.dispatchMouseEvent", phase, nil)
+		c.Call("Input.dispatchMouseEvent", phase, nil)
 	}
 }
 
@@ -306,7 +308,7 @@ type kbmRead struct {
 var _ = Describe("A binding can demand no modifier and can take the key (FR-54 failure 1, F-CHT-3)",
 	Ordered, ContinueOnFailure, Label("browser"), func() {
 		var (
-			c  *chrome
+			c  *livetest.Browser
 			ts *httptest.Server
 		)
 
@@ -314,11 +316,11 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			browserOnly()
 			ts = startModApp()
 			c = launchChrome()
-			c.onNewDocument(kbmHelpers)
-			c.navigate(ts.URL + "/")
+			c.OnNewDocument(kbmHelpers)
+			c.Navigate(ts.URL + "/")
 
 			Eventually(func() string {
-				return c.evalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
+				return c.EvalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
 			}, 30*time.Second, 100*time.Millisecond).Should(Equal("live"),
 				"the client runtime never reported a live connection")
 		})
@@ -326,19 +328,19 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 		read := func() kbmRead {
 			GinkgoHelper()
 			var got kbmRead
-			c.evalJSON(`window.__kbm.read()`, &got)
+			c.EvalJSON(`window.__kbm.read()`, &got)
 			return got
 		}
 
 		waitEvents := func(n int) {
 			GinkgoHelper()
 			var seen int
-			c.evalJSON(fmt.Sprintf(`window.__kbm.waitEvents(%d)`, n), &seen)
+			c.EvalJSON(fmt.Sprintf(`window.__kbm.waitEvents(%d)`, n), &seen)
 		}
 
 		focus := func(sel string) {
 			GinkgoHelper()
-			Expect(c.evalBool(`window.__kbm.focus(` + strconv.Quote(sel) + `)`)).To(BeTrue())
+			Expect(c.EvalBool(`window.__kbm.focus(` + strconv.Quote(sel) + `)`)).To(BeTrue())
 		}
 
 		// The sentinel: a key on a different element raising a distinct event.
@@ -347,7 +349,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 		tick := func() {
 			GinkgoHelper()
 			focus("#tick")
-			c.press("t", "KeyT", "t")
+			press(c, "t", "KeyT", "t")
 		}
 
 		// C-7, first half. This is the half a key filter alone cannot do: the
@@ -357,11 +359,11 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			before := read()
 			focus("#composer")
 
-			c.call(c.sessionID, "Input.insertText", map[string]any{"text": "hi"}, nil)
+			c.Call("Input.insertText", map[string]any{"text": "hi"}, nil)
 			waitEvents(before.Events + 1) // the debounced draft
 			Expect(read().Draft).To(Equal("hi"))
 
-			c.press("Enter", "Enter", "\r")
+			press(c, "Enter", "Enter", "\r")
 			waitEvents(before.Events + 2)
 
 			mid := read()
@@ -382,7 +384,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 
 			AddReportEntry("F-CHT-3 first half", fmt.Sprintf(
 				"browser %s: Enter on a NoModifiers+PreventDefault binding raised %s and the "+
-					"textarea value stayed %q", c.version, eventModSend, after.Value))
+					"textarea value stayed %q", c.Version(), eventModSend, after.Value))
 		})
 
 		// C-7, second half, and the one docs/reviews/fr-54.md §13's T-3 says
@@ -394,7 +396,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			before := read()
 			focus("#composer")
 
-			c.pressMod("Enter", "Enter", "\r", modShift)
+			pressMod(c, "Enter", "Enter", "\r", modShift)
 			waitEvents(before.Events + 1) // the debounced draft the line break caused
 
 			tick()
@@ -413,7 +415,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 
 			AddReportEntry("F-CHT-3 second half", fmt.Sprintf(
 				"browser %s: Shift+Enter raised no %s and left value=%q, server draft=%q",
-				c.version, eventModSend, after.Value, after.Draft))
+				c.Version(), eventModSend, after.Value, after.Draft))
 		})
 
 		// C-9, in the browser. The node spec emits compositionstart and then
@@ -424,13 +426,13 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 		It("leaves Enter alone mid-composition, so the IME still commits (FR-26)", func() {
 			before := read()
 			focus("#composer")
-			Expect(c.evalBool(`window.__kbm.compose(true)`)).To(BeTrue())
+			Expect(c.EvalBool(`window.__kbm.compose(true)`)).To(BeTrue())
 
-			c.press("Enter", "Enter", "\r")
+			press(c, "Enter", "Enter", "\r")
 
 			// End the composition before the sentinel, so the guard cannot be
 			// what silences the sentinel too.
-			Expect(c.evalBool(`window.__kbm.compose(false)`)).To(BeTrue())
+			Expect(c.EvalBool(`window.__kbm.compose(false)`)).To(BeTrue())
 			tick()
 			waitEvents(before.Events + 1) // the sentinel, and nothing else
 
@@ -454,7 +456,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 
 			AddReportEntry("C-9 composition guard", fmt.Sprintf(
 				"browser %s: Enter during an active composition raised no %s and was NOT suppressed; "+
-					"value=%q", c.version, eventModSend, after.Value))
+					"value=%q", c.Version(), eventModSend, after.Value))
 		})
 
 		// The binding works normally after the commit, which is the other half
@@ -464,7 +466,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			before := read()
 			focus("#composer")
 
-			c.press("Enter", "Enter", "\r")
+			press(c, "Enter", "Enter", "\r")
 			waitEvents(before.Events + 1)
 
 			after := read()
@@ -482,7 +484,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			before := read()
 			focus("#altgr")
 
-			c.pressMod("@", "Digit2", "@", modAltGr)
+			pressMod(c, "@", "Digit2", "@", modAltGr)
 			waitEvents(before.Events + 1)
 
 			mid := read()
@@ -490,7 +492,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 				"AltGr+@ matched the NoModifiers binding, or matched nothing at all")
 
 			focus("#altgr")
-			c.press("@", "Digit2", "@")
+			press(c, "@", "Digit2", "@")
 			waitEvents(before.Events + 2)
 
 			after := read()
@@ -500,7 +502,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 
 			AddReportEntry("C-6 AltGr", fmt.Sprintf(
 				"browser %s: AltGr+@ fell through to %s and bare @ matched %s",
-				c.version, eventModLoose, eventModStrict))
+				c.Version(), eventModLoose, eventModStrict))
 		})
 
 		// Each of the four, one press each, through the browser's own modifier
@@ -511,7 +513,7 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 				before := read()
 				focus("#altgr")
 
-				c.pressMod("@", "Digit2", "@", mask)
+				pressMod(c, "@", "Digit2", "@", mask)
 				waitEvents(before.Events + 1)
 
 				after := read()
@@ -536,11 +538,11 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 
 			// #altgr's bindings set neither option, so a press there must
 			// reach the server AND leave the browser's own behaviour alone.
-			c.press("@", "Digit2", "@")
+			press(c, "@", "Digit2", "@")
 			waitEvents(before.Events + 1)
 
 			focus("#composer")
-			c.call(c.sessionID, "Input.insertText", map[string]any{"text": "x"}, nil)
+			c.Call("Input.insertText", map[string]any{"text": "x"}, nil)
 			waitEvents(before.Events + 2)
 
 			after := read()
@@ -573,18 +575,18 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			// be a FILTER if the same element, the same button and the same
 			// pixel reach it once the modifier is let go — otherwise a runtime
 			// that had simply stopped delivering clicks would be green here.
-			c.clickMod("#plainclick", modCtrl)
+			clickMod(c, "#plainclick", modCtrl)
 			waitEvents(before.Events + 1)
 			Expect(read().Log).To(HaveSuffix(eventModClickAny),
 				"Ctrl+click matched the NoModifiers click binding, or reached nobody at all: "+
 					"a MouseEvent's ctrlKey is not being read")
 
-			c.clickMod("#plainclick", modShift)
+			clickMod(c, "#plainclick", modShift)
 			waitEvents(before.Events + 2)
 			Expect(read().Log).To(HaveSuffix(eventModClickAny+" "+eventModClickAny),
 				"Shift+click matched the NoModifiers click binding: a MouseEvent's shiftKey is not being read")
 
-			c.clickMod("#plainclick", 0)
+			clickMod(c, "#plainclick", 0)
 			waitEvents(before.Events + 3)
 
 			after := read()
@@ -612,6 +614,6 @@ var _ = Describe("A binding can demand no modifier and can take the key (FR-54 f
 			AddReportEntry("FR54-8 MouseEvent modifiers", fmt.Sprintf(
 				"browser %s: Ctrl+click and Shift+click on a NoModifiers click binding fell through "+
 					"to %s; the plain click matched %s. The binding names no key at all",
-				c.version, eventModClickAny, eventModClickPlain))
+				c.Version(), eventModClickAny, eventModClickPlain))
 		})
 	})

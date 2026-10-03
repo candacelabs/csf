@@ -1,0 +1,33 @@
+// Case 001 fixture — DIRTY. It violates CS-1 and nothing else: three
+// interfaces, none carrying the house prefix. Every parameter is already
+// named, so a gate run over this file must report CS-1 findings and zero CS-2
+// findings. If a change to the scanner starts reporting CS-2 here, the case
+// fails and the scanner is what regressed.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package widgetfixture
+
+import "context"
+
+// Notifier delivers one rendered message to a downstream channel.
+type Notifier interface {
+	Notify(ctx context.Context, message string) error
+}
+
+// Store keeps widget state between renders.
+type Store interface {
+	Load(ctx context.Context, key string) ([]byte, error)
+	Save(ctx context.Context, key string, payload []byte) error
+}
+
+// dispatcher is the unexported half of the same mistake. CS-1 applies to it
+// too; the fix preserves its visibility rather than exporting it.
+type dispatcher interface {
+	Dispatch(ctx context.Context, target string) error
+}
+
+// relayEndpoint is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const relayEndpoint = "203.0.113.10:8080"

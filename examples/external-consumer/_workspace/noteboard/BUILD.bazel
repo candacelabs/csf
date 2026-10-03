@@ -9,9 +9,9 @@ go_library(
     importpath = "example.com/candace-external-consumer/noteboard",
     visibility = ["//visibility:public"],
     deps = [
-        "@csf//services/candaceos/browserroutes",
-        "@csf//services/candaceos/component",
-        "@csf//services/candaceos/webui",
+        "@csf//web/deploy/browserroutes",
+        "@csf//services/deploy/component",
+        "@csf//web/deploy/webui",
         "@com_github_gin_gonic_gin//:gin",
     ],
 )
@@ -21,8 +21,8 @@ go_test(
     srcs = ["noteboard_test.go"],
     deps = [
         ":noteboard",
-        "@csf//services/candaceos/component",
-        "@csf//services/candaceos/webui",
+        "@csf//services/deploy/component",
+        "@csf//web/deploy/webui",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",
     ],

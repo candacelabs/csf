@@ -1,0 +1,70 @@
+name: deploy-fleet
+
+services:
+  warden:
+    image: ${DEPLOY_WARDEN_IMAGE:?fleet environment is incomplete}
+    restart: unless-stopped
+    user: "${DEPLOY_UID:?fleet environment is incomplete}:${DEPLOY_GID:?fleet environment is incomplete}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      WARDEN_CONFIG: /etc/warden/warden.yaml
+      WARDEN_NODE_ID: ${DEPLOY_NODE_ID:?fleet environment is incomplete}
+      WARDEN_PEERS: ${DEPLOY_WARDEN_PEERS:?fleet environment is incomplete}
+      WARDEN_LOG_FORMAT: console
+    volumes:
+      - ./warden.yaml:/etc/warden/warden.yaml:ro
+      - ${DEPLOY_STATE_ROOT:?fleet environment is incomplete}/runtime/warden:/var/lib/warden
+    ports:
+      - ${DEPLOY_NODE_IP:?fleet environment is incomplete}:7717:7717
+    networks: [fleet]
+
+  agent:
+    image: ${NODEEXEC_IMAGE:?fleet environment is incomplete}
+    restart: unless-stopped
+    init: true
+    user: "${DEPLOY_UID:?fleet environment is incomplete}:${DEPLOY_GID:?fleet environment is incomplete}"
+    group_add:
+      - ${DEPLOY_DOCKER_GID:?fleet environment is incomplete}
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    environment:
+      NODEEXEC_BIND: 0.0.0.0:8094
+      NODEEXEC_TOKEN: ${NODEEXEC_TOKEN:?fleet environment is incomplete}
+      NODEEXEC_NODE_ID: ${DEPLOY_NODE_ID:?fleet environment is incomplete}
+      NODEEXEC_STATE_FILE: /var/lib/nodeexec/state.json
+      NODEEXEC_WORKSPACE: ${DEPLOY_HOST_WORKSPACE:?fleet environment is incomplete}
+      NODEEXEC_REVISION_ROOT: ${DEPLOY_STATE_ROOT:?fleet environment is incomplete}/revisions
+      NODEEXEC_REVISION_MAX_ENTRIES: ${NODEEXEC_REVISION_MAX_ENTRIES:-128}
+      NODEEXEC_REVISION_MAX_BYTES: ${NODEEXEC_REVISION_MAX_BYTES:-4294967296}
+      NODEEXEC_SOURCE_REMOTE: ${NODEEXEC_SOURCE_REMOTE:?fleet environment is incomplete}
+      NODEEXEC_SOURCE_REPOSITORY: /var/lib/nodeexec/source.git
+      NODEEXEC_SOURCE_FETCH_TIMEOUT: ${NODEEXEC_SOURCE_FETCH_TIMEOUT:-30s}
+      NODEEXEC_DRY_RUN: "false"
+      DOCKER_CONFIG: /tmp/docker-config
+    volumes:
+      # The mutable Git object store is agent-owned under /var/lib. The
+      # workspace is deliberately empty and read-only on worker nodes.
+      - ${DEPLOY_HOST_WORKSPACE:?fleet environment is incomplete}:${DEPLOY_HOST_WORKSPACE:?fleet environment is incomplete}:ro
+      - ${DEPLOY_STATE_ROOT:?fleet environment is incomplete}/revisions:${DEPLOY_STATE_ROOT:?fleet environment is incomplete}/revisions
+      - ${DEPLOY_STATE_ROOT:?fleet environment is incomplete}/runtime/agent:/var/lib/nodeexec
+      - /var/run/docker.sock:/var/run/docker.sock
+    tmpfs: [/tmp]
+    ports:
+      - ${DEPLOY_NODE_IP:?fleet environment is incomplete}:8094:8094
+    healthcheck:
+      test: [CMD-SHELL, 'wget --quiet --spider --header="Authorization: Bearer $${NODEEXEC_TOKEN}" http://127.0.0.1:8094/healthz']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
+    depends_on:
+      warden:
+        condition: service_started
+    networks: [fleet]
+
+networks:
+  # This ordinary bridge reaches only the already-configured host tailnet.
+  fleet:

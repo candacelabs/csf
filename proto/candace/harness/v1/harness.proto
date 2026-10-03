@@ -1,0 +1,115 @@
+// The agent harness service: the operations that submit, steer, observe and
+// cancel agent sessions in the one harness process of a machine.
+syntax = "proto3";
+
+package candace.harness.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+import "candace/brainspine/v1/brainspine.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/harness/v1;harnessv1";
+
+// Where a session is in its life. The harness service owns the transitions:
+// a session is OPEN between turns, RUNNING while its turn executor carries
+// out a turn, and ends CANCELED, FAILED or CLOSED.
+enum AgentSessionPhase {
+  AGENT_SESSION_PHASE_UNSPECIFIED = 0;
+  // Admitted; the worktree and the turn executor are being prepared.
+  AGENT_SESSION_PHASE_STARTING = 1;
+  // A turn is in progress on the open turn executor.
+  AGENT_SESSION_PHASE_RUNNING = 2;
+  // Open and idle between turns: the next Send starts the next turn.
+  AGENT_SESSION_PHASE_OPEN = 3;
+  // Cancel was requested; the owner stops at its next safepoint.
+  AGENT_SESSION_PHASE_CANCELING = 4;
+  // Stopped by Cancel at a safepoint.
+  AGENT_SESSION_PHASE_CANCELED = 5;
+  // The session could not start or its turn executor failed.
+  AGENT_SESSION_PHASE_FAILED = 6;
+  // Stopped by the harness shutting down.
+  AGENT_SESSION_PHASE_CLOSED = 7;
+}
+
+// The state of one session the harness runs. It is a projection of the run
+// record and the owner's position; the events.jsonl of the run is the full
+// record.
+message AgentSessionState {
+  string assignment_id = 1;
+  string agent_id = 2;
+  string session_id = 3;
+  string trace_id = 4;
+  string branch = 5;
+  string worktree = 6;
+  string pull_request_url = 7;
+  AgentSessionPhase phase = 8;
+  // Turns started on the session so far.
+  uint32 turns = 9;
+  // Messages accepted by Send and not yet started as turns.
+  uint32 queued = 10;
+  google.protobuf.Timestamp started_at = 11;
+  google.protobuf.Timestamp updated_at = 12;
+  // The failure that ended the session, when the phase is FAILED.
+  string error = 13;
+}
+
+// The check made before a session is launched, with its measurements. Both
+// bounds are derived from what the host measures; while the check is
+// report-only a failing bound is recorded and the session is admitted anyway.
+message LaunchCheck {
+  uint32 cores = 1;
+  double load_one_minute = 2;
+  uint64 free_bytes = 3;
+  uint32 running_sessions = 4;
+  // The worker cap: how many sessions the measured idle capacity admits.
+  uint32 worker_cap = 5;
+  // The disk floor: the free bytes a new session must leave.
+  uint64 disk_floor_bytes = 6;
+  bool admitted = 7;
+  bool report_only = 8;
+  repeated string findings = 9;
+}
+
+message SubmitAgentSessionRequest { candace.brainspine.v1.AgentAssignmentRecipe recipe = 1; }
+message SubmitAgentSessionResponse {
+  candace.brainspine.v1.AgentAssignmentReceipt receipt = 1;
+  AgentSessionState session = 2;
+  LaunchCheck check = 3;
+}
+
+message SendAgentSessionMessageRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  string message = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 32000"}];
+}
+// A turn identifier acknowledges that the message was queued for the
+// session's next safepoint; it does not prove the turn ran or succeeded.
+message SendAgentSessionMessageResponse {
+  AgentSessionState session = 1;
+  string turn_id = 2;
+}
+
+message ListAgentSessionsRequest {}
+message ListAgentSessionsResponse {
+  repeated AgentSessionState sessions = 1;
+  // The one harness process every listed session runs in.
+  int32 host_pid = 2;
+}
+
+message GetAgentSessionRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+}
+message GetAgentSessionResponse { AgentSessionState session = 1; }
+
+message CancelAgentSessionRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+}
+// The state at the moment the request was recorded: CANCELING while a turn
+// is still running, CANCELED once the owner has stopped at its safepoint.
+message CancelAgentSessionResponse { AgentSessionState session = 1; }
+
+message StopHarnessRequest {}
+message StopHarnessResponse {
+  // Sessions still running when the stop was requested; each is closed in
+  // the harness's ordered shutdown.
+  uint32 sessions_running = 1;
+}

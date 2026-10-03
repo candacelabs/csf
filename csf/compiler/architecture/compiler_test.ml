@@ -82,6 +82,12 @@ let compiler_cases () = with_fixture (fun root write ->
   } in
   ignore (Compiler.run Compiler.Check config |> require);
   expect "check has no output side effect" (not (Sys.file_exists config.output_path));
+  let document = Compiler.json config |> require in
+  expect "json projection omits the declared architecture"
+    (String.length document > 0 && document.[0] = '{' && document.[String.length document - 1] = '\n');
+  expect "json projection wrote output" (not (Sys.file_exists config.output_path));
+  expect "json projection skipped closed checks"
+    (Result.is_error (Compiler.json {config with require_closed = true}));
   let closed = {config with require_closed = true} in
   expect "unverified scope cannot emit closed architecture" (Result.is_error (Compiler.run Compiler.Emit closed));
   expect "failed compilation leaves outputs absent" (not (Sys.file_exists config.output_path));

@@ -552,7 +552,7 @@ func (x *MonthlyLastDaySchedule) GetAt() *TimeOfDay {
 
 // IntervalSchedule is elapsed-time scheduling. anchor is optional desired
 // configuration; when absent, the durable store establishes it exactly once
-// and exposes the resulting value on JobStatus.
+// and exposes the resulting value on TriggerStatus.
 type IntervalSchedule struct {
 	state               protoimpl.MessageState `protogen:"open.v1"`
 	IntervalNanoseconds int64                  `protobuf:"varint,1,opt,name=interval_nanoseconds,json=intervalNanoseconds,proto3" json:"interval_nanoseconds,omitempty"`
@@ -815,9 +815,10 @@ func (*ScheduleSpec_Interval) isScheduleSpec_Rule() {}
 
 func (*ScheduleSpec_RawCron) isScheduleSpec_Rule() {}
 
-// JobDefinition is the portable desired job configuration. The executable Go
-// handler is registered locally by name and is deliberately not serializable.
-type JobDefinition struct {
+// TriggerDefinition is the portable declaration of one trigger: its name, its
+// schedule and its catch-up and overlap policies. The operation it invokes is
+// registered locally by name and is deliberately not serializable.
+type TriggerDefinition struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Schedule      *ScheduleSpec          `protobuf:"bytes,2,opt,name=schedule,proto3" json:"schedule,omitempty"`
@@ -827,20 +828,20 @@ type JobDefinition struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *JobDefinition) Reset() {
-	*x = JobDefinition{}
+func (x *TriggerDefinition) Reset() {
+	*x = TriggerDefinition{}
 	mi := &file_cron_v1_cron_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *JobDefinition) String() string {
+func (x *TriggerDefinition) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*JobDefinition) ProtoMessage() {}
+func (*TriggerDefinition) ProtoMessage() {}
 
-func (x *JobDefinition) ProtoReflect() protoreflect.Message {
+func (x *TriggerDefinition) ProtoReflect() protoreflect.Message {
 	mi := &file_cron_v1_cron_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -852,33 +853,33 @@ func (x *JobDefinition) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use JobDefinition.ProtoReflect.Descriptor instead.
-func (*JobDefinition) Descriptor() ([]byte, []int) {
+// Deprecated: Use TriggerDefinition.ProtoReflect.Descriptor instead.
+func (*TriggerDefinition) Descriptor() ([]byte, []int) {
 	return file_cron_v1_cron_proto_rawDescGZIP(), []int{8}
 }
 
-func (x *JobDefinition) GetName() string {
+func (x *TriggerDefinition) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *JobDefinition) GetSchedule() *ScheduleSpec {
+func (x *TriggerDefinition) GetSchedule() *ScheduleSpec {
 	if x != nil {
 		return x.Schedule
 	}
 	return nil
 }
 
-func (x *JobDefinition) GetCatchUpPolicy() CatchUpPolicy {
+func (x *TriggerDefinition) GetCatchUpPolicy() CatchUpPolicy {
 	if x != nil {
 		return x.CatchUpPolicy
 	}
 	return CatchUpPolicy_CATCH_UP_POLICY_UNSPECIFIED
 }
 
-func (x *JobDefinition) GetOverlapPolicy() OverlapPolicy {
+func (x *TriggerDefinition) GetOverlapPolicy() OverlapPolicy {
 	if x != nil {
 		return x.OverlapPolicy
 	}
@@ -886,11 +887,12 @@ func (x *JobDefinition) GetOverlapPolicy() OverlapPolicy {
 }
 
 // Invocation identifies one scheduled occurrence. occurrence_id is stable for
-// a given job name and scheduled time and is the handler's idempotency key.
+// a given trigger name and scheduled time and is the operation's idempotency
+// key.
 type Invocation struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	OccurrenceId  string                 `protobuf:"bytes,1,opt,name=occurrence_id,json=occurrenceId,proto3" json:"occurrence_id,omitempty"`
-	JobName       string                 `protobuf:"bytes,2,opt,name=job_name,json=jobName,proto3" json:"job_name,omitempty"`
+	TriggerName   string                 `protobuf:"bytes,2,opt,name=trigger_name,json=triggerName,proto3" json:"trigger_name,omitempty"`
 	ScheduledAt   *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=scheduled_at,json=scheduledAt,proto3" json:"scheduled_at,omitempty"`
 	StartedAt     *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	Attempt       uint32                 `protobuf:"varint,5,opt,name=attempt,proto3" json:"attempt,omitempty"`
@@ -935,9 +937,9 @@ func (x *Invocation) GetOccurrenceId() string {
 	return ""
 }
 
-func (x *Invocation) GetJobName() string {
+func (x *Invocation) GetTriggerName() string {
 	if x != nil {
-		return x.JobName
+		return x.TriggerName
 	}
 	return ""
 }
@@ -1047,11 +1049,11 @@ func (x *RunSummary) GetSkipReason() string {
 	return ""
 }
 
-// JobStatus is a read-only status projection suitable for an authenticated
-// Gin route. PostgreSQL remains relational and is mapped explicitly.
-type JobStatus struct {
+// TriggerStatus is a read-only status projection of one trigger. PostgreSQL
+// remains relational and is mapped explicitly.
+type TriggerStatus struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
-	Definition     *JobDefinition         `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
+	Definition     *TriggerDefinition     `protobuf:"bytes,1,opt,name=definition,proto3" json:"definition,omitempty"`
 	NextRunAt      *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=next_run_at,json=nextRunAt,proto3" json:"next_run_at,omitempty"`
 	IntervalAnchor *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=interval_anchor,json=intervalAnchor,proto3" json:"interval_anchor,omitempty"`
 	ActiveRuns     uint32                 `protobuf:"varint,5,opt,name=active_runs,json=activeRuns,proto3" json:"active_runs,omitempty"`
@@ -1060,20 +1062,20 @@ type JobStatus struct {
 	sizeCache      protoimpl.SizeCache
 }
 
-func (x *JobStatus) Reset() {
-	*x = JobStatus{}
+func (x *TriggerStatus) Reset() {
+	*x = TriggerStatus{}
 	mi := &file_cron_v1_cron_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *JobStatus) String() string {
+func (x *TriggerStatus) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*JobStatus) ProtoMessage() {}
+func (*TriggerStatus) ProtoMessage() {}
 
-func (x *JobStatus) ProtoReflect() protoreflect.Message {
+func (x *TriggerStatus) ProtoReflect() protoreflect.Message {
 	mi := &file_cron_v1_cron_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1085,40 +1087,40 @@ func (x *JobStatus) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use JobStatus.ProtoReflect.Descriptor instead.
-func (*JobStatus) Descriptor() ([]byte, []int) {
+// Deprecated: Use TriggerStatus.ProtoReflect.Descriptor instead.
+func (*TriggerStatus) Descriptor() ([]byte, []int) {
 	return file_cron_v1_cron_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *JobStatus) GetDefinition() *JobDefinition {
+func (x *TriggerStatus) GetDefinition() *TriggerDefinition {
 	if x != nil {
 		return x.Definition
 	}
 	return nil
 }
 
-func (x *JobStatus) GetNextRunAt() *timestamppb.Timestamp {
+func (x *TriggerStatus) GetNextRunAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.NextRunAt
 	}
 	return nil
 }
 
-func (x *JobStatus) GetIntervalAnchor() *timestamppb.Timestamp {
+func (x *TriggerStatus) GetIntervalAnchor() *timestamppb.Timestamp {
 	if x != nil {
 		return x.IntervalAnchor
 	}
 	return nil
 }
 
-func (x *JobStatus) GetActiveRuns() uint32 {
+func (x *TriggerStatus) GetActiveRuns() uint32 {
 	if x != nil {
 		return x.ActiveRuns
 	}
 	return 0
 }
 
-func (x *JobStatus) GetLastRun() *RunSummary {
+func (x *TriggerStatus) GetLastRun() *RunSummary {
 	if x != nil {
 		return x.LastRun
 	}
@@ -1128,7 +1130,7 @@ func (x *JobStatus) GetLastRun() *RunSummary {
 type StatusSnapshot struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ObservedAt    *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"`
-	Jobs          []*JobStatus           `protobuf:"bytes,2,rep,name=jobs,proto3" json:"jobs,omitempty"`
+	Triggers      []*TriggerStatus       `protobuf:"bytes,2,rep,name=triggers,proto3" json:"triggers,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1170,9 +1172,9 @@ func (x *StatusSnapshot) GetObservedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-func (x *StatusSnapshot) GetJobs() []*JobStatus {
+func (x *StatusSnapshot) GetTriggers() []*TriggerStatus {
 	if x != nil {
-		return x.Jobs
+		return x.Triggers
 	}
 	return nil
 }
@@ -1221,19 +1223,19 @@ const file_cron_v1_cron_proto_rawDesc = "" +
 	"\x10monthly_last_day\x18\x05 \x01(\v2'.candace.cron.v1.MonthlyLastDayScheduleH\x00R\x0emonthlyLastDay\x12?\n" +
 	"\binterval\x18\x06 \x01(\v2!.candace.cron.v1.IntervalScheduleH\x00R\binterval\x12=\n" +
 	"\braw_cron\x18\a \x01(\v2 .candace.cron.v1.RawCronScheduleH\x00R\arawCronB\x06\n" +
-	"\x04rule\"\xc6\x02\n" +
-	"\rJobDefinition\x12e\n" +
+	"\x04rule\"\xca\x02\n" +
+	"\x11TriggerDefinition\x12e\n" +
 	"\x04name\x18\x01 \x01(\tBQ\x92\x82\x19M\n" +
 	"Klen(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)R\x04name\x129\n" +
 	"\bschedule\x18\x02 \x01(\v2\x1d.candace.cron.v1.ScheduleSpecR\bschedule\x12F\n" +
 	"\x0fcatch_up_policy\x18\x03 \x01(\x0e2\x1e.candace.cron.v1.CatchUpPolicyR\rcatchUpPolicy\x12E\n" +
-	"\x0eoverlap_policy\x18\x04 \x01(\x0e2\x1e.candace.cron.v1.OverlapPolicyR\roverlapPolicyJ\x04\b\x05\x10\x06\"\xde\x02\n" +
+	"\x0eoverlap_policy\x18\x04 \x01(\x0e2\x1e.candace.cron.v1.OverlapPolicyR\roverlapPolicyJ\x04\b\x05\x10\x06\"\xe6\x02\n" +
 	"\n" +
 	"Invocation\x12N\n" +
 	"\roccurrence_id\x18\x01 \x01(\tB)\x92\x82\x19%\n" +
-	"#matches(this, `^occ_[0-9a-f]{64}$`)R\foccurrenceId\x12l\n" +
-	"\bjob_name\x18\x02 \x01(\tBQ\x92\x82\x19M\n" +
-	"Klen(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)R\ajobName\x12=\n" +
+	"#matches(this, `^occ_[0-9a-f]{64}$`)R\foccurrenceId\x12t\n" +
+	"\ftrigger_name\x18\x02 \x01(\tBQ\x92\x82\x19M\n" +
+	"Klen(this) >= 1 && len(this) <= 128 && matches(this, `^[a-z][a-z0-9._/-]*$`)R\vtriggerName\x12=\n" +
 	"\fscheduled_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\vscheduledAt\x129\n" +
 	"\n" +
 	"started_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x12\x18\n" +
@@ -1252,21 +1254,21 @@ const file_cron_v1_cron_proto_rawDesc = "" +
 	"\x11len(this) <= 4096R\ferrorSummary\x128\n" +
 	"\vskip_reason\x18\x06 \x01(\tB\x17\x92\x82\x19\x13\n" +
 	"\x11len(this) <= 4096R\n" +
-	"skipReason\"\xc2\x02\n" +
-	"\tJobStatus\x12>\n" +
+	"skipReason\"\xca\x02\n" +
+	"\rTriggerStatus\x12B\n" +
 	"\n" +
-	"definition\x18\x01 \x01(\v2\x1e.candace.cron.v1.JobDefinitionR\n" +
+	"definition\x18\x01 \x01(\v2\".candace.cron.v1.TriggerDefinitionR\n" +
 	"definition\x12:\n" +
 	"\vnext_run_at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\tnextRunAt\x12C\n" +
 	"\x0finterval_anchor\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x0eintervalAnchor\x126\n" +
 	"\vactive_runs\x18\x05 \x01(\rB\x15\x92\x82\x19\x11\n" +
 	"\x0fthis <= 1000000R\n" +
 	"activeRuns\x126\n" +
-	"\blast_run\x18\x06 \x01(\v2\x1b.candace.cron.v1.RunSummaryR\alastRunJ\x04\b\x03\x10\x04\"}\n" +
+	"\blast_run\x18\x06 \x01(\v2\x1b.candace.cron.v1.RunSummaryR\alastRunJ\x04\b\x03\x10\x04\"\x89\x01\n" +
 	"\x0eStatusSnapshot\x12;\n" +
 	"\vobserved_at\x18\x01 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"observedAt\x12.\n" +
-	"\x04jobs\x18\x02 \x03(\v2\x1a.candace.cron.v1.JobStatusR\x04jobs*\xb6\x01\n" +
+	"observedAt\x12:\n" +
+	"\btriggers\x18\x02 \x03(\v2\x1e.candace.cron.v1.TriggerStatusR\btriggers*\xb6\x01\n" +
 	"\aWeekday\x12\x17\n" +
 	"\x13WEEKDAY_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eWEEKDAY_SUNDAY\x10\x01\x12\x12\n" +
@@ -1325,10 +1327,10 @@ var file_cron_v1_cron_proto_goTypes = []any{
 	(*IntervalSchedule)(nil),       // 10: candace.cron.v1.IntervalSchedule
 	(*RawCronSchedule)(nil),        // 11: candace.cron.v1.RawCronSchedule
 	(*ScheduleSpec)(nil),           // 12: candace.cron.v1.ScheduleSpec
-	(*JobDefinition)(nil),          // 13: candace.cron.v1.JobDefinition
+	(*TriggerDefinition)(nil),      // 13: candace.cron.v1.TriggerDefinition
 	(*Invocation)(nil),             // 14: candace.cron.v1.Invocation
 	(*RunSummary)(nil),             // 15: candace.cron.v1.RunSummary
-	(*JobStatus)(nil),              // 16: candace.cron.v1.JobStatus
+	(*TriggerStatus)(nil),          // 16: candace.cron.v1.TriggerStatus
 	(*StatusSnapshot)(nil),         // 17: candace.cron.v1.StatusSnapshot
 	(*timestamppb.Timestamp)(nil),  // 18: google.protobuf.Timestamp
 }
@@ -1346,20 +1348,20 @@ var file_cron_v1_cron_proto_depIdxs = []int32{
 	9,  // 10: candace.cron.v1.ScheduleSpec.monthly_last_day:type_name -> candace.cron.v1.MonthlyLastDaySchedule
 	10, // 11: candace.cron.v1.ScheduleSpec.interval:type_name -> candace.cron.v1.IntervalSchedule
 	11, // 12: candace.cron.v1.ScheduleSpec.raw_cron:type_name -> candace.cron.v1.RawCronSchedule
-	12, // 13: candace.cron.v1.JobDefinition.schedule:type_name -> candace.cron.v1.ScheduleSpec
-	2,  // 14: candace.cron.v1.JobDefinition.catch_up_policy:type_name -> candace.cron.v1.CatchUpPolicy
-	3,  // 15: candace.cron.v1.JobDefinition.overlap_policy:type_name -> candace.cron.v1.OverlapPolicy
+	12, // 13: candace.cron.v1.TriggerDefinition.schedule:type_name -> candace.cron.v1.ScheduleSpec
+	2,  // 14: candace.cron.v1.TriggerDefinition.catch_up_policy:type_name -> candace.cron.v1.CatchUpPolicy
+	3,  // 15: candace.cron.v1.TriggerDefinition.overlap_policy:type_name -> candace.cron.v1.OverlapPolicy
 	18, // 16: candace.cron.v1.Invocation.scheduled_at:type_name -> google.protobuf.Timestamp
 	18, // 17: candace.cron.v1.Invocation.started_at:type_name -> google.protobuf.Timestamp
 	14, // 18: candace.cron.v1.RunSummary.invocation:type_name -> candace.cron.v1.Invocation
 	4,  // 19: candace.cron.v1.RunSummary.state:type_name -> candace.cron.v1.RunState
 	18, // 20: candace.cron.v1.RunSummary.finished_at:type_name -> google.protobuf.Timestamp
-	13, // 21: candace.cron.v1.JobStatus.definition:type_name -> candace.cron.v1.JobDefinition
-	18, // 22: candace.cron.v1.JobStatus.next_run_at:type_name -> google.protobuf.Timestamp
-	18, // 23: candace.cron.v1.JobStatus.interval_anchor:type_name -> google.protobuf.Timestamp
-	15, // 24: candace.cron.v1.JobStatus.last_run:type_name -> candace.cron.v1.RunSummary
+	13, // 21: candace.cron.v1.TriggerStatus.definition:type_name -> candace.cron.v1.TriggerDefinition
+	18, // 22: candace.cron.v1.TriggerStatus.next_run_at:type_name -> google.protobuf.Timestamp
+	18, // 23: candace.cron.v1.TriggerStatus.interval_anchor:type_name -> google.protobuf.Timestamp
+	15, // 24: candace.cron.v1.TriggerStatus.last_run:type_name -> candace.cron.v1.RunSummary
 	18, // 25: candace.cron.v1.StatusSnapshot.observed_at:type_name -> google.protobuf.Timestamp
-	16, // 26: candace.cron.v1.StatusSnapshot.jobs:type_name -> candace.cron.v1.JobStatus
+	16, // 26: candace.cron.v1.StatusSnapshot.triggers:type_name -> candace.cron.v1.TriggerStatus
 	27, // [27:27] is the sub-list for method output_type
 	27, // [27:27] is the sub-list for method input_type
 	27, // [27:27] is the sub-list for extension type_name

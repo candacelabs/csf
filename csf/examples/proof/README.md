@@ -3,7 +3,10 @@
 This small Lean 4 project formalizes the arithmetic slice of
 [`brainspine.proto`](../../../proto/candace/brainspine/v1/brainspine.proto).
 It proves a concrete source-expression to postfix-instruction compiler correct.
-It does not prove physical safety or verify the native Go/Rust implementations.
+It does not prove physical safety. It models a language, not shipped code: CSF
+has no native controller implementation, because the low-level spine is external
+and ROS-side. The pinned toolchain bootstrap in `check.sh` is also used by
+`csf/compiler/verification`.
 
 Run from the repository root:
 
@@ -80,11 +83,11 @@ run receipts are not part of this public example. Run it for the revision you us
 ## Trust and delivery boundary
 
 The proof concerns this Lean model and compiler. Agreement between that model
-and the canonical wire semantics is a reviewed translation boundary. Agreement
-with the handwritten Go and Rust evaluators requires the prototype's separate
-conformance checks; this project does not establish their equivalence by proof.
-Those native languages, compilers, runtimes, integer representations, JSON or
-protobuf parsers, simulator conversion, timing, and physical behavior remain
+and the canonical wire semantics is a reviewed translation boundary. The
+handwritten Go and Rust evaluators were removed; any implementation the external
+ROS-side spine runs needs its own conformance evidence. Native languages,
+compilers, runtimes, integer representations, JSON or protobuf parsers,
+simulator conversion, timing, and physical behavior remain
 outside the theorem. In particular, finite-width multiplication must be shown
 not to overflow under the admission constraints.
 

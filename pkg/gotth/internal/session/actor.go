@@ -17,6 +17,7 @@ import (
 	"github.com/candacelabs/csf/pkg/gotth/internal/protocol"
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
 	"github.com/candacelabs/csf/pkg/gotth/internal/render"
+	"github.com/candacelabs/csf/runtime"
 )
 
 // Options configure one session actor.
@@ -70,6 +71,12 @@ type Options[I IIdentity] struct {
 	// A test supplies its own channel and delivers a tick when it wants one;
 	// nothing here calls time.NewTicker.
 	Ticks <-chan time.Time
+
+	// Scope is the runtime scope every effect goroutine starts in. The
+	// transport passes the live UI service's sessions scope, so the service's
+	// join covers every effect; the actor itself also joins its own effects
+	// before Run returns. It is required.
+	Scope *runtime.Scope
 }
 
 // Actor implements the service owning one connection's widget state and effects.
@@ -93,6 +100,7 @@ type Actor[I IIdentity] struct {
 	log    *obs.Logger
 	now    func() time.Time
 	dev    bool
+	scope  *runtime.Scope
 
 	// idStr and idAttr are the session identifier in the two shapes
 	// observability wants it, rendered ONCE.
@@ -179,6 +187,7 @@ func New[I IIdentity](o Options[I]) *Actor[I] {
 		log:          o.Logger,
 		now:          o.Now,
 		dev:          o.Dev,
+		scope:        o.Scope,
 		mailbox:      make(chan *inbound, o.Limits.MailboxDepth),
 		acks:         make(chan uint64, o.Limits.AckChannelDepth),
 		ticks:        o.Ticks,
@@ -216,8 +225,8 @@ func (a *Actor[I]) TrackedBytes() int64 {
 }
 
 // Run drives the session until its context is cancelled or the session closes.
-// It returns when the actor goroutine is finished, having drained or abandoned
-// in-flight effects and run the teardown hook exactly once.
+// It returns when the actor goroutine is finished, having cancelled and joined
+// every in-flight effect and run the teardown hook exactly once.
 func (a *Actor[I]) Run(ctx context.Context) {
 	effCtx, cancel := context.WithCancel(ctx)
 	a.cancelEffects = cancel
@@ -262,41 +271,53 @@ func (a *Actor[I]) Ready(ctx context.Context) error {
 }
 
 // shutdown is the ordered teardown: stop accepting, cancel in-flight effects,
-// give them a bounded window to return, run the application's teardown hook,
-// and deregister exactly once.
+// join every one of them, run the application's teardown hook, and deregister
+// exactly once.
 func (a *Actor[I]) shutdown(ctx context.Context, cancel context.CancelFunc) {
 	a.closing.Store(true)
 	cancel()
-
-	if !waitFor(&a.effects, a.lim.EffectDrainTimeout) {
-		// An effect that will not return does not get to hold the connection
-		// open. It is counted, because an abandoned effect is a degradation
-		// and a degradation without a signal is a defect.
-		a.m.EffectAbandoned(ctx)
-		a.log.Warn(ctx, "gotth-live: abandoned an effect that outlived the drain window",
-			obs.Str("session_id", a.idStr),
-			obs.Dur("drain_timeout_ms", a.lim.EffectDrainTimeout))
-	}
-
+	a.joinEffects(ctx)
 	a.app.Teardown(context.WithoutCancel(ctx), a.peer, a.state)
 	a.closeOnce.Do(func() { close(a.stopped) })
 }
 
-// waitFor waits for wg with a deadline, reporting whether it finished in time.
-func waitFor(wg *sync.WaitGroup, d time.Duration) bool {
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-	timer := time.NewTimer(d)
-	defer timer.Stop()
-	select {
-	case <-done:
-		return true
-	case <-timer.C:
-		return false
+// joinEffects waits until every effect this session started has returned.
+//
+// It is a join, not a bounded drain: an effect whose context is cancelled
+// must return, and teardown does not run over one that has not, so the
+// application's Teardown hook never races an effect still writing to what it
+// releases. EffectDrainTimeout is when an effect that has not returned is
+// reported — counted and logged once — because a shutdown held open by an
+// effect ignoring cancellation is a degradation an operator must see.
+//
+// The WaitGroup is converted into a channel on a goroutine of the session's
+// own scope, so the wait can be selected against the reporting timer; the
+// waiter returns as soon as the last effect does.
+func (a *Actor[I]) joinEffects(ctx context.Context) {
+	joined := make(chan struct{})
+	if err := a.scope.Go(func(_ context.Context) error {
+		a.effects.Wait()
+		close(joined)
+		return nil
+	}); err != nil {
+		// The scope is already joining, so nothing can report the overrun
+		// concurrently; wait without the report rather than not at all.
+		a.effects.Wait()
+		return
 	}
+	overrun := time.NewTimer(a.lim.EffectDrainTimeout)
+	defer overrun.Stop()
+	select {
+	case <-joined:
+		return
+	case <-overrun.C:
+	}
+	a.m.EffectOverran(ctx)
+	a.log.Warn(ctx, "gotth-live: an effect is still running past the drain window: "+
+		"shutdown waits for it, so make the effect return when its context is cancelled",
+		obs.Str("session_id", a.idStr),
+		obs.Dur("drain_timeout_ms", a.lim.EffectDrainTimeout))
+	<-joined
 }
 
 // Done reports a channel closed when the actor has finished.

@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 
 	"github.com/candacelabs/csf/pkg/sqlmigrate"
 )
@@ -28,7 +28,7 @@ const sqlmigrateTestDatabaseURLEnv = "CANDACE_SQLMIGRATE_TEST_DATABASE_URL"
 const concurrentMigrationBudget = 20 * time.Second
 const concurrentMigrationSpecTimeout = 30 * time.Second
 
-var claimWaitBudget = patience.Budget{Within: 20 * time.Second}
+var claimWaitBudget = eventually.Budget{Within: 20 * time.Second}
 
 type synchronizedMigrationFS struct {
 	fstest.MapFS
@@ -203,7 +203,7 @@ INSERT INTO fresh_bootstrap_effects (id) VALUES (1);`)},
 			}()
 		}
 		Eventually(winnerReady).WithTimeout(concurrentMigrationBudget).Should(Receive())
-		patience.Await(GinkgoTB(), "the second ledger bootstrap to wait on PostgreSQL's catalog", claimWaitBudget,
+		eventually.Await(GinkgoTB(), "the second ledger bootstrap to wait on PostgreSQL's catalog", claimWaitBudget,
 			func() bool {
 				var waiting bool
 				queryErr := admin.QueryRowContext(ctx, `SELECT EXISTS (
@@ -327,7 +327,7 @@ VALUES ($1, CURRENT_TIMESTAMP)`, receiptName)
 		Eventually(arrivals).WithTimeout(concurrentMigrationBudget).Should(Receive())
 		close(release)
 
-		patience.Await(GinkgoTB(), "the contender to wait on the receipt owner", claimWaitBudget,
+		eventually.Await(GinkgoTB(), "the contender to wait on the receipt owner", claimWaitBudget,
 			func() bool {
 				var waiting bool
 				queryErr := admin.QueryRowContext(ctx, `SELECT EXISTS (

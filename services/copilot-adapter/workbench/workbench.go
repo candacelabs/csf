@@ -2,7 +2,6 @@ package workbench
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -10,21 +9,21 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	cronpostgres "github.com/candacelabs/csf/pkg/cron/postgres"
+	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/ipc/proc"
 	"github.com/gin-gonic/gin"
 
-	"github.com/candacelabs/csf/pkg/sqlmigrate"
-	"github.com/candacelabs/csf/pkg/workcontinuity"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/kanban"
 	"github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/terminaladapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/worktreeadapter"
+	cron "github.com/candacelabs/csf/services/cron"
+	"github.com/candacelabs/csf/services/workcontinuity"
 )
 
 const (
-	cronMigrationPrefix  = "candace-cron"
 	defaultRepositoryID  = "workspace"
 	defaultRepositoryRef = "HEAD"
 )
@@ -39,10 +38,12 @@ type Workbench struct {
 }
 type settings struct {
 	repository, worktrees, shell string
+	launcher                     proc.ILauncher
 	bridge                       copilotadapter.ICopilotBridge
 	logger                       *slog.Logger
 	tasks                        *workcontinuity.Continuity
 	origins                      []string
+	schedules                    cron.IStore
 }
 type Option func(config *settings)
 
@@ -54,8 +55,21 @@ func WithBridge(bridge copilotadapter.ICopilotBridge) Option {
 }
 func WithLogger(logger *slog.Logger) Option { return func(config *settings) { config.logger = logger } }
 
+// WithLauncher grants the process capability that Git and terminal shells
+// start through. It is required: the Workbench never starts a process itself.
+func WithLauncher(launcher proc.ILauncher) Option {
+	return func(config *settings) { config.launcher = launcher }
+}
+
 func WithTaskContinuity(tasks *workcontinuity.Continuity) Option {
 	return func(config *settings) { config.tasks = tasks }
+}
+
+// WithScheduleStore grants the cron store chat schedules fire through: the
+// binary builds it with cron.NewStore over a pool it applied CSF's schema
+// to. It is required: the Workbench opens no database of its own.
+func WithScheduleStore(schedules cron.IStore) Option {
+	return func(config *settings) { config.schedules = schedules }
 }
 
 // WithKanbanOrigins mounts the live board on the same router as the adapter.
@@ -64,27 +78,22 @@ func WithKanbanOrigins(origins ...string) Option {
 	return func(config *settings) { config.origins = append([]string(nil), origins...) }
 }
 
-// NewWorkbench initializes durable stores and composes existing service libraries.
-// It never starts a listener or a provider process, or restores sessions implicitly.
-func NewWorkbench(ctx context.Context, db *sql.DB, options ...Option) (*Workbench, error) {
+// NewWorkbench composes existing service libraries over the database
+// capability the binary granted, which already carries the adapter's schema
+// (store.Migrations). It never opens a pool, starts a listener or a provider
+// process, or restores sessions implicitly.
+func NewWorkbench(ctx context.Context, db csfpg.IDB, options ...Option) (*Workbench, error) {
 	settings := settings{shell: "/bin/bash", logger: slog.Default()}
 	for _, option := range options {
 		if option != nil {
 			option(&settings)
 		}
 	}
-	if db == nil || settings.bridge == nil || settings.repository == "" {
-		return nil, fmt.Errorf("workbench requires database, bridge and repository")
-	}
-	if err := store.ApplyMigrations(ctx, db); err != nil {
-		return nil, err
-	}
-	cronSchema := cronpostgres.EmbeddedMigrations()
-	if err := sqlmigrate.ApplyPrefixed(ctx, db, cronSchema.Files, cronSchema.Directory, cronMigrationPrefix); err != nil {
-		return nil, fmt.Errorf("copilot-adapter: apply cron migrations: %w", err)
+	if db == nil || settings.bridge == nil || settings.repository == "" || settings.launcher == nil || settings.schedules == nil {
+		return nil, fmt.Errorf("workbench requires database, bridge, repository, process launcher and schedule store")
 	}
 
-	repositoryRoot, err := CanonicalRepositoryRoot(ctx, settings.repository)
+	repositoryRoot, err := CanonicalRepositoryRoot(ctx, settings.launcher, settings.repository)
 	if err != nil {
 		return nil, err
 	}
@@ -92,6 +101,7 @@ func NewWorkbench(ctx context.Context, db *sql.DB, options ...Option) (*Workbenc
 		settings.worktrees = filepath.Join(filepath.Dir(repositoryRoot), filepath.Base(repositoryRoot)+"-worktrees")
 	}
 	worktrees, err := worktreeadapter.NewWorktreeManager(worktreeadapter.Config{
+		Launcher: settings.launcher,
 		Repositories: []copilotadapter.Repository{{
 			ID: defaultRepositoryID, DisplayName: filepath.Base(repositoryRoot), Root: repositoryRoot, DefaultRef: defaultRepositoryRef,
 		}},
@@ -102,16 +112,13 @@ func NewWorkbench(ctx context.Context, db *sql.DB, options ...Option) (*Workbenc
 	}
 	adapterConfig := copilotadapter.DefaultAdapterConfig()
 	terminals, err := terminaladapter.NewTerminalManager(terminaladapter.Config{
-		Shell: settings.shell, ExitedHistoryLimit: int(adapterConfig.GetTerminalHistoryLimit()),
+		Launcher: settings.launcher,
+		Shell:    settings.shell, ExitedHistoryLimit: int(adapterConfig.GetTerminalHistoryLimit()),
 	})
 	if err != nil {
 		return nil, err
 	}
 	adapterStore, err := store.NewPostgresStore(db)
-	if err != nil {
-		return nil, err
-	}
-	scheduleStore, err := cronpostgres.NewStore(db)
 	if err != nil {
 		return nil, err
 	}
@@ -121,7 +128,7 @@ func NewWorkbench(ctx context.Context, db *sql.DB, options ...Option) (*Workbenc
 		copilotadapter.WithStore(adapterStore),
 		copilotadapter.WithWorktreeManager(worktrees),
 		copilotadapter.WithTerminalManager(terminals),
-		copilotadapter.WithScheduleStore(scheduleStore),
+		copilotadapter.WithScheduleStore(settings.schedules),
 		copilotadapter.WithLogger(settings.logger),
 		copilotadapter.WithConfig(adapterConfig),
 	}

@@ -1,4 +1,4 @@
-//go:build integration
+//go:build acceptance
 
 package csf_test
 
@@ -21,6 +21,7 @@ import (
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
+	"github.com/candacelabs/csf/services/jobs/jobsmock"
 	"github.com/containerd/errdefs"
 	"github.com/gin-gonic/gin"
 	"github.com/moby/moby/api/types/container"
@@ -39,8 +40,8 @@ var _ = Describe("simulator examples through PostgreSQL and generated transports
 	var ctx context.Context
 	var worker *csf.Simulations
 	var client *csf.Client
-	var provider *mocks.MockIBatch
-	var logs *mocks.MockISimulationLogs
+	var provider *jobsmock.MockIBatch
+	var logs *jobsmock.MockICloudWatchLogs
 	var policy *pb.SimulationConfig
 	var service *csf.Service
 	var server *httptest.Server
@@ -55,8 +56,8 @@ var _ = Describe("simulator examples through PostgreSQL and generated transports
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(artifacts.Close)
 		control := gomock.NewController(GinkgoT())
-		provider = mocks.NewMockIBatch(control)
-		logs = mocks.NewMockISimulationLogs(control)
+		provider = jobsmock.NewMockIBatch(control)
+		logs = jobsmock.NewMockICloudWatchLogs(control)
 		policy = &pb.SimulationConfig{Region: "us-east-1", JobQueue: "arn:aws:batch:us-east-1:123456789012:job-queue/simulation", ArtifactUri: "s3://example-simulation/runs", LogGroup: "/aws/batch/job", TimeoutSeconds: 600, BudgetUsdMicros: 300000000, Profiles: []*pb.SimulationProfile{{Simulator: pb.Simulator_SIMULATOR_CARLA, JobDefinition: "arn:aws:batch:us-east-1:123456789012:job-definition/carla:1", ReservationUsdMicros: 200000000}}}
 		worker, err = csf.NewSimulations(store, artifacts, policy, provider, logs)
 		Expect(err).NotTo(HaveOccurred())
@@ -196,11 +197,11 @@ var _ = Describe("simulator examples through PostgreSQL and generated transports
 		Expect(worker.Tick(ctx)).To(Succeed())
 	})
 	Context("host-owned local jobs", func() {
-		var docker *mocks.MockIDockerSimulations
+		var docker *jobsmock.MockIDockerEngine
 		var observed dc.ContainerInspectResult
 		var localConfig *pb.LocalSimulationConfig
 		BeforeEach(func() {
-			docker = mocks.NewMockIDockerSimulations(gomock.NewController(GinkgoT()))
+			docker = jobsmock.NewMockIDockerEngine(gomock.NewController(GinkgoT()))
 			image := "sha256:" + strings.Repeat("a", 64)
 			localConfig = &pb.LocalSimulationConfig{Network: "simulation-test", ProgressUrl: server.URL + "/api/simulation/events", TimeoutSeconds: 600,
 				Profiles: []*pb.LocalSimulationProfile{{Simulator: pb.Simulator_SIMULATOR_CARLA, Image: image, ArtifactVolume: "simulation-artifacts", ArtifactDirectory: GinkgoT().TempDir(), ArtifactUrl: "http://example.invalid/ui/runs"}}}
@@ -209,7 +210,7 @@ var _ = Describe("simulator examples through PostgreSQL and generated transports
 			worker, err = csf.NewSimulations(store, artifacts, nil, nil, nil, csf.WithLocalSimulations(local))
 			Expect(err).NotTo(HaveOccurred())
 			csf.WithSimulations(worker)(service)
-			observed = dc.ContainerInspectResult{Container: container.InspectResponse{ID: "owned-id", Image: image, State: &container.State{Status: container.StateCreated}, Config: &container.Config{Labels: map[string]string{"candace.owner": "candace-brain-simulator", "candace.run-id": "native"}}}, Raw: []byte(`{"Id":"owned-id"}`)}
+			observed = dc.ContainerInspectResult{Container: container.InspectResponse{ID: "owned-id", Image: image, State: &container.State{Status: container.StateCreated}, Config: &container.Config{Labels: map[string]string{"candace.owner": "candace-brain-simulator", "candace.job-id": "native"}}}, Raw: []byte(`{"Id":"owned-id"}`)}
 		})
 		DescribeTable("archives terminal jobs and guards immutable trace delivery without local files", func(exportError error, changeDestination bool) {
 			control := gomock.NewController(GinkgoT())
@@ -343,13 +344,13 @@ var _ = Describe("simulator examples through PostgreSQL and generated transports
 			result, err := client.InspectSimulation(ctx, &pb.InspectSimulationRequest{RunId: "native"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Run.InspectionError).To(ContainSubstring("lost reply"))
-			observed.Container.Config.Labels["candace.run-id"] = "foreign"
+			observed.Container.Config.Labels["candace.job-id"] = "foreign"
 			docker.EXPECT().ContainerInspect(gomock.Any(), "csf-simulator-native", gomock.Any()).Return(observed, nil)
 			Expect(worker.Tick(ctx)).To(Succeed())
 			result, err = client.InspectSimulation(ctx, &pb.InspectSimulationRequest{RunId: "native"})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(result.Run.InspectionError).To(ContainSubstring("ownership"))
-			observed.Container.Config.Labels["candace.run-id"] = "native"
+			observed.Container.Config.Labels["candace.job-id"] = "native"
 			docker.EXPECT().ContainerInspect(gomock.Any(), "csf-simulator-native", gomock.Any()).Return(observed, nil)
 			docker.EXPECT().ContainerStart(gomock.Any(), "owned-id", gomock.Any()).Return(dc.ContainerStartResult{}, nil)
 			Expect(worker.Tick(ctx)).To(Succeed()) // No second create.

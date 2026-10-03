@@ -11,33 +11,46 @@ flowchart TB
       c1["csf#95;services<br/>service #124; existing #124; scoped<br/>source#58; csf"]
       c2["workbench<br/>service #124; existing #124; scoped<br/>source#58; services#47;copilot#45;adapter#47;workbench"]
       c3["kanban#95;widgets<br/>library #124; existing #124; borrowed<br/>source#58; services#47;copilot#45;adapter#47;kanban"]
-      c4["terminals<br/>gateway #124; existing #124; scoped<br/>source#58; services#47;copilot#45;adapter#47;terminaladapter#47;manager#46;go"]
-      c5["repository#95;probe<br/>gateway #124; existing #124; borrowed<br/>source#58; services#47;copilot#45;adapter#47;workbench#47;ui#46;go"]
-      c6["worktrees<br/>gateway #124; existing #124; borrowed<br/>source#58; services#47;copilot#45;adapter#47;worktreeadapter#47;manager#46;go"]
+      c4["terminals<br/>service #124; existing #124; scoped<br/>source#58; services#47;copilot#45;adapter#47;terminaladapter#47;manager#46;go"]
+      c5["repository#95;probe<br/>library #124; existing #124; borrowed<br/>source#58; services#47;copilot#45;adapter#47;workbench#47;ui#46;go"]
+      c6["worktrees<br/>library #124; existing #124; borrowed<br/>source#58; services#47;copilot#45;adapter#47;worktreeadapter#47;manager#46;go"]
+      c7["agent#95;relay<br/>service #124; existing #124; scoped<br/>source#58; services#47;relay"]
+      c9["proc<br/>gateway #124; existing #124; borrowed<br/>source#58; ipc#47;proc"]
+      subgraph s3["scope relay#95;inbox#95;run"]
+        c8["relay#95;inboxes<br/>service #124; existing #124; lazy<br/>source#58; services#47;relay#47;inbox#46;go"]
+      end
     end
   end
   subgraph p1["process shell<br/>kind#58; external"]
     subgraph s1["scope shell#95;lifetime"]
-      c7["terminal#95;shell<br/>resource #124; existing #124; borrowed"]
+      c10["terminal#95;shell<br/>resource #124; existing #124; borrowed"]
     end
   end
   subgraph p2["process git#95;cli<br/>kind#58; external"]
     subgraph s2["scope git#95;invocation"]
-      c8["git<br/>resource #124; existing #124; borrowed"]
+      c11["git<br/>resource #124; existing #124; borrowed"]
     end
   end
   c0 -.->|"requires"| c1
   c0 -.->|"requires"| c2
+  c0 -.->|"requires"| c7
   c2 -.->|"requires"| c4
   c2 -.->|"requires"| c6
   c2 -.->|"requires"| c5
   c2 -.->|"requires"| c3
+  c4 -.->|"requires"| c9
+  c5 -.->|"requires"| c9
+  c6 -.->|"requires"| c9
   c0 -->|"call #124; existing"| c1
   c0 -->|"call #124; existing"| c2
+  c0 -->|"call #124; existing"| c7
+  c7 -->|"call #124; existing"| c8
   c2 -->|"call #124; existing"| c5
   c2 -->|"call #124; existing"| c4
   c2 -->|"call #124; existing"| c6
   c2 -->|"call #124; existing"| c3
-  c4 -->|"subprocess #124; existing<br/>boundary#58; terminals"| c7
-  c5 -->|"subprocess #124; existing<br/>boundary#58; repository#95;probe"| c8
-  c6 -->|"subprocess #124; existing<br/>boundary#58; worktrees"| c8
+  c4 -->|"call #124; existing"| c9
+  c5 -->|"call #124; existing"| c9
+  c6 -->|"call #124; existing"| c9
+  c9 -->|"subprocess #124; existing<br/>boundary#58; proc"| c10
+  c9 -->|"subprocess #124; existing<br/>boundary#58; proc"| c11

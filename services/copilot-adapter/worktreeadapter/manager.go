@@ -7,12 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/candacelabs/csf/ipc/proc"
 	"github.com/candacelabs/csf/pkg/boundedbuffer"
 	boundedbufferv1 "github.com/candacelabs/csf/pkg/boundedbuffer/v1"
 
@@ -24,6 +25,7 @@ const (
 	defaultStatusBytes = 1 << 20
 	commandErrorBytes  = 8 << 10
 	cleanupTimeout     = 10 * time.Second
+	gitExecutable      = "git"
 	gitHead            = "HEAD"
 	gitHeadsPrefix     = "refs/heads/"
 	gitRevParse        = "rev-parse"
@@ -42,8 +44,10 @@ const (
 	managedBranch      = "csf/session-"
 )
 
-// Config declares the only repository roots the browser may select.
+// Config declares the only repository roots the browser may select and grants
+// the process capability Git runs through.
 type Config struct {
+	Launcher     proc.ILauncher
 	Repositories []copilotadapter.Repository
 	WorktreeRoot string
 	PatchBytes   int
@@ -51,6 +55,7 @@ type Config struct {
 
 // WorktreeManager is the concrete git/filesystem boundary.
 type WorktreeManager struct {
+	launcher     proc.ILauncher
 	repositories []copilotadapter.Repository
 	byID         map[string]copilotadapter.Repository
 	worktreeRoot string
@@ -61,6 +66,9 @@ var _ copilotadapter.IWorktreeManager = (*WorktreeManager)(nil)
 
 // NewWorktreeManager validates repository roots and the managed-worktree root.
 func NewWorktreeManager(config Config) (*WorktreeManager, error) {
+	if config.Launcher == nil {
+		return nil, fmt.Errorf("worktree adapter: process launcher is required")
+	}
 	if len(config.Repositories) == 0 {
 		return nil, fmt.Errorf("worktree adapter: at least one repository is required")
 	}
@@ -73,6 +81,7 @@ func NewWorktreeManager(config Config) (*WorktreeManager, error) {
 		return nil, fmt.Errorf("worktree adapter: canonical worktree root: %w", err)
 	}
 	manager := &WorktreeManager{
+		launcher:     config.Launcher,
 		repositories: make([]copilotadapter.Repository, 0, len(config.Repositories)),
 		byID:         map[string]copilotadapter.Repository{}, worktreeRoot: root, patchBytes: config.PatchBytes,
 	}
@@ -535,22 +544,28 @@ func (manager *WorktreeManager) Release(ctx context.Context, worktree copilotada
 	return err
 }
 
+// gitIn is one Git invocation in directory with the caller's output writers.
+// A nil stdout is captured into the result.
+func gitIn(directory string, stdout io.Writer, stderr io.Writer, arguments ...string) proc.Command {
+	return proc.Command{
+		Executable: gitExecutable, Arguments: append([]string{"-C", directory}, arguments...),
+		Stdout: stdout, Stderr: stderr,
+	}
+}
+
 func (manager *WorktreeManager) git(ctx context.Context, directory string, arguments ...string) ([]byte, error) {
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", directory}, arguments...)...)
 	stderr, err := boundedbuffer.New(&boundedbufferv1.Retention{MaxBytes: commandErrorBytes})
 	if err != nil {
 		return nil, err
 	}
-	command.Stderr = stderr
-	output, err := command.Output()
+	result, err := manager.launcher.Run(ctx, gitIn(directory, nil, stderr, arguments...))
 	if err != nil {
 		return nil, fmt.Errorf("git %s: %w: %s", strings.Join(arguments, " "), err, stderr.String())
 	}
-	return output, nil
+	return result.Stdout, nil
 }
 
 func (manager *WorktreeManager) gitBounded(ctx context.Context, directory string, maxBytes int, arguments ...string) ([]byte, bool, error) {
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", directory}, arguments...)...)
 	stdout, err := boundedbuffer.New(&boundedbufferv1.Retention{MaxBytes: int64(maxBytes)})
 	if err != nil {
 		return nil, false, err
@@ -559,8 +574,7 @@ func (manager *WorktreeManager) gitBounded(ctx context.Context, directory string
 	if err != nil {
 		return nil, false, err
 	}
-	command.Stdout, command.Stderr = stdout, stderr
-	if err := command.Run(); err != nil {
+	if _, err := manager.launcher.Run(ctx, gitIn(directory, stdout, stderr, arguments...)); err != nil {
 		return nil, stdout.Truncated(), fmt.Errorf("git %s: %w: %s", strings.Join(arguments, " "), err, stderr.String())
 	}
 	return append([]byte(nil), stdout.Bytes()...), stdout.Truncated(), nil
@@ -568,7 +582,6 @@ func (manager *WorktreeManager) gitBounded(ctx context.Context, directory string
 
 func (manager *WorktreeManager) gitNoIndexBounded(ctx context.Context, directory string, maxBytes int, path string) ([]byte, bool, error) {
 	arguments := []string{"diff", "--no-index", "--no-ext-diff", "--binary", "--", "/dev/null", path}
-	command := exec.CommandContext(ctx, "git", append([]string{"-C", directory}, arguments...)...)
 	stdout, err := boundedbuffer.New(&boundedbufferv1.Retention{MaxBytes: int64(maxBytes)})
 	if err != nil {
 		return nil, false, err
@@ -577,10 +590,10 @@ func (manager *WorktreeManager) gitNoIndexBounded(ctx context.Context, directory
 	if err != nil {
 		return nil, false, err
 	}
-	command.Stdout, command.Stderr = stdout, stderr
-	err = command.Run()
-	var exitError *exec.ExitError
-	if err != nil && (!errors.As(err, &exitError) || exitError.ExitCode() != 1) {
+	_, err = manager.launcher.Run(ctx, gitIn(directory, stdout, stderr, arguments...))
+	// git diff exits 1 to say the files differ, which is the answer.
+	var exitError *proc.ExitError
+	if err != nil && (!errors.As(err, &exitError) || exitError.Code != 1) {
 		return nil, stdout.Truncated(), fmt.Errorf("git %s: %w: %s", strings.Join(arguments, " "), err, stderr.String())
 	}
 	return append([]byte(nil), stdout.Bytes()...), stdout.Truncated(), nil

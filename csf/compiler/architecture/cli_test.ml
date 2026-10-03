@@ -1,9 +1,9 @@
 let expect message condition = if not condition then failwith message
 
-let evaluate run arguments =
+let evaluate ?json run arguments =
   let sink = Format.make_formatter (fun _ _ _ -> ()) (fun () -> ()) in
   Cmdliner.Cmd.eval_value ~catch:false ~help:sink ~err:sink ~env:(fun _ -> None)
-    ~argv:(Array.of_list ("csfc" :: arguments)) (Cli.command_with run)
+    ~argv:(Array.of_list ("csfc" :: arguments)) (Cli.command_with ?json run)
 
 let capture arguments =
   let calls = ref [] in
@@ -50,6 +50,28 @@ let test_invalid_arguments () =
       ["check"; "--require-closed"; "--require-closed"];
     ]
 
+(* [emit --format json] prints the checked model instead of writing, and only
+   emit accepts the option. The default format keeps the file-writing path. *)
+let test_json_format () =
+  let never _ _ = failwith "json format reached the projection writer" in
+  let printed = ref [] in
+  let json config = printed := config :: !printed; Ok "{}\n" in
+  expect "json format did not succeed" (evaluate ~json never ["emit"; "--format"; "json"] = Ok (`Ok 0));
+  expect "json format lost the default configuration"
+    (match !printed with [config] -> config.Compiler.source_path = "csf/architecture/architecture.csf"
+     | _ -> false);
+  let error = { Model.at = { file = "a.csf"; line = 1; column = 1 }; code = "CSF_MODEL"; message = "bad" } in
+  expect "json failure did not return one"
+    (evaluate ~json:(fun _ -> Error [error]) never ["emit"; "--format"; "json"] = Ok (`Ok 1));
+  let mode, _ = capture ["emit"; "--format"; "files"] in
+  expect "files format did not write projections" (mode = Compiler.Emit);
+  List.iter (fun arguments ->
+    expect ("format option accepted outside emit: " ^ String.concat " " arguments)
+      (match evaluate ~json never arguments with Error (`Parse | `Term) -> true | _ -> false)) [
+      ["check"; "--format"; "json"]; ["check-generated"; "--format"; "json"];
+      ["emit"; "--format"; "yaml"]; ["--format"; "json"];
+    ]
+
 let test_help () =
   List.iter (fun arguments ->
     let run _ _ = failwith "help reached compiler" in
@@ -73,6 +95,7 @@ let () =
   test_defaults ();
   test_commands_and_options ();
   test_invalid_arguments ();
+  test_json_format ();
   test_help ();
   test_reporting ();
   print_endline "CSF declarative CLI tests passed"

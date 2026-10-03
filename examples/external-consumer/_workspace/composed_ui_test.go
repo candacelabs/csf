@@ -10,11 +10,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	candaceosv1 "github.com/candacelabs/csf/proto/candace/candaceos/v1"
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
-	"github.com/candacelabs/csf/services/candaceos/component"
-	"github.com/candacelabs/csf/services/candaceos/httpserver"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
+	"github.com/candacelabs/csf/services/deploy/component"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/httpserver"
+	"github.com/candacelabs/csf/web/deploy/webui"
 
 	"example.com/candace-external-consumer/composition"
 	"example.com/candace-external-consumer/identity"
@@ -70,12 +70,12 @@ func runningProduct() *composition.Product {
 func newProductServer(product *composition.Product) *httptest.Server {
 	GinkgoHelper()
 	handler, err := webui.New(
-		webui.SnapshotFunc(func(ctx context.Context) (*candaceosv1.WebUISnapshot, error) {
+		webui.SnapshotFunc(func(ctx context.Context) (*deployv1.WebUISnapshot, error) {
 			// The system carries no name: Core stamps the configured brand into
 			// every snapshot it produces, and these specs should see that
 			// happen rather than assert on a name they wrote themselves.
-			return &candaceosv1.WebUISnapshot{
-				System: &candaceosv1.WebUISystem{
+			return &deployv1.WebUISnapshot{
+				System: &deployv1.WebUISystem{
 					Status:  "healthy",
 					Summary: "2 nodes · quorum healthy",
 				},
@@ -113,7 +113,7 @@ var _ = Describe("the rebranded operator UI", func() {
 		Expect(response.StatusCode).To(Equal(http.StatusOK))
 		Expect(index).To(ContainSubstring("<title>Quillfern</title>"))
 		Expect(index).To(ContainSubstring(`aria-label="Quillfern navigation"`))
-		Expect(index).To(ContainSubstring(`<span>Quill<span class="brand-os">fern</span></span>`),
+		Expect(index).To(ContainSubstring(`<span>Quill<span class="brand-accent">fern</span></span>`),
 			"the wordmark fragment is emitted verbatim")
 		Expect(index).To(ContainSubstring(`<p class="topbar-title" data-system-name>Quillfern</p>`),
 			"an unnamed snapshot must take the configured product name")

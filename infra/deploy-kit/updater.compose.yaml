@@ -1,0 +1,38 @@
+name: deploy-cd
+
+services:
+  updater:
+    container_name: deploy-updater
+    image: deploy-updater:local
+    build:
+      context: .
+      dockerfile: Dockerfile.updater
+    restart: unless-stopped
+    init: true
+    user: "${UPDATER_UID:?run ./bootstrap-updater.sh}:${UPDATER_GID:?run ./bootstrap-updater.sh}"
+    group_add:
+      - "${DEPLOY_DOCKER_GID:?run ./bootstrap-updater.sh}"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    network_mode: host
+    environment:
+      DEPLOY_ROOT: "${DEPLOY_ROOT:?run ./bootstrap-updater.sh}"
+      DEPLOY_GITHUB_TOKEN_FILE: /run/secrets/github-token
+      DEPLOY_POLL_INTERVAL: "${DEPLOY_POLL_INTERVAL:-30}"
+      DEPLOY_REPOSITORY: "${DEPLOY_REPOSITORY:?run ./bootstrap-updater.sh}"
+      DOCKER_CONFIG: /tmp/docker-config
+      HOME: /tmp
+    volumes:
+      # The identical host/container path is required because the updater's
+      # Compose client asks the host daemon to mount state and app paths.
+      - "${DEPLOY_ROOT:?run ./bootstrap-updater.sh}:${DEPLOY_ROOT:?run ./bootstrap-updater.sh}"
+      - "${DEPLOY_ROOT:?run ./bootstrap-updater.sh}/secrets/github-token:/run/secrets/github-token:ro"
+      - /var/run/docker.sock:/var/run/docker.sock
+    tmpfs: [/tmp]
+    healthcheck:
+      test: [CMD, deploy-updater, --health]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 15s

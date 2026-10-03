@@ -1,0 +1,12 @@
+package widget
+
+import (
+	. "github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+)
+
+var _ = Describe("a widget", func() {
+	It("builds without error", func() {
+		gomega.Expect(build()).To(gomega.Succeed())
+	})
+})

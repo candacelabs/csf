@@ -2,11 +2,11 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
@@ -42,7 +42,7 @@ func (adapter *CopilotAdapter) getSubagent(ctx context.Context, sessionID uuid.U
 // ListSubagentActivity pages actual subagent messages and tool activity.
 func (adapter *CopilotAdapter) listSubagentActivity(ctx context.Context, sessionID uuid.UUID, subagentID string, after *int64, requestedLimit *int32) (api.SubagentActivityPage, error) {
 	_, err := adapter.store.GetSubagent(ctx, storedb.GetSubagentParams{SessionID: sessionID, ID: subagentID})
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		return api.SubagentActivityPage{}, fail(http.StatusNotFound, errorCodeSubagentNotFound, "no subagent with that id in this session")
 	}
 	if err != nil {

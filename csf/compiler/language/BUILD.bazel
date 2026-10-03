@@ -4,9 +4,17 @@ load("@rules_python//python:defs.bzl", "py_test")
 package(default_visibility = ["//visibility:public"])
 
 ocaml_module(
+    name = "Generated_block",
+    struct = "generated_block.ml",
+)
+
+ocaml_module(
     name = "Compiler",
     struct = "compiler.ml",
-    deps = ["@opam.ocamlsdk//unix/lib"],
+    deps = [
+        ":Generated_block",
+        "@opam.ocamlsdk//unix/lib",
+    ],
 )
 
 ocaml_module(
@@ -19,6 +27,7 @@ ocaml_module(
     sig = "metric_text.mli",
     struct = "metric_text.ml",
     deps = [
+        ":Generated_block",
         ":Metric_unicode_cgen",
         "@opam.ocamlsdk//str/lib",
     ],
@@ -67,6 +76,7 @@ ocaml_module(
     struct = "compiler_test.ml",
     deps = [
         ":Compiler",
+        ":Generated_block",
         "@opam.ocamlsdk//unix/lib",
     ],
 )
@@ -81,6 +91,7 @@ ocaml_module(
     name = "Metric_text_test",
     struct = "metric_text_test.ml",
     deps = [
+        ":Generated_block",
         ":Metric_text",
         ":Metric_unicode_cgen",
     ],
@@ -125,6 +136,7 @@ py_test(
         ":generate",
         "//csf/compiler/metric_compat:archive.py",
         "//csf/compiler/metric_compat:codegen.py",
+        "//csf/compiler/metric_compat:generated_blocks_cgen.py",
         "//csf/compiler/metric_compat:test_codegen.py",
     ],
 )

@@ -1,4 +1,4 @@
-// Package steering composes an agent-steering service alongside CandaceOS
+// Package steering composes an agent-steering service alongside deploy
 // Core. Both values belong to this repository: Core constructs neither, reads
 // neither one's configuration, and hands neither any Core state. Core owns only
 // the order — the store is assembled and started before the service and stopped
@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/candacelabs/csf/services/candaceos/component"
+	"github.com/candacelabs/csf/services/deploy/component"
 )
 
 // Capacity bounds the steering inputs retained in memory.

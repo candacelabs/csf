@@ -1,7 +1,6 @@
 package conformance_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,7 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -48,51 +48,37 @@ const (
 // cspBootBudget is how long the boot is watched for a policy violation. It is
 // the wall clock the runtime gets to connect, subscribe and take its first
 // patch on a shared VM, and it is spent asserting rather than sleeping.
-var cspBootBudget = patience.Budget{Within: 2 * time.Second, Interval: 200 * time.Millisecond}
+var cspBootBudget = eventually.Budget{Within: 2 * time.Second, Interval: 200 * time.Millisecond}
 
 // waitLive blocks until the live session has patched at least once, which is
 // the only honest signal that the socket is up and the runtime is driving.
 //
 // CS-9 verdict: this stays on Ginkgo's own Eventually. Both polls genuinely
 // produce a bool — "does the node exist", "did clicking move the number" —
-// so patience's typed shell would carry a bool and its failure would print
+// so eventually's typed shell would carry a bool and its failure would print
 // `false`, which is exactly what BeTrue already prints. The typed primitive
 // earns its place where the poll has a value worth seeing; here there is not
 // one, and the descriptions carry the meaning instead.
-func waitLive(c *chrome) {
+func waitLive(c *livetest.Browser) {
 	GinkgoHelper()
 	Eventually(func() bool {
-		return c.evalBool(`!!document.querySelector(` + jsStr(selValue) + `)`)
+		return c.EvalBool(`!!document.querySelector(` + livetest.JSString(selValue) + `)`)
 	}, 30*time.Second, 100*time.Millisecond).Should(BeTrue(), "the counter page never rendered")
 
 	// The runtime attaches its click bindings after the socket opens. Proving
 	// that is one click: fire it until the number moves.
 	Eventually(func() bool {
-		before := c.evalString(`document.querySelector(` + jsStr(selValue) + `).textContent.trim()`)
-		c.evalJSON(`document.querySelector(`+jsStr(selInc)+`).click(), null`, nil)
+		before := c.EvalString(`document.querySelector(` + livetest.JSString(selValue) + `).textContent.trim()`)
+		c.EvalJSON(`document.querySelector(`+livetest.JSString(selInc)+`).click(), null`, nil)
 		// CS-9 keep: pacing inside a poll, not a wait. The poll's own retry is
 		// the wait; this is the click's round trip to the server and back, and
 		// reading the value in the same breath as the click would compare the
 		// number to itself.
 		time.Sleep(150 * time.Millisecond)
-		after := c.evalString(`document.querySelector(` + jsStr(selValue) + `).textContent.trim()`)
+		after := c.EvalString(`document.querySelector(` + livetest.JSString(selValue) + `).textContent.trim()`)
 		return after != before
 	}, 30*time.Second, 250*time.Millisecond).Should(BeTrue(),
 		"clicking never changed the value: the live connection is not driving the DOM")
-}
-
-// jsStr renders a Go string as a JavaScript string literal.
-//
-// It goes through the JSON encoder rather than wrapping in quotes, because
-// every selector in this file contains double quotes and the naive version
-// produced `"[data-bench-id="inc"]"` — a syntax error the page reported and
-// the first run of this suite failed on.
-func jsStr(s string) string {
-	b, err := json.Marshal(s)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
 }
 
 var _ = Describe("The counter in a real browser", Label("browser", "e2e"), func() {
@@ -105,30 +91,30 @@ var _ = Describe("The counter in a real browser", Label("browser", "e2e"), func(
 		server := startCounter()
 		c := launchChrome()
 
-		c.navigate("http://" + server.addr + "/")
+		c.Navigate("http://" + server.addr + "/")
 		waitLive(c)
 
 		// Node identity is the mechanism behind every FR-25 case. An expando
 		// set on a live node survives a morph and cannot survive a replace, so
 		// it distinguishes the two without trusting anything the library says
 		// about itself.
-		c.evalJSON(`(() => {
-			const v = document.querySelector(`+jsStr(selValue)+`);
+		c.EvalJSON(`(() => {
+			const v = document.querySelector(`+livetest.JSString(selValue)+`);
 			v.__qaMark = "survived";
-			document.querySelector(`+jsStr(selInc)+`).focus();
+			document.querySelector(`+livetest.JSString(selInc)+`).focus();
 			return null;
 		})()`, nil)
 
-		Expect(c.evalString(`document.activeElement.getAttribute("data-bench-id")`)).To(Equal("inc"))
-		before := c.evalString(`document.querySelector(` + jsStr(selValue) + `).textContent.trim()`)
+		Expect(c.EvalString(`document.activeElement.getAttribute("data-bench-id")`)).To(Equal("inc"))
+		before := c.EvalString(`document.querySelector(` + livetest.JSString(selValue) + `).textContent.trim()`)
 
 		var result struct {
 			After  string `json:"after"`
 			Mark   string `json:"mark"`
 			Active string `json:"active"`
 		}
-		c.evalJSON(`(async () => {
-			const val = () => document.querySelector(`+jsStr(selValue)+`).textContent.trim();
+		c.EvalJSON(`(async () => {
+			const val = () => document.querySelector(`+livetest.JSString(selValue)+`).textContent.trim();
 			const before = val();
 			const changed = new Promise(resolve => {
 				const obs = new MutationObserver(() => {
@@ -137,9 +123,9 @@ var _ = Describe("The counter in a real browser", Label("browser", "e2e"), func(
 				obs.observe(document.body, {subtree: true, childList: true, characterData: true});
 				setTimeout(() => { obs.disconnect(); resolve(); }, 10000);
 			});
-			document.querySelector(`+jsStr(selInc)+`).click();
+			document.querySelector(`+livetest.JSString(selInc)+`).click();
 			await changed;
-			const v = document.querySelector(`+jsStr(selValue)+`);
+			const v = document.querySelector(`+livetest.JSString(selValue)+`);
 			return {
 				after: val(),
 				mark: v.__qaMark || "",
@@ -159,7 +145,7 @@ var _ = Describe("The counter in a real browser", Label("browser", "e2e"), func(
 
 		AddReportEntry("CP1-01 — counter in a real browser", fmt.Sprintf(
 			"browser %s\nvalue %s → %s\nnode identity preserved across morph: yes\nfocus preserved: yes",
-			c.version, before, result.After))
+			c.Version(), before, result.After))
 	})
 
 	// CP1-08. Event→PAINT, which is the thing event→patch was explicitly not.
@@ -168,13 +154,13 @@ var _ = Describe("The counter in a real browser", Label("browser", "e2e"), func(
 		server := startCounter()
 		c := launchChrome()
 
-		c.navigate("http://" + server.addr + "/")
+		c.Navigate("http://" + server.addr + "/")
 		waitLive(c)
 
 		var samples []float64
-		c.evalJSON(`(async () => {
-			const val = () => document.querySelector(`+jsStr(selValue)+`).textContent.trim();
-			const btn = () => document.querySelector(`+jsStr(selInc)+`);
+		c.EvalJSON(`(async () => {
+			const val = () => document.querySelector(`+livetest.JSString(selValue)+`).textContent.trim();
+			const btn = () => document.querySelector(`+livetest.JSString(selInc)+`);
 			const out = [];
 
 			// Warm-up, discarded: the first interactions pay for lazily
@@ -261,7 +247,7 @@ var _ = Describe("The counter in a real browser", Label("browser", "e2e"), func(
   measurement gated at 50 ms p50 / 150 ms p99 and belongs to QA-2 in Phase 5.
   Published as checkpoint 1's measured number, per the Phase 1 exit criterion
   that says Phase 1 measures and records while Phase 5 enforces.`,
-			len(samples), c.version, runtime.GOOS, runtime.GOARCH, runtime.NumCPU(), runtime.Version(),
+			len(samples), c.Version(), runtime.GOOS, runtime.GOARCH, runtime.NumCPU(), runtime.Version(),
 			samples[0], p(50), p(95), p(99), samples[len(samples)-1], sum/float64(len(samples))))
 
 		// Not a gate — G1 is Phase 5's. A sanity bound only.
@@ -346,7 +332,7 @@ var _ = Describe("The client runtime under a strict Content-Security-Policy", La
 
 		// Installed before any page script, so a violation raised while the
 		// runtime is still booting is caught rather than missed.
-		c.onNewDocument(`
+		c.OnNewDocument(`
 			window.__cspViolations = [];
 			document.addEventListener("securitypolicyviolation", e => {
 				window.__cspViolations.push(
@@ -365,7 +351,7 @@ var _ = Describe("The client runtime under a strict Content-Security-Policy", La
 		Expect(served).NotTo(ContainSubstring("unsafe-inline"))
 		Expect(served).NotTo(ContainSubstring("unsafe-eval"))
 
-		c.navigate(front.url() + "/")
+		c.Navigate(front.url() + "/")
 
 		// Violations are read BEFORE liveness is asserted, and deliberately.
 		// If the policy blocks the runtime, the useful failure names the
@@ -379,12 +365,12 @@ var _ = Describe("The client runtime under a strict Content-Security-Policy", La
 		// same two seconds spent asserting the absence throughout, and it
 		// fails at the directive that broke it rather than at whatever the
 		// list happened to hold when the sleep ended.
-		patience.Consistently(GinkgoTB(),
+		eventually.Consistently(GinkgoTB(),
 			fmt.Sprintf("the runtime to boot under %q raising no Content-Security-Policy violation", strictCSP),
 			cspBootBudget,
 			func() []string {
 				var raised []string
-				c.evalJSON(`window.__cspViolations`, &raised)
+				c.EvalJSON(`window.__cspViolations`, &raised)
 				return raised
 			},
 			func(raised []string) bool { return len(raised) == 0 })
@@ -394,7 +380,7 @@ var _ = Describe("The client runtime under a strict Content-Security-Policy", La
 		// Violations raised while the runtime connected and patched.
 		// This is the assertion CP1-13 is actually about.
 		var violations []string
-		c.evalJSON(`window.__cspViolations`, &violations)
+		c.EvalJSON(`window.__cspViolations`, &violations)
 		Expect(violations).To(BeEmpty(),
 			"the runtime raised Content-Security-Policy violations under %q: %v", strictCSP, violations)
 
@@ -410,7 +396,7 @@ var _ = Describe("The client runtime under a strict Content-Security-Policy", La
 			InlineRan  bool     `json:"inlineRan"`
 			Violations []string `json:"violations"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const before = window.__cspViolations.length;
 			const s = document.createElement("script");
 			s.textContent = "window.__qaInlineRan = true;";
@@ -431,10 +417,10 @@ var _ = Describe("The client runtime under a strict Content-Security-Policy", La
 
 		// And it still works: the socket connected and the DOM is patching,
 		// which waitLive already required, so re-state it as the report line.
-		value := c.evalString(`document.querySelector(` + jsStr(selValue) + `).textContent.trim()`)
+		value := c.EvalString(`document.querySelector(` + livetest.JSString(selValue) + `).textContent.trim()`)
 
 		AddReportEntry("CP1-13 — strict CSP", fmt.Sprintf(
 			"policy: %s\nbrowser: %s\nenforcement proven by a blocked inline script: yes\nruntime violations: 0\nlive value after patching: %s",
-			strictCSP, c.version, value))
+			strictCSP, c.Version(), value))
 	})
 })

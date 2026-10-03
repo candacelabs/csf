@@ -1,0 +1,57 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "housekeeping",
+    srcs = [
+        "cache.go",
+        "disk.go",
+        "docker.go",
+        "housekeeping.go",
+        "processes.go",
+        "records.go",
+        "sessions.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/housekeeping",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//ipc/clock",
+        "//ipc/docker",
+        "//ipc/fs",
+        "//ipc/proc",
+        "//pkg/cron",
+        "//proto/candace/harness/v1:harness",
+        "//services/cron",
+        "//services/harness",
+        "//services/harness/session",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_client//:client",
+    ],
+)
+
+go_test(
+    name = "housekeeping_test",
+    srcs = [
+        "housekeeping_suite_test.go",
+        "housekeeping_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+    ],
+    deps = [
+        ":housekeeping",
+        "//ipc/clock",
+        "//ipc/docker",
+        "//ipc/proc",
+        "//proto/candace/harness/v1:harness",
+        "//runtime",
+        "//services/cron",
+        "//services/cron/crontest",
+        "//services/housekeeping/mocks",
+        "@com_github_moby_moby_api//types/build",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_api//types/image",
+        "@com_github_moby_moby_client//:client",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

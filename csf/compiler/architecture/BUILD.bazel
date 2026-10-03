@@ -101,10 +101,39 @@ ocaml_module(
 )
 
 ocaml_module(
+    name = "Facts",
+    sig = "facts.mli",
+    struct = "facts.ml",
+    deps = [
+        ":Model",
+        ":Syntax_cgen",
+        "//csf/compiler/third_party/datalog:Datalog_top_down",
+    ],
+)
+
+# The rules are a Datalog program, compiled into the checker as a string.
+genrule(
+    name = "rules_source",
+    srcs = ["rules.dl"],
+    outs = ["rules_cgen.ml"],
+    cmd = "{ printf 'let source = {rules|'; cat $<; printf '|rules}\\n'; } > $@",
+)
+
+ocaml_module(
+    name = "Rules_cgen",
+    struct = ":rules_cgen.ml",
+)
+
+ocaml_module(
     name = "Validate",
     sig = "validate.mli",
     struct = "validate.ml",
-    deps = [":Model"],
+    deps = [
+        ":Facts",
+        ":Model",
+        ":Rules_cgen",
+        "//csf/compiler/third_party/datalog:Datalog_top_down",
+    ],
 )
 
 ocaml_module(
@@ -115,6 +144,7 @@ ocaml_module(
         ":Codegen_header",
         ":Model",
         ":Syntax_cgen",
+        "@opam.yojson//lib",
     ],
 )
 
@@ -280,12 +310,29 @@ ocaml_test(
 )
 
 ocaml_module(
+    name = "Rules_test",
+    struct = "rules_test.ml",
+    deps = [
+        ":Rules_cgen",
+        ":Validate",
+        "//csf/compiler/third_party/datalog:Datalog_top_down",
+    ],
+)
+
+ocaml_test(
+    name = "rules_test",
+    size = "small",
+    main = ":Rules_test",
+)
+
+ocaml_module(
     name = "Emit_test",
     struct = "emit_test.ml",
     deps = [
         ":Codegen_header",
         ":Emit",
         ":Model",
+        "@opam.yojson//lib",
     ],
 )
 

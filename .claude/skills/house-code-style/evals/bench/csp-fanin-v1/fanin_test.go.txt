@@ -1,0 +1,319 @@
+// Spec test for bench task csp-fanin-v1. Fixed, and graded unmodified: the
+// implementer may not edit this file, and a run that changed it is void.
+//
+// It is style-neutral on purpose. Every assertion is about observable
+// behavior — counts, drain, close, cancellation, snapshot isolation — and none
+// of them can tell whether the implementation used channels or a mutex. That
+// is the point: the A/B measurement compares two conditions on the same bar.
+//
+// Held as .go.txt for the same reason the eval fixtures are (../../README.md
+// § "Why the fixtures are not .go files"): a tracked .go file here would join
+// the census corpus and the reuse gate's corpus. The grader copies it into the
+// scratch module as fanin_test.go; see README.md.
+
+package fanin_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"testing"
+
+	"fanin"
+)
+
+// shape is one aggregator configuration and one submission load. The pairs are
+// chosen to cross the interesting axes: one worker and several, unbuffered and
+// buffered, one producer and many.
+type shape struct {
+	name            string
+	workerCount     int
+	bufferSize      int
+	producers       int
+	itemsPerProduce int
+	keys            int
+}
+
+func shapes() []shape {
+	return []shape{
+		{name: "single worker, unbuffered", workerCount: 1, bufferSize: 0, producers: 1, itemsPerProduce: 200, keys: 4},
+		{name: "single worker, buffered", workerCount: 1, bufferSize: 64, producers: 8, itemsPerProduce: 250, keys: 4},
+		{name: "many workers, unbuffered", workerCount: 4, bufferSize: 0, producers: 16, itemsPerProduce: 125, keys: 7},
+		{name: "many workers, buffered", workerCount: 8, bufferSize: 128, producers: 32, itemsPerProduce: 100, keys: 13},
+	}
+}
+
+// keyOf spreads items over a fixed key set deterministically, so the expected
+// totals are computed rather than observed.
+func keyOf(index int, keys int) string {
+	return fmt.Sprintf("key-%d", index%keys)
+}
+
+// submitAll runs the shape's producers concurrently and fails the test on the
+// first Submit error. It returns the totals the aggregator must report.
+func submitAll(t *testing.T, aggregator *fanin.Aggregator, load shape) fanin.Totals {
+	t.Helper()
+
+	expected := fanin.Totals{Counts: map[string]int{}}
+	for producer := 0; producer < load.producers; producer++ {
+		for item := 0; item < load.itemsPerProduce; item++ {
+			index := producer*load.itemsPerProduce + item
+			expected.Counts[keyOf(index, load.keys)] += index
+			expected.Total += index
+		}
+	}
+
+	errs := make(chan error, load.producers)
+	var producing sync.WaitGroup
+	for producer := 0; producer < load.producers; producer++ {
+		producing.Add(1)
+		go func(producer int) {
+			defer producing.Done()
+			for item := 0; item < load.itemsPerProduce; item++ {
+				index := producer*load.itemsPerProduce + item
+				submitted := fanin.Item{Key: keyOf(index, load.keys), Value: index}
+				if err := aggregator.Submit(context.Background(), submitted); err != nil {
+					errs <- fmt.Errorf("submit %d: %w", index, err)
+					return
+				}
+			}
+		}(producer)
+	}
+	producing.Wait()
+	close(errs)
+	for err := range errs {
+		t.Fatalf("Submit returned an error during normal operation: %v", err)
+	}
+	return expected
+}
+
+func assertTotals(t *testing.T, got fanin.Totals, want fanin.Totals) {
+	t.Helper()
+
+	if got.Total != want.Total {
+		t.Errorf("Totals.Total = %d, want %d", got.Total, want.Total)
+	}
+	if len(got.Counts) != len(want.Counts) {
+		t.Errorf("Totals.Counts has %d keys, want %d", len(got.Counts), len(want.Counts))
+	}
+	for key, wanted := range want.Counts {
+		if got.Counts[key] != wanted {
+			t.Errorf("Totals.Counts[%q] = %d, want %d", key, got.Counts[key], wanted)
+		}
+	}
+}
+
+// TestAggregatorCountsEverySubmittedItem is the base case: every accepted item
+// is counted exactly once, under every configuration.
+func TestAggregatorCountsEverySubmittedItem(t *testing.T) {
+	for _, load := range shapes() {
+		t.Run(load.name, func(t *testing.T) {
+			aggregator := fanin.New(load.workerCount, load.bufferSize)
+			expected := submitAll(t, aggregator, load)
+			aggregator.Close()
+			assertTotals(t, aggregator.Snapshot(), expected)
+		})
+	}
+}
+
+// TestSnapshotIsConsistentUnderLoad reads while writing. Two invariants hold
+// for every snapshot, including the ones taken mid-flight: Total is the sum of
+// Counts, and Total never goes backwards. A snapshot that can observe an item
+// in one field but not the other fails here.
+func TestSnapshotIsConsistentUnderLoad(t *testing.T) {
+	for _, load := range shapes() {
+		t.Run(load.name, func(t *testing.T) {
+			aggregator := fanin.New(load.workerCount, load.bufferSize)
+
+			stop := make(chan struct{})
+			observed := make(chan error, 1)
+			var reading sync.WaitGroup
+			reading.Add(1)
+			go func() {
+				defer reading.Done()
+				highest := 0
+				for {
+					select {
+					case <-stop:
+						return
+					default:
+					}
+					snapshot := aggregator.Snapshot()
+					summed := 0
+					for _, count := range snapshot.Counts {
+						summed += count
+					}
+					if summed != snapshot.Total {
+						select {
+						case observed <- fmt.Errorf("snapshot Total = %d but Counts sum to %d", snapshot.Total, summed):
+						default:
+						}
+						return
+					}
+					if snapshot.Total < highest {
+						select {
+						case observed <- fmt.Errorf("snapshot Total went backwards: %d after %d", snapshot.Total, highest):
+						default:
+						}
+						return
+					}
+					highest = snapshot.Total
+				}
+			}()
+
+			expected := submitAll(t, aggregator, load)
+			close(stop)
+			reading.Wait()
+			select {
+			case err := <-observed:
+				t.Fatal(err)
+			default:
+			}
+
+			aggregator.Close()
+			assertTotals(t, aggregator.Snapshot(), expected)
+		})
+	}
+}
+
+// TestCloseDrainsAcceptedWork pins the graceful-drain requirement: Close
+// returns only after every item whose Submit returned nil has been counted.
+// An implementation that drops a buffered item on close fails here.
+func TestCloseDrainsAcceptedWork(t *testing.T) {
+	load := shape{workerCount: 4, bufferSize: 256, producers: 24, itemsPerProduce: 200, keys: 5}
+	aggregator := fanin.New(load.workerCount, load.bufferSize)
+	expected := submitAll(t, aggregator, load)
+
+	aggregator.Close()
+	assertTotals(t, aggregator.Snapshot(), expected)
+}
+
+// TestSubmitAfterCloseReturnsError covers the closed state: Submit must report
+// the closure rather than block, panic on a closed channel, or silently drop.
+func TestSubmitAfterCloseReturnsError(t *testing.T) {
+	aggregator := fanin.New(2, 8)
+	if err := aggregator.Submit(context.Background(), fanin.Item{Key: "key-0", Value: 1}); err != nil {
+		t.Fatalf("Submit before Close returned %v, want nil", err)
+	}
+	aggregator.Close()
+
+	if err := aggregator.Submit(context.Background(), fanin.Item{Key: "key-0", Value: 41}); err == nil {
+		t.Fatal("Submit after Close returned nil, want an error")
+	}
+
+	snapshot := aggregator.Snapshot()
+	if snapshot.Total != 1 {
+		t.Errorf("Totals.Total = %d after a rejected submit, want 1", snapshot.Total)
+	}
+}
+
+// TestCloseIsIdempotent calls Close repeatedly, concurrently, and after a
+// rejected submit. None of it may panic, hang, or change the totals.
+func TestCloseIsIdempotent(t *testing.T) {
+	aggregator := fanin.New(3, 16)
+	if err := aggregator.Submit(context.Background(), fanin.Item{Key: "key-1", Value: 7}); err != nil {
+		t.Fatalf("Submit returned %v, want nil", err)
+	}
+
+	var closing sync.WaitGroup
+	for closer := 0; closer < 4; closer++ {
+		closing.Add(1)
+		go func() {
+			defer closing.Done()
+			aggregator.Close()
+		}()
+	}
+	closing.Wait()
+	aggregator.Close()
+
+	snapshot := aggregator.Snapshot()
+	if snapshot.Total != 7 || snapshot.Counts["key-1"] != 7 {
+		t.Errorf("Totals after repeated Close = %+v, want Total 7 and key-1 7", snapshot)
+	}
+}
+
+// TestSubmitRespectsCancelledContext requires the documented ordering: Submit
+// checks its context before accepting the item, so an already-cancelled
+// context is always an error and never a recorded value.
+func TestSubmitRespectsCancelledContext(t *testing.T) {
+	aggregator := fanin.New(2, 32)
+	defer aggregator.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err := aggregator.Submit(ctx, fanin.Item{Key: "key-2", Value: 99})
+	if err == nil {
+		t.Fatal("Submit with a cancelled context returned nil, want an error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Errorf("Submit returned %v, want an error wrapping context.Canceled", err)
+	}
+	if snapshot := aggregator.Snapshot(); snapshot.Total != 0 {
+		t.Errorf("Totals.Total = %d after a cancelled submit, want 0", snapshot.Total)
+	}
+}
+
+// TestSnapshotIsACopy holds the aggregator to the "concurrent-safe" half of
+// its contract. A caller may read and mutate what Snapshot returned while
+// submissions continue; if the map is the aggregator's own, this test either
+// reports wrong numbers or trips the race detector.
+func TestSnapshotIsACopy(t *testing.T) {
+	aggregator := fanin.New(2, 8)
+	if err := aggregator.Submit(context.Background(), fanin.Item{Key: "key-3", Value: 5}); err != nil {
+		t.Fatalf("Submit returned %v, want nil", err)
+	}
+	aggregator.Close()
+
+	first := aggregator.Snapshot()
+	first.Counts["key-3"] = 4242
+	first.Counts["key-injected"] = 1
+	first.Total = -1
+
+	second := aggregator.Snapshot()
+	if second.Counts["key-3"] != 5 {
+		t.Errorf("Counts[key-3] = %d after mutating an earlier snapshot, want 5", second.Counts["key-3"])
+	}
+	if _, injected := second.Counts["key-injected"]; injected {
+		t.Error("a key written into an earlier snapshot appeared in a later one")
+	}
+	if second.Total != 5 {
+		t.Errorf("Totals.Total = %d after mutating an earlier snapshot, want 5", second.Total)
+	}
+}
+
+// TestConcurrentSnapshotsDuringSubmit is the race-detector case: many readers
+// and many writers at once, with no assertion beyond "this is legal". It earns
+// its place under -race, where an unsynchronized read fails the run.
+func TestConcurrentSnapshotsDuringSubmit(t *testing.T) {
+	aggregator := fanin.New(4, 0)
+	load := shape{producers: 12, itemsPerProduce: 150, keys: 6}
+
+	stop := make(chan struct{})
+	var reading sync.WaitGroup
+	for reader := 0; reader < 6; reader++ {
+		reading.Add(1)
+		go func() {
+			defer reading.Done()
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+				snapshot := aggregator.Snapshot()
+				for key, count := range snapshot.Counts {
+					_, _ = key, count
+				}
+			}
+		}()
+	}
+
+	expected := submitAll(t, aggregator, load)
+	close(stop)
+	reading.Wait()
+
+	aggregator.Close()
+	assertTotals(t, aggregator.Snapshot(), expected)
+}

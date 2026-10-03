@@ -1,0 +1,22 @@
+version: "2"
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  default: none
+  enable:
+    - funlen
+  settings:
+    funlen:
+      lines: 60
+      statements: -1
+      ignore-comments: true
+  exclusions:
+    generated: strict
+    presets: []
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

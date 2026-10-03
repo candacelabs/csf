@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/services/candaceos/component"
+	"github.com/candacelabs/csf/services/deploy/component"
 
 	"example.com/candace-external-consumer/composition"
 	"example.com/candace-external-consumer/identity"

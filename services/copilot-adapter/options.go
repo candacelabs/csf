@@ -5,10 +5,9 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/candacelabs/csf/pkg/cron"
-
-	"github.com/candacelabs/csf/pkg/workcontinuity"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
+	cron "github.com/candacelabs/csf/services/cron"
+	"github.com/candacelabs/csf/services/workcontinuity"
 )
 
 // Option configures a Service before New builds anything (CS-6, CS-10).
@@ -48,7 +47,9 @@ func WithWorktreeManager(worktrees IWorktreeManager) Option {
 	}
 }
 
-// WithScheduleStore supplies candace/pkg/cron's occurrence and lease store.
+// WithScheduleStore supplies the cron service's trigger and occurrence store
+// (candace/services/cron): cron.NewStore over the csfpg capability in a
+// binary, the same store over pgmem in a spec.
 func WithScheduleStore(scheduleStore cron.IStore) Option {
 	return func(configuration *configuration) error {
 		if scheduleStore == nil {

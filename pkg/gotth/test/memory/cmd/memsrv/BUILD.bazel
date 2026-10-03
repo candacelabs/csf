@@ -9,7 +9,10 @@ go_library(
     importpath = "github.com/candacelabs/csf/pkg/gotth/test/memory/cmd/memsrv",
     visibility = ["//visibility:private"],
     deps = [
+        "//ipc/net",
+        "//ipc/net/http",
         "//pkg/gotth/live",
+        "//runtime",
         "@com_github_a_h_templ//:templ",
         "@io_opentelemetry_go_otel_sdk//trace",
         "@io_opentelemetry_go_otel_sdk_metric//:metric",

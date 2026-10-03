@@ -20,6 +20,7 @@ go_library(
         "//pkg/gotth/internal/protocol",
         "//pkg/gotth/internal/protocol/gotthlivepb",
         "//pkg/gotth/internal/render",
+        "//runtime",
         "@io_opentelemetry_go_otel//attribute",
     ],
 )
@@ -43,6 +44,7 @@ go_test(
         "//pkg/gotth/internal/protocol",
         "//pkg/gotth/internal/protocol/gotthlivepb",
         "//pkg/gotth/internal/render",
+        "//runtime",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",
         "@io_opentelemetry_go_otel_trace//noop",

@@ -8,6 +8,7 @@ val physical_lines : string -> string list
 (** Recognize the Python metric's explicit markers in leading comments only. *)
 val is_generated : string -> bool
 
-(** Count whole generated documents or diagram interiors. Invalid diagram
-    regions raise [Error], including in documents with a generated header. *)
+(** Count whole generated documents or the interiors of generator-owned
+    blocks of every kind in [Generated_block.kinds]. Invalid block regions
+    raise [Error], including in documents with a generated header. *)
 val documentation_generated_lines : name:string -> string -> int

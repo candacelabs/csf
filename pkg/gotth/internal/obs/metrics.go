@@ -130,7 +130,7 @@ type Metrics struct {
 	slowClient      metric.Int64Counter
 	wireBytes       metric.Int64Counter
 	effects         metric.Int64Counter
-	effectsAbandon  metric.Int64Counter
+	effectsOverran  metric.Int64Counter
 	panics          metric.Int64Counter
 	connections     metric.Int64Counter
 	connectionsShut metric.Int64Counter
@@ -254,7 +254,7 @@ func NewMetrics(mp metric.MeterProvider) (*Metrics, error) {
 	ms.slowClient = counter("gotthlive_slow_client_events_total", "Backpressure events synthesized into a session's own mailbox.", "{event}")
 	ms.wireBytes = counter("gotthlive_wire_bytes_total", "Bytes on the wire, by direction.", "By")
 	ms.effects = counter("gotthlive_effects_total", "Effects executed, by source and result.", "{effect}")
-	ms.effectsAbandon = counter("gotthlive_effects_abandoned_total", "Effects still running when the drain timeout expired.", "{effect}")
+	ms.effectsOverran = counter("gotthlive_effects_overran_total", "Effects still running when the drain timeout expired; shutdown keeps waiting for them.", "{effect}")
 	ms.panics = counter("gotthlive_panics_total", "Recovered panics, by site: reduce, render or effect.", "{panic}")
 	ms.connections = counter("gotthlive_connections_total", "Connections opened.", "{connection}")
 	ms.connectionsShut = counter("gotthlive_connections_closed_total", "Connections closed, by close code label.", "{connection}")
@@ -468,12 +468,14 @@ func (m *Metrics) Effect(ctx context.Context, source, result string) {
 	add(ctx, m.effects, 1, m.effectAttr.of(m.SourceLabel(ctx, source), result))
 }
 
-// EffectAbandoned counts one effect still running when the drain window closed.
-func (m *Metrics) EffectAbandoned(ctx context.Context) {
+// EffectOverran counts one session whose effects were still running when the
+// drain window closed. Shutdown keeps joining them: the count is the signal
+// that an effect is slow to honour cancellation, not that one was abandoned.
+func (m *Metrics) EffectOverran(ctx context.Context) {
 	if m == nil {
 		return
 	}
-	add(ctx, m.effectsAbandon, 1, noAttrs)
+	add(ctx, m.effectsOverran, 1, noAttrs)
 }
 
 // Panic counts one recovered panic by site.

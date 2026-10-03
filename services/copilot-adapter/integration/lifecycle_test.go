@@ -2,7 +2,6 @@ package integration_test
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,25 +15,26 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
 	"github.com/candacelabs/csf/pkg/cron"
-	"github.com/candacelabs/csf/pkg/patience"
-	"github.com/candacelabs/csf/pkg/pgmem"
+	"github.com/candacelabs/csf/pkg/eventually"
+	cronservice "github.com/candacelabs/csf/services/cron"
 
 	"github.com/candacelabs/csf/pkg/httpserver"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
+	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
-	"github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
 )
 
 // lifecycleBudget is what one projection gets to land its rows in the
 // emulator on a loaded host; generous on purpose (CS-9 counterweight 3).
-var lifecycleBudget = patience.Budget{Within: 10 * time.Second, Interval: 25 * time.Millisecond}
+var lifecycleBudget = eventually.Budget{Within: 10 * time.Second, Interval: 25 * time.Millisecond}
 
 var errAmbiguousCommit = errors.New("simulated lost commit acknowledgement")
 var errForcedRollback = errors.New("simulated transaction rollback")
@@ -104,7 +104,7 @@ func (queries *scheduleCreationRaceQueries) ClaimChatScheduleCreation(
 	parameters storedb.ClaimChatScheduleCreationParams,
 ) (storedb.ChatScheduleCreation, error) {
 	receipt, err := queries.Querier.ClaimChatScheduleCreation(ctx, parameters)
-	if errors.Is(err, sql.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) {
 		queries.claimLosers.Add(1)
 	}
 	return receipt, err
@@ -122,7 +122,7 @@ func (store *scheduleCreationRaceStore) GetChatScheduleCreation(
 ) (storedb.ChatScheduleCreation, error) {
 	receipt, err := store.IStore.GetChatScheduleCreation(ctx, idempotencyKey)
 	store.mutex.Lock()
-	if idempotencyKey != store.key || !errors.Is(err, sql.ErrNoRows) {
+	if idempotencyKey != store.key || !errors.Is(err, pgx.ErrNoRows) {
 		store.mutex.Unlock()
 		return receipt, err
 	}
@@ -585,7 +585,7 @@ func seedChatSchedule(
 func seedDueChatSchedule(
 	ctx context.Context,
 	queries *storedb.Queries,
-	scheduleStore cron.IStore,
+	scheduleStore cronservice.IStore,
 	sessionID uuid.UUID,
 	prompt string,
 ) string {
@@ -602,21 +602,21 @@ func seedDueChatSchedule(
 	schedule := cron.Spec(cron.Raw(expression)).In(time.UTC)
 	definition, err := schedule.Definition()
 	Expect(err).NotTo(HaveOccurred())
-	jobName := "chat/" + row.ID.String()
-	_, err = scheduleStore.Reconcile(ctx, []cron.JobDefinition{{
-		Name: jobName, Schedule: definition, CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
+	triggerName := "chat/" + row.ID.String()
+	_, err = scheduleStore.Reconcile(ctx, []cron.TriggerDefinition{{
+		Name: triggerName, Schedule: definition, CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
 	}}, scheduledAt.Add(-time.Nanosecond))
 	Expect(err).NotTo(HaveOccurred())
-	return cron.OccurrenceID(jobName, scheduledAt)
+	return cron.OccurrenceID(triggerName, scheduledAt)
 }
 
 func awaitScheduleOccurrenceStatus(
-	store cron.IStore,
+	store cronservice.IStore,
 	occurrenceID string,
 	status cron.OccurrenceStatus,
 ) cron.OccurrenceRecord {
 	GinkgoHelper()
-	return patience.Await(GinkgoT(), "schedule occurrence reaches "+string(status), lifecycleBudget,
+	return eventually.Await(GinkgoT(), "schedule occurrence reaches "+string(status), lifecycleBudget,
 		func() cron.OccurrenceRecord {
 			snapshot, err := store.Snapshot(context.Background())
 			if err != nil {
@@ -632,37 +632,37 @@ func awaitScheduleOccurrenceStatus(
 		func(occurrence cron.OccurrenceRecord) bool { return occurrence.Status == status })
 }
 
-func awaitScheduleRuntimeJob(
-	store cron.IStore,
+func awaitScheduleRuntimeTrigger(
+	store cronservice.IStore,
 	scheduleID uuid.UUID,
-) cron.JobState {
+) cron.TriggerState {
 	GinkgoHelper()
 	expectedName := "chat/" + scheduleID.String()
-	return patience.Await(GinkgoT(), "schedule runtime contains the durable job", lifecycleBudget,
-		func() cron.JobState {
+	return eventually.Await(GinkgoT(), "schedule runtime contains the durable trigger", lifecycleBudget,
+		func() cron.TriggerState {
 			snapshot, err := store.Snapshot(context.Background())
 			if err != nil {
-				return cron.JobState{}
+				return cron.TriggerState{}
 			}
-			for _, job := range snapshot.Jobs {
-				if job.Definition.Name == expectedName {
-					return job
+			for _, trigger := range snapshot.Triggers {
+				if trigger.Definition.Name == expectedName {
+					return trigger
 				}
 			}
-			return cron.JobState{}
+			return cron.TriggerState{}
 		},
-		func(job cron.JobState) bool { return job.Definition.Name == expectedName })
+		func(trigger cron.TriggerState) bool { return trigger.Definition.Name == expectedName })
 }
 
-func awaitEmptyScheduleRuntime(store cron.IStore) {
+func awaitEmptyScheduleRuntime(store cronservice.IStore) {
 	GinkgoHelper()
-	patience.Await(GinkgoT(), "schedule runtime removes the durable job", lifecycleBudget,
+	eventually.Await(GinkgoT(), "schedule runtime removes the durable trigger", lifecycleBudget,
 		func() int {
 			snapshot, err := store.Snapshot(context.Background())
 			if err != nil {
 				return -1
 			}
-			return len(snapshot.Jobs)
+			return len(snapshot.Triggers)
 		},
 		func(count int) bool { return count == 0 })
 }
@@ -706,12 +706,8 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 
 	BeforeEach(func() {
 		ctx = context.Background()
-		database := pgmem.MustNew()
-		DeferCleanup(database.Close)
-		db := database.Open()
-		DeferCleanup(db.Close)
-		Expect(store.ApplyMigrations(ctx, db)).To(Succeed())
-		queries = storedb.New(db)
+		postgresStore := adaptertest.OpenStore(GinkgoT())
+		queries = postgresStore.Queries
 
 		events = make(chan copilotadapter.BridgeEvent, 16)
 		closeSession = func() error { return nil }
@@ -815,8 +811,6 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 				return resumeBridgeSession(spec)
 			}).AnyTimes()
 
-		postgresStore, err := store.NewPostgresStore(db)
-		Expect(err).NotTo(HaveOccurred())
 		storeWithEventFailure = &sessionEventFailureStore{IStore: postgresStore}
 		storeWithAmbiguousCommit = &ambiguousCommitStore{IStore: storeWithEventFailure}
 		storeWithLockFailure = &failBeforeLockStore{IStore: storeWithAmbiguousCommit}
@@ -827,6 +821,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		adapterConfig := copilotadapter.DefaultAdapterConfig()
 		adapterConfig.DurableTransitionTimeoutMillis = 1000
 		adapterConfig.AssistantDeltaMaxEvents = 4
+		var err error
 		service, err = copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge),
 			copilotadapter.WithStore(storeWithScheduleRace),
@@ -839,9 +834,8 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		DeferCleanup(service.Close)
 		engine := httpserver.NewEngine("copilot-adapter-lifecycle-test")
 		Expect(service.Register(engine)).To(Succeed())
-		server := httptest.NewServer(engine)
-		DeferCleanup(server.Close)
-		client, err = api.NewClientWithResponses(server.URL)
+		server := adaptertest.Serve(GinkgoT(), engine)
+		client, err = api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 		Expect(err).NotTo(HaveOccurred())
 		handlerClient, err = api.NewClientWithResponses(
 			server.URL,
@@ -865,7 +859,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 	}
 
 	awaitTurnStatus := func(identifier uuid.UUID, status string) {
-		patience.Await(GinkgoT(), "turn "+identifier.String()+" reaches "+status, lifecycleBudget,
+		eventually.Await(GinkgoT(), "turn "+identifier.String()+" reaches "+status, lifecycleBudget,
 			func() string {
 				turn, err := queries.GetTurn(ctx, identifier)
 				if err != nil {
@@ -996,7 +990,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		receipt, err := queries.GetSessionCreation(ctx, key)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = queries.GetSession(ctx, receipt.SessionID)
-		Expect(errors.Is(err, sql.ErrNoRows)).To(BeTrue())
+		Expect(errors.Is(err, pgx.ErrNoRows)).To(BeTrue())
 
 		retried, err := client.CreateSessionWithResponse(ctx, body)
 		Expect(err).NotTo(HaveOccurred())
@@ -1278,24 +1272,24 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 
 		snapshot, err := scheduleStore.Snapshot(ctx)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(snapshot.Jobs).To(HaveLen(1))
-		job := snapshot.Jobs[0]
-		scheduledAt := job.NextRunAt
+		Expect(snapshot.Triggers).To(HaveLen(1))
+		trigger := snapshot.Triggers[0]
+		scheduledAt := trigger.NextRunAt
 		schedule := cron.Spec(cron.Raw(body.CronExpression)).In(time.UTC)
 		definition, err := schedule.Definition()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(definition).To(Equal(job.Definition.Schedule))
+		Expect(definition).To(Equal(trigger.Definition.Schedule))
 		nextRunAt, err := schedule.Next(scheduledAt)
 		Expect(err).NotTo(HaveOccurred())
-		occurrenceID := cron.OccurrenceID(job.Definition.Name, scheduledAt)
-		claim, err := scheduleStore.Claim(ctx, cron.ClaimRequest{
-			OccurrenceID: occurrenceID, JobName: job.Definition.Name, ScheduledAt: scheduledAt, NextRunAt: nextRunAt,
+		occurrenceID := cron.OccurrenceID(trigger.Definition.Name, scheduledAt)
+		claim, err := scheduleStore.Claim(ctx, cronservice.ClaimRequest{
+			OccurrenceID: occurrenceID, TriggerName: trigger.Definition.Name, ScheduledAt: scheduledAt, NextRunAt: nextRunAt,
 			LeaseOwner: "snapshot-test", LeaseToken: "snapshot-token", ClaimedAt: time.Now().UTC(),
 			LeaseUntil: time.Now().UTC().Add(time.Minute),
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(claim.Disposition).To(Equal(cron.ClaimAcquired))
-		Expect(scheduleStore.Complete(ctx, cron.Completion{
+		Expect(claim.Disposition).To(Equal(cronservice.ClaimAcquired))
+		Expect(scheduleStore.Complete(ctx, cronservice.Completion{
 			OccurrenceID: occurrenceID, LeaseToken: "snapshot-token", Status: cron.OccurrenceFailed,
 			FinishedAt: time.Now().UTC(), Error: "simulated schedule failure",
 		})).To(Succeed())
@@ -1353,7 +1347,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		rows, err := queries.ListChatSchedules(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rows).To(HaveLen(1))
-		awaitScheduleRuntimeJob(scheduleStore, rows[0].ID)
+		awaitScheduleRuntimeTrigger(scheduleStore, rows[0].ID)
 	})
 
 	It("reconciles a committed schedule resume after its request is canceled", func() {
@@ -1374,7 +1368,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		persisted, err := queries.GetChatSchedule(ctx, row.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(persisted.Status).To(Equal(string(api.ChatScheduleStatusActive)))
-		awaitScheduleRuntimeJob(scheduleStore, row.ID)
+		awaitScheduleRuntimeTrigger(scheduleStore, row.ID)
 	})
 
 	It("reconciles an ambiguous schedule create even when receipt recovery fails", func() {
@@ -1389,7 +1383,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		rows, err := queries.ListChatSchedules(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(rows).To(HaveLen(1))
-		awaitScheduleRuntimeJob(scheduleStore, rows[0].ID)
+		awaitScheduleRuntimeTrigger(scheduleStore, rows[0].ID)
 	})
 
 	It("reconciles an ambiguous paused-to-active schedule update", func() {
@@ -1405,13 +1399,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		persisted, err := queries.GetChatSchedule(ctx, row.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(persisted.Status).To(Equal(string(api.ChatScheduleStatusActive)))
-		awaitScheduleRuntimeJob(scheduleStore, row.ID)
+		awaitScheduleRuntimeTrigger(scheduleStore, row.ID)
 	})
 
 	It("replaces an active runtime definition after an ambiguous schedule update", func() {
 		row := seedChatSchedule(ctx, queries, sessionID, api.ChatScheduleStatusActive, "0 9 * * *")
 		startScheduleRuntime(ctx, service, scheduleStore)
-		awaitScheduleRuntimeJob(scheduleStore, row.ID)
+		awaitScheduleRuntimeTrigger(scheduleStore, row.ID)
 		storeWithAmbiguousCommit.armScheduleUpdateAcknowledgementFailure()
 		expression := "5 10 * * *"
 		response, err := client.UpdateChatScheduleWithResponse(ctx, row.ID, api.UpdateChatScheduleJSONRequestBody{
@@ -1419,23 +1413,23 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError), string(response.Body))
-		job := awaitScheduleRuntimeJob(scheduleStore, row.ID)
+		trigger := awaitScheduleRuntimeTrigger(scheduleStore, row.ID)
 		expected, err := cron.Spec(cron.Raw(expression)).In(time.UTC).Definition()
 		Expect(err).NotTo(HaveOccurred())
-		Expect(job.Definition.Schedule).To(Equal(expected))
+		Expect(trigger.Definition.Schedule).To(Equal(expected))
 	})
 
 	It("removes an active runtime definition after an ambiguous schedule delete", func() {
 		row := seedChatSchedule(ctx, queries, sessionID, api.ChatScheduleStatusActive, "0 9 * * *")
 		startScheduleRuntime(ctx, service, scheduleStore)
-		awaitScheduleRuntimeJob(scheduleStore, row.ID)
+		awaitScheduleRuntimeTrigger(scheduleStore, row.ID)
 		storeWithAmbiguousCommit.armScheduleDeleteAcknowledgementFailure()
 		response, err := client.DeleteChatScheduleWithResponse(ctx, row.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(response.StatusCode()).To(Equal(http.StatusInternalServerError), string(response.Body))
 		awaitEmptyScheduleRuntime(scheduleStore)
 		_, err = queries.GetChatSchedule(ctx, row.ID)
-		Expect(errors.Is(err, sql.ErrNoRows)).To(BeTrue())
+		Expect(errors.Is(err, pgx.ErrNoRows)).To(BeTrue())
 	})
 
 	It("reconciles a lost schedule-create commit and replays its immutable receipt", func() {
@@ -1466,13 +1460,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(receipt.ScheduleID).To(Equal(scheduleID))
 		Expect(receipt.CronExpression).To(Equal("0 9 * * *"))
-		patience.Await(GinkgoT(), "schedule retry keeps one runtime registration", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule retry keeps one runtime registration", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return 0
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 1 })
 
@@ -1883,7 +1877,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		now := time.Now().UTC()
 		scheduledAt := now.Truncate(time.Minute).Add(-time.Minute)
 		scheduleID := uuid.New()
-		jobName := "chat/" + scheduleID.String()
+		triggerName := "chat/" + scheduleID.String()
 		expression := fmt.Sprintf("%d %d * * *", scheduledAt.Minute(), scheduledAt.Hour())
 		_, err = queries.CreateChatSchedule(ctx, storedb.CreateChatScheduleParams{
 			ID: scheduleID, SessionID: sessionID, DisplayName: "retry ambiguous acknowledgement",
@@ -1894,20 +1888,20 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		schedule := cron.Spec(cron.Raw(expression)).In(time.UTC)
 		definition, err := schedule.Definition()
 		Expect(err).NotTo(HaveOccurred())
-		_, err = scheduleStore.Reconcile(ctx, []cron.JobDefinition{{
-			Name: jobName, Schedule: definition, CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
+		_, err = scheduleStore.Reconcile(ctx, []cron.TriggerDefinition{{
+			Name: triggerName, Schedule: definition, CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
 		}}, scheduledAt.Add(-time.Nanosecond))
 		Expect(err).NotTo(HaveOccurred())
-		occurrenceID := cron.OccurrenceID(jobName, scheduledAt)
+		occurrenceID := cron.OccurrenceID(triggerName, scheduledAt)
 		nextScheduledAt, err := schedule.Next(scheduledAt)
 		Expect(err).NotTo(HaveOccurred())
-		claim, err := scheduleStore.Claim(ctx, cron.ClaimRequest{
-			OccurrenceID: occurrenceID, JobName: jobName, ScheduledAt: scheduledAt, NextRunAt: nextScheduledAt,
+		claim, err := scheduleStore.Claim(ctx, cronservice.ClaimRequest{
+			OccurrenceID: occurrenceID, TriggerName: triggerName, ScheduledAt: scheduledAt, NextRunAt: nextScheduledAt,
 			LeaseOwner: "crashed-runner", LeaseToken: "expired-lease",
 			ClaimedAt: scheduledAt, LeaseUntil: scheduledAt.Add(time.Second),
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(claim.Disposition).To(Equal(cron.ClaimAcquired))
+		Expect(claim.Disposition).To(Equal(cronservice.ClaimAcquired))
 		_, err = queries.ClaimScheduledTurnOccurrence(ctx, storedb.ClaimScheduledTurnOccurrenceParams{
 			ScheduleOccurrenceID: occurrenceID, TurnID: turnID,
 		})
@@ -1920,7 +1914,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			stopSchedules()
 			Eventually(schedulesFinished).WithTimeout(lifecycleBudget.Within).Should(Receive(Succeed()))
 		})
-		patience.Await(GinkgoT(), "the scheduled retry persists delivery acceptance", lifecycleBudget,
+		eventually.Await(GinkgoT(), "the scheduled retry persists delivery acceptance", lifecycleBudget,
 			func() string {
 				turn, lookupErr := queries.GetTurn(ctx, turnID)
 				if lookupErr != nil {
@@ -1994,7 +1988,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 
 		awaitScheduleOccurrenceStatus(scheduleStore, occurrenceID, cron.OccurrenceFailed)
 		_, err := queries.GetTurnByScheduleOccurrence(ctx, occurrenceID)
-		Expect(err).To(MatchError(sql.ErrNoRows))
+		Expect(err).To(MatchError(pgx.ErrNoRows))
 		count, err := queries.CountSessionTurns(ctx, sessionID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(count).To(BeZero())
@@ -2013,7 +2007,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		now := time.Now().UTC()
 		scheduledAt := now.Truncate(time.Minute).Add(-time.Minute)
 		scheduleID := uuid.New()
-		jobName := "chat/" + scheduleID.String()
+		triggerName := "chat/" + scheduleID.String()
 		expression := fmt.Sprintf("%d %d * * *", scheduledAt.Minute(), scheduledAt.Hour())
 		_, err := queries.CreateChatSchedule(ctx, storedb.CreateChatScheduleParams{
 			ID: scheduleID, SessionID: sessionID, DisplayName: "active schedule",
@@ -2024,8 +2018,8 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		schedule := cron.Spec(cron.Raw(expression)).In(time.UTC)
 		definition, err := schedule.Definition()
 		Expect(err).NotTo(HaveOccurred())
-		_, err = scheduleStore.Reconcile(ctx, []cron.JobDefinition{{
-			Name: jobName, Schedule: definition, CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
+		_, err = scheduleStore.Reconcile(ctx, []cron.TriggerDefinition{{
+			Name: triggerName, Schedule: definition, CatchUp: cron.CatchUpLatest, Overlap: cron.OverlapSkip,
 		}}, scheduledAt.Add(-time.Nanosecond))
 		Expect(err).NotTo(HaveOccurred())
 
@@ -2116,13 +2110,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			stopSchedules()
 			Eventually(schedulesFinished).WithTimeout(lifecycleBudget.Within).Should(Receive(Succeed()))
 		})
-		patience.Await(GinkgoT(), "schedule runtime loads the active job", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime loads the active job", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return 0
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 1 })
 		storeWithAmbiguousCommit.arm()
@@ -2137,13 +2131,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		paused, err := queries.GetChatSchedule(ctx, scheduleID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(paused.Status).To(Equal(string(api.ChatScheduleStatusPaused)))
-		patience.Await(GinkgoT(), "schedule runtime observes the ambiguously committed end", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime observes the ambiguously committed end", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return -1
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 0 })
 	})
@@ -2283,7 +2277,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			Kind: copilotadapter.BridgeEventAssistantMessage, OccurredAt: time.Now().UTC(),
 			Text: "projection barrier", Author: "copilot",
 		}
-		patience.Await(GinkgoT(), "the later projection lands", lifecycleBudget,
+		eventually.Await(GinkgoT(), "the later projection lands", lifecycleBudget,
 			func() int64 {
 				rows, err := queries.ListTranscriptItemsAfterSeq(ctx, storedb.ListTranscriptItemsAfterSeqParams{
 					SessionID: sessionID, AfterSeq: 1, RowLimit: 10,
@@ -2314,7 +2308,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			Text: "message without attribution",
 		}
 
-		frames := patience.Await(GinkgoT(), "three transcriptAppended frames", lifecycleBudget,
+		frames := eventually.Await(GinkgoT(), "three transcriptAppended frames", lifecycleBudget,
 			func() []storedb.SessionEvent {
 				rows, err := queries.ListSessionEventsAfterSeq(ctx, storedb.ListSessionEventsAfterSeqParams{
 					SessionID: sessionID, AfterSeq: 0, RowLimit: 10,
@@ -2372,7 +2366,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			TurnID: &turnID, RequestID: &requestID, RequestKind: copilotadapter.BridgeRequestPermission,
 			ToolName: "bash", Text: "run the command?",
 		}
-		patience.Await(GinkgoT(), "permission request projection", lifecycleBudget,
+		eventually.Await(GinkgoT(), "permission request projection", lifecycleBudget,
 			func() string {
 				request, err := queries.GetSessionRequest(ctx, requestID)
 				if err != nil {
@@ -2396,7 +2390,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			TurnID: &turnID, Text: "projection barrier", Author: "copilot",
 		}
 
-		patience.Await(GinkgoT(), "completion replay barrier", lifecycleBudget,
+		eventually.Await(GinkgoT(), "completion replay barrier", lifecycleBudget,
 			func() bool {
 				rows, err := queries.ListTranscriptItemsAfterSeq(ctx, storedb.ListTranscriptItemsAfterSeqParams{
 					SessionID: sessionID, AfterSeq: 0, RowLimit: 10,
@@ -2459,7 +2453,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			ID: uuid.NewString(), Kind: copilotadapter.BridgeEventAssistantMessage, OccurredAt: time.Now().UTC(),
 			Text: "first barrier", Author: "copilot",
 		}
-		patience.Await(GinkgoT(), "request retry finishes before the barrier", lifecycleBudget,
+		eventually.Await(GinkgoT(), "request retry finishes before the barrier", lifecycleBudget,
 			func() int {
 				rows, err := queries.ListTranscriptItemsAfterSeq(ctx, storedb.ListTranscriptItemsAfterSeqParams{
 					SessionID: sessionID, RowLimit: 10,
@@ -2485,7 +2479,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			ID: uuid.NewString(), Kind: copilotadapter.BridgeEventAssistantMessage, OccurredAt: time.Now().UTC(),
 			Text: "second barrier", Author: "copilot",
 		}
-		items := patience.Await(GinkgoT(), "transcript retry finishes before the barrier", lifecycleBudget,
+		items := eventually.Await(GinkgoT(), "transcript retry finishes before the barrier", lifecycleBudget,
 			func() []storedb.TranscriptItem {
 				rows, err := queries.ListTranscriptItemsAfterSeq(ctx, storedb.ListTranscriptItemsAfterSeqParams{
 					SessionID: sessionID, RowLimit: 10,
@@ -2515,7 +2509,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			AgentID: agentID, Text: "current summary",
 		}
 
-		version := patience.Await(GinkgoT(), "subagent activity publishes its aggregate", lifecycleBudget,
+		version := eventually.Await(GinkgoT(), "subagent activity publishes its aggregate", lifecycleBudget,
 			func() storedb.SubagentEventVersion {
 				events, err := queries.ListSessionEventsAfterSeq(ctx, storedb.ListSessionEventsAfterSeqParams{
 					SessionID: sessionID, RowLimit: 20,
@@ -2577,7 +2571,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			OccurredAt: now.Add(2 * time.Millisecond), TurnID: &turnID, Text: "Hello", Author: "copilot",
 		}
 
-		persisted := patience.Await(GinkgoT(), "delta batch and transcript boundary commit in order", lifecycleBudget,
+		persisted := eventually.Await(GinkgoT(), "delta batch and transcript boundary commit in order", lifecycleBudget,
 			func() []storedb.SessionEvent {
 				rows, listErr := queries.ListSessionEventsAfterSeq(ctx, storedb.ListSessionEventsAfterSeqParams{
 					SessionID: sessionID, RowLimit: 100,
@@ -2654,7 +2648,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			ID: uuid.NewString(), Kind: copilotadapter.BridgeEventAssistantDelta,
 			OccurredAt: now.Add(time.Second), TurnID: &largeTurnID, Text: largeText,
 		}
-		largeChunks := patience.Await(GinkgoT(), "oversized delta is split on UTF-8 boundaries", lifecycleBudget,
+		largeChunks := eventually.Await(GinkgoT(), "oversized delta is split on UTF-8 boundaries", lifecycleBudget,
 			func() []string {
 				rows, listErr := queries.ListSessionEventsAfterSeq(ctx, storedb.ListSessionEventsAfterSeqParams{
 					SessionID: sessionID, RowLimit: 100,
@@ -2690,7 +2684,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			OccurredAt: now.Add(3 * time.Second), TurnID: &largeTurnID,
 			Text: canonicalAfterOversize, Author: "copilot",
 		}
-		patience.Await(GinkgoT(), "canonical message follows rejected oversized preview", lifecycleBudget,
+		eventually.Await(GinkgoT(), "canonical message follows rejected oversized preview", lifecycleBudget,
 			func() bool {
 				page, listErr := client.ListTranscriptWithResponse(ctx, sessionID, &api.ListTranscriptParams{})
 				if listErr != nil || page.JSON200 == nil {
@@ -2766,7 +2760,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 
 		release()
 		Eventually(produced).WithTimeout(lifecycleBudget.Within).Should(BeClosed())
-		patience.Await(GinkgoT(), "the batch boundary follows every persisted delta", lifecycleBudget,
+		eventually.Await(GinkgoT(), "the batch boundary follows every persisted delta", lifecycleBudget,
 			func() bool {
 				page, listErr := client.ListTranscriptWithResponse(ctx, sessionID, &api.ListTranscriptParams{})
 				if listErr != nil || page.JSON200 == nil {
@@ -2809,7 +2803,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		events <- copilotadapter.BridgeEvent{ID: uuid.NewString(), Kind: copilotadapter.BridgeEventAssistantDelta, TurnID: &finalTurnID, Text: "ta"}
 		events <- copilotadapter.BridgeEvent{ID: uuid.NewString(), Kind: copilotadapter.BridgeEventAssistantDelta, TurnID: &finalTurnID, Text: "il"}
 		close(events)
-		patience.Await(GinkgoT(), "closing the source flushes the final bounded batch", lifecycleBudget,
+		eventually.Await(GinkgoT(), "closing the source flushes the final bounded batch", lifecycleBudget,
 			func() string {
 				rows, listErr := queries.ListSessionEventsAfterSeq(ctx, storedb.ListSessionEventsAfterSeqParams{
 					SessionID: sessionID, RowLimit: 100,
@@ -2845,7 +2839,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			OccurredAt: now.Add(time.Second), TurnID: &turnA,
 		}
 
-		patience.Await(GinkgoT(), "ambiguous abort retry invokes the committed target callback", lifecycleBudget,
+		eventually.Await(GinkgoT(), "ambiguous abort retry invokes the committed target callback", lifecycleBudget,
 			func() int {
 				callbackMutex.Lock()
 				defer callbackMutex.Unlock()
@@ -2932,7 +2926,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		}
 
 		allowRetry()
-		patience.Await(GinkgoT(), "rolled-back abort retries and invokes only the committed callback", lifecycleBudget,
+		eventually.Await(GinkgoT(), "rolled-back abort retries and invokes only the committed callback", lifecycleBudget,
 			func() int {
 				callbackMutex.Lock()
 				defer callbackMutex.Unlock()
@@ -3012,7 +3006,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			ID: uuid.NewString(), Kind: copilotadapter.BridgeEventAssistantMessage,
 			OccurredAt: now.Add(2 * time.Second), Text: marker, Author: "copilot",
 		}
-		patience.Await(GinkgoT(), "projector advances past the invalid foreign abort", lifecycleBudget,
+		eventually.Await(GinkgoT(), "projector advances past the invalid foreign abort", lifecycleBudget,
 			func() bool {
 				transcript, listErr := client.ListTranscriptWithResponse(ctx, sessionID, &api.ListTranscriptParams{})
 				if listErr != nil || transcript.JSON200 == nil {
@@ -3065,13 +3059,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			stopSchedules()
 			Eventually(schedulesFinished).WithTimeout(lifecycleBudget.Within).Should(Receive(Succeed()))
 		})
-		patience.Await(GinkgoT(), "schedule runtime loads the active job", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime loads the active job", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return 0
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 1 })
 		var closeAttempts atomic.Int32
@@ -3098,7 +3092,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		Expect(ended.StatusCode()).To(Equal(http.StatusOK), string(ended.Body))
 		Expect(ended.JSON200.Status).To(Equal(api.SessionStatusFailed))
 
-		failed := patience.Await(GinkgoT(), "bridge failure terminalizes the session", lifecycleBudget,
+		failed := eventually.Await(GinkgoT(), "bridge failure terminalizes the session", lifecycleBudget,
 			func() storedb.Session {
 				row, lookupErr := queries.GetSession(ctx, sessionID)
 				if lookupErr != nil {
@@ -3122,13 +3116,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		paused, err := queries.GetChatSchedule(ctx, scheduleID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(paused.Status).To(Equal(string(api.ChatScheduleStatusPaused)))
-		patience.Await(GinkgoT(), "schedule runtime observes the bridge failure", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime observes the bridge failure", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return -1
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 0 })
 		Eventually(closeAttempts.Load).WithTimeout(lifecycleBudget.Within).Should(Equal(int32(1)))
@@ -3157,13 +3151,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			stopSchedules()
 			Eventually(schedulesFinished).WithTimeout(lifecycleBudget.Within).Should(Receive(Succeed()))
 		})
-		patience.Await(GinkgoT(), "schedule runtime loads the active job", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime loads the active job", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return 0
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 1 })
 
@@ -3178,13 +3172,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		paused, err := queries.GetChatSchedule(ctx, scheduleID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(paused.Status).To(Equal(string(api.ChatScheduleStatusPaused)))
-		patience.Await(GinkgoT(), "schedule runtime observes the ambiguous committed pause", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime observes the ambiguous committed pause", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return -1
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 0 })
 	})
@@ -3238,13 +3232,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 			stopSchedules()
 			Eventually(schedulesFinished).WithTimeout(lifecycleBudget.Within).Should(Receive(Succeed()))
 		})
-		patience.Await(GinkgoT(), "schedule runtime loads before direct worktree quarantine", lifecycleBudget,
+		eventually.Await(GinkgoT(), "schedule runtime loads before direct worktree quarantine", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return 0
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 1 })
 		before, err := queries.GetSession(ctx, sessionID)
@@ -3309,13 +3303,13 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		paused, err := queries.GetChatSchedule(ctx, scheduleID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(paused.Status).To(Equal(string(api.ChatScheduleStatusPaused)))
-		patience.Await(GinkgoT(), "direct worktree quarantine reloads schedules", lifecycleBudget,
+		eventually.Await(GinkgoT(), "direct worktree quarantine reloads schedules", lifecycleBudget,
 			func() int {
 				snapshot, snapshotErr := scheduleStore.Snapshot(ctx)
 				if snapshotErr != nil {
 					return -1
 				}
-				return len(snapshot.Jobs)
+				return len(snapshot.Triggers)
 			},
 			func(jobs int) bool { return jobs == 0 })
 
@@ -3936,7 +3930,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 		Expect(result.err).NotTo(HaveOccurred())
 		Expect(result.response).NotTo(BeNil())
 		Expect(result.response.StatusCode()).To(Equal(http.StatusOK), string(result.response.Body))
-		failed := patience.Await(GinkgoT(), "session failure lands after the model switch", lifecycleBudget,
+		failed := eventually.Await(GinkgoT(), "session failure lands after the model switch", lifecycleBudget,
 			func() storedb.Session {
 				row, err := queries.GetSession(ctx, sessionID)
 				if err != nil {

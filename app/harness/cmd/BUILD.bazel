@@ -1,0 +1,62 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "cmd_lib",
+    srcs = [
+        "init.go",
+        "main.go",
+        "view.go",
+    ],
+    embedsrcs = [
+        "recipe/agent.json",
+        "recipe/brief.md",
+    ],
+    importpath = "github.com/candacelabs/csf/app/harness/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//csf",
+        "//ipc/db/csfpg",
+        "//ipc/docker",
+        "//ipc/fs",
+        "//ipc/model/claudecode",
+        "//ipc/net",
+        "//ipc/net/http",
+        "//ipc/proc",
+        "//pkg/httpserver",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//proto/candace/harness/v1:harness",
+        "//runtime",
+        "//services/cron",
+        "//services/harness",
+        "//services/harness/chat",
+        "//services/harness/routing",
+        "//services/harness/session",
+        "//services/harness/sessiongate",
+        "//services/housekeeping",
+        "//services/opsview",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "cmd_test",
+    srcs = ["main_test.go"],
+    embed = [":cmd_lib"],
+    deps = [
+        "//ipc/proc",
+        "//services/harness/session",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

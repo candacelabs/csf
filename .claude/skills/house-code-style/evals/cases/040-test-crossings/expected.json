@@ -1,0 +1,15 @@
+{
+  "case_id": "040-test-crossings",
+  "tier": 1,
+  "rule_under_test": "CS-18-CROSSING",
+  "summary": "An external ledger_test spec opens a real PostgreSQL pool with pgxpool.New from an environment URL and stands up a real loopback webhook with httptest.NewServer: two real crossings in a test that is not a labelled acceptance suite. The fix keeps the spec external and drives only the exported API: the database substrate is pgmem, the webhook is a gomock MockINotifier generated from the exported INotifier, and the spec gains a misuse case (Record after Close returns the defined ErrClosed). Operator directive of 2026-10-01, verbatim in go-rules.md § CS-18.",
+  "dirty_must_fire": [
+    "CS-18-CROSSING"
+  ],
+  "dirty_min_findings": {
+    "CS-18-CROSSING": 2
+  },
+  "clean_must_not_fire": [
+    "CS-18-CROSSING"
+  ]
+}

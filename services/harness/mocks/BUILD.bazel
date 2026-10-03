@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = ["mock_check.go"],
+    importpath = "github.com/candacelabs/csf/services/harness/mocks",
+    visibility = ["//visibility:public"],
+    deps = ["@org_uber_go_mock//gomock"],
+)

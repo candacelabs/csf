@@ -29,6 +29,7 @@
   "go"
   "in"
   "kind"
+  "lazy"
   "library"
   "lifecycle"
   "manager"

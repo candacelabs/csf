@@ -2,7 +2,6 @@ package copilotadapter
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"fmt"
 	"math"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/guregu/null/v5"
+	"github.com/jackc/pgx/v5"
 
 	adapterconfig "github.com/candacelabs/csf/services/copilot-adapter/config"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
@@ -81,7 +81,7 @@ func projectUsage(ctx context.Context, queries storedb.Querier, sessionID uuid.U
 	row.SessionID, row.EventID, row.TurnID, row.OccurredAt = sessionID, event.ID, event.TurnID, occurredAt
 	row.ProviderEvent = event.UsagePayload
 	if _, err := queries.InsertProviderUsageEvent(ctx, row); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.Is(err, pgx.ErrNoRows) {
 			return fmt.Errorf("%w: conflicting provider usage identity", errInvalidBridgeEvent)
 		}
 		return err

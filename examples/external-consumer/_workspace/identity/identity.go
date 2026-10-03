@@ -17,7 +17,7 @@ import (
 	"html/template"
 	"io/fs"
 
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 // The two brand-bearing strings. They are the only UI copy the brand seam makes
@@ -68,7 +68,7 @@ func Overlay() fs.FS { return overlayTree }
 // and the second half of the name takes --brand-accent from the palette below.
 const Wordmark = template.HTML( // #nosec G203 -- a reviewed constant fragment of this program.
 	`<span class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></span>` +
-		`<span>Quill<span class="brand-os">fern</span></span>`)
+		`<span>Quill<span class="brand-accent">fern</span></span>`)
 
 // Brand is the identity Core is assembled with. Core reads it in two places —
 // it stamps the two names into every snapshot it produces, and the web UI

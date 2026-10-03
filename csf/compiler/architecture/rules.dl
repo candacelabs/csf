@@ -1,0 +1,303 @@
+% Relational checks of the architecture compiler, as Datalog with stratified
+% negation and counting (Ceri, Gottlob and Tanca 1989). facts.ml extracts the
+% base relations from Model records; validate.ml asks for each finding
+% relation and turns its answers into diagnostics. Engine limits these rules
+% respect are in csf/compiler/third_party/datalog/README.md.
+%
+% Each finding relation carries one block: universe, relation, clause and
+% finding, one key per line. A derived relation carries a definition block.
+% Later slices generate LaTeX from these blocks; keep the keys and the one
+% line per key. Atoms are the grammar's terminal spellings (language.ebnf).
+
+/* facts
+   universe   I: declaration indices; Id: identifiers; Pr ⊆ I: processes; Sc: scopes; Co: components; Rq: requires indices; Cn: connection indices
+   relation   declaration ⊆ Id × I; process ⊆ Id × {go, external} × I; scope ⊆ Sc × Id × I; component ⊆ Co × Id × Id × I
+   relation   role ⊆ Co × Role; state ⊆ Co × {existing, planned}; lifecycle ⊆ Co × {scoped, lazy, borrowed}; sourced ⊆ Co
+   relation   requires ⊆ Rq × Id × Id; connects ⊆ Cn × Id × Id × Transport × {existing, planned}; boundary ⊆ Cn × Id
+*/
+
+is_process(P) :- process(P, Kind, I).
+is_scope(S) :- scope(S, Parent, I).
+is_component(C) :- component(C, P, S, I).
+
+% ---- Declarations: identifiers and the single host ----
+
+/* predicate duplicate_identifier
+   universe   I: declaration indices in source order; Id: nonempty identifiers
+   relation   declaration ⊆ Id × I
+   clause     ∀(x,i),(y,j) ∈ declaration. x = y ⇒ i = j
+   finding    duplicate_identifier = {(i,x) | (x,i) ∈ declaration ∧ ∃j < i. (x,j) ∈ declaration}
+*/
+duplicate_identifier(I, Id) :- declaration(Id, I), declaration(Id, J), lt(J, I).
+
+/* predicate go_host
+   universe   Pr: process declarations
+   relation   kind : Pr → {go, external}
+   clause     |{p ∈ Pr | kind(p) = go}| = 1
+   finding    go_host ⇔ |{p ∈ Pr | kind(p) = go}| ≠ 1
+*/
+go_process(I) :- process(P, go, I).
+go_process_count(N) :- N := count I : go_process(I).
+one_go_process :- go_process_count(1).
+go_host :- ~one_go_process.
+
+% ---- Scopes: parent, ancestry and process owner ----
+
+/* relation scope_up
+   definition scope_up = {(s,x) ∈ Sc × Sc | parent(s) = x}
+*/
+scope_up(S, X) :- scope(S, X, I), is_scope(X).
+
+/* relation scope_reach
+   definition scope_reach = scope_up⁺, the transitive closure
+*/
+scope_reach(S, X) :- scope_up(S, X).
+scope_reach(S, X) :- scope_reach(S, Y), scope_up(Y, X).
+
+/* relation scope_ancestor
+   definition scope_ancestor = scope_up*, the reflexive transitive closure
+*/
+scope_ancestor(S, S) :- is_scope(S).
+scope_ancestor(S, A) :- scope_reach(S, A).
+
+/* relation scope_process
+   definition scope_process = {(s,p) | ∃a. (s,a) ∈ scope_ancestor ∧ parent(a) = p ∧ p ∈ Pr}
+*/
+scope_process(S, P) :- scope_ancestor(S, A), scope(A, P, I), is_process(P).
+
+/* relation scope_depth
+   definition scope_depth(s) = |{a | (s,a) ∈ scope_ancestor}|, which orders a scope's ancestry from itself outward
+*/
+scope_depth(S, N) :- N := count A : scope_ancestor(S, A).
+
+/* predicate scope_parent
+   universe   Sc: scopes; Pr: processes
+   relation   parent : Sc → Id
+   clause     ∀s ∈ Sc. parent(s) ∈ Pr ∪ Sc
+   finding    scope_parent = {(s,x) | parent(s) = x ∧ x ∉ Pr ∪ Sc}
+*/
+scope_parent(I, X) :- scope(S, X, I), ~is_process(X), ~is_scope(X).
+
+/* predicate scope_cycle
+   universe   Sc: scopes in source order
+   relation   scope_reach = scope_up⁺
+   clause     ∀s ∈ Sc. (s,s) ∉ scope_reach
+   finding    scope_cycle = {(i,s) | (s,s) ∈ scope_reach ∧ i = index(s) ∧ ¬∃t. (s,t),(t,s) ∈ scope_reach ∧ index(t) < i}, one finding per cycle at its first declared scope
+*/
+on_scope_cycle(S) :- is_scope(S), scope_reach(S, S).
+earlier_on_cycle(S) :- on_scope_cycle(S), scope(S, X, I), scope_reach(S, T), scope_reach(T, S), scope(T, Y, J), lt(J, I).
+scope_cycle(I, S) :- on_scope_cycle(S), scope(S, X, I), ~earlier_on_cycle(S).
+
+% ---- Components: owner, lifetime and source ----
+
+/* predicate component_process
+   universe   Co: components; Pr: processes
+   relation   owner : Co → Id
+   clause     ∀c ∈ Co. owner(c) ∈ Pr
+   finding    component_process = {(c,p) | owner(c) = p ∧ p ∉ Pr}
+*/
+component_process(I, P) :- component(C, P, S, I), ~is_process(P).
+
+/* predicate component_scope
+   universe   Co: components; Sc: scopes
+   relation   lifetime : Co → Id
+   clause     ∀c ∈ Co. lifetime(c) ∈ Sc
+   finding    component_scope = {(c,s) | lifetime(c) = s ∧ s ∉ Sc}
+*/
+component_scope(I, S) :- component(C, P, S, I), ~is_scope(S).
+
+/* predicate component_role
+   universe   Co: components; Pr: processes
+   relation   owner : Co → Pr; kind : Pr → {go, external}; role : Co → Role
+   clause     ∀c ∈ Co. kind(owner(c)) = external ⇒ role(c) = resource
+   finding    component_role = {c | kind(owner(c)) = external ∧ role(c) ≠ resource}
+*/
+component_role(I) :- component(C, P, S, I), process(P, external, J), ~role(C, resource).
+
+/* predicate component_source
+   universe   Co: components; Pr: processes
+   relation   owner : Co → Pr; kind : Pr → {go, external}; state : Co → {existing, planned}; sourced ⊆ Co
+   clause     ∀c ∈ Co. kind(owner(c)) = go ∧ state(c) = existing ⇒ c ∈ sourced
+   finding    component_source = {c | kind(owner(c)) = go ∧ state(c) = existing ∧ c ∉ sourced}
+*/
+component_source(I) :- component(C, P, S, I), process(P, go, J), state(C, existing), ~sourced(C).
+
+/* predicate scope_owner
+   universe   Co: components; Pr: processes; Sc: scopes
+   relation   owner : Co → Pr; lifetime : Co → Sc; scope_process : Sc → Pr
+   clause     ∀c ∈ Co. scope_process(lifetime(c)) = owner(c)
+   finding    scope_owner = {c | owner(c) ∈ Pr ∧ ∃p. (lifetime(c),p) ∈ scope_process ∧ p ≠ owner(c)}
+*/
+owner_agrees(C) :- component(C, P, S, I), scope_process(S, P).
+scope_owner(I) :- component(C, P, S, I), is_process(P), scope_process(S, Q), ~owner_agrees(C).
+
+% ---- Relationships between resolved components ----
+
+/* relation same_process
+   definition same_process = {(a,b) ∈ Co × Co | owner(a) = owner(b)}
+*/
+same_process(A, B) :- component(A, P, SA, IA), component(B, P, SB, IB).
+
+/* relation outlives
+   definition outlives = {(a,b) ∈ same_process | (lifetime(b), lifetime(a)) ∈ scope_ancestor}; a's lifetime encloses or equals b's
+*/
+outlives(A, B) :- same_process(A, B), component(A, PA, SA, IA), component(B, PB, SB, IB), scope_ancestor(SB, SA).
+
+/* predicate component_reference
+   universe   Rq: requires edges; Cn: connections; Co: components
+   relation   requires ⊆ Rq × Id × Id; connects ⊆ Cn × Id × Id × Transport × State; boundary ⊆ Cn × Id
+   clause     ∀(d,c,p) ∈ requires. c,p ∈ Co; ∀(k,a,b,t,s) ∈ connects. a,b ∈ Co; ∀(k,g) ∈ boundary. g ∈ Co
+   finding    component_reference = requires_reference ∪ connects_reference, one finding per unknown endpoint and role
+*/
+requires_reference(D, consumer, C) :- requires(D, C, P), ~is_component(C).
+requires_reference(D, provider, P) :- requires(D, C, P), ~is_component(P).
+connects_reference(K, caller, A) :- connects(K, A, B, T, St), ~is_component(A).
+connects_reference(K, callee, B) :- connects(K, A, B, T, St), ~is_component(B).
+connects_reference(K, boundary, G) :- boundary(K, G), ~is_component(G).
+
+requires_resolved(D, C, P) :- requires(D, C, P), is_component(C), is_component(P).
+
+/* predicate dependency_process
+   universe   Rq: requires edges between known components
+   relation   requires ⊆ Rq × Co × Co; same_process ⊆ Co × Co
+   clause     ∀(d,c,p) ∈ requires. (c,p) ∈ same_process
+   finding    dependency_process = {d | (d,c,p) ∈ requires ∧ (c,p) ∉ same_process}
+*/
+dependency_process(D) :- requires_resolved(D, C, P), ~same_process(C, P).
+
+/* predicate dependency_lifetime
+   universe   Rq: requires edges between known components
+   relation   requires ⊆ Rq × Co × Co; same_process, outlives ⊆ Co × Co
+   clause     ∀(d,c,p) ∈ requires. (c,p) ∈ same_process ⇒ (p,c) ∈ outlives
+   finding    dependency_lifetime = {d | (d,c,p) ∈ requires ∧ (c,p) ∈ same_process ∧ (p,c) ∉ outlives}
+*/
+dependency_lifetime(D) :- requires_resolved(D, C, P), same_process(C, P), ~outlives(P, C).
+
+/* predicate planned_dependency
+   universe   Rq: requires edges between known components
+   relation   requires ⊆ Rq × Co × Co; state : Co → {existing, planned}
+   clause     ∀(d,c,p) ∈ requires. state(c) = existing ⇒ state(p) = existing
+   finding    planned_dependency = {d | (d,c,p) ∈ requires ∧ state(c) = existing ∧ state(p) = planned}
+*/
+planned_dependency(D) :- requires_resolved(D, C, P), state(C, existing), state(P, planned).
+
+/* relation requires_reach
+   definition requires_reach = requires_edge⁺ over requires edges between known components
+*/
+requires_edge(C, P) :- requires_resolved(D, C, P).
+requires_reach(C, X) :- requires_edge(C, X).
+requires_reach(C, X) :- requires_reach(C, Y), requires_edge(Y, X).
+
+/* predicate dependency_cycle
+   universe   Co: components
+   relation   requires_reach = requires_edge⁺
+   clause     ∀c ∈ Co. (c,c) ∉ requires_reach
+   finding    dependency_cycle ⇔ ∃c ∈ Co. (c,c) ∈ requires_reach
+*/
+dependency_cycle :- is_component(C), requires_reach(C, C).
+
+connects_resolved(K, A, B, T, St) :- connects(K, A, B, T, St), is_component(A), is_component(B).
+connection_endpoint(K, caller, A) :- connects_resolved(K, A, B, T, St).
+connection_endpoint(K, callee, B) :- connects_resolved(K, A, B, T, St).
+connection_endpoint(K, boundary, G) :- connects_resolved(K, A, B, T, St), boundary(K, G), is_component(G).
+names_boundary(K) :- boundary(K, G).
+internal_transport(call).
+internal_transport(channel).
+crossing_transport(subprocess).
+crossing_transport(remote).
+crossing_transport(device).
+
+/* predicate planned_connection
+   universe   Cn: connections between known components; Role = {caller, callee, boundary}
+   relation   endpoint ⊆ Cn × Role × Co; state : Cn ∪ Co → {existing, planned}
+   clause     ∀k ∈ Cn. state(k) = existing ⇒ ∀(k,r,x) ∈ endpoint. state(x) = existing
+   finding    planned_connection = {(k,r) | state(k) = existing ∧ (k,r,x) ∈ endpoint ∧ state(x) = planned}
+*/
+planned_connection(K, R) :- connects_resolved(K, A, B, T, existing), connection_endpoint(K, R, X), state(X, planned).
+
+/* predicate internal_process
+   universe   Cn: connections between known components
+   relation   transport : Cn → Transport; same_process ⊆ Co × Co
+   clause     ∀(k,a,b) ∈ Cn. transport(k) ∈ {call, channel} ⇒ (a,b) ∈ same_process
+   finding    internal_process = {k | transport(k) ∈ {call, channel} ∧ (a,b) ∉ same_process}
+*/
+internal_process(K) :- connects_resolved(K, A, B, T, St), internal_transport(T), ~same_process(A, B).
+
+/* predicate internal_boundary
+   universe   Cn: connections between known components
+   relation   transport : Cn → Transport; boundary ⊆ Cn × Id
+   clause     ∀k ∈ Cn. transport(k) ∈ {call, channel} ⇒ ¬∃g. (k,g) ∈ boundary
+   finding    internal_boundary = {k | transport(k) ∈ {call, channel} ∧ ∃g. (k,g) ∈ boundary}
+*/
+internal_boundary(K) :- connects_resolved(K, A, B, T, St), internal_transport(T), names_boundary(K).
+
+/* predicate call_lifetime
+   universe   Cn: connections between known components
+   relation   transport : Cn → Transport; same_process, outlives ⊆ Co × Co; lifecycle : Co → {scoped, lazy, borrowed}
+   clause     ∀(k,a,b) ∈ Cn. transport(k) = call ∧ (a,b) ∈ same_process ⇒ (b,a) ∈ outlives ∨ lifecycle(b) = lazy
+   finding    call_lifetime = {k | transport(k) = call ∧ (a,b) ∈ same_process ∧ (b,a) ∉ outlives ∧ lifecycle(b) ≠ lazy}
+*/
+call_lifetime(K) :- connects_resolved(K, A, B, call, St), same_process(A, B), ~outlives(B, A), ~lifecycle(B, lazy).
+
+/* predicate crossing_process
+   universe   Cn: connections between known components
+   relation   transport : Cn → Transport; same_process ⊆ Co × Co
+   clause     ∀(k,a,b) ∈ Cn. transport(k) ∈ {subprocess, remote, device} ⇒ (a,b) ∉ same_process
+   finding    crossing_process = {k | transport(k) ∈ {subprocess, remote, device} ∧ (a,b) ∈ same_process}
+*/
+crossing_process(K) :- connects_resolved(K, A, B, T, St), crossing_transport(T), same_process(A, B).
+
+/* predicate crossing_boundary
+   universe   Cn: connections between known components
+   relation   transport : Cn → Transport; boundary ⊆ Cn × Id
+   clause     ∀k ∈ Cn. transport(k) ∈ {subprocess, remote, device} ⇒ ∃g. (k,g) ∈ boundary
+   finding    crossing_boundary = {k | transport(k) ∈ {subprocess, remote, device} ∧ ¬∃g. (k,g) ∈ boundary}
+*/
+crossing_boundary(K) :- connects_resolved(K, A, B, T, St), crossing_transport(T), ~names_boundary(K).
+
+/* relation crossing_owner
+   definition crossing_owner = {(k,a,g,t) | (k,a,b,t) ∈ Cn ∧ t ∈ {subprocess, remote, device} ∧ (k,g) ∈ boundary ∧ g ∈ Co}
+*/
+crossing_owner(K, A, G, T) :- connects_resolved(K, A, B, T, St), crossing_transport(T), boundary(K, G), is_component(G).
+
+/* predicate boundary_process
+   universe   Cn: crossings with a known boundary component
+   relation   crossing_owner ⊆ Cn × Co × Co × Transport; same_process ⊆ Co × Co
+   clause     ∀(k,a,g,t) ∈ crossing_owner. (g,a) ∈ same_process
+   finding    boundary_process = {k | (k,a,g,t) ∈ crossing_owner ∧ (g,a) ∉ same_process}
+*/
+boundary_process(K) :- crossing_owner(K, A, G, T), ~same_process(G, A).
+
+/* predicate boundary_lifetime
+   universe   Cn: crossings with a known boundary component
+   relation   crossing_owner ⊆ Cn × Co × Co × Transport; same_process, outlives ⊆ Co × Co
+   clause     ∀(k,a,g,t) ∈ crossing_owner. (g,a) ∈ same_process ⇒ (g,a) ∈ outlives
+   finding    boundary_lifetime = {k | (k,a,g,t) ∈ crossing_owner ∧ (g,a) ∈ same_process ∧ (g,a) ∉ outlives}
+*/
+boundary_lifetime(K) :- crossing_owner(K, A, G, T), same_process(G, A), ~outlives(G, A).
+
+boundary_role_admits(subprocess, gateway).
+boundary_role_admits(remote, adapter).
+boundary_role_admits(remote, gateway).
+boundary_role_admits(device, adapter).
+boundary_role_admits(device, gateway).
+
+/* predicate boundary_role
+   universe   Cn: crossings with a known boundary component
+   relation   crossing_owner ⊆ Cn × Co × Co × Transport; role : Co → Role; boundary_role_admits ⊆ Transport × Role
+   clause     ∀(k,a,g,t) ∈ crossing_owner. (t, role(g)) ∈ boundary_role_admits
+   finding    boundary_role = {k | (k,a,g,t) ∈ crossing_owner ∧ (t, role(g)) ∉ boundary_role_admits}
+*/
+boundary_role(K) :- crossing_owner(K, A, G, T), role(G, R), ~boundary_role_admits(T, R).
+
+% ---- Obligations ----
+
+/* predicate gateway_consolidation
+   universe   Cn: existing subprocess connections between known components
+   relation   current_gateway = {g ∈ Co | ∃k ∈ Cn. transport(k) = subprocess ∧ state(k) = existing ∧ (k,g) ∈ boundary}
+   clause     |current_gateway| ≤ 1
+   finding    gateway_consolidation = {n | n = |current_gateway| ∧ n > 1}, an obligation rather than an error
+*/
+current_gateway(G) :- connects_resolved(K, A, B, subprocess, existing), boundary(K, G), is_component(G).
+current_gateway_count(N) :- N := count G : current_gateway(G).
+gateway_consolidation(N) :- current_gateway_count(N), gt(N, 1).

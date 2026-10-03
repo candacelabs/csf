@@ -54,7 +54,7 @@ There is no independent frontend server in production.
   replay notification, with no polling delay before flushing.
 - Changes and Worktree show the adapter's bounded diff and current git metadata.
 - Schedules provide create, edit, pause, resume and confirmed delete over the
-  adapter's `pkg/cron`-backed API.
+  adapter's `services/cron`-backed API.
 - Subagents show active/completed delegated work from the real API and live SSE
   data. Selecting a row opens its chronological activity and tool output.
 - Tool cards expand into decoded commands, descriptions, output and recorded

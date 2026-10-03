@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/candacelabs/csf/services/candaceos/browserroutes"
-	"github.com/candacelabs/csf/services/candaceos/webui"
+	"github.com/candacelabs/csf/web/deploy/browserroutes"
+	"github.com/candacelabs/csf/web/deploy/webui"
 )
 
 // Path is where this service's page is served. Core neither knows nor reserves

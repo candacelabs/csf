@@ -1,7 +1,6 @@
 package conformance_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,11 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coder/websocket"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -378,92 +378,26 @@ const devMarkExpr = `(() => {
 
 // devRead reads the page, tolerating the one CDP failure a reload causes.
 //
-// evalJSON fails the spec when Runtime.evaluate returns an error, which is
+// EvalJSON fails the spec when Runtime.evaluate returns an error, which is
 // right for every other browser spec in this suite and wrong for exactly this
 // one: a document that is reloading destroys its execution context and creates
 // a new one, and an evaluate that lands in the gap between them comes back
 // "Cannot find context with specified id". These specs POLL a page across a
 // reload, so that gap is on the happy path, and a hard failure there would
-// make the spec that proves the reload works fail because it worked.
-//
-// It is a new function in this file rather than a change to cdp_test.go's
-// call(), because every existing caller wants the hard failure.
-func devRead(c *chrome) (devPage, error) {
+// make the spec that proves the reload works fail because it worked. So this
+// one reads through TryEvalJSON, which hands the error back instead.
+func devRead(c *livetest.Browser) (devPage, error) {
 	var page devPage
-
-	var res struct {
-		Result struct {
-			Value json.RawMessage `json:"value"`
-		} `json:"result"`
-		ExceptionDetails *struct {
-			Text string `json:"text"`
-		} `json:"exceptionDetails"`
-	}
-
-	if err := c.callSoft(c.sessionID, "Runtime.evaluate", map[string]any{
-		"expression":    devMarkExpr,
-		"awaitPromise":  true,
-		"returnByValue": true,
-	}, &res); err != nil {
-		return page, err
-	}
-	if res.ExceptionDetails != nil {
-		return page, fmt.Errorf("the page threw while being read: %s", res.ExceptionDetails.Text)
-	}
-	if len(res.Result.Value) == 0 {
-		return page, fmt.Errorf("the page returned no value")
-	}
-	if err := json.Unmarshal(res.Result.Value, &page); err != nil {
+	if err := c.TryEvalJSON(devMarkExpr, &page); err != nil {
 		return page, err
 	}
 	return page, nil
 }
 
-// callSoft is call() returning an error instead of failing the spec. See
-// devRead for why one of the two exists.
-func (c *chrome) callSoft(sessionID, method string, params any, out any) error {
-	var raw json.RawMessage
-	if params != nil {
-		b, err := json.Marshal(params)
-		if err != nil {
-			return err
-		}
-		raw = b
-	}
-
-	c.mu.Lock()
-	c.nextID++
-	id := c.nextID
-	ch := make(chan cdpReply, 1)
-	c.pending[id] = ch
-	c.mu.Unlock()
-
-	msg, err := json.Marshal(cdpFrame{ID: id, Method: method, Params: raw, SessionID: sessionID})
-	if err != nil {
-		return err
-	}
-	if err := c.conn.Write(c.ctx, websocket.MessageText, msg); err != nil {
-		return err
-	}
-
-	select {
-	case reply := <-ch:
-		if reply.Err != nil {
-			return reply.Err
-		}
-		if out != nil && len(reply.Result) > 0 {
-			return json.Unmarshal(reply.Result, out)
-		}
-		return nil
-	case <-time.After(60 * time.Second):
-		return fmt.Errorf("cdp: %s timed out", method)
-	}
-}
-
 // mark stamps the document so a later read can tell a reload from a resync.
-func devMark(c *chrome, value string) {
+func devMark(c *livetest.Browser, value string) {
 	GinkgoHelper()
-	c.evalJSON(`(() => { window.__gotthDevMark = `+jsStr(value)+`; return null; })()`, nil)
+	c.EvalJSON(`(() => { window.__gotthDevMark = `+livetest.JSString(value)+`; return null; })()`, nil)
 	page, err := devRead(c)
 	Expect(err).NotTo(HaveOccurred())
 	Expect(page.Mark).To(Equal(value), "the marker this spec depends on did not stick")
@@ -478,16 +412,16 @@ const devPollInterval = 200 * time.Millisecond
 // the second half of a reload the caller already waited for, on a browser
 // sharing a VM with everything else — see devHost — so it is stated at a
 // minute rather than at the couple of seconds it takes when the box is quiet.
-var devLiveBudget = patience.Budget{Within: 60 * time.Second, Interval: devPollInterval}
+var devLiveBudget = eventually.Budget{Within: 60 * time.Second, Interval: devPollInterval}
 
 // awaitReload waits for the document to be replaced, and reports how long it
 // took. The marker being GONE is the reload; nothing else here is evidence of
 // one.
 //
-// The timing loop is patience's; what is left here is the domain: a read that
+// The timing loop is eventually's; what is left here is the domain: a read that
 // lands inside the reload is the event being waited for rather than a failure,
 // so it reports the marker as still present and the wait continues.
-func awaitReload(c *chrome, marker string, within time.Duration) (devPage, time.Duration) {
+func awaitReload(c *livetest.Browser, marker string, within time.Duration) (devPage, time.Duration) {
 	GinkgoHelper()
 
 	read := func() devPage {
@@ -499,15 +433,15 @@ func awaitReload(c *chrome, marker string, within time.Duration) (devPage, time.
 	}
 
 	started := time.Now()
-	patience.Await(GinkgoTB(),
+	eventually.Await(GinkgoTB(),
 		"the document to be replaced: the marker set before the edit to leave window",
-		patience.Budget{Within: within, Interval: devPollInterval},
+		eventually.Budget{Within: within, Interval: devPollInterval},
 		read, func(page devPage) bool { return page.Mark != marker })
 	elapsed := time.Since(started)
 
 	// The reload is a fresh document, so wait for it to be live again before
 	// anything reads what it renders.
-	reloaded := patience.Await(GinkgoTB(),
+	reloaded := eventually.Await(GinkgoTB(),
 		"the reloaded document to reach data-gotth-status=live",
 		devLiveBudget,
 		read, func(page devPage) bool { return page.Status == "live" })
@@ -527,9 +461,9 @@ const devHiddenVacuity = "the page is hidden, so client/dev-reload.js has stoppe
 	"every result in this spec would then be about a tab that was not watching"
 
 // devHost is the host state that belongs beside every duration below.
-func devHost(c *chrome) string {
+func devHost(c *livetest.Browser) string {
 	return fmt.Sprintf("%s/%s, %d cpus, %s, %s — a shared VM, other load not controlled",
-		runtime.GOOS, runtime.GOARCH, runtime.NumCPU(), runtime.Version(), c.version)
+		runtime.GOOS, runtime.GOARCH, runtime.NumCPU(), runtime.Version(), c.Version())
 }
 
 // ---------------------------------------------------------------------------
@@ -551,7 +485,7 @@ var _ = Describe("The dev-reload loop against examples/counter (FR-57)", Label("
 		Expect(baseline).NotTo(BeEmpty())
 
 		c := launchChrome()
-		c.navigate("http://" + w.addr + "/")
+		c.Navigate("http://" + w.addr + "/")
 		waitLive(c)
 
 		before, err := devRead(c)
@@ -591,7 +525,7 @@ var _ = Describe("The dev-reload loop against examples/counter (FR-57)", Label("
 		baseline := w.identity()
 
 		c := launchChrome()
-		c.navigate("http://" + w.addr + "/")
+		c.Navigate("http://" + w.addr + "/")
 		waitLive(c)
 
 		before, err := devRead(c)
@@ -631,7 +565,7 @@ var _ = Describe("The dev-reload loop against examples/counter (FR-57)", Label("
 		baseline := w.identity()
 
 		c := launchChrome()
-		c.navigate("http://" + w.addr + "/")
+		c.Navigate("http://" + w.addr + "/")
 		waitLive(c)
 		devMark(c, "gen-2")
 
@@ -651,8 +585,8 @@ var _ = Describe("The dev-reload loop against examples/counter (FR-57)", Label("
 
 		// The watcher reports restarted after spawning, before the new process
 		// necessarily listens. An empty response is unready, not a build change.
-		restartReadyBudget := patience.Budget{Within: 180 * time.Second, Interval: 200 * time.Millisecond}
-		identity := patience.Await(GinkgoTB(), "restarted counter serves its build identity", restartReadyBudget,
+		restartReadyBudget := eventually.Budget{Within: 180 * time.Second, Interval: 200 * time.Millisecond}
+		identity := eventually.Await(GinkgoTB(), "restarted counter serves its build identity", restartReadyBudget,
 			w.identity, func(value string) bool { return value != "" })
 		Expect(identity).To(Equal(baseline),
 			"a rebuild that changed no source bytes produced a different executable, so the build "+

@@ -319,6 +319,18 @@ sentinels were collapsed into one `ConfigError` with `Field` and `Detail`
 precisely because *"the error text is more actionable (FR-58) than an
 `errors.Is` target"*. That decision is the reason there is nothing to fix here.
 
+### 3.1.1 `live` — the service lifecycle (`live/app.go`), added with the runtime scope
+
+`live.App` became a `runtime.IService`. Its three `Start` refusals are
+sentinels on purpose: a host runtime branches on them with `errors.Is`, and
+each names the next step. No session exists, so `S` and `C` are n/a.
+
+| Site | Message | S | C | N | Verdict |
+|---|---|---|---|---|---|
+| `live/app.go` `ErrServiceStarted` | *"the live UI service is already started: mount one App into one host runtime, once"* | n/a (lifecycle) | n/a (lifecycle) | ✓ | PASS |
+| `live/app.go` `ErrServiceStopped` | *"the live UI service has stopped and is not reusable: build a new App with live.New"* | n/a (lifecycle) | n/a (lifecycle) | ✓ | PASS |
+| `live/app.go` `errNilScope` | *"App.Start needs the scope the host runtime grants: mount the App with HostRuntime.Mount rather than calling Start yourself"* | n/a (lifecycle) | n/a (lifecycle) | ✓ | PASS |
+
 ### 3.2 `live` — the Emitter, and the denial types (`live/app.go`)
 
 | Site | Message as it reads today | S | C | N | Verdict |
@@ -430,7 +442,7 @@ with `(*live.App).Document` substituted for `live.Script` as the subject. That
 substitution is what the `who` parameter added at §3.3's revision was for, and
 the error is graded there rather than twice.
 
-### 3.4 `live/livetest` — the test harness (8 at revision 3; 7 at the walk)
+### 3.4 `live/livetest` — the test harness (16 at revision 4; 8 at revision 3; 7 at the walk)
 
 `livetest`'s entire product is diagnostics, so FR-58 bites hardest here. All
 three clauses apply: a `Client` holds the session identifier the server bound to
@@ -476,6 +488,34 @@ composing a second prefix around it, and `NewClient`'s mount-snapshot failure
 appends its paragraph to that value instead of nesting it. One prefix, applied
 once, is what stops the two paths drifting apart again — and it is the property
 the spec in §5 holds.
+
+### 3.4.1 `live/livetest` — the browser driver (`live/livetest/browser.go`), added at revision 4
+
+`livetest.Browser` is the Chrome DevTools Protocol client the conformance suite
+used to keep to itself; it moved here when a second suite needed the same
+launch. It drives a page, not a live session, so FR-58's session clause does
+not apply: the subject a reader can act on is the **command**, and every
+message names it. The failure paths (`call`, `EvalJSON`) prefix the value with
+`livetest.Browser:` once; the returned values (`TryEvalJSON`, read by a spec
+that polls a page across a reload) carry the same sentence without it.
+
+| Site | Message as it reads today | S | C | N | Verdict |
+|---|---|---|---|---|---|
+| `live/livetest/browser.go` `try`, encode | *"encode the `<method>` command: …: the parameters a caller passed do not marshal, so pass a map or a struct with exported fields"* | n/a — a browser is not a live session; names the command | n/a | ✓ | PASS |
+| `live/livetest/browser.go` `try`, send | *"send `<method>`: …: the DevTools connection is gone, so the browser exited or the session's timeout ended it; read the browser's standard error in the launch failure if there was one"* | n/a — same | n/a | ✓ | PASS |
+| `live/livetest/browser.go` `try`, refused | *"`<method>` failed: cdp error N: …: the browser refused the command, so check its parameters against the DevTools protocol and, for a page command, that the page still exists"* | n/a — same | n/a — the protocol's own error code is kept in the wrapped value | ✓ | PASS |
+| `live/livetest/browser.go` `try`, decode | *"decode the result of `<method>`: …: pass out as a pointer to a value shaped like the command's result, or nil to ignore it"* | n/a — same | n/a | ✓ | PASS |
+| `live/livetest/browser.go` `try`, timeout | *"`<method>` did not answer within 2m0s: the browser hung or exited, so read its standard error in the launch failure if there was one, and the page's console if it is a page command"* | n/a — same | n/a | ✓ | PASS |
+| `live/livetest/browser.go` `TryEvalJSON`, threw | *"the page threw while evaluating: `<exception>`: fix the expression, or read through TryEvalJSON if throwing is on the spec's own path, as it is across a reload"* | n/a — same | n/a — the page's exception text is the cause and is kept | ✓ | PASS |
+| `live/livetest/browser.go` `TryEvalJSON`, no value | *"the page returned no value for the expression: return a JSON-serialisable value from it, or pass out as nil to evaluate for effect"* | n/a — same | n/a | ✓ | PASS |
+| `live/livetest/browser.go` `TryEvalJSON`, decode | *"decode the page's value: …: the expression's value does not fit out, so shape out like the value or return a different one"* | n/a — same | n/a | ✓ | PASS |
+
+**The driver's `testing.TB` failure messages are outside the census for the
+reason §3.4 gives, and graded the same way:** `LaunchBrowser` names which option
+is missing and what to pass, says when chromium never announced its endpoint and
+prints its standard error so far, and names the endpoint a dial failed on;
+`Navigate` names the URL that never finished loading. Each is the kind of
+sentence §4.5 rewrote six of, written that way from the start.
 
 ### 3.5 `internal/obs` (4)
 
@@ -530,7 +570,7 @@ generic render error; the detailed correction is in that operator log.
 | `:80` | *"gotth-live: child %q of %q must declare Render"* | ↑ via `Actor.noteRenderFailures` | ↑ via the same record | ✓ — supply the child's renderer | PASS |
 | `:82` | *"gotth-live: child %q of %q cannot declare Children: nested collections are not supported"* | ↑ via `Actor.noteRenderFailures` | ↑ via the same record | ✓ — remove the nested collection declaration | PASS |
 
-### 3.8 `internal/wsx` (10)
+### 3.8 `internal/wsx` (11; 10 at the original walk)
 
 | Site | Message as it reads today | S | C | N | Verdict |
 |---|---|---|---|---|---|
@@ -538,6 +578,7 @@ generic render error; the detailed correction is in that operator log.
 | `:106` | *"gotth-live: no CSRF hook: set one, or opt out explicitly"* | n/a (construction) | n/a (construction) | ✓ | PASS |
 | `:108` | *"gotth-live: no application: this is a library bug"* | n/a (construction) | n/a (construction) | ✓ — "this is a library bug" is the actionable step: report it, and stop looking at your own Config | PASS |
 | `:110` | *"gotth-live: no allowed origins: set them, or opt out explicitly"* | n/a (construction) | n/a (construction) | ✓ | PASS |
+| `:118` | *"gotth-live: no sessions scope: this is a library bug"* | n/a (construction) | n/a (construction) | ✓ — `live.New` always supplies the App's own sessions scope, so reaching this is a library bug to report | PASS — added with the live UI service's runtime scope |
 | `:339` | *"gotth-live: the server is draining and is accepting no new sessions: this is Handler.Close in progress, so the client should reconnect to another instance rather than retry this one"* | n/a (pre-session) | n/a (pre-session) | ✓ | PASS — **was *"the server is draining"***, §4.2 |
 | `:344` | *"gotth-live: the process is at its session limit of N: raise Config.Limits.MaxSessions, or add capacity — every slot is a live connection, not a queued one"* | n/a (pre-session) | n/a (pre-session) | ✓ | PASS — **was ✗ on N**, §4.2 |
 | `:350` | *"gotth-live: identity %q is at its session limit of N: raise Config.Limits.MaxSessionsPerIdentity … a browser that reconnects without closing the old socket reaches this legitimately"* | n/a (pre-session) — the identity is named instead, and it is the only handle a refused upgrade has | n/a (pre-session) | ✓ | PASS — **was ✗ on N**, §4.2 |

@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "listsched",
+    srcs = ["listsched.go"],
+    importpath = "github.com/candacelabs/csf/pkg/listsched",
+    visibility = ["//visibility:public"],
+    deps = ["//io/inproc"],
+)
+
+go_test(
+    name = "listsched_test",
+    srcs = [
+        "listsched_suite_test.go",
+        "listsched_test.go",
+    ],
+    deps = [
+        ":listsched",
+        "//io/inproc",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

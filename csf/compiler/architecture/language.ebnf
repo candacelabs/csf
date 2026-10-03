@@ -11,7 +11,7 @@ component = role, identifier, "in", identifier, "scope", identifier,
             "verification", verification, ";" ;
 role = "service" | "manager" | "library" | "adapter" | "gateway" | "resource" ;
 state = "existing" | "planned" ;
-lifecycle = "scoped" | "borrowed" ;
+lifecycle = "scoped" | "lazy" | "borrowed" ;
 verification = "pending" | "test", string ;
 dependency = "requires", identifier, "->", identifier, ";" ;
 connection = "connect", identifier, "->", identifier, "via", transport,

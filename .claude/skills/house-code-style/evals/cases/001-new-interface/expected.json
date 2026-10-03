@@ -1,0 +1,10 @@
+{
+  "case_id": "001-new-interface",
+  "tier": 1,
+  "rule_under_test": "CS-1",
+  "summary": "A new interface must be declared with the house I prefix, and an unexported one keeps its visibility (iDispatcher, not IDispatcher).",
+  "dirty_must_fire": ["CS-1"],
+  "dirty_min_findings": {"CS-1": 3},
+  "clean_must_not_fire": ["CS-1", "CS-2"],
+  "notes": "dirty_must_fire is the complete set: the runner also fails this case if any rule outside it fires on the dirty fixture, so a case that drifts into testing two rules at once stops passing instead of silently widening."
+}

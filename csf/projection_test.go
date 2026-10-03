@@ -8,14 +8,14 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 )
 
-var projectionBudget = patience.Budget{Within: 5 * time.Second}
+var projectionBudget = eventually.Budget{Within: 5 * time.Second}
 
 var _ = Describe("in-process projection workers", func() {
 	It("bounds concurrency and cancels active work without falsely settling its lease", func() {
@@ -44,7 +44,7 @@ var _ = Describe("in-process projection workers", func() {
 		workers, err := service.StartProjectionWorkers(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(workers.Close)
-		patience.Await(GinkgoT(), "two executing workers", projectionBudget, func() int { return len(entered) }, func(count int) bool { return count == 2 })
+		eventually.Await(GinkgoT(), "two executing workers", projectionBudget, func() int { return len(entered) }, func(count int) bool { return count == 2 })
 		Expect(workers.Configured()).To(Equal(2))
 		Expect(workers.Active()).To(Equal(int64(2)))
 		Expect(claims.Load()).To(Equal(int64(2)))
@@ -94,6 +94,6 @@ var _ = Describe("in-process projection workers", func() {
 		workers, err := service.StartProjectionWorkers(context.Background())
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(workers.Close)
-		patience.Await(GinkgoT(), "fenced result settlement", projectionBudget, settled.Load, func(done bool) bool { return done })
+		eventually.Await(GinkgoT(), "fenced result settlement", projectionBudget, settled.Load, func(done bool) bool { return done })
 	}, Entry("successful projection", nil, false), Entry("retryable index failure", errors.New("backend unavailable"), false), Entry("invalid retained artifact", nil, true))
 })

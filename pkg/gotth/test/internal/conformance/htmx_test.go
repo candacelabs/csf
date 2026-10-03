@@ -19,6 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 
 	"github.com/candacelabs/csf/pkg/gotth/live"
+
+	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 )
 
 // ---------------------------------------------------------------------------
@@ -282,15 +284,15 @@ document.addEventListener("htmx:afterRequest", e => {
 
 // waitHXLive blocks until both systems are up: HTMX has loaded and the live
 // session is driving the DOM.
-func waitHXLive(c *chrome) {
+func waitHXLive(c *livetest.Browser) {
 	GinkgoHelper()
 
 	Eventually(func() bool {
-		return c.evalBool(`typeof window.htmx === "object" && typeof window.htmx.process === "function"`)
+		return c.EvalBool(`typeof window.htmx === "object" && typeof window.htmx.process === "function"`)
 	}, 30*time.Second, 100*time.Millisecond).Should(BeTrue(), "HTMX never loaded on the page")
 
 	Eventually(func() string {
-		return c.evalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
+		return c.EvalString(`document.documentElement.getAttribute("data-gotth-status") || ""`)
 	}, 30*time.Second, 100*time.Millisecond).Should(Equal("live"),
 		"the client runtime never reported a live connection")
 }
@@ -301,7 +303,7 @@ func waitHXLive(c *chrome) {
 
 var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -309,7 +311,7 @@ var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordere
 		browserOnly()
 		ts = startHXApp()
 		c = launchChrome()
-		c.onNewDocument(hxHelpers)
+		c.OnNewDocument(hxHelpers)
 	})
 
 	It("serves a plain-HTMX page with no gotth-live JavaScript on it", func() {
@@ -336,9 +338,9 @@ var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordere
 		Expect(string(liveBody)).To(ContainSubstring("gotth-live.min.js"))
 
 		// The browser half. No global, no socket, and HTMX still works.
-		c.navigate(ts.URL + "/plain")
+		c.Navigate(ts.URL + "/plain")
 		Eventually(func() bool {
-			return c.evalBool(`typeof window.htmx === "object"`)
+			return c.EvalBool(`typeof window.htmx === "object"`)
 		}, 30*time.Second, 100*time.Millisecond).Should(BeTrue())
 
 		var got struct {
@@ -347,7 +349,7 @@ var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordere
 			Swapped   bool     `json:"swapped"`
 			Slot      string   `json:"slot"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const swapped = await window.__hx.swap("#outside-btn");
 			return {
 				hasGlobal: typeof window.gotthLive !== "undefined",
@@ -372,7 +374,7 @@ var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordere
 	})
 
 	It("serves a live page from the same mux, and both systems boot on it", func() {
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitHXLive(c)
 
 		var got struct {
@@ -382,7 +384,7 @@ var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordere
 			Slot    string   `json:"slot"`
 			Tick    string   `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const swapped = await window.__hx.swap("#outside-btn");
 			const tick = await window.__hx.tick(1);
 			return {
@@ -414,7 +416,7 @@ var _ = Describe("HTMX and gotth-live pages from one server (FR-30, G8)", Ordere
 
 var _ = Describe("A live region and HTMX regions on one page (FR-31, G8)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -422,12 +424,12 @@ var _ = Describe("A live region and HTMX regions on one page (FR-31, G8)", Order
 		browserOnly()
 		ts = startHXApp()
 		c = launchChrome()
-		c.onNewDocument(hxHelpers)
+		c.OnNewDocument(hxHelpers)
 	})
 
 	BeforeEach(func() {
 		browserOnly()
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitHXLive(c)
 	})
 
@@ -439,7 +441,7 @@ var _ = Describe("A live region and HTMX regions on one page (FR-31, G8)", Order
 			OutMark  string `json:"outMark"`
 			Tick     string `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__hx.mark("#outside", "outside-root");
 			const swapped = await window.__hx.swap("#outside-btn");
 			// The swap replaced the slot's children, so mark what HTMX put
@@ -479,7 +481,7 @@ var _ = Describe("A live region and HTMX regions on one page (FR-31, G8)", Order
 			Slot     string   `json:"slot"`
 			Owned    string   `json:"owned"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__hx.prevented = [];
 			window.__hx.requests = [];
 			await window.__hx.swap("#outside-btn");
@@ -515,7 +517,7 @@ var _ = Describe("A live region and HTMX regions on one page (FR-31, G8)", Order
 			Tick   string `json:"tick"`
 			Slot   string `json:"slot"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			for (let i = 0; i < 3; i++) { await window.__hx.swap("#outside-btn"); }
 			const tick = await window.__hx.tick(1);
 			return {
@@ -538,7 +540,7 @@ var _ = Describe("A live region and HTMX regions on one page (FR-31, G8)", Order
 
 var _ = Describe("The declared ownership boundary (FR-32, R-11)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -546,12 +548,12 @@ var _ = Describe("The declared ownership boundary (FR-32, R-11)", Ordered, Conti
 		browserOnly()
 		ts = startHXApp()
 		c = launchChrome()
-		c.onNewDocument(hxHelpers)
+		c.OnNewDocument(hxHelpers)
 	})
 
 	BeforeEach(func() {
 		browserOnly()
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitHXLive(c)
 	})
 
@@ -574,7 +576,7 @@ var _ = Describe("The declared ownership boundary (FR-32, R-11)", Ordered, Conti
 			InnerBefore string `json:"innerBefore"`
 			InnerAfter  string `json:"innerAfter"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__hx.mark("#owned-slot", "owned-node");
 			const swapped = await window.__hx.swap("#owned-slot");
 			const afterSwap = window.__hx.text("#owned-slot");
@@ -616,7 +618,7 @@ var _ = Describe("The declared ownership boundary (FR-32, R-11)", Ordered, Conti
 			SlotMark   string `json:"slotMark"`
 			Tick       string `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__hx.mark("#vault", "vault-node");
 			const swapped = await window.__hx.swap("#vault-slot");
 			window.__hx.mark("#vault-slot", "vault-slot-node");
@@ -654,7 +656,7 @@ var _ = Describe("The declared ownership boundary (FR-32, R-11)", Ordered, Conti
 
 var _ = Describe("HTMX behaviour after gotth-live has morphed the node (FR-31, G8)", Ordered, ContinueOnFailure, Label("browser"), func() {
 	var (
-		c  *chrome
+		c  *livetest.Browser
 		ts *httptest.Server
 	)
 
@@ -662,12 +664,12 @@ var _ = Describe("HTMX behaviour after gotth-live has morphed the node (FR-31, G
 		browserOnly()
 		ts = startHXApp()
 		c = launchChrome()
-		c.onNewDocument(hxHelpers)
+		c.OnNewDocument(hxHelpers)
 	})
 
 	BeforeEach(func() {
 		browserOnly()
-		c.navigate(ts.URL + "/")
+		c.Navigate(ts.URL + "/")
 		waitHXLive(c)
 	})
 
@@ -682,7 +684,7 @@ var _ = Describe("HTMX behaviour after gotth-live has morphed the node (FR-31, G
 			Out     string `json:"out"`
 			Tick    string `json:"tick"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			window.__hx.mark("#survivor", "survivor-node");
 			const tick = await window.__hx.tick(2);
 			const swapped = await window.__hx.swap("#survivor");
@@ -726,7 +728,7 @@ var _ = Describe("HTMX behaviour after gotth-live has morphed the node (FR-31, G
 			AfterProcess  string `json:"afterProcess"`
 			Swapped       bool   `json:"swapped"`
 		}
-		c.evalJSON(`(async () => {
+		c.EvalJSON(`(async () => {
 			const existedAtLoad = !!document.querySelector("#newcomer");
 			await window.__hx.tick(1);
 			const inserted = !!document.querySelector("#newcomer");
@@ -771,6 +773,6 @@ var _ = Describe("HTMX behaviour after gotth-live has morphed the node (FR-31, G
 				"first click, no htmx.process: %d HTMX requests, target still %q\n"+
 				"after htmx.process(live region): swap succeeded, target %q\n"+
 				"htmx %s, browser %s",
-			got.Requests, got.BeforeProcess, got.AfterProcess, htmxVersion, c.version))
+			got.Requests, got.BeforeProcess, got.AfterProcess, htmxVersion, c.Version()))
 	})
 })

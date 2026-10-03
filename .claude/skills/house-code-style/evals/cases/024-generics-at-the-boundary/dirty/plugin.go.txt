@@ -1,0 +1,143 @@
+// Case 024 fixture — DIRTY. It violates CS-7 and nothing else: a public
+// contract that asks every plugin author to hold an untyped value, where a
+// type parameter could have carried the type.
+//
+// Every interface here is I-prefixed, every parameter is named, there is no
+// mutex and no dispatch list, so a gate run over this file must report CS-7
+// findings and zero CS-1, CS-2, CS-5 and CS-6 findings.
+//
+// This is the shape of the founding evidence
+// (`../../../../references/go-rules.md` § CS-7). Read `IPlugin` and count the
+// assertions it forces: one in every method of every plugin anyone will ever
+// write, plus one in every line of generated per-instance code. Then read
+// `counterPlugin` and notice that not one of those assertions is checked by
+// the compiler — `Step` receives whatever the registry happened to store, and
+// the design's whole safety argument is a convention.
+//
+// Note how the erasure is spelled. It is not `any` at the call sites; it is
+// `State`, a package-local alias declared once at the top. That is exactly how
+// the founding evidence spelled it, and a detector that only looked for a bare
+// `any` in a signature would not see this file at all.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package pluginfixture
+
+import "fmt"
+
+// The state name a plugin reports when it has none of its own. CS-13: named
+// once rather than spelled at the return.
+const stateUnknown = "unknown"
+
+// defaultEndpoint is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const defaultEndpoint = "203.0.113.40:8080"
+
+// State is one plugin's own state, held by the registry without being
+// understood by it.
+//
+// The comment this alias would carry in real code is the interesting part, and
+// it would be correct: a registry holds plugins of different shapes in one
+// sequence, and Go cannot say "a slice of values each of a different type known
+// to its own owner". The conclusion drawn from it here is the defect — the
+// erasure that argument justifies has been applied to the exported contract
+// rather than to one adapter inside this package.
+type State any
+
+// IPlugin is one plugin the registry holds and drives.
+//
+// Every method traffics in State, so every implementer asserts, and no
+// assertion here is checked by anything.
+type IPlugin interface {
+	// Name identifies the plugin within one registry.
+	Name() string
+	// Start opens the plugin and returns its initial state.
+	Start(endpoint string) (State, error)
+	// Step advances the plugin by one input and returns the next state.
+	Step(state State, input string) State
+	// Report renders the state as text.
+	Report(state State) string
+}
+
+// Entry is one registered plugin and the state the registry is holding for it.
+//
+// Current is the same erasure again, in a field this time: a public struct
+// whose reader has no way to learn what is in it.
+type Entry struct {
+	// Name is the plugin's registered name.
+	Name string
+	// Current is the plugin's state, as the registry holds it.
+	Current any
+}
+
+// Registry holds plugins of different state types in one sequence.
+type Registry struct {
+	entries []Entry
+	plugins []IPlugin
+}
+
+// Add registers one plugin and starts it.
+func (registry *Registry) Add(plugin IPlugin, endpoint string) error {
+	initial, startError := plugin.Start(endpoint)
+	if startError != nil {
+		return startError
+	}
+	registry.plugins = append(registry.plugins, plugin)
+	registry.entries = append(registry.entries, Entry{Name: plugin.Name(), Current: initial})
+	return nil
+}
+
+// Step advances every registered plugin by one input.
+func (registry *Registry) Step(input string) {
+	for index, plugin := range registry.plugins {
+		registry.entries[index].Current = plugin.Step(registry.entries[index].Current, input)
+	}
+}
+
+// counterState is one plugin's real state type. It is known to its own owner
+// and to nothing else.
+type counterState struct {
+	seen int
+}
+
+// counterPlugin counts the inputs it is given.
+type counterPlugin struct {
+	name string
+}
+
+// Name identifies the plugin.
+func (plugin counterPlugin) Name() string {
+	return plugin.name
+}
+
+// Start returns the initial state.
+func (plugin counterPlugin) Start(endpoint string) (State, error) {
+	if endpoint == "" {
+		return nil, fmt.Errorf("plugin %s: an endpoint is required", plugin.name)
+	}
+	return counterState{}, nil
+}
+
+// Step is where the cost lands. The assertion is unchecked, it is written once
+// per method per plugin, and it is what a type parameter would have removed.
+func (plugin counterPlugin) Step(state State, input string) State {
+	current, isCounter := state.(counterState)
+	if !isCounter {
+		return state
+	}
+	if input == "" {
+		return current
+	}
+	current.seen++
+	return current
+}
+
+// Report asserts a second time, for the same reason.
+func (plugin counterPlugin) Report(state State) string {
+	current, isCounter := state.(counterState)
+	if !isCounter {
+		return stateUnknown
+	}
+	return fmt.Sprintf("%s: %d seen", plugin.name, current.seen)
+}

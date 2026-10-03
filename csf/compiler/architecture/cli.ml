@@ -11,11 +11,27 @@ let diagnostic (error : Model.diagnostic) =
   Printf.sprintf "%s:%d:%d: %s: %s" error.at.file error.at.line error.at.column
     error.code error.message
 
+let failed errors =
+  List.iter (fun error -> Printf.eprintf "%s\n%!" (diagnostic error)) errors;
+  1
+
 let report_result = function
   | Ok report -> Printf.printf "%s\n%!" (summary report); 0
-  | Error errors ->
-      List.iter (fun error -> Printf.eprintf "%s\n%!" (diagnostic error)) errors;
-      1
+  | Error errors -> failed errors
+
+(* The JSON document is the whole of standard output, so a consumer can parse
+   it directly; diagnostics still go to standard error with exit status one. *)
+let json_result = function
+  | Ok document -> print_string document; flush stdout; 0
+  | Error errors -> failed errors
+
+(** [Files] writes the projection directory; [Json] prints [Emit.json]. *)
+type format = Files | Json
+
+let format =
+  Arg.(value & opt (enum ["files", Files; "json", Json]) Files & info ["format"] ~docv:"FORMAT"
+    ~doc:"$(b,files) writes the projections to $(b,--output); $(b,json) prints the checked \
+          architecture as JSON on standard output and writes nothing.")
 
 let path name default doc =
   Arg.(value & opt string default & info [name] ~docv:"PATH" ~doc)
@@ -45,13 +61,17 @@ let config =
 (* Inject the runner only at the CLI boundary so argument tests need no source
    tree or writes. The end-to-end example separately exercises Compiler.run
    through the actual executable; injected tests alone do not establish that. *)
-let command_with run =
+let command_with ?(json = Compiler.json) run =
   let term mode = Term.(const (fun config -> report_result (run mode config)) $ config) in
   let command mode doc = Cmd.v (Cmd.info (Compiler.mode_name mode) ~doc) (term mode) in
+  let emit = Term.(const (fun config -> function
+      | Files -> report_result (run Compiler.Emit config)
+      | Json -> json_result (json config)) $ config $ format) in
   Cmd.group ~default:(term Compiler.Check)
     (Cmd.info "csfc" ~doc:"Check and project declared CSF architectures.") [
       command Compiler.Check "Check declarations and repository source (the default command).";
-      command Compiler.Emit "Check the architecture and write its projections.";
+      Cmd.v (Cmd.info (Compiler.mode_name Compiler.Emit)
+        ~doc:"Check the architecture and write its projections, or print it as JSON.") emit;
       command Compiler.Check_generated "Check the architecture and reject projection drift.";
     ]
 

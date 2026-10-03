@@ -18,13 +18,17 @@ public_schemas=(
   candace/telemetry/v1/telemetry.proto
   candace/provenance/v1/receipt.proto
   candace/email/v1/email.proto
-  candace/candaceos/v1/app_source.proto
-  candace/candaceos/v1/node_control.proto
-  candace/candaceos/v1/control_runtime.proto
-  candace/candaceos/v1/harness.proto
-  candace/candaceos/v1/webui.proto
+  candace/intake/v1/intake.proto
+  candace/deploy/v1/app_source.proto
+  candace/deploy/v1/node_control.proto
+  candace/deploy/v1/control_runtime.proto
+  candace/deploy/v1/harness.proto
+  candace/deploy/v1/webui.proto
   candace/work/v1/work.proto
   candace/brainspine/v1/brainspine.proto
+  candace/agent/v1/agent.proto
+  candace/harness/v1/harness.proto
+  candace/dispatch/v1/dispatch.proto
 )
 
 protoc -I "${module_root}/pkg" -I "${module_root}/proto" -I /usr/local/include \

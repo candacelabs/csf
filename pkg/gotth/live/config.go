@@ -366,7 +366,9 @@ type Limits struct {
 	IdleTimeout time.Duration
 
 	// EffectDrainTimeout is how long shutdown waits for in-flight effects
-	// before abandoning them and counting it. Default five seconds.
+	// before it counts and logs the overrun. Shutdown then keeps waiting:
+	// every effect is joined, so an effect must return once its context is
+	// cancelled. Default five seconds.
 	EffectDrainTimeout time.Duration
 
 	// MaxSessionsPerIdentity bounds one subject's concurrent connections.

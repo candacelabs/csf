@@ -1,0 +1,211 @@
+// Case 024 fixture — CLEAN. The same registry, the same heterogeneity, the
+// same plugin, with the erasure moved rather than removed. A gate run over this
+// file must report nothing at all.
+//
+// The thing to read first is what did NOT change: `Registry` still holds
+// plugins of different state types in one sequence, and Go still has no way to
+// type that. The erasure the dirty fixture's argument justified is still here.
+// It has been relocated to exactly one place — `erasedPlugin[S]`, unexported,
+// four methods long — and the exported contract is now typed:
+//
+//  1. `IPlugin[S any]` carries the plugin's own state type. `counterPlugin`
+//     implements `IPlugin[counterState]` and asserts nothing, in any method.
+//     Its `Step` receives a `counterState` because the compiler says so.
+//  2. `Register[S any]` is the generic shell. It is the only door into the
+//     registry, and it is where a typed plugin becomes an untyped one.
+//  3. `erasedPlugin[S]` holds every assertion in the package — one, in `step`,
+//     at a site a reviewer can find and a test can cover. The assertion is
+//     total rather than defensive for a reason the type system now enforces:
+//     the only value that can reach it came from the same `S`.
+//
+// Note the parameter names inside every generic signature: `Register[S any]
+// (registry *Registry, plugin IPlugin[S]) error`, not `Register[S any]
+// (*Registry, IPlugin[S]) error`. Adding type parameters rewrites signatures
+// wholesale, which makes CS-7 compliance a common way to introduce CS-2 debt.
+//
+// This fixture contains NO exported `any`, including the genuinely
+// unknown-shape kind CS-7 explicitly permits — an exported `Payload any` here
+// would fire the heuristic and fail the runner's "nothing fires on clean"
+// invariant. That limit is argued in `expected.json` and in
+// ../../../README.md § "When a rule's exemption cannot live in a fixture"; the
+// permitted `any` is judged by case 025.
+//
+// Held as .go.txt, not .go — see ../../../README.md § "Why the fixtures are
+// not .go files".
+
+package pluginfixture
+
+import "fmt"
+
+// The state name a plugin reports when it has none of its own. CS-13: named
+// once rather than spelled at the return.
+const stateUnknown = "unknown"
+
+// defaultEndpoint is a documentation-range address (RFC 5737). Fixtures never
+// carry a real host.
+const defaultEndpoint = "203.0.113.40:8080"
+
+// IPlugin is one plugin the registry holds and drives, typed in its own state.
+//
+// S is the plugin's state type, known to the plugin and to the compiler. No
+// implementer of this interface asserts anything.
+type IPlugin[S any] interface {
+	// Name identifies the plugin within one registry.
+	Name() string
+	// Start opens the plugin and returns its initial state.
+	Start(endpoint string) (S, error)
+	// Step advances the plugin by one input and returns the next state.
+	Step(state S, input string) S
+	// Report renders the state as text.
+	Report(state S) string
+}
+
+// iErasedPlugin is the untyped view a registry can hold in one sequence.
+//
+// It is unexported on purpose, and that is the whole design. Go has no
+// existential types, so a slice of differently-parameterized plugins cannot be
+// spelled and something has to forget a type. This interface is where the
+// forgetting happens, it is reachable only from inside this package, and no
+// plugin author ever implements it.
+type iErasedPlugin interface {
+	name() string
+	start(endpoint string) (any, error)
+	step(state any, input string) any
+	report(state any) string
+}
+
+// erasedPlugin adapts a typed plugin to the untyped view the registry stores.
+//
+// This is the single erasure site. Every assertion in this package is in this
+// type, and there is one.
+type erasedPlugin[S any] struct {
+	plugin IPlugin[S]
+}
+
+func (adapter erasedPlugin[S]) name() string {
+	return adapter.plugin.Name()
+}
+
+func (adapter erasedPlugin[S]) start(endpoint string) (any, error) {
+	return adapter.plugin.Start(endpoint)
+}
+
+// step holds the one assertion in the package.
+//
+// It is total rather than defensive, and the type system is what makes it so:
+// the only value that can arrive here is the one this same adapter returned
+// from start or from a previous step, and both were S. The fallback exists
+// because the language requires the comma-ok form, not because the case is
+// reachable.
+func (adapter erasedPlugin[S]) step(state any, input string) any {
+	typed, isOwnState := state.(S)
+	if !isOwnState {
+		return state
+	}
+	return adapter.plugin.Step(typed, input)
+}
+
+func (adapter erasedPlugin[S]) report(state any) string {
+	typed, isOwnState := state.(S)
+	if !isOwnState {
+		return stateUnknown
+	}
+	return adapter.plugin.Report(typed)
+}
+
+// Registry holds plugins of different state types in one sequence.
+//
+// Both slices are unexported: what the registry carries is an implementation
+// detail of the erasure, and publishing it would put the untyped value back in
+// the contract that CS-7 just took it out of.
+type Registry struct {
+	plugins []iErasedPlugin
+	states  []any
+	names   []string
+}
+
+// Entry is one registered plugin as a reader sees it.
+//
+// It reports the plugin's name and its state rendered as text, which is what a
+// status page or an operator actually wants, and it carries no untyped value.
+type Entry struct {
+	// Name is the plugin's registered name.
+	Name string
+	// Report is the plugin's own rendering of its current state.
+	Report string
+}
+
+// Register adds one typed plugin to the registry and starts it.
+//
+// This is the generic shell: the only exported way in, and the only place a
+// plugin's state type is forgotten.
+func Register[S any](registry *Registry, plugin IPlugin[S], endpoint string) error {
+	adapter := erasedPlugin[S]{plugin: plugin}
+	initial, startError := adapter.start(endpoint)
+	if startError != nil {
+		return fmt.Errorf("registering %s: %w", adapter.name(), startError)
+	}
+	registry.plugins = append(registry.plugins, adapter)
+	registry.states = append(registry.states, initial)
+	registry.names = append(registry.names, adapter.name())
+	return nil
+}
+
+// Step advances every registered plugin by one input.
+func (registry *Registry) Step(input string) {
+	for index, plugin := range registry.plugins {
+		registry.states[index] = plugin.step(registry.states[index], input)
+	}
+}
+
+// List returns every registered plugin in registration order.
+func (registry *Registry) List() []Entry {
+	entries := make([]Entry, 0, len(registry.plugins))
+	for index, plugin := range registry.plugins {
+		entries = append(entries, Entry{
+			Name:   registry.names[index],
+			Report: plugin.report(registry.states[index]),
+		})
+	}
+	return entries
+}
+
+// counterState is one plugin's real state type, and now the compiler knows it.
+type counterState struct {
+	seen int
+}
+
+// counterPlugin counts the inputs it is given. It implements
+// IPlugin[counterState] and asserts nothing.
+type counterPlugin struct {
+	name string
+}
+
+// Name identifies the plugin.
+func (plugin counterPlugin) Name() string {
+	return plugin.name
+}
+
+// Start returns the initial state, typed.
+func (plugin counterPlugin) Start(endpoint string) (counterState, error) {
+	if endpoint == "" {
+		return counterState{}, fmt.Errorf("plugin %s: an endpoint is required", plugin.name)
+	}
+	return counterState{}, nil
+}
+
+// Step receives a counterState because the signature says so. Compare the
+// dirty fixture's version of this method: the assertion and its unreachable
+// failure branch are both gone.
+func (plugin counterPlugin) Step(state counterState, input string) counterState {
+	if input == "" {
+		return state
+	}
+	state.seen++
+	return state
+}
+
+// Report renders the state, with nothing to assert.
+func (plugin counterPlugin) Report(state counterState) string {
+	return fmt.Sprintf("%s: %d seen", plugin.name, state.seen)
+}

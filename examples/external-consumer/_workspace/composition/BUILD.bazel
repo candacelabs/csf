@@ -10,7 +10,7 @@ go_library(
         "//identity",
         "//noteboard",
         "//steering",
-        "@csf//app/candaceos-core/bootstrap",
-        "@csf//services/candaceos/component",
+        "@csf//app/deploy/bootstrap",
+        "@csf//services/deploy/component",
     ],
 )

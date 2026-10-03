@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "cmd_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/app/intake/cmd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//ipc",
+        "//ipc/model",
+        "//ipc/net",
+        "//ipc/net/http",
+        "//proto/candace/intake/v1:intake",
+        "//runtime",
+        "//runtime/config",
+        "//services/intake",
+        "//services/relay",
+    ],
+)
+
+go_binary(
+    name = "cmd",
+    embed = [":cmd_lib"],
+    visibility = ["//visibility:public"],
+)

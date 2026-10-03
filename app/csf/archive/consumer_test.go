@@ -1,4 +1,4 @@
-//go:build archiveintegration
+//go:build acceptance
 
 package archive_test
 
@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/pkg/patience"
+	"github.com/candacelabs/csf/pkg/eventually"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	copilot "github.com/github/copilot-sdk/go"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -27,7 +27,7 @@ import (
 
 const archiveSessionTimeout = 60 * time.Second
 
-var archiveReadyBudget = patience.Budget{Within: 20 * time.Second}
+var archiveReadyBudget = eventually.Budget{Within: 20 * time.Second}
 var archiveRoot = flag.String("csf-archive-root", "", "built extraction in a disposable network namespace")
 
 func TestArchiveConsumer(test *testing.T) {
@@ -70,7 +70,7 @@ var _ = Describe("agent setup from the shipped archive", func() {
 		transport := &http.Client{Timeout: time.Second}
 		api, err := csf.NewClient(address.Scheme+"://"+address.Host, transport)
 		Expect(err).NotTo(HaveOccurred())
-		patience.Await(GinkgoT(), "extracted HTTP host ready", archiveReadyBudget, func() error {
+		eventually.Await(GinkgoT(), "extracted HTTP host ready", archiveReadyBudget, func() error {
 			_, err := api.GetSnapshot(ctx, &pb.GetSnapshotRequest{})
 			return err
 		}, func(err error) bool { return err == nil })
