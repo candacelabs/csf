@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.2"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.3"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -28,11 +28,27 @@
 
 <!-- agent-drafted (#379): awaiting operator approval -->
 
-CSF is the LITHE philosophy ([Lim and Clites, 2026](#ref-lithe)) applied to CPU 0:
-a [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer that carries tools, records and experiments without inter-process
-communication, in which the architecture is a checked artifact and the engineers are
-[agents](csf/docs/generated/ontology_cgen.md#term-agent) working under rules. It ships with working implementations
-([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live), Warden, xetcas, pgmem, liquidproto) that prove the loop works.
+Most robots run two kinds of software side by side: a slow, best-effort layer
+that decides what to do (planning, perception, learned policies) and a fast,
+real-time layer that does it (the control loop that must never miss a deadline).
+LITHE ([Lim and Clites, 2026](#ref-lithe)) turns that split into an architecture on
+one ordinary computer. A best-effort **[Brain](csf/docs/generated/ontology_cgen.md#term-brain)** proposes, a real-time
+**[Spine](csf/docs/generated/ontology_cgen.md#term-spine)** executes, and each gets its own CPU [core](csf/docs/generated/ontology_cgen.md#term-core). On LITHE's
+quad-core board, CPU 1 runs the Spine's control loop alone, CPU 2 runs the Brain,
+CPU 3 handles the motor bus, and **CPU 0** is the [housekeeping](docs/GLOSSARY.md#lit-housekeeping)
+core: it takes the operating system's chores, absorbs timing jitter so the other
+cores never feel it, and prepares the next controller before it is swapped in.
+LITHE demonstrates this on one robot, but deciding versus doing is the shape of
+most robot software stacks, so we expect the architecture to carry over to most
+robots.
+
+**CSF is the LITHE philosophy applied to CPU 0.** It is the housekeeping layer:
+the tools, records, schedules and experiments around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system's
+decisions, composed into one Go process so they talk through function calls
+instead of inter-process communication. In CSF the architecture is a checked
+artifact and the engineers are [agents](csf/docs/generated/ontology_cgen.md#term-agent) working under rules. It ships
+with working implementations ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live), Warden, xetcas, pgmem,
+liquidproto) that prove the loop works.
 
 <p align="center">
   <img src="docs/assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
@@ -526,7 +542,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.2`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.3`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -563,7 +579,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.2/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.3/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -575,7 +591,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.2
+go get github.com/candacelabs/csf@v0.2.3
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -694,7 +710,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.2},
+  version = {0.2.3},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
