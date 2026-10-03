@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.1.3"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.1"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -32,6 +32,11 @@ a [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer that carries tools, re
 communication, in which the architecture is a checked artifact and the engineers are
 [agents](csf/docs/generated/ontology_cgen.md#term-agent) working under rules. It ships with working implementations
 ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live), Warden, xetcas, pgmem, liquidproto) that prove the loop works.
+
+<p align="center">
+  <img src="docs/assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
+</p>
+
 It has four parts, and together they form one loop:
 
 1. **A language.** [`architecture.csf`](csf/compiler/language/architecture.csf)
@@ -53,21 +58,24 @@ It has four parts, and together they form one loop:
    where intent and code diverge, and turn each divergence into the next gate
    or change. For example, on 2026-10-02 the finding that 64 of the 124 terms
    own no directory became a ticket that states the gate's predicate; the gate
-   itself is not built yet
-   (source monorepo issue #386).
+   itself is not built yet.
 
 ### What it can be used as
 
 An agent-operated deployment system: propose and approve changes, reconcile [applications](csf/docs/generated/ontology_cgen.md#term-application), approve infrastructure updates, and watch the fleet. An [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness with gates on every command and commit. A server-driven live UI that syncs state with a browser. A self-hosted build and evidence cache. Fast tests with real SQL and no server.
 
-The loop produces:
+What you get, grouped by what it is for:
 
-- **[CSF and its agent harness](app/harness):** One process per machine runs [agent](csf/docs/generated/ontology_cgen.md#term-agent) sessions with gates on every command and commit. The `csf` binary is the process and its client: `csf init` on a repository, `csf submit` with a recipe, `csf send` to add a turn.
-- **[Deploy service and node executor](services/deploy):** An agent-operated deployment system with the [deployment kit](infra/deploy-kit/) for Compose [applications](csf/docs/generated/ontology_cgen.md#term-application). An [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, and the node executor reconciles [applications](csf/docs/generated/ontology_cgen.md#term-application).
-- **[Warden](services/warden):** A fleet watchdog: Raft-style leader election, liveness, incidents, and an authoritative view every mutation is fenced against.
-- **[gotth-live](pkg/gotth):** Server-driven live user interfaces. [Widgets](csf/docs/generated/ontology_cgen.md#term-widget), event handlers and state synced from the [application](csf/docs/generated/ontology_cgen.md#term-application) layer; browser receives a stream of mutations and renders them as the [app](csf/docs/generated/ontology_cgen.md#term-app) commits.
-- **[xetcas](xetcas):** A self-hosted Xet content-addressable store. Binary blob storage and retrieval indexed by exact hash; used for build caches, snapshots and evidence archival.
-- **[`pkg/`](pkg):** Domain-neutral Go primitives — [`pgmem`](pkg/pgmem) (a process-local PostgreSQL emulator for fast tests — real PostgreSQL AST, no server), [`liquidproto`](pkg/liquidproto) (the [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for Liquid Proto: protobuf with refinement predicates compiled into the generated Go), [`cron`](pkg/cron), [`config`](pkg/config), [`redact`](pkg/redact), [`telemetry`](pkg/telemetry), [`mailbox`](pkg/mailbox), and more.
+- **[CSF — The Cerebrospinal Fluid](csf)**, the core: a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system, covering typed tools, sessions and worktrees, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its [services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options, and each operation is generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp). Start with the [consumer example](examples/csf-consumer).
+  - **[Agent harness and ops view](app/harness):** one process per machine runs every [agent](csf/docs/generated/ontology_cgen.md#term-agent) session with gates on every command and commit. The `csf` binary is both that process and its client: `csf init` puts CSF into a repository, `csf submit` takes an [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) recipe, `csf send` adds a turn, and `csf view` serves a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) page with one live card per session ([command reference](app/harness/cmd)). See [Quick start](#5-quick-start).
+  - **[`csfc` compiler](csf/compiler/README.md):** checks the code against [`architecture.csf`](csf/compiler/language/architecture.csf) and generates the [glossary](docs/GLOSSARY.md), the [dictionary](csf/docs/generated/ontology_cgen.md), the diagrams and this README's north star.
+- **[Deploy](services/deploy)**, an agent-operated deployment system: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, the node executor reconciles Compose [applications](csf/docs/generated/ontology_cgen.md#term-application), and the operator UI watches.
+  - **[Deploy service and node executor](services/deploy)**, with the [deployment kit](infra/deploy-kit/) for Compose [applications](csf/docs/generated/ontology_cgen.md#term-application).
+  - **[Warden](services/warden):** the fleet watchdog the deploy service fences against: Raft-style leader election [[5]](#ref-raft) over a static peer set, liveness, incidents, and an authoritative view every mutation is checked against.
+- **Libraries** you can use on their own:
+  - **[gotth-live](pkg/gotth):** server-driven live user interfaces from Go. [Widgets](csf/docs/generated/ontology_cgen.md#term-widget), event handlers and state are synced from the [application](csf/docs/generated/ontology_cgen.md#term-application) layer, and the browser renders each change as the [app](csf/docs/generated/ontology_cgen.md#term-app) commits it. State and rendering stay in your process; one WebSocket per tab carries events up and re-rendered fragments down. No npm, no CDN.
+  - **[xetcas](xetcas):** a self-hosted Xet [[6]](#ref-xet) content-addressable storage server with a Git LFS [[7]](#ref-git-lfs) front door, used for build caches, snapshots and evidence archival. Re-pushing a 48 MiB model after editing 2% of it costs about 1 MiB.
+  - **[`pkg/`](pkg):** domain-neutral Go primitives: [`pgmem`](pkg/pgmem), a process-local PostgreSQL [[8]](#ref-postgres) emulator for fast tests (real PostgreSQL AST, no server); [`liquidproto`](pkg/liquidproto), the [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for Liquid Proto, protobuf with [refinement types](docs/GLOSSARY.md#lit-refinement_types) [[9]](#ref-refinement-types) compiled into the generated Go; [`cron`](pkg/cron), [`config`](pkg/config), [`redact`](pkg/redact), [`telemetry`](pkg/telemetry), [`mailbox`](pkg/mailbox), and more.
 
 The north star is a robot software
 stack whose correctness is proven end to end; today that is a goal, not a
@@ -77,12 +85,6 @@ with a CLI.
 
 ## 1. Introduction
 
-**CSF — The Cerebrospinal Fluid** is a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the
-coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system: typed tools, sessions and worktrees,
-schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its
-[services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options,
-and its operations are generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp).
-
 The name comes from the architecture that shaped it. In LITHE
 ([Lim and Clites, 2026](#ref-lithe)), a best-effort **[Brain](csf/docs/generated/ontology_cgen.md#term-brain)** proposes and a real-time **[Spine](csf/docs/generated/ontology_cgen.md#term-spine)** executes, on one
 partitioned computer. CSF is the fluid around them: the [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer that
@@ -91,23 +93,6 @@ carries tools, records and experiments between decisions.
 ![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](docs/assets/lithe-system-architecture.png)
 
 *LITHE, Figure 2 ([Lim and Clites, 2026](#ref-lithe)).*
-
-This repository is one Go module with a root Bazel build and the separate
-[`csfc` compiler build](csf/compiler/README.md): the public half of a private
-infrastructure monorepo, published whole. It is not a framework and not a grab
-bag. It is a working agent-operated deployment system and the pieces it is built
-from, released together so that the pieces are usable on their own and the
-system is reproducible as a whole.
-
-| | |
-|---|---|
-| [**CSF — The Cerebrospinal Fluid**](csf) | Shared Go coordination for [agents](csf/docs/generated/ontology_cgen.md#term-agent), typed tools, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) and simulation evidence. Start with the [consumer example](examples/csf-consumer). |
-| [**Agent harness and ops view**](app/harness/cmd) | <!-- agent-drafted (#379): awaiting operator approval --> One process per machine runs every [agent](csf/docs/generated/ontology_cgen.md#term-agent) session, and the `csf` binary is both that process and its client: `csf init` puts CSF into a repository, `csf submit` takes an [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) recipe, `csf send` adds a turn, and `csf view` serves a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) page with one live card per session. See [Quick start](#5-quick-start). |
-| [**Deploy service, node executor and operator UI**](services/deploy) | An agent-operated deployment system: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, the node executor reconciles Compose [applications](csf/docs/generated/ontology_cgen.md#term-application), and the operator UI watches. Its deployment kit is [`infra/deploy-kit/`](infra/deploy-kit). |
-| [**Warden**](services/warden) | A fleet watchdog: Raft-style leader election over a static peer set, liveness, incidents, and an authoritative view every mutation is fenced against. |
-| [**gotth-live**](pkg/gotth) | Server-driven live user interfaces from Go. State and rendering stay in your process; one WebSocket per tab carries events up and re-rendered fragments down. No npm, no CDN. |
-| [**xetcas**](xetcas) | A self-hosted Xet content-addressable storage server with a Git LFS front door. Re-pushing a 48 MiB model after editing 2% of it costs about 1 MiB. |
-| [**pkg/**](pkg) | The primitives the rest is built on: `pgmem` (a process-local PostgreSQL emulator for tests), `liquidproto` (protobuf [refinement types](docs/GLOSSARY.md#lit-refinement_types)), `cron`, `config`, `redact`, `telemetry`, and more. |
 
 New to the words used here? The [glossary](docs/GLOSSARY.md) explains every CSF
 term in plain language, plus the words CSF borrows from papers, with citations.
@@ -169,11 +154,7 @@ no wire serialization and no separate daemon. Separate architecture
 checks inspect selected Go ownership and [process boundaries](csf/docs/generated/ontology_cgen.md#term-process_boundary) in source; they
 establish those source constraints, not [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) timing.
 
-<p align="center">
-  <img src="docs/assets/csf-cpu0-mapping.svg" width="900" alt="CSF drawn inside LITHE's CPU 0 as one Go process containing typed tools, sessions, schedules, knowledge, observation and bounded workers; LITHE's Brain, Spine and Transport cores and the external protocol boundaries are drawn outside it.">
-</p>
-
-The diagram is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
+The diagram at the top of this page is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
 by hand; it is not generated from the architecture model. Its boundaries are exact:
 
 - PostgreSQL, [OpenSearch](csf/docs/generated/ontology_cgen.md#term-opensearch), Langfuse and external model or simulator processes
@@ -542,7 +523,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.1.3`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.1`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -579,20 +560,19 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.1.3/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.1/csf-<sha12>.tar.gz"],
 )
 ```
 
 Then depend on what you use — `@csf//services/deploy/component`,
-`@csf//pkg/gotth/live`, `@csf//services/warden` — and build. In `v0.1.3` the
-deploy [service](csf/docs/generated/ontology_cgen.md#term-service) still sits at `services/candaceos/` and its kit at `candaceos/`;
-this tree names them `services/deploy/` and `infra/deploy-kit/`, and the next
-release carries the new paths.
+`@csf//pkg/gotth/live`, `@csf//services/warden` — and build. Since `v0.2.0` the
+deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `services/deploy/` and its kit at `infra/deploy-kit/`;
+`v0.1.3` and earlier used `services/candaceos/` and `candaceos/`.
 
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.1.3
+go get github.com/candacelabs/csf@v0.2.1
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -711,7 +691,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.1.3},
+  version = {0.2.1},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
@@ -738,6 +718,60 @@ Communications of the ACM 13(6):377–387, 1970. <https://doi.org/10.1145/362384
 **[4]** G. Kiczales, J. Lamping, A. Mendhekar, C. Maeda, C. Lopes, J.-M. Loingtier and
 J. Irwin. *Aspect-oriented programming.* ECOOP '97, LNCS 1241, pp. 220–242, 1997.
 <https://doi.org/10.1007/BFb0053381>
+
+<a id="ref-raft"></a>
+
+**[5]** D. Ongaro and J. Ousterhout. *In search of an understandable consensus algorithm.*
+2014 USENIX Annual Technical Conference (USENIX ATC 14), pp. 305–319, 2014.
+<https://www.usenix.org/conference/atc14/technical-sessions/presentation/ongaro>
+
+<a id="ref-xet"></a>
+
+**[6]** Hugging Face. *xet-core: the Xet storage protocol, client and content-addressed
+chunk format.* <https://github.com/huggingface/xet-core>
+
+<a id="ref-git-lfs"></a>
+
+**[7]** Git LFS contributors. *Git Large File Storage.* <https://git-lfs.com/>
+
+<a id="ref-postgres"></a>
+
+**[8]** M. Stonebraker and L. A. Rowe. *The design of POSTGRES.* Proceedings of the 1986
+ACM SIGMOD International Conference on Management of Data, pp. 340–355, 1986.
+<https://doi.org/10.1145/16894.16888>
+
+<a id="ref-refinement-types"></a>
+
+**[9]** T. Freeman and F. Pfenning. *Refinement types for ML.* Proceedings of the ACM
+SIGPLAN 1991 Conference on Programming Language Design and Implementation (PLDI),
+pp. 268–277, 1991. <https://doi.org/10.1145/113445.113468>
+
+<a id="ref-keymaera-x"></a>
+
+**[10]** N. Fulton, S. Mitsch, J.-D. Quesel, M. Völp and A. Platzer. *KeYmaera X: an
+axiomatic tactical theorem prover for hybrid systems.* CADE-25, LNCS 9195,
+pp. 527–538, 2015. <https://doi.org/10.1007/978-3-319-21401-6_36>
+
+<a id="ref-veriphy"></a>
+
+**[11]** R. Bohrer, Y. K. Tan, S. Mitsch, M. O. Myreen and A. Platzer. *VeriPhy: verified
+controller executables from verified cyber-physical system models.* PLDI 2018,
+pp. 617–630, 2018. <https://doi.org/10.1145/3192366.3192406>
+
+<a id="ref-compcert"></a>
+
+**[12]** X. Leroy. *Formal verification of a realistic compiler.* Communications of the
+ACM 52(7):107–115, 2009. <https://doi.org/10.1145/1538788.1538814>
+
+<a id="ref-sel4"></a>
+
+**[13]** G. Klein, K. Elphinstone, G. Heiser, J. Andronick, D. Cock, P. Derrin,
+D. Elkaduwe, K. Engelhardt, R. Kolanski, M. Norrish, T. Sewell, H. Tuch and
+S. Winwood. *seL4: formal verification of an OS kernel.* SOSP 2009, pp. 207–220,
+2009. <https://doi.org/10.1145/1629575.1629596>
+
+The north star's "Builds on" column links KeYmaera X [10], VeriPhy [11], CompCert [12]
+and seL4 [13].
 
 ## License
 

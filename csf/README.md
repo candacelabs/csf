@@ -3,7 +3,7 @@
   <p><b>One Go runtime. Agent work, typed tools, shared knowledge, observable experiments.</b></p>
   <p>
     <a href="../LICENSE"><img src="../docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#10-contracts-and-release-evidence"><img src="../docs/assets/badge-version.svg" alt="version: 0.1.3"></a>
+    <a href="#10-contracts-and-release-evidence"><img src="../docs/assets/badge-version.svg" alt="version: 0.2.1"></a>
     <a href="#7-try-the-library"><img src="../docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="../docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="../docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -33,7 +33,7 @@ this repository: one Go process that composes [agent](docs/generated/ontology_cg
 [repository front page](../README.md) is the overview; this page is the
 library's own technical guide.
 
-**CSF's current release, v0.1.3, is a developer preview.** It makes no stability
+**CSF's current release, v0.2.1, is a developer preview.** It makes no stability
 or compatibility promise beyond what this page states.
 This is a breaking integration baseline. Pin a reviewed snapshot and use the
 examples shipped with it. The public Go module is `github.com/candacelabs/csf`;
@@ -547,7 +547,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.1.3},
+  version = {0.2.1},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
