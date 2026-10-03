@@ -24,7 +24,7 @@ or a database.
 | 3 | [The compiler, csfc](#3-the-compiler-csfc) | 10 min |
 | 4 | [The runtime library](#4-the-runtime-library) | 5 min |
 | 5 | [gotth-live](#5-gotth-live-live-ui-from-go) | 5 min |
-| 6 | [The agent harness](#6-the-agent-harness) | 10 min |
+| 6 | [The agent harness: an agentic software engineer](#6-the-agent-harness-an-agentic-software-engineer) | 10 min |
 | 7 | [Ouroboros](#7-ouroboros-the-loop-that-writes-the-next-gate) | 5 min |
 | 8 | [Deploy and Warden](#8-deploy-and-warden) | 10 min |
 | 9 | [xetcas](#9-xetcas) | 10 min |
@@ -383,10 +383,12 @@ in one and watch the other repaint.
 follows one click through every file, and [`pkg/gotth/docs`](../pkg/gotth/docs/README.md)
 documents the library.
 
-## 6. The agent harness
+## 6. The agent harness: an agentic software engineer
 
-**In one sentence:** the harness runs AI coding agents on your repository, each
-in its own git worktree, with a gate on every shell command and every commit.
+**In one sentence:** the harness turns AI coding agents into a software engineer
+you can hand tickets to: each agent works in its own git worktree, under a gate on
+every shell command and every commit, and delivers its work as a pull request that
+must pass the merge gate. CSF itself is developed this way.
 
 **Why it exists.** An agent left alone does things you did not want: it polls in
 a loop forever, works for an hour without showing you anything, or edits files it
@@ -498,8 +500,18 @@ invisible(R) :- gated(R), score(R, S), knee(K), gt(S, K).
 | the labels | real session ids from the record | names the miner invented; the landing gate refuses them |
 | the fit | fit on the earlier half, judge on the later half | fit and judge on the same cases, which only proves memory |
 
-**Today:** the miner contract and template are in review and land in a later
-release; session mining runs outside this repository. Ouroboros is milestone 6 of
+**Try it:** the template miner ships with three real runs as fixtures.
+
+```bash
+tools/bazel.sh test //services/ouroboros/miners/_template:miner_test --test_output=all
+```
+
+**You should see** `draft-pr-late: 4 tests passed`: the rule finds the labeled run,
+ignores the clean one, and its generated backtest is current.
+
+**Go deeper:** the [Ouroboros README](../services/ouroboros/README.md) has the
+worked example, the knee math and a step-by-step guide to writing a miner. The
+contract and template ship today; the CSF service around them is milestone 6 of
 the [north star](../README.md#north-star).
 
 ## 8. Deploy and Warden

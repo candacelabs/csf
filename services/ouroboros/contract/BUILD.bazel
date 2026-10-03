@@ -1,0 +1,45 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["records.proto"])
+
+ocaml_module(
+    name = "Corpus",
+    sig = "corpus.mli",
+    struct = "corpus.ml",
+    deps = [
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_module(
+    name = "Contract",
+    sig = "contract.mli",
+    struct = "contract.ml",
+    deps = [
+        ":Corpus",
+        "//csf/compiler/third_party/datalog:Datalog_top_down",
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_module(
+    name = "Contract_test",
+    struct = "contract_test.ml",
+    deps = [
+        ":Contract",
+        ":Corpus",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_test(
+    name = "contract_test",
+    size = "small",
+    args = ["$(rootpath records.proto)"],
+    data = ["records.proto"],
+    main = ":Contract_test",
+)

@@ -1,0 +1,3 @@
+{"time":"2026-10-02T19:03:08.809646873Z","event_type":"harness_run_started","assignment_id":"6c1f2a10-3b7e-4d6a-9e51-0a1b2c3d4e60"}
+{"time":"2026-10-02T19:03:13.308795106Z","event_type":"session_gate_decision","gate":"wait","decision":"allow"}
+{"time":"2026-10-02T19:24:07.796350666Z","event_type":"harness_session_closed"}

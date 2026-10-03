@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.6"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.7"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -98,12 +98,17 @@ It has four parts, and together they form one loop:
 
 ### What it can be used as
 
-An agent-operated deployment system: propose and approve changes, reconcile [applications](csf/docs/generated/ontology_cgen.md#term-application), approve infrastructure updates, and watch the fleet. An [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness with gates on every command and commit. A server-driven live UI that syncs state with a browser. A self-hosted build and evidence cache. Fast tests with real SQL and no server.
+- **An agentic software engineer.** Hand it a ticket and it works the ticket end to end: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) session in its own git worktree writes the change under a [gate](csf/docs/generated/ontology_cgen.md#term-session_gate) on every command and commit, opens a draft pull request at its first commit, and the merge gate refuses the change unless its checks and its architecture score hold. Many sessions run at once, one harness per machine, and you steer any of them from its chat page. CSF is developed this way.
+- **An agent-operated deployment system:** propose and approve changes, reconcile [applications](csf/docs/generated/ontology_cgen.md#term-application), approve infrastructure updates, and watch the fleet.
+- **A server-driven live UI** that keeps one copy of the state on the server and syncs every browser tab to it.
+- **A self-hosted build and evidence cache** that uploads only what changed.
+- **Fast tests with real SQL** and no database server.
 
 What you get, grouped by what it is for:
 
 - **[CSF — The Cerebrospinal Fluid](csf)**, the core: a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system, covering typed tools, sessions and worktrees, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its [services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options, and each operation is generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp). Start with the [consumer example](examples/csf-consumer).
   - **[Agent harness and ops view](app/harness):** one process per machine runs every [agent](csf/docs/generated/ontology_cgen.md#term-agent) session with gates on every command and commit. The `csf` binary is both that process and its client: `csf init` puts CSF into a repository, `csf submit` takes an [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) recipe, `csf send` adds a turn, and `csf view` serves a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) page with one live card per session ([command reference](app/harness/cmd)). See [Quick start](#5-quick-start).
+  - **[Ouroboros](services/ouroboros/README.md):** miners that read the record of what agents did, find mistakes no gate catches yet, and turn each into a gate once a walk-forward backtest on history finds every labeled case.
   - **[`csfc` compiler](csf/compiler/README.md):** checks the code against [`architecture.csf`](csf/compiler/language/architecture.csf) and generates the [glossary](docs/GLOSSARY.md), the [dictionary](csf/docs/generated/ontology_cgen.md), the diagrams and this README's north star.
 - **[Deploy](services/deploy)**, an agent-operated deployment system: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, the node executor reconciles Compose [applications](csf/docs/generated/ontology_cgen.md#term-application), and the operator UI watches.
   - **[Deploy service and node executor](services/deploy)**, with the [deployment kit](infra/deploy-kit/) for Compose [applications](csf/docs/generated/ontology_cgen.md#term-application).
@@ -565,7 +570,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.6`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.7`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -602,7 +607,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.6/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.7/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -614,7 +619,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.6
+go get github.com/candacelabs/csf@v0.2.7
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -733,7 +738,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.6},
+  version = {0.2.7},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }

@@ -1,0 +1,18 @@
+% DRAFT-PR-LATE (source monorepo issue #376): a harness run whose work stayed
+% invisible to the operator, with no draft pull request, for longer than the
+% measured knee. extract.ml writes the base relations from the run's event
+% log; the contract adds knee(K) for each candidate it tries.
+
+/* facts
+   universe   R: harness runs (assignment identifiers); S, K: seconds
+   relation   run ⊆ R; gated ⊆ R; opened ⊆ R × S
+   relation   score ⊆ R × S: seconds from the run's start to its first draft pull request, or to its last event when it opened none
+*/
+
+/* predicate invisible
+   universe   R: harness runs whose tool calls went through the session gate
+   relation   score : R → ℕ; κ ∈ ℕ, the knee
+   clause     ∀r ∈ R. score(r) ≤ κ
+   finding    invisible = {r ∈ R | score(r) > κ}
+*/
+invisible(R) :- gated(R), score(R, S), knee(K), gt(S, K).

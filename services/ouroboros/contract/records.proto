@@ -1,0 +1,82 @@
+// The records every ouroboros miner emits. contract.ml writes their proto3
+// JSON form; contract_test holds its encoders to the field names here.
+syntax = "proto3";
+
+package candace.ouroboros.v1;
+
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/ouroboros/v1;ouroborosv1";
+
+// Offense severity (source monorepo issue #373). Miners and dispatch rank by it first.
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  // The recurrence of an offense whose gate already exists: a gate escape.
+  SEVERITY_S0 = 1;
+  // An offense that cost the operator real time or state.
+  SEVERITY_S1 = 2;
+  // An offense the operator had to escalate.
+  SEVERITY_S2 = 3;
+  // An offense found only by mining.
+  SEVERITY_S3 = 4;
+}
+
+message Value {
+  oneof kind {
+    string text = 1;
+    int64 number = 2;
+  }
+}
+
+// Where a fact was read: a file path, an event log or a ticket reference.
+message Span {
+  string source = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 4096"}];
+  // 1-based; 0 when the source has no lines.
+  int64 line = 2 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+}
+
+// One row of an extracted relation.
+message Fact {
+  string relation = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-z][a-z0-9_]{0,63}$`)"}];
+  repeated Value args = 2;
+  Span span = 3;
+}
+
+// One row of a verdict relation, with the ground premises of the rule that
+// derived it.
+message Finding {
+  string miner = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 80"}];
+  string rule = 2 [(candace.liquid.v1.field) = {expr: "matches(this, `^[a-z][a-z0-9_]{0,63}$`)"}];
+  repeated Value subject = 3;
+  Severity severity = 4;
+  repeated Fact proof = 5;
+}
+
+// One labeled instance of the backtest set.
+message Label {
+  string instance = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  bool positive = 2;
+  // The instance's start, Unix seconds.
+  int64 at = 3;
+  // When the operator flagged it, Unix seconds.
+  optional int64 flagged = 4;
+  // The ticket or ruling that labels it.
+  string source = 5 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+}
+
+// eval(G, Lambda), walk-forward (source monorepo issue #391): the knee is fitted on
+// the labels at or before split, and tp, fp, fn and lead are counted on the
+// labels after it.
+message Backtest {
+  repeated Label labels = 1;
+  int64 split = 2;
+  optional int64 knee = 3;
+  // Knee candidates tried, so the multiple-testing count is visible.
+  int32 families = 4 [(candace.liquid.v1.field) = {expr: "this >= 1"}];
+  repeated string tp = 5;
+  repeated string fp = 6;
+  repeated string fn = 7;
+  // The smallest margin, in seconds, by which the gate precedes the
+  // operator's flag over the flagged true positives.
+  optional int64 lead = 8;
+}
