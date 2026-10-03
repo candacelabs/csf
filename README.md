@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.5"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.6"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -44,11 +44,12 @@ robots. Figure 1 is LITHE's own diagram of that split.
 
 <a id="figure-1"></a>
 
-![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](docs/assets/lithe-system-architecture.png)
+[![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](https://arxiv.org/html/2603.07442v1/figures/fig_architecture.png)](https://arxiv.org/html/2603.07442v1#S1.F2)
 
 **Figure 1.** LITHE's system architecture: the Brain, Spine, Housekeeping and
 Transport roles, each on its own core of one Raspberry Pi, driving a
-one-degree-of-freedom robot. Reproduced from LITHE, Figure 2
+one-degree-of-freedom robot. LITHE, Figure 2, shown from
+[arXiv](https://arxiv.org/html/2603.07442v1#S1.F2) and not copied into this repository
 ([Lim and Clites, 2026](#ref-lithe)).
 
 **CSF is the LITHE philosophy applied to CPU 0.** It is the housekeeping layer:
@@ -564,7 +565,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.5`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.6`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -601,7 +602,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.5/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.6/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -613,7 +614,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.5
+go get github.com/candacelabs/csf@v0.2.6
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -732,7 +733,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.5},
+  version = {0.2.6},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
@@ -741,7 +742,8 @@ exact release tag you used:
 The LITHE paper and its figures are distributed under arXiv's
 [non-exclusive distribution license](http://arxiv.org/licenses/nonexclusive-distrib/1.0/),
 not a Creative Commons license. © the authors; this repository's license does
-not cover them. Figure 1 reproduces LITHE's Figure 2 with attribution.
+not cover them. Figure 1 is displayed from arXiv; no figure file is copied into this
+repository.
 
 <a id="ref-ansi-sparc"></a>
 

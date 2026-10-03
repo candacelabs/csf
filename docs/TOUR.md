@@ -62,11 +62,12 @@ own CPU [core](../csf/docs/generated/ontology_cgen.md#term-core).
 
 <a id="figure-1"></a>
 
-![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](assets/lithe-system-architecture.png)
+[![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](https://arxiv.org/html/2603.07442v1/figures/fig_architecture.png)](https://arxiv.org/html/2603.07442v1#S1.F2)
 
 **Figure 1.** LITHE's system architecture: the Brain, Spine, Housekeeping and
 Transport roles, each on its own core of one Raspberry Pi, driving a
-one-degree-of-freedom robot. Reproduced from LITHE, Figure 2
+one-degree-of-freedom robot. LITHE, Figure 2, shown from
+[arXiv](https://arxiv.org/html/2603.07442v1#S1.F2) and not copied into this repository
 ([Lim and Clites, 2026](../README.md#ref-lithe)).
 
 On LITHE's board, CPU 0 does housekeeping, CPU 1 runs the Spine's control loop
