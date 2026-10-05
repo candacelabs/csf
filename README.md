@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.8"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.9"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -34,10 +34,10 @@ real-time layer that does it (the control loop that must never miss a deadline).
 LITHE ([Lim and Clites, 2026](#ref-lithe)) turns that split into an architecture on
 one ordinary computer. A best-effort **[Brain](csf/docs/generated/ontology_cgen.md#term-brain)** proposes, a real-time
 **[Spine](csf/docs/generated/ontology_cgen.md#term-spine)** executes, and each gets its own CPU [core](csf/docs/generated/ontology_cgen.md#term-core). On LITHE's
-quad-core board, CPU 1 runs the Spine's control loop alone, CPU 2 runs the Brain,
+quad-core board, CPU 1 runs the [Spine](csf/docs/generated/ontology_cgen.md#term-spine)'s control loop alone, CPU 2 runs the [Brain](csf/docs/generated/ontology_cgen.md#term-brain),
 CPU 3 handles the motor bus, and **CPU 0** is the [housekeeping](docs/GLOSSARY.md#lit-housekeeping)
-core: it takes the operating system's chores, absorbs timing jitter so the other
-cores never feel it, and prepares the next controller before it is swapped in.
+[core](csf/docs/generated/ontology_cgen.md#term-core): it takes the operating system's chores, absorbs timing jitter so the other
+[cores](csf/docs/generated/ontology_cgen.md#term-core) never feel it, and prepares the next controller before it is swapped in.
 LITHE demonstrates this on one robot, but deciding versus doing is the shape of
 most robot software stacks, so we expect the architecture to carry over to most
 robots. Figure 1 is LITHE's own diagram of that split.
@@ -46,21 +46,21 @@ robots. Figure 1 is LITHE's own diagram of that split.
 
 [![LITHE system architecture: Brain, Spine, Housekeeping and Transport on a Raspberry Pi, with a 1-DOF robot demonstration.](https://arxiv.org/html/2603.07442v1/figures/fig_architecture.png)](https://arxiv.org/html/2603.07442v1#S1.F2)
 
-**Figure 1.** LITHE's system architecture: the Brain, Spine, Housekeeping and
-Transport roles, each on its own core of one Raspberry Pi, driving a
+**Figure 1.** LITHE's system architecture: the [Brain](csf/docs/generated/ontology_cgen.md#term-brain), [Spine](csf/docs/generated/ontology_cgen.md#term-spine), [Housekeeping](docs/GLOSSARY.md#lit-housekeeping) and
+Transport roles, each on its own [core](csf/docs/generated/ontology_cgen.md#term-core) of one Raspberry Pi, driving a
 one-degree-of-freedom robot. LITHE, Figure 2, shown from
 [arXiv](https://arxiv.org/html/2603.07442v1#S1.F2) and not copied into this repository
 ([Lim and Clites, 2026](#ref-lithe)).
 
-**CSF is the LITHE philosophy applied to CPU 0.** It is the housekeeping layer:
+**CSF is the LITHE philosophy applied to CPU 0.** It is the [housekeeping](docs/GLOSSARY.md#lit-housekeeping) layer:
 the tools, records, schedules and experiments around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system's
 decisions, composed into one Go process so they talk through function calls
 instead of inter-process communication. In CSF the architecture is a checked
 artifact and the engineers are [agents](csf/docs/generated/ontology_cgen.md#term-agent) working under rules. It ships
 with working implementations ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live), Warden, xetcas, pgmem,
 liquidproto) that prove the loop works. On LITHE's four-core board that is CPU 0
-alone; on a larger computer, CSF's process scales across every core not reserved
-for the Spine, Brain and Transport. Figure 2 places CSF on LITHE's CPU 0.
+alone; on a larger computer, CSF's process scales across every [core](csf/docs/generated/ontology_cgen.md#term-core) not reserved
+for the [Spine](csf/docs/generated/ontology_cgen.md#term-spine), [Brain](csf/docs/generated/ontology_cgen.md#term-brain) and Transport. Figure 2 places CSF on LITHE's CPU 0.
 
 <a id="figure-2"></a>
 
@@ -69,8 +69,8 @@ for the Spine, Brain and Transport. Figure 2 places CSF on LITHE's CPU 0.
 </p>
 
 **Figure 2.** CSF inside LITHE's CPU 0: one Go process holding typed tools,
-sessions, schedules, knowledge, observation and bounded workers. LITHE's Brain,
-Spine and Transport cores, and the external systems CSF talks to, sit outside it.
+sessions, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge), observation and bounded workers. LITHE's [Brain](csf/docs/generated/ontology_cgen.md#term-brain),
+[Spine](csf/docs/generated/ontology_cgen.md#term-spine) and Transport [cores](csf/docs/generated/ontology_cgen.md#term-core), and the external systems CSF talks to, sit outside it.
 Drawn by hand as our mapping onto LITHE; it is not generated.
 
 **New here? [Take the tour of CSF](docs/TOUR.md):** ten stops from the idea to the running pieces, each with a diagram, real code, an example next to a counterexample, and one command to run.
@@ -96,7 +96,7 @@ It has four parts, and together they form one loop:
    where intent and code diverge, and turn each divergence into the next gate
    or change. For example, on 2026-10-02 the finding that 64 of the 124 terms
    own no directory became a ticket that states the gate's predicate; the gate
-   itself is not built yet. Its method, RRSI [[14]](#ref-rrsi), evolves the agents'
+   itself is not built yet. Its method, RRSI [[14]](#ref-rrsi), evolves the [agents](csf/docs/generated/ontology_cgen.md#term-agent)'
    harness itself against an exam mined from git history.
 
 ### What it can be used as
@@ -109,14 +109,14 @@ It has four parts, and together they form one loop:
 
 What you get, grouped by what it is for:
 
-- **[CSF — The Cerebrospinal Fluid](csf)**, the core: a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system, covering typed tools, sessions and worktrees, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its [services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options, and each operation is generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp). Start with the [consumer example](examples/csf-consumer).
+- **[CSF — The Cerebrospinal Fluid](csf)**, the [core](csf/docs/generated/ontology_cgen.md#term-core): a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system, covering typed tools, sessions and worktrees, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its [services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options, and each operation is generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp). Start with the [consumer example](examples/csf-consumer).
   - **[Agent harness and ops view](app/harness):** one process per machine runs every [agent](csf/docs/generated/ontology_cgen.md#term-agent) session with gates on every command and commit. The `csf` binary is both that process and its client: `csf init` puts CSF into a repository, `csf submit` takes an [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) recipe, `csf send` adds a turn, and `csf view` serves a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) page with one live card per session ([command reference](app/harness/cmd)). See [Quick start](#5-quick-start).
-  - **[Ouroboros](services/ouroboros/README.md):** miners that read the record of what agents did, find mistakes no gate catches yet, and turn each into a gate once a walk-forward backtest on history finds every labeled case.
-  - **[RRSI](https://github.com/candacelabs/rrsi):** Regularized Recursive Self-Improvement [[14]](#ref-rrsi), Ouroboros's method: it rewrites an agent's harness (prompts, tools and loop, not the model) and keeps only changes that beat noise on an exam mined from your own git history.
+  - **[Ouroboros](services/ouroboros/README.md):** miners that read the record of what [agents](csf/docs/generated/ontology_cgen.md#term-agent) did, find mistakes no gate catches yet, and turn each into a gate once a walk-forward backtest on history finds every labeled case.
+  - **[RRSI](https://github.com/candacelabs/rrsi):** Regularized Recursive Self-Improvement [[14]](#ref-rrsi), [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros)'s method: it rewrites an [agent](csf/docs/generated/ontology_cgen.md#term-agent)'s harness (prompts, tools and loop, not the model) and keeps only changes that beat noise on an exam mined from your own git history.
   - **[`csfc` compiler](csf/compiler/README.md):** checks the code against [`architecture.csf`](csf/compiler/language/architecture.csf) and generates the [glossary](docs/GLOSSARY.md), the [dictionary](csf/docs/generated/ontology_cgen.md), the diagrams and this README's north star.
 - **[Deploy](services/deploy)**, an agent-operated deployment system: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, the node executor reconciles Compose [applications](csf/docs/generated/ontology_cgen.md#term-application), and the operator UI watches.
   - **[Deploy service and node executor](services/deploy)**, with the [deployment kit](infra/deploy-kit/) for Compose [applications](csf/docs/generated/ontology_cgen.md#term-application).
-  - **[Warden](services/warden):** the fleet watchdog the deploy service fences against: Raft-style leader election [[5]](#ref-raft) over a static peer set, liveness, incidents, and an authoritative view every mutation is checked against.
+  - **[Warden](services/warden):** the fleet watchdog the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) fences against: Raft-style leader election [[5]](#ref-raft) over a static peer set, liveness, incidents, and an authoritative view every mutation is checked against.
 - **Libraries** you can use on their own:
   - **[gotth-live](pkg/gotth):** server-driven live user interfaces from Go. [Widgets](csf/docs/generated/ontology_cgen.md#term-widget), event handlers and state are synced from the [application](csf/docs/generated/ontology_cgen.md#term-application) layer, and the browser renders each change as the [app](csf/docs/generated/ontology_cgen.md#term-app) commits it. State and rendering stay in your process; one WebSocket per tab carries events up and re-rendered fragments down. No npm, no CDN.
   - **[xetcas](xetcas):** a self-hosted Xet [[6]](#ref-xet) content-addressable storage server with a Git LFS [[7]](#ref-git-lfs) front door, used for build caches, snapshots and evidence archival. Re-pushing a 48 MiB model after editing 2% of it costs about 1 MiB.
@@ -130,9 +130,9 @@ robot's CPU 0. Click it to open it full size.
 <p align="center"><a href="docs/assets/tour/csf-master-diagram.svg"><img src="docs/assets/tour/csf-master-diagram.svg" width="1000" alt="How CSF fits together on a robot's CPU 0"></a></p>
 
 **Figure 3.** How CSF fits together. Eight parts sit clockwise around CPU 0:
-declare (the languages and csfc), run (the runtime library), show (gotth-live),
-change (the agent harness), ship (deploy and Warden), learn (xetcas; amber marks
-planned work), improve (Ouroboros) and evolve (RRSI). The centre is one Go process
+declare (the languages and csfc), run (the [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) library), show ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live)),
+change (the [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness), ship (deploy and Warden), learn (xetcas; amber marks
+planned work), improve ([Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros)) and evolve (RRSI). The centre is one Go process
 built on the `pkg/` primitives.
 
 The north star is a robot software
@@ -215,10 +215,10 @@ Figure 4 shows what that means inside the process, and who owns each part.
 <p align="center"><a href="docs/assets/tour/csf-go-runtime.svg"><img src="docs/assets/tour/csf-go-runtime.svg" width="1000" alt="Monolithic microservices: who owns what"></a></p>
 
 **Figure 4.** Monolithic microservices: who owns what. Teal is CSF, indigo is the
-Go runtime, amber is you, the consumer, and grey is the machine. Each service is a
-CSF part with the piece you supply; underneath, the Go runtime schedules every
-service's goroutines across the cores over one shared heap. On a LITHE robot CPU 1
-to 3 are reserved, so CSF runs on every other core.
+Go [runtime](csf/docs/generated/ontology_cgen.md#term-runtime), amber is you, the consumer, and grey is the machine. Each [service](csf/docs/generated/ontology_cgen.md#term-service) is a
+CSF part with the piece you supply; underneath, the Go [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) schedules every
+[service](csf/docs/generated/ontology_cgen.md#term-service)'s [goroutines](csf/docs/generated/ontology_cgen.md#term-goroutine) across the [cores](csf/docs/generated/ontology_cgen.md#term-core) over one shared heap. On a LITHE robot CPU 1
+to 3 are reserved, so CSF runs on every other [core](csf/docs/generated/ontology_cgen.md#term-core).
 
 Figure 2 is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
 by hand; it is not generated from the architecture model. Its boundaries are exact:
@@ -599,7 +599,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.8`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.2.9`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -636,7 +636,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.8/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.9/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -648,7 +648,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.8
+go get github.com/candacelabs/csf@v0.2.9
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -767,7 +767,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.8},
+  version = {0.2.9},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
@@ -819,19 +819,19 @@ ACM SIGMOD International Conference on Management of Data, pp. 340–355, 1986.
 
 <a id="ref-refinement-types"></a>
 
-**[9]** T. Freeman and F. Pfenning. *Refinement types for ML.* Proceedings of the ACM
+**[9]** T. Freeman and F. Pfenning. *[Refinement types](docs/GLOSSARY.md#lit-refinement_types) for ML.* Proceedings of the ACM
 SIGPLAN 1991 Conference on Programming Language Design and Implementation (PLDI),
 pp. 268–277, 1991. <https://doi.org/10.1145/113445.113468>
 
 <a id="ref-keymaera-x"></a>
 
-**[10]** N. Fulton, S. Mitsch, J.-D. Quesel, M. Völp and A. Platzer. *KeYmaera X: an
+**[10]** N. Fulton, S. Mitsch, J.-D. Quesel, M. Völp and A. Platzer. *[KeYmaera X](docs/GLOSSARY.md#lit-keymaera_x): an
 axiomatic tactical theorem prover for hybrid systems.* CADE-25, LNCS 9195,
 pp. 527–538, 2015. <https://doi.org/10.1007/978-3-319-21401-6_36>
 
 <a id="ref-veriphy"></a>
 
-**[11]** R. Bohrer, Y. K. Tan, S. Mitsch, M. O. Myreen and A. Platzer. *VeriPhy: verified
+**[11]** R. Bohrer, Y. K. Tan, S. Mitsch, M. O. Myreen and A. Platzer. *[VeriPhy](docs/GLOSSARY.md#lit-veriphy): verified
 controller executables from verified cyber-physical system models.* PLDI 2018,
 pp. 617–630, 2018. <https://doi.org/10.1145/3192366.3192406>
 
@@ -844,18 +844,18 @@ ACM 52(7):107–115, 2009. <https://doi.org/10.1145/1538788.1538814>
 
 **[13]** G. Klein, K. Elphinstone, G. Heiser, J. Andronick, D. Cock, P. Derrin,
 D. Elkaduwe, K. Engelhardt, R. Kolanski, M. Norrish, T. Sewell, H. Tuch and
-S. Winwood. *seL4: formal verification of an OS kernel.* SOSP 2009, pp. 207–220,
+S. Winwood. *[seL4](docs/GLOSSARY.md#lit-sel4): formal verification of an OS kernel.* SOSP 2009, pp. 207–220,
 2009. <https://doi.org/10.1145/1629575.1629596>
 
 <a id="ref-rrsi"></a>
 
 **[14]** P. Xia, R. Han, Z. Wang, Y. Chen, Y. Zhuang, Y. Lee, C. Huang, H. Yu,
 Z. CuiZhu, Y. Ming, H. Yao, B. Gokturk, T. Pfister and C.-Y. Lee. *RRSI: Regularized
-Recursive Self-Improvement of Agent Harnesses.* arXiv:2609.24972, 2026.
+Recursive Self-Improvement of [Agent](csf/docs/generated/ontology_cgen.md#term-agent) Harnesses.* arXiv:2609.24972, 2026.
 <https://arxiv.org/abs/2609.24972>
 
-The north star's "Builds on" column links KeYmaera X [10], VeriPhy [11], CompCert [12]
-and seL4 [13].
+The north star's "Builds on" column links [KeYmaera X](docs/GLOSSARY.md#lit-keymaera_x) [10], [VeriPhy](docs/GLOSSARY.md#lit-veriphy) [11], [CompCert](docs/GLOSSARY.md#lit-compcert) [12]
+and [seL4](docs/GLOSSARY.md#lit-sel4) [13].
 
 ## License
 

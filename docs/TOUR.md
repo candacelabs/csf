@@ -259,6 +259,47 @@ the README's diagrams and its north star table are all compiler output.
 
 **Go deeper:** [`csf/compiler/README.md`](../csf/compiler/README.md).
 
+### Why a language, and not plain Datalog
+
+csfc already turns every declaration into Datalog facts and checks them with
+Datalog rules (stage 4 in Figure 5). So why not write plain Datalog and skip the
+language? Because plain Datalog constants are strings, and a string rule fails
+silently: a typo matches nothing, a moved directory leaves the rule pointing at
+the old path, and two hard-coded copies drift apart. In CSF every constant a rule
+names is a declared, typed noun, and csfc refuses a rule that names something
+undeclared. Figure 6 shows both sides.
+
+<a id="figure-6"></a>
+
+<p align="center"><a href="assets/tour/csf-typed-rules.svg"><img src="assets/tour/csf-typed-rules.svg" width="1000" alt="Untyped rules break silently; typed rules fail at compile time"></a></p>
+
+**Figure 6.** Untyped rules break silently; typed rules fail at compile time. Left:
+a CS-16 rule over string constants and its three silent failures, with today's
+string API list in `go_policy.ml`. Right: the same rule over declared nouns, where a
+typo is a compile error, a directory move is one edit, and one declaration replaces
+both lists. The boundary declaration on the right is proposed, not built.
+
+That gives each layer one job, as Figure 7 shows. CSF and csfc define the nouns
+and check, against the Go source, that each one is what we say it is; their typed
+output is the set of axioms. Datalog says how the nouns may play. Lean then
+proves two things: that the definitions are sound (consistent and well-formed,
+for example no component has two lifecycles and no scope contains itself), and
+that the rules hold over them. The proofs reason over the definitions and the
+Datalog rules, never over the OCaml. The OCaml matters because it is what
+produces typed, checked axioms for Lean to stand on.
+
+<a id="figure-7"></a>
+
+<p align="center"><a href="assets/tour/csf-nouns-rules-theorems.svg"><img src="assets/tour/csf-nouns-rules-theorems.svg" width="1000" alt="Nouns, rules, theorems: who builds what"></a></p>
+
+**Figure 7.** Nouns, rules, theorems. 1: `architecture.csf` declares the nouns and
+csfc emits them as typed facts checked against the Go source. 2: `rules.dl`,
+typed by those nouns, says how they may play. 3: Lean proves the definitions
+sound, then proves that a finding relation stays empty, using only the axioms
+from 1. The Lean code is illustrative;
+today [`CSFCVerifier.lean`](../csf/compiler/verification/README.md) returns
+`notImplemented`.
+
 ## 4. The runtime library
 
 **In one sentence:** [`csf`](../csf/README.md) is a Go library you mount into your
@@ -271,15 +312,15 @@ handler instead, and your process stays yours.
 
 **On a robot.** CPU 0 is one core with a fixed budget. One process with no IPC spends that budget on work instead of on sockets, serialization and daemons to supervise.
 
-**Picture.** See Figure 6.
+**Picture.** See Figure 8.
 
-<a id="figure-6"></a>
+<a id="figure-8"></a>
 
 <p align="center"><a href="assets/tour/tour-runtime.svg"><img src="assets/tour/tour-runtime.svg" width="1000" alt="CSF inside your binary"></a></p>
 
-**Figure 6.** CSF inside your binary. Your `main` owns the process and the router; CSF registers its routes, so agents reach over MCP the same tools you reach over HTTP and the CLI.
+**Figure 8.** CSF inside your binary. Your `main` owns the process and the router; CSF registers its routes, so agents reach over MCP the same tools you reach over HTTP and the CLI.
 
-**Inside the process.** Figure 7 opens the box and colors every part by who owns
+**Inside the process.** Figure 9 opens the box and colors every part by who owns
 it. The Go runtime (indigo) gives every Go program goroutines, a scheduler that
 spreads them across cores, channels and one garbage-collected heap. CSF (teal)
 builds services on top: a scheduler, agent sessions, live pages through gotth-live,
@@ -292,11 +333,11 @@ its own page, like a microservice, but a handoff between services is a function
 call or a channel, never a network hop. On a LITHE robot the process scales
 across every core not reserved for the Spine, Brain and Transport.
 
-<a id="figure-7"></a>
+<a id="figure-9"></a>
 
 <p align="center"><a href="assets/tour/csf-go-runtime.svg"><img src="assets/tour/csf-go-runtime.svg" width="1000" alt="Monolithic microservices: one process, every core"></a></p>
 
-**Figure 7.** Monolithic microservices: who owns what. Teal is CSF, indigo is the
+**Figure 9.** Monolithic microservices: who owns what. Teal is CSF, indigo is the
 Go runtime, amber is you, grey is the machine. Top: six services, each a CSF part
 with the piece you supply, and the four things CSF expects from you. Middle: the Go
 runtime's heap, processors with goroutine queues, and a channel handing a value
@@ -351,13 +392,13 @@ client framework.
 
 **On a robot.** The web is the easiest way for a person to reach a machine: any phone or laptop works. The robot keeps the only copy of the state and sends small fragments, so it can serve several versions of its UI on scarce on-device compute, with no client state to keep in sync.
 
-**Picture.** Figure 8 follows one click across two tabs.
+**Picture.** Figure 10 follows one click across two tabs.
 
-<a id="figure-8"></a>
+<a id="figure-10"></a>
 
 <p align="center"><a href="assets/tour/tour-gotth-live.svg"><img src="assets/tour/tour-gotth-live.svg" width="1000" alt="One click in gotth-live"></a></p>
 
-**Figure 8.** One click in gotth-live. The event goes to the Go process, the reducer computes the new state once, and every open tab receives the re-rendered fragment.
+**Figure 10.** One click in gotth-live. The event goes to the Go process, the reducer computes the new state once, and every open tab receives the re-rendered fragment.
 
 **What it looks like.** From [`examples/gotth/counter`](../examples/gotth/counter).
 The button in [`view.templ`](../examples/gotth/counter/view.templ) names an event,
@@ -410,13 +451,13 @@ should not. Writing "please don't" in a prompt does not stop it. A gate does.
 
 **On a robot.** Agents can change the robot's own software under the same gates, and every change arrives as a pull request you can review before it ships.
 
-**Picture.** See Figure 9.
+**Picture.** See Figure 11.
 
-<a id="figure-9"></a>
+<a id="figure-11"></a>
 
 <p align="center"><a href="assets/tour/tour-harness.svg"><img src="assets/tour/tour-harness.svg" width="1000" alt="A harness session"></a></p>
 
-**Figure 9.** A harness session. A typed recipe becomes a session in its own git worktree; every command passes the session gate, and the first commit opens a draft pull request.
+**Figure 11.** A harness session. A typed recipe becomes a session in its own git worktree; every command passes the session gate, and the first commit opens a draft pull request.
 
 **What it looks like.** A session starts from a typed recipe. This is the sample
 `csf init` writes, from [`app/harness/cmd/recipe/agent.json`](../app/harness/cmd/recipe/agent.json):
@@ -475,13 +516,13 @@ each one into a gate, after proving it on history.
 **Why it exists.** Gates only stop the mistakes someone thought of in advance.
 Every new mistake the operator flags is evidence for the next gate.
 
-**Picture.** The snake eats its tail; Figure 10 shows how.
+**Picture.** The snake eats its tail; Figure 12 shows how.
 
-<a id="figure-10"></a>
+<a id="figure-12"></a>
 
 <p align="center"><a href="assets/tour/tour-ouroboros.svg"><img src="assets/tour/tour-ouroboros.svg" width="1000" alt="The Ouroboros loop"></a></p>
 
-**Figure 10.** The Ouroboros loop. Facts from the record feed a Datalog rule; the rule becomes a gate only if a backtest on history finds every labeled case, and gated runs become the next record.
+**Figure 12.** The Ouroboros loop. Facts from the record feed a Datalog rule; the rule becomes a gate only if a backtest on history finds every labeled case, and gated runs become the next record.
 
 **What it looks like.** A miner is a Datalog rule over facts extracted from the
 record. This one flags a session that worked longer than a measured threshold
@@ -569,13 +610,13 @@ every change is checked against one source of truth.
 
 **On a robot.** New versions roll out across a fleet of robots one fenced change at a time, and a node that has lost leadership cannot keep writing.
 
-**Picture.** See Figure 11.
+**Picture.** See Figure 13.
 
-<a id="figure-11"></a>
+<a id="figure-13"></a>
 
 <p align="center"><a href="assets/tour/tour-deploy.svg"><img src="assets/tour/tour-deploy.svg" width="1000" alt="Deploying with an agent"></a></p>
 
-**Figure 11.** Deploying with an agent. The agent only proposes; the deploy service approves each change and fences it against Warden's view, the node executor applies it, and the operator UI watches.
+**Figure 13.** Deploying with an agent. The agent only proposes; the deploy service approves each change and fences it against Warden's view, the node executor applies it, and the operator UI watches.
 
 Warden elects one leader over a fixed set of peers in the style of Raft
 ([Ongaro and Ousterhout, 2014](../README.md#ref-raft)), tracks which nodes are
@@ -619,13 +660,13 @@ format with a Git LFS front door, so ordinary `git push` works.
 
 **On a robot.** Models and data move as changed chunks, which is what makes it practical for a robot to retrain and update its own weights in the field. That self-training is planned, not built.
 
-**Picture.** See Figure 12.
+**Picture.** See Figure 14.
 
-<a id="figure-12"></a>
+<a id="figure-14"></a>
 
 <p align="center"><a href="assets/tour/tour-xetcas.svg"><img src="assets/tour/tour-xetcas.svg" width="1000" alt="Why xetcas uploads so little"></a></p>
 
-**Figure 12.** Why xetcas uploads so little. Files are split into content-defined chunks and each chunk is stored once, so a 2% edit to a 48 MiB model sends about 1 MiB.
+**Figure 14.** Why xetcas uploads so little. Files are split into content-defined chunks and each chunk is stored once, so a 2% edit to a 48 MiB model sends about 1 MiB.
 
 | | example: xetcas | counterexample: plain LFS |
 |---|---|---|

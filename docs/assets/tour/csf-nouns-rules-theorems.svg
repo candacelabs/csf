@@ -1,0 +1,198 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1092" width="1000" height="1092" role="img" aria-labelledby="title description">
+  <title id="title">Nouns, rules, theorems</title>
+  <desc id="description">Three tiers. 1 Nouns: architecture.csf declares the proc gateway, the relay_inboxes service and a proposed process boundary; csfc in OCaml parses, decodes, type-checks and checks them against the Go source, emitting typed facts that serve as axioms. 2 Rules: rules.dl, typed by the nouns, holds call_lifetime and a typed CS-16 rule. 3 Theorems: Lean 4 states axioms emitted by csfc and proves that an empty call_lifetime relation means every in-process call is safe; the verifier stub today returns notImplemented. A Datalog summary closes the figure.</desc>
+  <style>
+    text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
+    .bg { fill: #FFFFFF; }
+    .ink { fill: #0F172A; }
+    .muted { fill: #475569; }
+    .accent { fill: #115E59; }
+    .panel { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .card { fill: #FFFFFF; stroke: #64748B; stroke-width: 1.5; }
+    .process { fill: #FFFFFF; stroke: #0F766E; stroke-width: 2.5; }
+    .chip { fill: #0F766E; }
+    .chip-text { fill: #FFFFFF; }
+    .lithe { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .gate { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .good { fill: #ECFDF5; stroke: #047857; stroke-width: 2; }
+    .bad { fill: #FEF2F2; stroke: #B91C1C; stroke-width: 2; }
+    .newchunk { fill: #0F766E; }
+    .stored { fill: #E2E8F0; stroke: #94A3B8; stroke-width: 1; }
+    .changed { fill: #D97706; }
+    .wire { fill: none; stroke: #334155; stroke-width: 1.6; }
+    .wire-head { fill: #334155; }
+    .link { fill: none; stroke: #0F766E; stroke-width: 2; }
+    .link-head { fill: #0F766E; }
+    .dash { fill: none; stroke: #0F766E; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .badwire { fill: none; stroke: #B91C1C; stroke-width: 1.8; stroke-dasharray: 6 4; }
+    .bad-head { fill: #B91C1C; }
+    .life { fill: none; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 5; }
+    .tag-a { fill: #0F766E; }
+    .tag-b { fill: #4338CA; }
+    .tag-c { fill: #475569; }
+    .reserved { fill: #F1F5F9; stroke: #94A3B8; stroke-width: 1.5; stroke-dasharray: 5 4; }
+    .band { fill: #F8FAFC; stroke: #CBD5E1; stroke-width: 1.5; }
+    .tag-n { fill: #334155; }
+    .own-csf { fill: #F0FDFA; stroke: #0F766E; stroke-width: 2.5; }
+    .own-go { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2; }
+    .own-you { fill: #FFFBEB; stroke: #B45309; stroke-width: 2; }
+    .own-hw { fill: #F1F5F9; stroke: #64748B; stroke-width: 1.5; }
+    .strip-you { fill: #FEF3C7; stroke: #B45309; stroke-width: 1; }
+    .go-dot { fill: #4338CA; }
+    .gowire { fill: none; stroke: #4338CA; stroke-width: 2; }
+    .godash { fill: none; stroke: #4338CA; stroke-width: 2; stroke-dasharray: 6 4; }
+    .go-head { fill: #4338CA; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #0D1117; }
+      .ink { fill: #E6EDF3; }
+      .muted { fill: #9DA7B3; }
+      .accent { fill: #5EEAD4; }
+      .panel { fill: #1E1B4B; stroke: #818CF8; }
+      .card { fill: #0D1117; stroke: #8B949E; }
+      .process { fill: #0D1117; stroke: #2DD4BF; }
+      .chip { fill: #115E59; }
+      .lithe { fill: #161B22; stroke: #8B949E; }
+      .gate { fill: #1F1A0E; stroke: #F59E0B; }
+      .good { fill: #0B2018; stroke: #34D399; }
+      .bad { fill: #2A1215; stroke: #F87171; }
+      .newchunk { fill: #14B8A6; }
+      .stored { fill: #21262D; stroke: #484F58; }
+      .changed { fill: #F59E0B; }
+      .wire { stroke: #9DA7B3; }
+      .wire-head { fill: #9DA7B3; }
+      .link { stroke: #2DD4BF; }
+      .link-head { fill: #2DD4BF; }
+      .dash { stroke: #2DD4BF; }
+      .badwire { stroke: #F87171; }
+      .bad-head { fill: #F87171; }
+      .life { stroke: #484F58; }
+      .tag-a { fill: #115E59; }
+      .tag-b { fill: #3730A3; }
+      .tag-c { fill: #30363D; }
+      .reserved { fill: #161B22; stroke: #484F58; }
+      .band { fill: #0D1117; stroke: #30363D; }
+      .tag-n { fill: #30363D; }
+      .own-csf { fill: #0B1F1E; stroke: #2DD4BF; }
+      .own-go { fill: #1E1B4B; stroke: #818CF8; }
+      .own-you { fill: #1F1A0E; stroke: #F59E0B; }
+      .own-hw { fill: #161B22; stroke: #8B949E; }
+      .strip-you { fill: #3A2A08; stroke: #F59E0B; }
+      .go-dot { fill: #6366F1; }
+      .gowire { stroke: #818CF8; }
+      .godash { stroke: #818CF8; }
+      .go-head { fill: #818CF8; }
+    }
+    .codebg { fill: #0F172A; stroke: #1E293B; stroke-width: 1; }
+    @media (prefers-color-scheme: dark) { .codebg { fill: #010409; stroke: #30363D; } }
+  </style>
+  <defs>
+    <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="link-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="link-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+  <rect class="bg" x="0" y="0" width="1000" height="1092" rx="16"/>
+  <text class="ink" x="24" y="36" font-size="20" font-weight="700">Nouns, rules, theorems: who builds what</text>
+  <text class="muted" x="24" y="58" font-size="13">CSF and csfc define the nouns and check them against the code. Datalog says how they may play. Lean proves both are sound.</text>
+  <rect class="process" x="24" y="76" width="952" height="300" rx="14"/>
+  <circle class="chip" cx="52" cy="104" r="15"/>
+  <text class="chip-text" x="52" y="109.5" font-size="15" font-weight="700" text-anchor="middle">1</text>
+  <text class="ink" x="78" y="101" font-size="15" font-weight="700">Nouns · CSF says what things are; csfc (OCaml) checks they ARE that</text>
+  <text class="muted" x="78" y="119" font-size="12.5">its typed output is the set of axioms everything above stands on</text>
+  <rect class="codebg" x="40" y="136" width="318" height="168" rx="10"/>
+  <text fill="#E2E8F0" x="52" y="154" font-size="12" font-weight="700">architecture.csf · the nouns</text>
+  <text x="52" y="174" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">gateway </tspan><tspan fill="#7DD3FC">proc </tspan><tspan fill="#F472B6">in </tspan><tspan fill="#7DD3FC">host </tspan><tspan fill="#F472B6">scope </tspan><tspan fill="#7DD3FC">application</tspan></text>
+  <text x="52" y="190" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">  source </tspan><tspan fill="#86EFAC">"ipc/proc"</tspan><tspan fill="#E2E8F0">;</tspan></text>
+  <text x="52" y="206" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">service </tspan><tspan fill="#7DD3FC">relay_inboxes </tspan><tspan fill="#F472B6">in </tspan><tspan fill="#7DD3FC">host</tspan></text>
+  <text x="52" y="222" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">  scope </tspan><tspan fill="#7DD3FC">relay_inbox_run </tspan><tspan fill="#F472B6">lifecycle </tspan><tspan fill="#C4B5FD">lazy</tspan><tspan fill="#E2E8F0">;</tspan></text>
+  <text x="52" y="238" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">boundary </tspan><tspan fill="#C4B5FD">process </tspan><tspan fill="#F472B6">owned_by </tspan><tspan fill="#7DD3FC">proc</tspan><tspan fill="#94A3B8">  % next</tspan></text>
+  <text x="52" y="254" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">  api </tspan><tspan fill="#86EFAC">"os/exec"</tspan><tspan fill="#E2E8F0">.{</tspan><tspan fill="#7DD3FC">Command</tspan><tspan fill="#E2E8F0">, ...};</tspan></text>
+  <text x="52" y="270" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% today: architecture.csf:22-23</tspan></text>
+  <text class="ink" x="384" y="150" font-size="13" font-weight="700">csfc · OCaml</text>
+  <rect class="codebg" x="384" y="160" width="212" height="28" rx="8"/>
+  <text fill="#FBBF24" x="394" y="178.5" font-size="12" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">parse</text>
+  <text fill="#94A3B8" x="586" y="178.5" font-size="11" text-anchor="end">grammar fits</text>
+  <rect class="codebg" x="384" y="196" width="212" height="28" rx="8"/>
+  <text fill="#FBBF24" x="394" y="214.5" font-size="12" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">decode</text>
+  <text fill="#94A3B8" x="586" y="214.5" font-size="11" text-anchor="end">typed values, no strings</text>
+  <rect class="codebg" x="384" y="232" width="212" height="28" rx="8"/>
+  <text fill="#FBBF24" x="394" y="250.5" font-size="12" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">type-check</text>
+  <text fill="#94A3B8" x="586" y="250.5" font-size="11" text-anchor="end">every name resolves</text>
+  <rect class="codebg" x="384" y="268" width="212" height="28" rx="8"/>
+  <text fill="#FBBF24" x="394" y="286.5" font-size="12" font-weight="700" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">source check</text>
+  <text fill="#94A3B8" x="586" y="286.5" font-size="11" text-anchor="end">the Go code agrees</text>
+  <path class="link" d="M358,220 L382,220" marker-end="url(#link-end)"/>
+  <path class="link" d="M596,220 L620,220" marker-end="url(#link-end)"/>
+  <rect class="codebg" x="622" y="136" width="338" height="168" rx="10"/>
+  <text fill="#E2E8F0" x="634" y="154" font-size="12" font-weight="700">axioms out · typed facts</text>
+  <text fill="#64748B" x="948" y="154" font-size="10.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">checked</text>
+  <text x="634" y="174" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">gateway</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">proc</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#86EFAC">"ipc/proc"</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="634" y="190" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">lifecycle</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">relay_inboxes</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">lazy</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="634" y="206" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">connects</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">agent_relay</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#7DD3FC">relay_inboxes</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">call</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="634" y="222" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">api</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">os_exec_command</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">process</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="634" y="238" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% each one: declared in CSF,</tspan></text>
+  <text x="634" y="254" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% then checked against the Go source</tspan></text>
+  <rect x="40" y="318" width="373" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1.2"/>
+  <text fill="#A7F3D0" x="51" y="332" font-size="11.5" font-weight="700">an axiom = a declaration csfc checked against the code</text>
+  <rect x="40" y="344" width="516" height="20" rx="10" fill="#4C0519" stroke="#F87171" stroke-width="1.2"/>
+  <text fill="#FECACA" x="51" y="358" font-size="11.5" font-weight="700">trust rests on the source check: syntax-based, method calls unresolved today</text>
+  <path class="link" d="M500,376 L500,398" marker-end="url(#link-end)"/>
+  <text class="accent" x="510" y="392" font-size="11.5" font-weight="700">types every constant</text>
+  <rect class="gate" x="24" y="400" width="952" height="170" rx="14"/>
+  <circle class="chip" cx="52" cy="428" r="15"/>
+  <text class="chip-text" x="52" y="433.5" font-size="15" font-weight="700" text-anchor="middle">2</text>
+  <text class="ink" x="78" y="425" font-size="15" font-weight="700">Rules · Datalog says how the nouns may play</text>
+  <rect class="codebg" x="40" y="442" width="600" height="112" rx="10"/>
+  <text fill="#E2E8F0" x="52" y="460" font-size="12" font-weight="700">rules.dl · typed by 1</text>
+  <text x="52" y="480" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">call_lifetime</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">A,B</tspan><tspan fill="#E2E8F0">) :- </tspan><tspan fill="#FBBF24">connects</tspan><tspan fill="#E2E8F0">(A,B,</tspan><tspan fill="#C4B5FD">call</tspan><tspan fill="#E2E8F0">), </tspan><tspan fill="#FBBF24">same_process</tspan><tspan fill="#E2E8F0">(A,B),</tspan></text>
+  <text x="52" y="496" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">        ~</tspan><tspan fill="#FBBF24">outlives</tspan><tspan fill="#E2E8F0">(B,A), ~</tspan><tspan fill="#FBBF24">lifecycle</tspan><tspan fill="#E2E8F0">(B,</tspan><tspan fill="#C4B5FD">lazy</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="52" y="512" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">cs_16</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">F</tspan><tspan fill="#E2E8F0">) :- </tspan><tspan fill="#FBBF24">calls</tspan><tspan fill="#E2E8F0">(F,A), </tspan><tspan fill="#FBBF24">api</tspan><tspan fill="#E2E8F0">(A,</tspan><tspan fill="#C4B5FD">process</tspan><tspan fill="#E2E8F0">), ~</tspan><tspan fill="#FBBF24">inside</tspan><tspan fill="#E2E8F0">(F, </tspan><tspan fill="#C4B5FD">gateway</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">proc</tspan><tspan fill="#E2E8F0">)).</tspan></text>
+  <text x="52" y="528" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% a finding relation should stay empty; that emptiness is what Lean proves</tspan></text>
+  <rect x="656" y="450" width="236" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1.2"/>
+  <text fill="#A7F3D0" x="667" y="464" font-size="11.5" font-weight="700">every constant is a declared noun</text>
+  <rect x="656" y="478" width="256" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1.2"/>
+  <text fill="#A7F3D0" x="667" y="492" font-size="11.5" font-weight="700">same rules: csfc, house lint, miners</text>
+  <rect x="656" y="506" width="210" height="20" rx="10" fill="#1E1B4B" stroke="#818CF8" stroke-width="1.2"/>
+  <text fill="#C7D2FE" x="667" y="520" font-size="11.5" font-weight="700">later: the runtime store (L4)</text>
+  <path class="link" d="M500,570 L500,594" marker-end="url(#link-end)"/>
+  <text class="accent" x="510" y="588" font-size="11.5" font-weight="700">statements from 2, axioms from 1</text>
+  <rect class="own-go" x="24" y="596" width="952" height="318" rx="14"/>
+  <circle class="tag-b" cx="52" cy="624" r="15"/>
+  <text class="chip-text" x="52" y="629.5" font-size="15" font-weight="700" text-anchor="middle">3</text>
+  <text class="ink" x="78" y="621" font-size="15" font-weight="700">Theorems · Lean proves the definitions sound, then proves the rules hold over them</text>
+  <rect class="codebg" x="40" y="638" width="600" height="262" rx="10"/>
+  <text fill="#E2E8F0" x="52" y="656" font-size="12" font-weight="700">Lean 4 · illustrative</text>
+  <text fill="#64748B" x="628" y="656" font-size="10.5" text-anchor="end" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace">what the verifier would check</text>
+  <text x="52" y="676" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">-- axioms: emitted by csfc from 1</tspan></text>
+  <text x="52" y="692" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">axiom </tspan><tspan fill="#7DD3FC">relay_lazy  </tspan><tspan fill="#E2E8F0">: </tspan><tspan fill="#FBBF24">lifecycle </tspan><tspan fill="#C4B5FD">.relay_inboxes </tspan><tspan fill="#E2E8F0">= </tspan><tspan fill="#C4B5FD">.lazy</tspan></text>
+  <text x="52" y="708" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">axiom </tspan><tspan fill="#7DD3FC">relay_calls </tspan><tspan fill="#E2E8F0">: </tspan><tspan fill="#FBBF24">connects </tspan><tspan fill="#C4B5FD">.agent_relay .relay_inboxes .call</tspan></text>
+  <text x="52" y="724" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">-- a. the definitions are sound: consistent and well-formed</tspan></text>
+  <text x="52" y="740" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">theorem </tspan><tspan fill="#7DD3FC">one_lifecycle </tspan><tspan fill="#E2E8F0">: </tspan><tspan fill="#FBBF24">lifecycle </tspan><tspan fill="#7DD3FC">c l </tspan><tspan fill="#E2E8F0">→ </tspan><tspan fill="#FBBF24">lifecycle </tspan><tspan fill="#7DD3FC">c l' </tspan><tspan fill="#E2E8F0">→ </tspan><tspan fill="#7DD3FC">l = l'</tspan></text>
+  <text x="52" y="756" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">theorem </tspan><tspan fill="#7DD3FC">scopes_tree   </tspan><tspan fill="#E2E8F0">: ¬ </tspan><tspan fill="#FBBF24">ancestor </tspan><tspan fill="#7DD3FC">s s</tspan><tspan fill="#94A3B8">   -- no scope contains itself</tspan></text>
+  <text x="52" y="772" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">-- b. the rules hold: no finding means every in-process call is safe</tspan></text>
+  <text x="52" y="788" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#F472B6">theorem </tspan><tspan fill="#7DD3FC">calls_safe </tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">h </tspan><tspan fill="#E2E8F0">: </tspan><tspan fill="#FBBF24">callLifetime </tspan><tspan fill="#E2E8F0">= </tspan><tspan fill="#C4B5FD">∅</tspan><tspan fill="#E2E8F0">) :</tspan></text>
+  <text x="52" y="804" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">    ∀ </tspan><tspan fill="#7DD3FC">a b</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#FBBF24">connects </tspan><tspan fill="#7DD3FC">a b </tspan><tspan fill="#C4B5FD">.call </tspan><tspan fill="#E2E8F0">→ </tspan><tspan fill="#FBBF24">sameProcess </tspan><tspan fill="#7DD3FC">a b </tspan><tspan fill="#E2E8F0">→</tspan></text>
+  <text x="52" y="820" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">      </tspan><tspan fill="#FBBF24">outlives </tspan><tspan fill="#7DD3FC">b a </tspan><tspan fill="#E2E8F0">∨ </tspan><tspan fill="#FBBF24">lifecycle </tspan><tspan fill="#7DD3FC">b </tspan><tspan fill="#E2E8F0">= </tspan><tspan fill="#C4B5FD">.lazy </tspan><tspan fill="#E2E8F0">:= </tspan><tspan fill="#F472B6">by</tspan><tspan fill="#E2E8F0"> ...</tspan></text>
+  <text x="52" y="836" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">-- the proof reasons over the Datalog program, never the OCaml</tspan></text>
+  <text x="52" y="852" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">-- csf/compiler/verification/CSFCVerifier.lean is the home</tspan></text>
+  <rect x="656" y="646" width="204" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1.2"/>
+  <text fill="#A7F3D0" x="667" y="660" font-size="11.5" font-weight="700">a. the definitions are sound</text>
+  <rect x="656" y="674" width="198" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1.2"/>
+  <text fill="#A7F3D0" x="667" y="688" font-size="11.5" font-weight="700">b. the rules hold over them</text>
+  <rect x="656" y="702" width="243" height="20" rx="10" fill="#064E3B" stroke="#34D399" stroke-width="1.2"/>
+  <text fill="#A7F3D0" x="667" y="716" font-size="11.5" font-weight="700">OCaml builds the axioms it may use</text>
+  <rect x="656" y="730" width="256" height="20" rx="10" fill="#4C0519" stroke="#F87171" stroke-width="1.2"/>
+  <text fill="#FECACA" x="667" y="744" font-size="11.5" font-weight="700">today: verify returns notImplemented</text>
+  <rect x="656" y="758" width="282" height="20" rx="10" fill="#1E1B4B" stroke="#818CF8" stroke-width="1.2"/>
+  <text fill="#C7D2FE" x="667" y="772" font-size="11.5" font-weight="700">today's stub aims at the compiler itself</text>
+  <rect x="656" y="786" width="262" height="20" rx="10" fill="#1E1B4B" stroke="#818CF8" stroke-width="1.2"/>
+  <text fill="#C7D2FE" x="667" y="800" font-size="11.5" font-weight="700">this aims it at definitions and rules</text>
+  <rect class="codebg" x="24" y="934" width="952" height="142" rx="10"/>
+  <text fill="#E2E8F0" x="36" y="952" font-size="12" font-weight="700">the stack, as Datalog</text>
+  <text x="36" y="972" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">defines</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">csf_and_csfc</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">nouns</tspan><tspan fill="#E2E8F0">).            </tspan><tspan fill="#FBBF24">defines</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">datalog</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">how_nouns_play</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="36" y="988" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">axiom</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">F</tspan><tspan fill="#E2E8F0">) :- </tspan><tspan fill="#FBBF24">emitted_by</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">csfc</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#7DD3FC">F</tspan><tspan fill="#E2E8F0">), </tspan><tspan fill="#FBBF24">checked_against</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">F</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#7DD3FC">go_source</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="36" y="1004" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">proves</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">lean</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">sound</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">axioms</tspan><tspan fill="#E2E8F0">)).</tspan><tspan fill="#94A3B8">            % consistent, well-formed definitions</tspan></text>
+  <text x="36" y="1020" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">proves</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">lean</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#7DD3FC">T</tspan><tspan fill="#E2E8F0">) :- </tspan><tspan fill="#FBBF24">about</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">T</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#7DD3FC">rules_dl</tspan><tspan fill="#E2E8F0">), </tspan><tspan fill="#FBBF24">uses_only</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">T</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">axiom</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="36" y="1036" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">why_ocaml</tspan><tspan fill="#E2E8F0"> :- </tspan><tspan fill="#FBBF24">needs</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">lean</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">typed_axioms</tspan><tspan fill="#E2E8F0">), </tspan><tspan fill="#FBBF24">produces</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">csfc</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#C4B5FD">typed_axioms</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="36" y="1052" font-size="11.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">gap</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#86EFAC">"CSFCVerifier.lean: notImplemented"</tspan><tspan fill="#E2E8F0">).   </tspan><tspan fill="#FBBF24">gap</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#86EFAC">"go_policy.ml:46-55 strings"</tspan><tspan fill="#E2E8F0">).</tspan></text>
+</svg>
