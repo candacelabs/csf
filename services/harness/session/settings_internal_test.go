@@ -19,8 +19,10 @@ var _ = Describe("session settings", func() {
 		Expect(err).NotTo(HaveOccurred())
 		settings := claudeSettings{}
 		Expect(json.Unmarshal(content, &settings)).To(Succeed())
-		for _, event := range []string{HookPreToolUse, HookPostToolUse} {
+		Expect(settings.Hooks).To(HaveLen(3))
+		for _, event := range []string{HookPreToolUse, HookPostToolUse, HookStop} {
 			Expect(settings.Hooks[event]).To(HaveLen(1))
+			Expect(settings.Hooks[event][0].Matcher).To(Equal(gateMatchers[event]))
 			hook := settings.Hooks[event][0].Hooks[0]
 			Expect(hook.Timeout).To(Equal(gateTimeouts[event]))
 			file, err := syntax.NewParser().Parse(strings.NewReader(hook.Command), "")
@@ -51,7 +53,17 @@ var _ = Describe("session settings", func() {
 	It("gives the PreToolUse gate time to run the merge path's checks before a pull request is marked ready", func() {
 		Expect(gateTimeouts[HookPreToolUse]).To(Equal(readyGateTimeoutSeconds))
 		Expect(gateTimeouts[HookPostToolUse]).To(Equal(gateTimeoutSeconds))
+		Expect(gateTimeouts[HookStop]).To(Equal(replyGateTimeoutSeconds))
 		Expect(readyGateTimeoutSeconds).To(BeNumerically(">", gateTimeoutSeconds))
+	})
+
+	It("installs the Stop hook on every stop, with no tool matcher", func() {
+		content, err := sessionSettings([]string{"/opt/harness", "gate"}, "/state/run")
+		Expect(err).NotTo(HaveOccurred())
+		Expect(string(content)).To(ContainSubstring(`"Stop": [`))
+		Expect(string(content)).NotTo(ContainSubstring(`"matcher": ""`), "an empty matcher is omitted, not written")
+		Expect(gateMatchers).NotTo(HaveKey(HookStop))
+		Expect(gateMatchers[HookPreToolUse]).To(Equal("Bash|AskUserQuestion|mcp__csf__MarkPullRequestReady|Grep|Glob"))
 	})
 
 	It("frames a prompt as one stream-json user message", func() {

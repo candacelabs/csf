@@ -20,10 +20,10 @@ import (
 	"google.golang.org/protobuf/testing/protocmp"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model/copilot"
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model/copilot"
+	ionet "github.com/candacelabs/csf/io/net"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	"github.com/candacelabs/csf/pkg/eventually"
 	agentv1 "github.com/candacelabs/csf/proto/candace/agent/v1"
 	"github.com/candacelabs/csf/runtime"
@@ -145,7 +145,7 @@ func (failure *toolError) Error() string {
 	return text
 }
 
-func tierCount(registry *prometheus.Registry, name string, tier ipc.Tier) float64 {
+func tierCount(registry *prometheus.Registry, name string, tier io.Tier) float64 {
 	families, err := registry.Gather()
 	Expect(err).NotTo(HaveOccurred())
 	for _, family := range families {
@@ -187,11 +187,11 @@ var _ = Describe("agent messaging over MCP", func() {
 		// network listener is bound on loopback because a spec has no
 		// second machine; its agent is network-tier because of the address
 		// it registers, not because of where its packets come from.
-		network := ipcnet.NewHostNetwork()
+		network := ionet.NewHostNetwork()
 		socket := filepath.Join(GinkgoT().TempDir(), messagingSocketName)
-		hostListener, err := ipchttp.NewUnixSocketHTTPListener(network, socket, handler)
+		hostListener, err := iohttp.NewUnixSocketHTTPListener(network, socket, handler)
 		Expect(err).NotTo(HaveOccurred())
-		networkListener, err := ipchttp.NewHTTPListener(network, messagingLoopback, handler)
+		networkListener, err := iohttp.NewHTTPListener(network, messagingLoopback, handler)
 		Expect(err).NotTo(HaveOccurred())
 
 		resident, err := copilot.NewInProcessAddress(uuid.MustParse(messagingResidentSession))
@@ -222,31 +222,31 @@ var _ = Describe("agent messaging over MCP", func() {
 		registered, err := call[csf.AgentRegistrationView](ctx, reviewer, csf.RegisterAgentAddressTool,
 			csf.RegisterAgentAddressInput{Provider: messagingClaudeCode, Endpoint: "unix:" + socket})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(registered.Tier).To(Equal(ipc.TierHost.String()))
+		Expect(registered.Tier).To(Equal(io.TierIpc.String()))
 		Expect(registered.Agent).To(Equal(messagingHostAgent))
 		registered, err = call[csf.AgentRegistrationView](ctx, remote, csf.RegisterAgentAddressTool,
 			csf.RegisterAgentAddressInput{Provider: messagingCopilot, Endpoint: networkAddress})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(registered.Tier).To(Equal(ipc.TierNetwork.String()))
+		Expect(registered.Tier).To(Equal(io.TierNet.String()))
 
 		// host → in_process: the resident receives by a direct call.
 		sent, err := call[csf.AgentEnvelopeView](ctx, reviewer, csf.SendAgentMessageTool,
 			csf.SendAgentMessageInput{To: messagingResidentAgent, Message: question()})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sent.Tier).To(Equal(ipc.TierHost.String()))
+		Expect(sent.Tier).To(Equal(io.TierIpc.String()))
 		received, err := residentMessenger.Receive(ctx, messagingResidentAgent)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(received.Body).To(BeComparableTo(question(), protocmp.Transform()))
-		Expect(received.Tier).To(Equal(ipc.TierHost))
+		Expect(received.Tier).To(Equal(io.TierIpc))
 
 		// in_process → network, then network → host.
 		relayed, err := residentMessenger.Send(ctx, resident, mustResolve(ctx, core, messagingNetworkAgent).Address, relayedNote())
 		Expect(err).NotTo(HaveOccurred())
-		Expect(relayed.Tier).To(Equal(ipc.TierNetwork))
+		Expect(relayed.Tier).To(Equal(io.TierNet))
 		sent, err = call[csf.AgentEnvelopeView](ctx, remote, csf.SendAgentMessageTool,
 			csf.SendAgentMessageInput{To: messagingHostAgent, Message: answer()})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sent.Tier).To(Equal(ipc.TierNetwork.String()))
+		Expect(sent.Tier).To(Equal(io.TierNet.String()))
 
 		remoteInbox, err := call[csf.FetchAgentInboxOutput](ctx, remote, csf.FetchAgentInboxTool, csf.FetchAgentInboxInput{})
 		Expect(err).NotTo(HaveOccurred())
@@ -256,7 +256,7 @@ var _ = Describe("agent messaging over MCP", func() {
 		reviewerInbox, err := call[csf.FetchAgentInboxOutput](ctx, reviewer, csf.FetchAgentInboxTool, csf.FetchAgentInboxInput{Limit: 5})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(reviewerInbox.Envelopes).To(HaveLen(1))
-		Expect(reviewerInbox.Envelopes[0].Tier).To(Equal(ipc.TierNetwork.String()))
+		Expect(reviewerInbox.Envelopes[0].Tier).To(Equal(io.TierNet.String()))
 		Expect(reviewerInbox.Envelopes[0].Message).To(BeComparableTo(answer(), protocmp.Transform()), "the reference survives the MCP round trip")
 
 		for _, acknowledgement := range []struct {
@@ -272,11 +272,11 @@ var _ = Describe("agent messaging over MCP", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(emptied.Envelopes).To(BeEmpty())
 
-		Expect(tierCount(registry, relay.MetricEnvelopesSent, ipc.TierInProcess)).To(BeZero())
-		Expect(tierCount(registry, relay.MetricEnvelopesSent, ipc.TierHost)).To(Equal(1.0))
-		Expect(tierCount(registry, relay.MetricEnvelopesSent, ipc.TierNetwork)).To(Equal(2.0))
-		Expect(tierCount(registry, relay.MetricEnvelopesDelivered, ipc.TierHost)).To(Equal(1.0))
-		Expect(tierCount(registry, relay.MetricEnvelopesDelivered, ipc.TierNetwork)).To(Equal(2.0))
+		Expect(tierCount(registry, relay.MetricEnvelopesSent, io.TierInProcess)).To(BeZero())
+		Expect(tierCount(registry, relay.MetricEnvelopesSent, io.TierIpc)).To(Equal(1.0))
+		Expect(tierCount(registry, relay.MetricEnvelopesSent, io.TierNet)).To(Equal(2.0))
+		Expect(tierCount(registry, relay.MetricEnvelopesDelivered, io.TierIpc)).To(Equal(1.0))
+		Expect(tierCount(registry, relay.MetricEnvelopesDelivered, io.TierNet)).To(Equal(2.0))
 	})
 
 	It("refuses a send from an agent that never registered, and an unknown provider", func(ctx SpecContext) {
@@ -289,8 +289,8 @@ var _ = Describe("agent messaging over MCP", func() {
 		Expect(err).NotTo(HaveOccurred())
 		authenticator, err := csf.NewAgentMCPAuthenticator([]byte(messagingSigningKey))
 		Expect(err).NotTo(HaveOccurred())
-		network := ipcnet.NewHostNetwork()
-		listener, err := ipchttp.NewHTTPListener(network, messagingLoopback, service.AgentMCPHandler(authenticator))
+		network := ionet.NewHostNetwork()
+		listener, err := iohttp.NewHTTPListener(network, messagingLoopback, service.AgentMCPHandler(authenticator))
 		Expect(err).NotTo(HaveOccurred())
 		Expect(listener.Start(scope)).To(Succeed())
 		address := listener.Addr().String()

@@ -20,10 +20,10 @@ import (
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/model/copilot"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/net/model/copilot"
 	"github.com/candacelabs/csf/services/relay"
 )
 
@@ -50,9 +50,9 @@ var conformanceSpecs = []conformanceSpec{
 	{"gives one address to at most one agent", oneAgentPerAddress},
 	{"reports an agent or address it has never seen", reportsUnknown},
 	{"refuses a registration without a valid agent or address", refusesInvalid},
-	{"round-trips a Claude Code host address with its type and tier", roundTrips(hostAddress, ipc.TierHost)},
-	{"round-trips a Copilot in_process address with its type and tier", roundTrips(inProcessAddress, ipc.TierInProcess)},
-	{"round-trips a Copilot network address with its type and tier", roundTrips(networkAddress, ipc.TierNetwork)},
+	{"round-trips a Claude Code host address with its type and tier", roundTrips(hostAddress, io.TierIpc)},
+	{"round-trips a Copilot in_process address with its type and tier", roundTrips(inProcessAddress, io.TierInProcess)},
+	{"round-trips a Copilot network address with its type and tier", roundTrips(networkAddress, io.TierNet)},
 	{"honors a canceled context", honorsCancellation},
 }
 
@@ -128,7 +128,7 @@ func refusesInvalid(ctx context.Context, registry relay.IRegistry) {
 
 // roundTrips checks that storage returns the provider's own address type,
 // equal to what was registered, so the tier survives storage.
-func roundTrips[Address model.IAgentAddress](newAddress func() Address, tier ipc.Tier) func(ctx context.Context, registry relay.IRegistry) {
+func roundTrips[Address model.IAgentAddress](newAddress func() Address, tier io.Tier) func(ctx context.Context, registry relay.IRegistry) {
 	return func(ctx context.Context, registry relay.IRegistry) {
 		address := newAddress()
 		gomega.Expect(registry.Register(ctx, relay.Registration{Agent: conformanceAgent, Address: address})).To(gomega.Succeed())

@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	csfpg "github.com/candacelabs/csf/ipc/db/csfpg"
+	csfpg "github.com/candacelabs/csf/io/ipc/db/csfpg"
 	jobs "github.com/candacelabs/csf/services/jobs"
 	gomock "go.uber.org/mock/gomock"
 )

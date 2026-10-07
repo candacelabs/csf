@@ -13,6 +13,7 @@ import (
 	reflect "reflect"
 	time "time"
 
+	proc "github.com/candacelabs/csf/io/ipc/proc"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -97,6 +98,36 @@ func (m *MockIHostMeasures) LoadAverage() (float64, error) {
 func (mr *MockIHostMeasuresMockRecorder) LoadAverage() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LoadAverage", reflect.TypeOf((*MockIHostMeasures)(nil).LoadAverage))
+}
+
+// MemoryAvailable mocks base method.
+func (m *MockIHostMeasures) MemoryAvailable() (uint64, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MemoryAvailable")
+	ret0, _ := ret[0].(uint64)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MemoryAvailable indicates an expected call of MemoryAvailable.
+func (mr *MockIHostMeasuresMockRecorder) MemoryAvailable() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MemoryAvailable", reflect.TypeOf((*MockIHostMeasures)(nil).MemoryAvailable))
+}
+
+// Pressure mocks base method.
+func (m *MockIHostMeasures) Pressure(resource proc.PressureResource) (proc.Pressure, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Pressure", resource)
+	ret0, _ := ret[0].(proc.Pressure)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Pressure indicates an expected call of Pressure.
+func (mr *MockIHostMeasuresMockRecorder) Pressure(resource any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Pressure", reflect.TypeOf((*MockIHostMeasures)(nil).Pressure), resource)
 }
 
 // MockIClock is a mock of IClock interface.

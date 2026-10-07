@@ -5,7 +5,7 @@ go_library(
     srcs = [
         "errors.go",
         "server.go",
-        "watch.go",
+        "server_watch.go",
     ],
     importpath = "github.com/candacelabs/csf/services/warden/grpcserver",
     visibility = ["//visibility:public"],

@@ -178,7 +178,7 @@ var _ = Describe("proof: the fixture slice graph", func() {
 		// Now the service, driven through the same completions: at every
 		// predicted end time the slices ending then are merged, and the
 		// sessions the service submits are compared with the prediction.
-		service, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, proofCapacity+1, 1)), dispatch.WithClock(fakeClock{}))
+		service, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithClock(fakeClock{}))
 		for _, slice := range fixture {
 			_, err := service.Enqueue(ctx, sliceRequest(slice.id, dependsOn(slice.deps...), slice.hotspots...))
 			Expect(err).NotTo(HaveOccurred())

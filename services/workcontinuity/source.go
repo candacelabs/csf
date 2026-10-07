@@ -1,13 +1,9 @@
 package workcontinuity
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"net/url"
 	"path"
 	"regexp"
@@ -16,7 +12,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/net/github"
 	workv1 "github.com/candacelabs/csf/proto/candace/work/v1"
 )
 
@@ -26,70 +22,82 @@ type ISource interface {
 	Append(ctx context.Context, taskURL, body string) (*workv1.SourceComment, error)
 }
 
-// Command runs an argument vector, never a shell command from task content.
-type Command func(ctx context.Context, args ...string) ([]byte, error)
-
-// GitHubSource uses the operator's existing gh authentication. The application
-// does not read, copy, print or persist the credential itself.
-type GitHubSource struct{ command Command }
+// GitHubSource reads and writes tasks through the GitHub protocol client the
+// binary granted; it never reads, copies or persists the token itself.
+type GitHubSource struct{ client *github.GitHubClient }
 
 const (
-	githubExecutable       = "gh"
-	githubAPICommand       = "api"
-	githubScheme           = "https"
-	githubHost             = "github.com"
-	githubRepositoryPrefix = "repos"
-	githubCommentsPath     = "/comments"
-	githubCommentPageQuery = "?per_page=100"
-	githubPaginateFlag     = "--paginate"
-	githubMethodFlag       = "--method"
-	githubRawFieldFlag     = "--raw-field"
-	githubBodyField        = "body="
-	githubCommentFragment  = "#issuecomment-"
+	githubScheme    = "https"
+	githubHost      = "github.com"
+	commentFragment = "#issuecomment-"
+	commentsPerPage = 100
+	// maxCommentPages bounds one Load: a longer history fails rather than
+	// returning incomplete.
+	maxCommentPages   = 100
+	pathSeparator     = "/"
+	issueTargetFields = 4
 )
 
-func NewGitHubSource(command Command) *GitHubSource { return &GitHubSource{command: command} }
-
-// GitHubCLI is the Command that runs the gh CLI through the process-boundary
-// capability, returning its standard output.
-func GitHubCLI(launcher proc.ILauncher) Command {
-	return func(ctx context.Context, args ...string) ([]byte, error) {
-		result, err := launcher.Run(ctx, proc.Command{Executable: githubExecutable, Arguments: args})
-		if err != nil {
-			return nil, fmt.Errorf("GitHub CLI request failed: %w", err)
-		}
-		return result.Stdout, nil
-	}
-}
+func NewGitHubSource(client *github.GitHubClient) *GitHubSource { return &GitHubSource{client: client} }
 
 var taskPath = regexp.MustCompile(`^/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/issues/[1-9][0-9]*$`)
+
+// issueTarget is the repository and number an issue URL names.
+type issueTarget struct {
+	owner  string
+	repo   string
+	number int
+}
 
 // ValidateTaskURL accepts exactly the issue identities the continuity source
 // can read and append to; consumers use it before retaining an association.
 func ValidateTaskURL(taskURL string) error {
-	_, err := issueEndpoint(taskURL)
+	_, err := issueTargetOf(taskURL)
 	return err
 }
 
-func issueEndpoint(taskURL string) (string, error) {
+func issueTargetOf(taskURL string) (issueTarget, error) {
 	parsed, err := url.Parse(taskURL)
 	if err != nil || parsed.Scheme != githubScheme || parsed.Host != githubHost || parsed.User != nil ||
 		parsed.RawQuery != "" || parsed.Fragment != "" || parsed.ForceQuery || parsed.RawPath != "" ||
 		parsed.String() != taskURL || !taskPath.MatchString(parsed.Path) || path.Clean(parsed.Path) != parsed.Path {
-		return "", fmt.Errorf("invalid GitHub issue URL")
+		return issueTarget{}, fmt.Errorf("invalid GitHub issue URL")
 	}
-	if _, err := strconv.ParseInt(parsed.Path[strings.LastIndexByte(parsed.Path, '/')+1:], 10, 64); err != nil {
-		return "", fmt.Errorf("invalid GitHub issue number: %w", err)
+	parts := strings.Split(strings.TrimPrefix(parsed.Path, pathSeparator), pathSeparator)
+	if len(parts) != issueTargetFields {
+		return issueTarget{}, fmt.Errorf("invalid GitHub issue URL")
 	}
-	return githubRepositoryPrefix + parsed.Path, nil
+	number, err := strconv.Atoi(parts[3])
+	if err != nil {
+		return issueTarget{}, fmt.Errorf("invalid GitHub issue number: %w", err)
+	}
+	return issueTarget{owner: parts[0], repo: parts[1], number: number}, nil
 }
 
-func (source *GitHubSource) Load(ctx context.Context, taskURL string) (*workv1.SourceSnapshot, error) {
-	endpoint, err := issueEndpoint(taskURL)
+// answered is a generated call's raw body when it succeeded, GitHub's
+// refusal otherwise.
+func answered(status int, body []byte, succeeded bool) ([]byte, error) {
+	if !succeeded {
+		return nil, &github.StatusError{Status: status, Message: strings.TrimSpace(string(body))}
+	}
+	return body, nil
+}
+
+// getIssue is an issue's raw JSON.
+func (source *GitHubSource) getIssue(ctx context.Context, target issueTarget) ([]byte, error) {
+	response, err := source.client.IssuesgetWithResponse(ctx, target.owner, target.repo, target.number)
 	if err != nil {
 		return nil, err
 	}
-	data, err := source.command(ctx, githubAPICommand, endpoint)
+	return answered(response.StatusCode(), response.Body, response.JSON200 != nil)
+}
+
+func (source *GitHubSource) Load(ctx context.Context, taskURL string) (*workv1.SourceSnapshot, error) {
+	target, err := issueTargetOf(taskURL)
+	if err != nil {
+		return nil, err
+	}
+	data, err := source.getIssue(ctx, target)
 	if err != nil {
 		return nil, err
 	}
@@ -101,43 +109,48 @@ func (source *GitHubSource) Load(ctx context.Context, taskURL string) (*workv1.S
 	if issue.HtmlUrl != taskURL || (issue.State != IssueOpen && issue.State != IssueClosed) || issue.Number <= 0 {
 		return nil, fmt.Errorf("source issue identity/state mismatch")
 	}
-	data, err = source.command(ctx, githubAPICommand, endpoint+githubCommentsPath+githubCommentPageQuery, githubPaginateFlag)
-	if err != nil {
-		return nil, err
-	}
-	// Raw JSON is confined to the upstream paginated envelope. Each item is
-	// decoded into the generated adapter projection, not a handwritten DTO.
+	// Each comment is decoded from GitHub's own JSON into the generated
+	// adapter projection, not a handwritten DTO; pages run until one is short.
 	snapshot := &workv1.SourceSnapshot{Issue: issue}
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	pages := 0
-	for {
-		var page []json.RawMessage
-		if err := decoder.Decode(&page); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
+	perPage := commentsPerPage
+	for page := 1; page <= maxCommentPages; page++ {
+		response, err := source.client.IssueslistCommentsWithResponse(ctx, target.owner, target.repo, target.number,
+			&github.IssueslistCommentsParams{PerPage: &perPage, Page: &page})
+		if err != nil {
+			return nil, err
+		}
+		data, err := answered(response.StatusCode(), response.Body, response.JSON200 != nil)
+		if err != nil {
+			return nil, err
+		}
+		var items []json.RawMessage
+		if err := json.Unmarshal(data, &items); err != nil {
 			return nil, fmt.Errorf("decode source comment page: %w", err)
 		}
-		pages++
-		for _, item := range page {
+		for _, item := range items {
 			comment := &workv1.SourceComment{}
 			if err := upstream.Unmarshal(item, comment); err != nil {
 				return nil, fmt.Errorf("decode source comment: %w", err)
 			}
 			snapshot.Comments = append(snapshot.Comments, comment)
 		}
+		if len(items) < perPage {
+			return snapshot, nil
+		}
 	}
-	if pages == 0 {
-		return nil, fmt.Errorf("source returned no comment pages")
-	}
-	return snapshot, nil
+	return nil, fmt.Errorf("source issue has more than %d comment pages", maxCommentPages)
 }
 
 func (source *GitHubSource) Append(ctx context.Context, taskURL, body string) (*workv1.SourceComment, error) {
-	endpoint, err := issueEndpoint(taskURL)
+	target, err := issueTargetOf(taskURL)
 	if err != nil {
 		return nil, err
 	}
-	data, err := source.command(ctx, githubAPICommand, endpoint+githubCommentsPath, githubMethodFlag, http.MethodPost, githubRawFieldFlag, githubBodyField+body)
+	response, err := source.client.IssuescreateCommentWithResponse(ctx, target.owner, target.repo, target.number, github.IssuescreateCommentJSONRequestBody{Body: body})
+	if err != nil {
+		return nil, err
+	}
+	data, err := answered(response.StatusCode(), response.Body, response.JSON201 != nil)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +158,7 @@ func (source *GitHubSource) Append(ctx context.Context, taskURL, body string) (*
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(data, comment); err != nil {
 		return nil, fmt.Errorf("decode appended comment: %w", err)
 	}
-	if comment.Body != body || !strings.HasPrefix(comment.HtmlUrl, taskURL+githubCommentFragment) {
+	if comment.Body != body || !strings.HasPrefix(comment.HtmlUrl, taskURL+commentFragment) {
 		return nil, fmt.Errorf("appended comment identity/content mismatch; inspect source before retry")
 	}
 	return comment, nil

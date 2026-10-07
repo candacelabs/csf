@@ -1,0 +1,18 @@
+{{define "widget"}}<aside class="widget" aria-labelledby="{{.TitleID}}" data-widget="{{.Name}}" data-widget-region="{{.Region}}" data-palette="{{.Palette}}">
+<header class="widget-chrome">{{if .Source}}
+<p class="widget-source widget-token-muted">{{.Source}}</p>{{end}}
+<h2 class="widget-title widget-token-ink" id="{{.TitleID}}">{{.Title}}</h2>
+</header>
+<svg class="widget-scene" viewBox="0 0 {{.Extent}} {{.Extent}}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="{{.Description}}">{{$centre := .Centre}}{{range .Orbits}}
+<ellipse class="widget-orbit widget-token-{{.Token}}" cx="{{$centre}}" cy="{{$centre}}" rx="{{.RadiusX}}" ry="{{.RadiusY}}" transform="rotate({{.Rotation}} {{$centre}} {{$centre}})"></ellipse>{{end}}{{range .Edges}}
+<g class="widget-edge" transform="translate({{.Left}},{{.Top}}) rotate({{.Angle}})"><line class="widget-edge-line widget-token-rule" x1="0" y1="0" x2="{{.Length}}" y2="0"></line></g>{{end}}{{range .Nodes}}
+<g class="widget-node widget-role-{{.Role}}" transform="translate({{.Left}},{{.Top}})">
+<circle class="widget-marker widget-marker-{{.Marker}} widget-token-{{.Token}}" r="{{.Radius}}"></circle>
+<text class="widget-node-title widget-token-ink" y="{{.TitleOffset}}" text-anchor="middle">{{.Title}}</text>{{if .HasCaption}}
+<text class="widget-node-caption widget-token-muted" y="{{.CaptionOffset}}" text-anchor="middle">{{.Caption}}</text>{{end}}
+</g>{{end}}
+</svg>{{if .Legend}}
+<ul class="widget-legend">{{range .Legend}}<li class="widget-legend-entry widget-token-muted"><span class="widget-swatch widget-token-{{.Token}}" aria-hidden="true"></span>{{.Text}}</li>{{end}}</ul>{{end}}{{if .Stats}}
+<ul class="widget-stats">{{range .Stats}}<li class="widget-stat widget-token-ink">{{.}}</li>{{end}}</ul>{{end}}{{if .Indicators}}
+<ul class="widget-indicators">{{range .Indicators}}<li class="widget-indicator widget-token-muted" data-tone="{{.Tone}}"><span class="widget-indicator-dot" aria-hidden="true"></span>{{.Text}}</li>{{end}}</ul>{{end}}
+</aside>{{end}}

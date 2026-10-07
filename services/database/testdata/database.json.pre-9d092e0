@@ -1,0 +1,12 @@
+{
+  "container": "csf-postgres-8adc01e4cd30",
+  "volume": "csf-postgres-8adc01e4cd30-data",
+  "image": "postgres:18.4-alpine3.24@sha256:9a8afca54e7861fd90fab5fdf4c42477a6b1cb7d293595148e674e0a3181de15",
+  "host": "127.0.0.1",
+  "port": 44117,
+  "user": "csf",
+  "database": "csf",
+  "password": "redacted-for-the-fixture",
+  "backup_directory": "/var/lib/csf/harness/backups",
+  "backup_user": "1000:1000"
+}

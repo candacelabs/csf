@@ -18,7 +18,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/deploy",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//pkg/boundedbuffer",
         "//pkg/boundedbuffer/v1:boundedbuffer",
         "//proto/candace/deploy/v1:deploy",
@@ -36,7 +36,7 @@ go_test(
     ],
     deps = [
         ":deploy",
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//proto/candace/deploy/v1:deploy",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",

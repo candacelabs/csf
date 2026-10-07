@@ -4,8 +4,13 @@ go_library(
     name = "config",
     srcs = [
         "config.go",
+        "discovery_config.go",
         "env.go",
         "modes.go",
+        "notify_config.go",
+        "tailscale_discovery_config.go",
+        "timing_config.go",
+        "watchdog_config.go",
     ],
     importpath = "github.com/candacelabs/csf/services/warden/config",
     visibility = ["//visibility:public"],

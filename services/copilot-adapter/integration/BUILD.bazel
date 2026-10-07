@@ -21,10 +21,10 @@ go_test(
     data = ["//examples/csf-agent:agent.json"],  # keep
     deps = [
         "//csf",
-        "//ipc",
-        "//ipc/db/csfpg",
-        "//ipc/model/copilot",
-        "//ipc/proc",
+        "//io",
+        "//io/ipc/db/csfpg",
+        "//io/ipc/proc",
+        "//io/net/model/copilot",
         "//pkg/cron",
         "//pkg/eventually",
         "//pkg/gotth/live/livetest",

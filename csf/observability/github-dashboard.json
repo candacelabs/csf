@@ -1,0 +1,85 @@
+{
+  "uid": "csf-github",
+  "title": "CSF GitHub calls",
+  "schemaVersion": 41,
+  "version": 1,
+  "tags": ["csf", "github"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-24h", "to": "now"},
+  "templating": {
+    "list": [
+      {"name": "datasource", "type": "datasource", "query": "prometheus", "label": "Prometheus"},
+      {
+        "name": "instance",
+        "type": "query",
+        "datasource": {"type": "prometheus", "uid": "${datasource}"},
+        "query": "label_values(csf_github_calls_total, instance)",
+        "refresh": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "GitHub calls by operation and actor",
+      "description": "Calls made through CSF's GitHub tools (MCP, HTTP routes and csf github), per second over the selected window, by operation and actor: operator or virtual_session. Counted from the host's GitHub log (<state>/github.jsonl) at each scrape, so the series survive a restart. Missing or stale targets show no data, not zero.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (operation, actor) (rate(csf_github_calls_total{instance=\"$instance\"}[$__rate_interval])) and on() (max(up{instance=\"$instance\"}) == 1)",
+          "legendFormat": "{{operation}} by {{actor}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops", "noValue": "Unknown"}, "overrides": []}
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "GitHub calls that failed",
+      "description": "Failed calls per second by operation and actor: GitHub's refusals (HTTP status and its message are in the GitHub log) and inputs the tools refused before calling GitHub.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"x": 12, "y": 0, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by (operation, actor) (rate(csf_github_calls_total{instance=\"$instance\", outcome=\"failed\"}[$__rate_interval])) and on() (max(up{instance=\"$instance\"}) == 1)",
+          "legendFormat": "{{operation}} by {{actor}}"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ops", "noValue": "Unknown"}, "overrides": []}
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Rate-limit headroom",
+      "description": "Share of GitHub's core rate limit left in the current window, as the latest call that reported it saw: csf_github_rate_remaining over csf_github_rate_limit. It moves only when a call is made; between calls it holds the last reading.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max(csf_github_rate_remaining{instance=\"$instance\"}) / max(csf_github_rate_limit{instance=\"$instance\"})",
+          "legendFormat": "headroom"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percentunit", "min": 0, "max": 1, "noValue": "Unknown"}, "overrides": []}
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Requests left this window",
+      "description": "csf_github_rate_remaining of csf_github_rate_limit, as the latest call that reported it saw.",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"refId": "A", "expr": "max(csf_github_rate_remaining{instance=\"$instance\"})", "legendFormat": "remaining"},
+        {"refId": "B", "expr": "max(csf_github_rate_limit{instance=\"$instance\"})", "legendFormat": "limit"}
+      ],
+      "fieldConfig": {"defaults": {"unit": "short", "noValue": "Unknown"}, "overrides": []}
+    }
+  ]
+}

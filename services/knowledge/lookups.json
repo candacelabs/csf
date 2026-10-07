@@ -1,0 +1,24 @@
+{
+  "lookups": [
+    {"query": "the default executor setting", "paths": ["services/harness/agent_session_service_executor.go"]},
+    {"query": "the upgrade verb", "paths": ["app/harness/cmd/upgrade.go"]},
+    {"query": "the burst credentials (burst.* in providers.json)", "paths": ["services/cloud/cloud_jobs_burst.go"]},
+    {"query": "the widgets path", "paths": ["app/harness/cmd/widgets.go"]},
+    {"query": "where CSF provisions its own PostgreSQL database and its password", "paths": ["services/database/database.go"]},
+    {"query": "how the Grafana datasource and dashboards are provisioned", "paths": ["services/views/stack.go"]},
+    {"query": "the session gate rule that rejects a foreground sleep", "paths": ["services/harness/sessiongate/shell.go"]},
+    {"query": "reply gate refuses a commitment without an enforcing artifact", "paths": ["services/harness/sessiongate/gate_call_reply.go"]},
+    {"query": "the merge train that merges ready pull requests every half hour", "paths": ["services/ouroboros/loop_mergetrain.go"]},
+    {"query": "dispatch stops launching sessions at a utilization of 0.75", "paths": ["services/dispatch/limits.go"]},
+    {"query": "fast-forward the live checkout from origin main", "paths": ["services/housekeeping/housekeeper_checkout.go"]},
+    {"query": "which house lint rules block a merge", "paths": ["tools/house_lint/policy.ml"]},
+    {"query": "the check that no tailnet IP or hostname is committed", "paths": ["tools/check_operator_identifiers.py"]},
+    {"query": "register a cron trigger with a schedule and an operation", "paths": ["services/cron/options.go"]},
+    {"query": "the writer of a run's events.jsonl", "paths": ["services/harness/session/eventlog.go"]},
+    {"query": "the miner template's extract function", "paths": ["services/ouroboros/miners/_template/extract.ml"]},
+    {"query": "refuse a session on a model the operator does not allow", "paths": ["services/harness/agent_session_service_models.go"]},
+    {"query": "area affinity embedding match is not built", "paths": ["services/harness/costs/report.go"]},
+    {"query": "an owned container's record file with its probed port", "paths": ["ipc/docker/owned.go"]},
+    {"query": "the labeler yields the GPU while another container uses it", "paths": ["services/ouroboros/labeler/labeler_gpu.go", "services/ouroboros/labeler/labeler.go"]}
+  ]
+}

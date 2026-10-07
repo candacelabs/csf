@@ -32,7 +32,7 @@ let signals = [
   {id="generated-drift"; source=Generated_drift; weight=10; blocking=true;
    meaning="generated projections that differ from their source (csfc check-generated and the language generator's check)"};
   {id="cs-16"; source=House_rule "CS-16"; weight=5; blocking=true;
-   meaning="network, gRPC and PostgreSQL crossings outside ipc/"};
+   meaning="network, gRPC and PostgreSQL crossings outside io/"};
   {id="cs-15"; source=House_rule "CS-15"; weight=3; blocking=false;
    meaning="go statements with no visible owner (no join and no context-driven exit)"};
   {id="cs-17"; source=House_rule "CS-17"; weight=3; blocking=false;
@@ -41,7 +41,9 @@ let signals = [
    meaning="directories whose role segment is not an ontology term"};
   {id="retired-vocabulary"; source=Retired_vocabulary; weight=2; blocking=false;
    meaning="retired ontology words in tracked READMEs"};
-  {id="unlinked-terms"; source=Unlinked_terms; weight=1; blocking=false;
+  (* Blocking since the tree reached 0 (#351): `generate link` fixes any new
+     mention, and `generate write` runs it over every tracked README. *)
+  {id="unlinked-terms"; source=Unlinked_terms; weight=1; blocking=true;
    meaning="ontology terms in tracked READMEs without a link to their definition"};
 ]
 

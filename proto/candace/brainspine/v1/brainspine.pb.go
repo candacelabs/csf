@@ -3270,11 +3270,20 @@ func (x *SearchRequest) GetLimit() uint32 {
 	return 0
 }
 
+// A hit is one chunk of a document: the lines it spans, its score in the
+// result's order, and why it ranked there.
 type SearchHit struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Document      *SourceDocument        `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
-	Excerpt       string                 `protobuf:"bytes,2,opt,name=excerpt,proto3" json:"excerpt,omitempty"`
-	Score         float64                `protobuf:"fixed64,3,opt,name=score,proto3" json:"score,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Document *SourceDocument        `protobuf:"bytes,1,opt,name=document,proto3" json:"document,omitempty"`
+	Excerpt  string                 `protobuf:"bytes,2,opt,name=excerpt,proto3" json:"excerpt,omitempty"`
+	Score    float64                `protobuf:"fixed64,3,opt,name=score,proto3" json:"score,omitempty"`
+	// The document's title: a repository-relative path, a ticket or a run.
+	Path string `protobuf:"bytes,4,opt,name=path,proto3" json:"path,omitempty"`
+	// The 1-based lines of the document the excerpt spans.
+	LineStart uint32 `protobuf:"varint,5,opt,name=line_start,json=lineStart,proto3" json:"line_start,omitempty"`
+	LineEnd   uint32 `protobuf:"varint,6,opt,name=line_end,json=lineEnd,proto3" json:"line_end,omitempty"`
+	// Which retrievers found the chunk, at what rank, and the reranker's score.
+	Why           string `protobuf:"bytes,7,opt,name=why,proto3" json:"why,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3330,13 +3339,43 @@ func (x *SearchHit) GetScore() float64 {
 	return 0
 }
 
+func (x *SearchHit) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *SearchHit) GetLineStart() uint32 {
+	if x != nil {
+		return x.LineStart
+	}
+	return 0
+}
+
+func (x *SearchHit) GetLineEnd() uint32 {
+	if x != nil {
+		return x.LineEnd
+	}
+	return 0
+}
+
+func (x *SearchHit) GetWhy() string {
+	if x != nil {
+		return x.Why
+	}
+	return ""
+}
+
 type SearchResult struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Hits           []*SearchHit           `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
 	Mode           string                 `protobuf:"bytes,2,opt,name=mode,proto3" json:"mode,omitempty"`
 	EmbeddingModel string                 `protobuf:"bytes,3,opt,name=embedding_model,json=embeddingModel,proto3" json:"embedding_model,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The cross-encoder that ordered the hits; empty when none did.
+	Reranker      string `protobuf:"bytes,4,opt,name=reranker,proto3" json:"reranker,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SearchResult) Reset() {
@@ -3386,6 +3425,13 @@ func (x *SearchResult) GetMode() string {
 func (x *SearchResult) GetEmbeddingModel() string {
 	if x != nil {
 		return x.EmbeddingModel
+	}
+	return ""
+}
+
+func (x *SearchResult) GetReranker() string {
+	if x != nil {
+		return x.Reranker
 	}
 	return ""
 }
@@ -6649,7 +6695,12 @@ type AgentAssignmentRecipe struct {
 	// Present when the harness runs the assignment itself as a Claude Code
 	// session; absent for a Workbench submission. Set only fields change the
 	// recipe fingerprint, so recipes without a workspace keep their hashes.
-	Workspace     *AgentWorkspace `protobuf:"bytes,7,opt,name=workspace,proto3" json:"workspace,omitempty"`
+	Workspace *AgentWorkspace `protobuf:"bytes,7,opt,name=workspace,proto3" json:"workspace,omitempty"`
+	// The turn executor a harness session runs on: "claude-code" (also when
+	// empty) runs Claude Code and "copilot" runs the GitHub Copilot CLI. The
+	// model is passed to the chosen executor unchanged, so it is spelled as that
+	// executor spells it.
+	Executor      string `protobuf:"bytes,8,opt,name=executor,proto3" json:"executor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -6733,6 +6784,13 @@ func (x *AgentAssignmentRecipe) GetWorkspace() *AgentWorkspace {
 	return nil
 }
 
+func (x *AgentAssignmentRecipe) GetExecutor() string {
+	if x != nil {
+		return x.Executor
+	}
+	return ""
+}
+
 // Where and how the harness runs an assignment: a git worktree it creates
 // from a local repository on a branch of its own, the tools the session may
 // use, and the title of the draft pull request the commit gate opens.
@@ -6748,12 +6806,16 @@ type AgentWorkspace struct {
 	// task; relative paths resolve against the recipe file.
 	BriefPath string `protobuf:"bytes,4,opt,name=brief_path,json=briefPath,proto3" json:"brief_path,omitempty"`
 	// Claude Code tool rules the session may use without asking, such as
-	// "Bash", "Edit" or "Bash(git *)". Everything else is denied.
+	// "Bash", "Edit" or "Bash(git *)". Everything else is denied. A Copilot
+	// session runs the same rules translated to Copilot's tools; a rule with
+	// no Copilot equivalent refuses the recipe.
 	AllowedTools []string `protobuf:"bytes,5,rep,name=allowed_tools,json=allowedTools,proto3" json:"allowed_tools,omitempty"`
 	// Title of the draft pull request opened after the first commit.
 	PullRequestTitle string `protobuf:"bytes,6,opt,name=pull_request_title,json=pullRequestTitle,proto3" json:"pull_request_title,omitempty"`
-	unknownFields    protoimpl.UnknownFields
-	sizeCache        protoimpl.SizeCache
+	// Workspace mode: "normal" (default) or "patch" for submit-then-verify flow.
+	Mode          string `protobuf:"bytes,7,opt,name=mode,proto3" json:"mode,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AgentWorkspace) Reset() {
@@ -6824,6 +6886,13 @@ func (x *AgentWorkspace) GetAllowedTools() []string {
 func (x *AgentWorkspace) GetPullRequestTitle() string {
 	if x != nil {
 		return x.PullRequestTitle
+	}
+	return ""
+}
+
+func (x *AgentWorkspace) GetMode() string {
+	if x != nil {
+		return x.Mode
 	}
 	return ""
 }
@@ -7009,8 +7078,14 @@ type AgentAssignmentReceipt struct {
 	Branch         string `protobuf:"bytes,6,opt,name=branch,proto3" json:"branch,omitempty"`
 	PullRequestUrl string `protobuf:"bytes,7,opt,name=pull_request_url,json=pullRequestUrl,proto3" json:"pull_request_url,omitempty"`
 	TraceId        string `protobuf:"bytes,8,opt,name=trace_id,json=traceId,proto3" json:"trace_id,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Set on the first turn after the session hypervisor resumed a suspended
+	// session, so the cost of resuming is on the receipt.
+	Resumed *ResumedTurn `protobuf:"bytes,9,opt,name=resumed,proto3" json:"resumed,omitempty"`
+	// The turn executor the session ran on, as the recipe names it; never empty
+	// for a harness run.
+	Executor      string `protobuf:"bytes,10,opt,name=executor,proto3" json:"executor,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *AgentAssignmentReceipt) Reset() {
@@ -7097,6 +7172,76 @@ func (x *AgentAssignmentReceipt) GetTraceId() string {
 		return x.TraceId
 	}
 	return ""
+}
+
+func (x *AgentAssignmentReceipt) GetResumed() *ResumedTurn {
+	if x != nil {
+		return x.Resumed
+	}
+	return nil
+}
+
+func (x *AgentAssignmentReceipt) GetExecutor() string {
+	if x != nil {
+		return x.Executor
+	}
+	return ""
+}
+
+// The cost of the first turn on a resumed session, whose turn executor the
+// hypervisor had closed on suspend and opened again on the recorded
+// conversation for this turn: the time from the turn's request to the
+// executor's first assistant event, and how long the session was suspended.
+type ResumedTurn struct {
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	TimeToFirstTokenMs float64                `protobuf:"fixed64,1,opt,name=time_to_first_token_ms,json=timeToFirstTokenMs,proto3" json:"time_to_first_token_ms,omitempty"`
+	SuspendedSeconds   float64                `protobuf:"fixed64,2,opt,name=suspended_seconds,json=suspendedSeconds,proto3" json:"suspended_seconds,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ResumedTurn) Reset() {
+	*x = ResumedTurn{}
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[96]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ResumedTurn) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ResumedTurn) ProtoMessage() {}
+
+func (x *ResumedTurn) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_brainspine_v1_brainspine_proto_msgTypes[96]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ResumedTurn.ProtoReflect.Descriptor instead.
+func (*ResumedTurn) Descriptor() ([]byte, []int) {
+	return file_candace_brainspine_v1_brainspine_proto_rawDescGZIP(), []int{96}
+}
+
+func (x *ResumedTurn) GetTimeToFirstTokenMs() float64 {
+	if x != nil {
+		return x.TimeToFirstTokenMs
+	}
+	return 0
+}
+
+func (x *ResumedTurn) GetSuspendedSeconds() float64 {
+	if x != nil {
+		return x.SuspendedSeconds
+	}
+	return 0
 }
 
 var File_candace_brainspine_v1_brainspine_proto protoreflect.FileDescriptor
@@ -7353,15 +7498,21 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x05query\x18\x01 \x01(\tB(\x92\x82\x19$\n" +
 	"\"len(this) > 0 && len(this) <= 4096R\x05query\x122\n" +
 	"\x05limit\x18\x02 \x01(\rB\x1c\x92\x82\x19\x18\n" +
-	"\x16this > 0 && this <= 50R\x05limit\"~\n" +
+	"\x16this > 0 && this <= 50R\x05limit\"\xde\x01\n" +
 	"\tSearchHit\x12A\n" +
 	"\bdocument\x18\x01 \x01(\v2%.candace.brainspine.v1.SourceDocumentR\bdocument\x12\x18\n" +
 	"\aexcerpt\x18\x02 \x01(\tR\aexcerpt\x12\x14\n" +
-	"\x05score\x18\x03 \x01(\x01R\x05score\"\x81\x01\n" +
+	"\x05score\x18\x03 \x01(\x01R\x05score\x12\x12\n" +
+	"\x04path\x18\x04 \x01(\tR\x04path\x12\x1d\n" +
+	"\n" +
+	"line_start\x18\x05 \x01(\rR\tlineStart\x12\x19\n" +
+	"\bline_end\x18\x06 \x01(\rR\alineEnd\x12\x10\n" +
+	"\x03why\x18\a \x01(\tR\x03why\"\x9d\x01\n" +
 	"\fSearchResult\x124\n" +
 	"\x04hits\x18\x01 \x03(\v2 .candace.brainspine.v1.SearchHitR\x04hits\x12\x12\n" +
 	"\x04mode\x18\x02 \x01(\tR\x04mode\x12'\n" +
-	"\x0fembedding_model\x18\x03 \x01(\tR\x0eembeddingModel\"M\n" +
+	"\x0fembedding_model\x18\x03 \x01(\tR\x0eembeddingModel\x12\x1a\n" +
+	"\breranker\x18\x04 \x01(\tR\breranker\"M\n" +
 	"\x0eSearchResponse\x12;\n" +
 	"\x06result\x18\x01 \x01(\v2#.candace.brainspine.v1.SearchResultR\x06result\"\xfe\x05\n" +
 	"\rKnowledgeNode\x12\x17\n" +
@@ -7639,7 +7790,7 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x11expected_revision\x18\x01 \x01(\rR\x10expectedRevision\x12T\n" +
 	"\rconfiguration\x18\x02 \x01(\v2..candace.brainspine.v1.AgentConfigurationInputR\rconfiguration\"v\n" +
 	"#UpdateOwnAgentConfigurationResponse\x12O\n" +
-	"\rconfiguration\x18\x01 \x01(\v2).candace.brainspine.v1.AgentConfigurationR\rconfiguration\"\xb3\x04\n" +
+	"\rconfiguration\x18\x01 \x01(\v2).candace.brainspine.v1.AgentConfigurationR\rconfiguration\"\x80\x05\n" +
 	"\x15AgentAssignmentRecipe\x12z\n" +
 	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
 	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12<\n" +
@@ -7653,7 +7804,9 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"!len(this) > 0 && len(this) <= 200R\x05model\x12L\n" +
 	"\rrepository_id\x18\x06 \x01(\tB'\x92\x82\x19#\n" +
 	"!len(this) > 0 && len(this) <= 128R\frepositoryId\x12K\n" +
-	"\tworkspace\x18\a \x01(\v2%.candace.brainspine.v1.AgentWorkspaceB\x06\x92\x82\x19\x02 \x01R\tworkspace\"\xd0\x03\n" +
+	"\tworkspace\x18\a \x01(\v2%.candace.brainspine.v1.AgentWorkspaceB\x06\x92\x82\x19\x02 \x01R\tworkspace\x12K\n" +
+	"\bexecutor\x18\b \x01(\tB/\x92\x82\x19+\n" +
+	")matches(this, `^(claude-code|copilot)?$`)R\bexecutor\"\x9f\x04\n" +
 	"\x0eAgentWorkspace\x12Y\n" +
 	"\x0frepository_path\x18\x01 \x01(\tB0\x92\x82\x19,\n" +
 	"*len(this) <= 4096 && matches(this, `^/.+`)R\x0erepositoryPath\x12[\n" +
@@ -7667,7 +7820,9 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x11len(this) <= 4096R\tbriefPath\x12#\n" +
 	"\rallowed_tools\x18\x05 \x03(\tR\fallowedTools\x12U\n" +
 	"\x12pull_request_title\x18\x06 \x01(\tB'\x92\x82\x19#\n" +
-	"!len(this) > 0 && len(this) <= 256R\x10pullRequestTitle\"\xed\x01\n" +
+	"!len(this) > 0 && len(this) <= 256R\x10pullRequestTitle\x12M\n" +
+	"\x04mode\x18\a \x01(\tB9\x92\x82\x195\n" +
+	"3len(this) == 0 || matches(this, `^(normal|patch)$`)R\x04mode\"\xed\x01\n" +
 	"\x13AgentAssignmentPlan\x12D\n" +
 	"\x06recipe\x18\x01 \x01(\v2,.candace.brainspine.v1.AgentAssignmentRecipeR\x06recipe\x12+\n" +
 	"\x11definition_sha256\x18\x02 \x01(\tR\x10definitionSha256\x12#\n" +
@@ -7679,7 +7834,7 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"\x1dPrepareAgentAssignmentRequest\x12D\n" +
 	"\x06recipe\x18\x01 \x01(\v2,.candace.brainspine.v1.AgentAssignmentRecipeR\x06recipe\"`\n" +
 	"\x1ePrepareAgentAssignmentResponse\x12>\n" +
-	"\x04plan\x18\x01 \x01(\v2*.candace.brainspine.v1.AgentAssignmentPlanR\x04plan\"\xaf\x02\n" +
+	"\x04plan\x18\x01 \x01(\v2*.candace.brainspine.v1.AgentAssignmentPlanR\x04plan\"\x89\x03\n" +
 	"\x16AgentAssignmentReceipt\x12>\n" +
 	"\x04plan\x18\x01 \x01(\v2*.candace.brainspine.v1.AgentAssignmentPlanR\x04plan\x12\x1d\n" +
 	"\n" +
@@ -7691,7 +7846,13 @@ const file_candace_brainspine_v1_brainspine_proto_rawDesc = "" +
 	"sessionUrl\x12\x16\n" +
 	"\x06branch\x18\x06 \x01(\tR\x06branch\x12(\n" +
 	"\x10pull_request_url\x18\a \x01(\tR\x0epullRequestUrl\x12\x19\n" +
-	"\btrace_id\x18\b \x01(\tR\atraceId*{\n" +
+	"\btrace_id\x18\b \x01(\tR\atraceId\x12<\n" +
+	"\aresumed\x18\t \x01(\v2\".candace.brainspine.v1.ResumedTurnR\aresumed\x12\x1a\n" +
+	"\bexecutor\x18\n" +
+	" \x01(\tR\bexecutor\"n\n" +
+	"\vResumedTurn\x122\n" +
+	"\x16time_to_first_token_ms\x18\x01 \x01(\x01R\x12timeToFirstTokenMs\x12+\n" +
+	"\x11suspended_seconds\x18\x02 \x01(\x01R\x10suspendedSeconds*{\n" +
 	"\x06Opcode\x12\x16\n" +
 	"\x12OPCODE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fOPCODE_CONSTANT\x10\x01\x12\x10\n" +
@@ -7772,7 +7933,7 @@ func file_candace_brainspine_v1_brainspine_proto_rawDescGZIP() []byte {
 }
 
 var file_candace_brainspine_v1_brainspine_proto_enumTypes = make([]protoimpl.EnumInfo, 10)
-var file_candace_brainspine_v1_brainspine_proto_msgTypes = make([]protoimpl.MessageInfo, 96)
+var file_candace_brainspine_v1_brainspine_proto_msgTypes = make([]protoimpl.MessageInfo, 97)
 var file_candace_brainspine_v1_brainspine_proto_goTypes = []any{
 	(Opcode)(0),                                 // 0: candace.brainspine.v1.Opcode
 	(RequestKind)(0),                            // 1: candace.brainspine.v1.RequestKind
@@ -7880,7 +8041,8 @@ var file_candace_brainspine_v1_brainspine_proto_goTypes = []any{
 	(*PrepareAgentAssignmentRequest)(nil),       // 103: candace.brainspine.v1.PrepareAgentAssignmentRequest
 	(*PrepareAgentAssignmentResponse)(nil),      // 104: candace.brainspine.v1.PrepareAgentAssignmentResponse
 	(*AgentAssignmentReceipt)(nil),              // 105: candace.brainspine.v1.AgentAssignmentReceipt
-	(*timestamppb.Timestamp)(nil),               // 106: google.protobuf.Timestamp
+	(*ResumedTurn)(nil),                         // 106: candace.brainspine.v1.ResumedTurn
+	(*timestamppb.Timestamp)(nil),               // 107: google.protobuf.Timestamp
 }
 var file_candace_brainspine_v1_brainspine_proto_depIdxs = []int32{
 	0,   // 0: candace.brainspine.v1.Expression.opcode:type_name -> candace.brainspine.v1.Opcode
@@ -7902,10 +8064,10 @@ var file_candace_brainspine_v1_brainspine_proto_depIdxs = []int32{
 	21,  // 16: candace.brainspine.v1.ResearchEvent.measurement:type_name -> candace.brainspine.v1.Measurement
 	26,  // 17: candace.brainspine.v1.ResearchEvent.status:type_name -> candace.brainspine.v1.RunStatus
 	23,  // 18: candace.brainspine.v1.ResearchEvent.receipt:type_name -> candace.brainspine.v1.CommandReceipt
-	106, // 19: candace.brainspine.v1.CommandReceipt.started_at:type_name -> google.protobuf.Timestamp
-	106, // 20: candace.brainspine.v1.CommandReceipt.finished_at:type_name -> google.protobuf.Timestamp
+	107, // 19: candace.brainspine.v1.CommandReceipt.started_at:type_name -> google.protobuf.Timestamp
+	107, // 20: candace.brainspine.v1.CommandReceipt.finished_at:type_name -> google.protobuf.Timestamp
 	24,  // 21: candace.brainspine.v1.CommandReceipt.evidence:type_name -> candace.brainspine.v1.ArtifactEvidence
-	106, // 22: candace.brainspine.v1.TokenUsage.observed_at:type_name -> google.protobuf.Timestamp
+	107, // 22: candace.brainspine.v1.TokenUsage.observed_at:type_name -> google.protobuf.Timestamp
 	22,  // 23: candace.brainspine.v1.Snapshot.events:type_name -> candace.brainspine.v1.ResearchEvent
 	28,  // 24: candace.brainspine.v1.GetSnapshotResponse.snapshot:type_name -> candace.brainspine.v1.Snapshot
 	12,  // 25: candace.brainspine.v1.CompileRequest.controller:type_name -> candace.brainspine.v1.Controller
@@ -7980,11 +8142,12 @@ var file_candace_brainspine_v1_brainspine_proto_depIdxs = []int32{
 	100, // 94: candace.brainspine.v1.PrepareAgentAssignmentRequest.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
 	102, // 95: candace.brainspine.v1.PrepareAgentAssignmentResponse.plan:type_name -> candace.brainspine.v1.AgentAssignmentPlan
 	102, // 96: candace.brainspine.v1.AgentAssignmentReceipt.plan:type_name -> candace.brainspine.v1.AgentAssignmentPlan
-	97,  // [97:97] is the sub-list for method output_type
-	97,  // [97:97] is the sub-list for method input_type
-	97,  // [97:97] is the sub-list for extension type_name
-	97,  // [97:97] is the sub-list for extension extendee
-	0,   // [0:97] is the sub-list for field type_name
+	106, // 97: candace.brainspine.v1.AgentAssignmentReceipt.resumed:type_name -> candace.brainspine.v1.ResumedTurn
+	98,  // [98:98] is the sub-list for method output_type
+	98,  // [98:98] is the sub-list for method input_type
+	98,  // [98:98] is the sub-list for extension type_name
+	98,  // [98:98] is the sub-list for extension extendee
+	0,   // [0:98] is the sub-list for field type_name
 }
 
 func init() { file_candace_brainspine_v1_brainspine_proto_init() }
@@ -8006,7 +8169,7 @@ func file_candace_brainspine_v1_brainspine_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_candace_brainspine_v1_brainspine_proto_rawDesc), len(file_candace_brainspine_v1_brainspine_proto_rawDesc)),
 			NumEnums:      10,
-			NumMessages:   96,
+			NumMessages:   97,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

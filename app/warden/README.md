@@ -183,7 +183,7 @@ warden is written in the channel-first, single-owner style rather than
 mutex-guarded shared state:
 
 - The **election manager** and the **watchdog** are each a single event-loop
-  goroutine that owns its own state. Nothing else touches that state directly.
+  [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine) that owns its own state. Nothing else touches that state directly.
 - Handlers (RPC, dashboard, metrics, watchdog) interact with the manager by
   **sending a request on a channel and receiving a reply** — including
   `View()`, which returns an **immutable `ClusterView` snapshot** the caller
@@ -191,10 +191,10 @@ mutex-guarded shared state:
 - The process lifecycle (`cmd/main.go`) is a channel-based supervisor:
   `context` cancellation flows *in* (an OS signal or a component failure),
   terminal errors flow *out* on a buffered channel, and every launched
-  goroutine is awaited before exit. No mutexes, no `WaitGroup`-plus-shared-
-  slice, no abandoned goroutines.
+  [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine) is awaited before exit. No mutexes, no `WaitGroup`-plus-shared-
+  slice, no abandoned [goroutines](../../csf/docs/generated/ontology_cgen.md#term-goroutine).
 
-Because mutable state lives behind single owners and crosses goroutine
+Because mutable state lives behind single owners and crosses [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine)
 boundaries only as messages or immutable copies, the data-race detector has
 nothing to find — that is a deliberate property of the design, not luck.
 
@@ -240,7 +240,7 @@ seen. The leader applies a **settle rule**:
   a voter. A node that comes and goes never accumulates enough continuous
   presence to be admitted — flaps cause no membership churn.
 - Removal is governed by `remove_after`. The default (`0s`) means **warden never
-  removes a voter automatically**; removal is a deliberate operator action.
+  removes a voter automatically**; removal is a deliberate operator [action](../../csf/docs/generated/ontology_cgen.md#term-action).
 
 A membership's identity is the **`(version, created_in_term)` pair**, not the
 bare version: each committed change bumps `Membership.Version` and stamps the
@@ -420,7 +420,7 @@ for annotated copies.
 | `timing.rpc_timeout`         | `WARDEN_RPC_TIMEOUT`           | `500ms`             | Per-RPC timeout. |
 | `watchdog.cooldown`          | `WARDEN_COOLDOWN`              | `10m`               | Min gap between repeat notifications per peer. |
 | `watchdog.notify_recovery`   | `WARDEN_NOTIFY_RECOVERY`       | `true`              | Also notify on recovery. |
-| `watchdog.max_incidents`     | *(n/a)*                        | `100`               | Incidents kept in memory for the dashboard. |
+| `watchdog.max_incidents`     | *(n/a)*                        | `100`               | Incidents kept in [memory](../../csf/docs/generated/ontology_cgen.md#term-memory) for the dashboard. |
 | `discovery.mode`             | `WARDEN_DISCOVERY_MODE`        | `static`            | `static`\|`tailscale`\|`file`. See Membership & discovery. |
 | `discovery.cluster_id`       | `WARDEN_CLUSTER_ID`            | `candacenet`        | Cluster identity for the identify handshake. |
 | `discovery.join_stability`   | `WARDEN_JOIN_STABILITY`        | `30s`               | Continuous presence before the leader admits an observer as a voter. |
@@ -470,7 +470,7 @@ takeover**. Cached leader views and reports about other peers do not alert.
 
 To move the default leader, manually change `leader_id` in the static
 configuration on every node and perform the planned rolling restart. That
-operator action, rather than reachability, is the only way to change it.
+operator [action](../../csf/docs/generated/ontology_cgen.md#term-action), rather than reachability, is the only way to change it.
 
 Two derived timings have no config knob and are computed in `cmd/main.go`:
 `ViewFreshFor = dead_after` (how long a follower trusts the leader's cached
@@ -493,7 +493,7 @@ docker compose -f docker-compose.warden.yaml up -d --build
 docker compose -f docker-compose.warden.yaml logs -f warden
 ```
 
-The `chown` step matters: the runtime image is distroless `:nonroot` (a fixed
+The `chown` step matters: the [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) image is distroless `:nonroot` (a fixed
 uid `65532`, no shell to fix this at container start), and `./warden/data` is
 a host bind mount, not a named volume, so Docker does not apply the image's
 ownership to it — if the directory doesn't already exist, the daemon creates
@@ -547,7 +547,7 @@ evidence. `csf_email_send_total` and `csf_email_send_duration_seconds` share the
 same private Prometheus registry as the Warden metrics and are exposed at this
 node's `/metrics` endpoint.
 
-The receipt reporter is always a local runtime fact: Warden records its own
+The receipt reporter is always a local [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) fact: Warden records its own
 configured node id and address plus the hostname read when the daemon starts.
 It does not inspect Docker, sockets, containers, or unrelated sessions. The
 receipt explicitly marks container observation unavailable; missing build
@@ -560,7 +560,7 @@ It is protobuf JSON for `ReceiptMetadata`, but Warden copies only its configured
 CSF version, source revision, and evidence links. Its reporting node, sessions,
 containers, and other observation fields are ignored: those deployment-provided
 facts are not observations of running containers, and they cannot override the
-actual reporting node. Runtime build metadata takes precedence when available.
+actual reporting node. [Runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) build metadata takes precedence when available.
 
 ## Troubleshooting
 

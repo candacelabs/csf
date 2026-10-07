@@ -1,0 +1,127 @@
+// golden_first, example 2 — the service kinds, and the blah instance, a fresh
+// service authored from the declaration alone (issue #488, program
+// describe_system). This is step 1 of the method: declare.
+//
+// The kind/instance declaration is a proposed production for
+// csf/compiler/language/grammar.ebnf; it is not yet parsed by csfc; this file
+// is the record the slice is authored from, not yet a checked input. The kinds
+// are the program's (`kind capability`, `kind outcome`, `kind operation`,
+// `kind service`), stated here whole as in email.csf beside it, together with
+// the decision vocabulary `question` and `option` #520 declares in the meta
+// language.
+//
+// There are no holes and no hand-written logic: an operation declares its body
+// as `logic` rules, an outcome declares its `when` rule or is `otherwise`, and
+// the generator emits every file. blah is the fresh case, so the golden under
+// services/blah/ is generated from this declaration alone — zero hand-written
+// lines.
+//
+// Scope of this slice: steps 1 (declare) and 2 (handwrite), and the held
+// review that opens step 3. Steps 4 (generate) and 5 (replace) do not start
+// until the operator approves the golden in services/blah.
+
+kind capability {
+  name     identifier;
+  purpose  text(max: 120);
+  io       smtp | runtime | file | text;
+}
+
+// One bounded outcome an operation can produce. An outcome is declared by its
+// `when` rule, or is the `otherwise` default; the generated classifier is the
+// ordered list of these clauses. It is a kind, not an inline tuple.
+kind outcome {
+  name  identifier;
+  when  rule | otherwise;
+}
+
+// One operation is a named input, a named output, the bounded outcomes it can
+// produce, and the rules that produce them. Nothing is left to a seam: the
+// `logic` rules are the operation body the generator emits.
+kind operation {
+  name      identifier;
+  input     record;
+  output    record;
+  outcomes  [outcome];
+  logic     [rule];
+}
+
+kind service {
+  purpose     text(max: 120);
+  lifecycle   scoped | lazy | borrowed;
+  host        application;
+  capability  [capability];
+  op          [operation];
+  stores      [table] | none;
+  calls       [rest_client] | none;
+  config      record | none;
+  logic       [rule];                    // config validation, declared
+  template    "services";
+}
+
+// The decision vocabulary #520 declares in the meta language: a question is
+// the one declaration the CSF language, the decision tree, the directory tree
+// and the CLI project from, and an option is one branch of it. A fresh service
+// has no retained region to ask about and declares no question; email.csf
+// beside it asks four.
+kind question {
+  region  identifier;
+  text    text(max: 160);
+}
+kind option {
+  question  question;
+  preferred text(max: 160);
+}
+
+// The records the operation's logic reads and writes. Field names and values
+// stay typed data; `text` is the literal kind the logic formats.
+record Name {
+  name text;
+}
+
+record Greeting {
+  text    text;
+  outcome text;
+}
+
+// The minimal service: one operation, no capability, no storage, no config.
+// The greeting render is declared logic, so there is nothing to configure and
+// nothing for a host to bind; the whole generated tree is the one operation,
+// its two bounded outcomes, its metrics and its tests.
+service blah {
+  purpose     "Answer one request with one bounded response.";
+  lifecycle   scoped;
+  host        deploy;
+  op          [greet];
+  stores      none;
+  calls       none;
+  config      none;
+  template    "services";
+}
+
+// The one operation, greet: a named input, a named output, its two bounded
+// outcomes as `when` clauses, and the one logic rule that renders the
+// greeting. The generator emits all of it; no line is hand-written.
+operation greet {
+  name      greet;
+  input     Name;
+  output    Greeting;
+  outcome   empty_name when input.name = "";
+  outcome   ok otherwise;
+  logic     output.text = format("Hello, {}", input.name);
+}
+
+// The generated file's edges in the architecture graph.
+architecture blah {
+  component blah;
+  requires  pkg/telemetry;
+  connect   depth(1).layout(local).pattern(call);
+  scan      expose();
+}
+
+// The service's own directory, and what it may hold.
+directory "services/blah" {
+  tier     in_process;
+  role     source;
+  owner    component;
+  allowed  [go, go_test, md, bazel];
+}

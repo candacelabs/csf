@@ -23,8 +23,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/ipc/proc"
 )
 
 const (

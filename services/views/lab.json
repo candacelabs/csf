@@ -1,0 +1,68 @@
+{
+  "entries": [
+    {
+      "entry": "docs/lab/2026-10-05-bazel-ram.md",
+      "slice": "BAZEL-RAM (#345)",
+      "at": "2026-10-05T02:09:43Z",
+      "note": "A is the defaults (n=10); B --sandbox_base=/dev/shm, C B plus --reuse_sandbox_directories, Bnr B plus --noreuse_sandbox_directories (n=5 each). Null result: nothing landed.",
+      "series": [
+        {
+          "metric": "csf_bazel_build_wall_seconds",
+          "labels": {
+            "arm": "A"
+          },
+          "value": 57.05
+        },
+        {
+          "metric": "csf_bazel_peak_memory_bytes",
+          "labels": {
+            "arm": "A"
+          },
+          "value": 8353711391
+        },
+        {
+          "metric": "csf_bazel_build_wall_seconds",
+          "labels": {
+            "arm": "B"
+          },
+          "value": 53.9
+        },
+        {
+          "metric": "csf_bazel_peak_memory_bytes",
+          "labels": {
+            "arm": "B"
+          },
+          "value": 8997956485
+        },
+        {
+          "metric": "csf_bazel_build_wall_seconds",
+          "labels": {
+            "arm": "C"
+          },
+          "value": 59.1
+        },
+        {
+          "metric": "csf_bazel_peak_memory_bytes",
+          "labels": {
+            "arm": "C"
+          },
+          "value": 9191230013
+        },
+        {
+          "metric": "csf_bazel_build_wall_seconds",
+          "labels": {
+            "arm": "Bnr"
+          },
+          "value": 65.1
+        },
+        {
+          "metric": "csf_bazel_peak_memory_bytes",
+          "labels": {
+            "arm": "Bnr"
+          },
+          "value": 8138963026
+        }
+      ]
+    }
+  ]
+}

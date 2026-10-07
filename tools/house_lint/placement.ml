@@ -12,18 +12,24 @@ open Source
 
    CS-15     a goroutine with no visible owner: nothing joins it and nothing
              cancels it. Services may start goroutines; the starter owns cleanup.
-   CS-16     network listen/dial and gRPC client creation only under ipc/;
+   CS-16     network listen/dial and gRPC client creation only under io/net;
              fork/exec (os/exec, the PTY starter, os.StartProcess and the
-             syscall fork/exec calls) only under ipc/proc.
+             syscall fork/exec calls) only under io/ipc/proc.
    CS-16-DB  PostgreSQL pool and connection creation only under
-             ipc/db/csfpg.
+             io/ipc/db/csfpg.
    CS-17     the process environment is read only by the config capability
              (runtime/config) or a binary's own app/<name>/config.
+   ATOMIC-WRITE  a file is replaced whole only through pkg/atomicfile; it
+             blocks, tests included.
    ONTOLOGY-DIRS  directories are named by ontology terms;
           `internal` is a transparent visibility marker. *)
 
-let ipc_root = "ipc/"
-let csfpg_root = "ipc/db/csfpg/"
+(* The crossing mechanisms: io/net reaches another machine, io/ipc another
+   process here and io/kernel a syscall here. Each owns the transport it
+   crosses with, so a socket or gRPC call inside one is that mechanism's own
+   crossing, not a consumer reaching around it; io/inproc crosses nothing. *)
+let mechanism_roots = ["io/net/"; "io/ipc/"; "io/kernel/"]
+let csfpg_root = "io/ipc/db/csfpg/"
 let under prefix path = String.starts_with ~prefix path
 
 (* CS-15 (operator, 2026-10-01): "go routines do not start only in runtime
@@ -128,7 +134,7 @@ let network_calls = [
 let boundary_types = ["net", ["Dialer"; "ListenConfig"]]
 
 (* A pool or connection to PostgreSQL is a kernel I/O crossing owned by one
-   package, narrower than ipc/ as a whole. *)
+   package, narrower than io/ as a whole. *)
 let database_calls = [
   "github.com/jackc/pgx/v5/pgxpool", ["New"; "NewWithConfig"];
   "github.com/jackc/pgx/v5", ["Connect"; "ConnectConfig"];
@@ -142,15 +148,16 @@ let member table (path, name) =
   List.mem name (Option.value (List.assoc_opt path table) ~default:[])
 
 let boundary_crossings (file : Source.file) =
-  (* Tests are in scope for both parts: a spec reaches a socket through ipc/net
+  (* Tests are in scope for both parts: a spec reaches a socket through io/net
      and a database through csfpg, or uses a gomock double or pgmem (operator,
      2026-10-01: "WHY THE FUCK DOES THE GATE EXEMPT TESTS"). *)
-  let network = not (under ipc_root file.path) and database = not (under csfpg_root file.path) in
+  let network = not (List.exists (fun prefix -> under prefix file.path) mechanism_roots)
+                and database = not (under csfpg_root file.path) in
   let imports = Source.imports file in
   let report node what = issue file node "CS-16"
-    (what ^ " outside ipc/: take the socket or gRPC capability (ipc/net, ipc/net/http, ipc/net/grpc) in the constructor") in
+    (what ^ " outside the io/ crossing mechanisms: take the socket or gRPC capability (io/net, io/net/http, io/net/grpc) in the constructor") in
   let report_database node what = issue file node "CS-16-DB"
-    (what ^ " outside ipc/db/csfpg: the binary opens the pool with csfpg.OpenPool and a service takes csfpg.IDB in its constructor") in
+    (what ^ " outside io/ipc/db/csfpg: the binary opens the pool with csfpg.OpenPool and a service takes csfpg.IDB in its constructor") in
   descendants file.root |> List.filter_map (fun node ->
     match kind node with
     | "call_expression" ->
@@ -165,13 +172,13 @@ let boundary_crossings (file : Source.file) =
     | _ -> None)
 
 (* CS-16, process part: crossing into another address space happens only in
-   the one subprocess gateway, ipc/proc. Importing os/exec or the PTY
+   the one subprocess gateway, io/ipc/proc. Importing os/exec or the PTY
    starter is the crossing (exec.Cmd values, LookPath and ExitError included),
    and the lower-level fork/exec calls are matched where they are spelled.
    Tests are not exempt (operator, 2026-10-01: "tests are not exempt from
    the capability gates"): a consumer's spec doubles ILauncher with gomock,
    and only the gateway's own package starts real children. *)
-let proc_root = "ipc/proc/"
+let proc_root = "io/ipc/proc/"
 let process_imports = ["os/exec"; "github.com/creack/pty"]
 let process_calls = ["os", ["StartProcess"]; "syscall", ["Exec"; "ForkExec"; "StartProcess"]]
 
@@ -179,7 +186,7 @@ let process_crossings (file : Source.file) =
   if under proc_root file.path then [] else
   let imports = Source.imports file in
   let report node what = issue file node "CS-16"
-    (what ^ " outside ipc/proc: take the process capability (proc.ILauncher) in the constructor") in
+    (what ^ " outside io/ipc/proc: take the process capability (proc.ILauncher) in the constructor") in
   descendants file.root |> List.filter_map (fun node ->
     match kind node with
     | "import_spec" ->
@@ -219,8 +226,130 @@ let environment_reads (file : Source.file) =
           " outside the config capability: read the environment through runtime/config in the binary's config package and pass values to constructors"))
     | _ -> None)
 
+(* ATOMIC-WRITE (operator, 2026-10-05, reading writeAtomically: "WHAT A
+   MISSED OPPORTUNITY TO WRITE A BEAUTIFUL OPINIONATED ATOMICS LIBRARY OR
+   CHOOSE ONE OFF THE SHELF INSTEAD OF AN UNEXPORTED PIECE OF SHIT
+   UNNECESSARY HELPER"). A file is replaced whole only through
+   pkg/atomicfile. A function that creates or writes a file and also calls
+   os.Rename is a hand-rolled copy; 21 were migrated when the rule landed,
+   most without an fsync and several on a fixed .tmp name two writers share.
+   A rename with no write beside it is a move (a directory installed, a
+   binary swapped back) and passes. Tests are in scope: a spec replaces a
+   fixture through the same primitive as production. *)
+let atomic_write_root = "pkg/atomicfile/"
+let file_writes = ["os", ["WriteFile"; "Create"; "CreateTemp"; "OpenFile"]]
+let renames = ["os", ["Rename"]]
+
+let atomic_writes (file : Source.file) =
+  if under atomic_write_root file.path then [] else
+  let imports = Source.imports file in
+  let calls table node = kind node = "call_expression" &&
+    (match Option.bind (field_text file node "function") (qualified imports) with
+     | Some call -> member table call
+     | None -> false) in
+  descendants file.root |> List.filter_map (fun node ->
+    if not (calls renames node) then None else
+    match enclosing_body file node with
+    | Some body when List.exists (calls file_writes) (descendants body) ->
+        Some (issue file node "ATOMIC-WRITE"
+          "file written and renamed into place by hand: use atomicfile.WriteFile(path, content, mode) from pkg/atomicfile (unique temporary beside the target, fsync, rename, directory fsync, exact mode)")
+    | _ -> None)
+
 let collect files = files |> List.filter selected |> List.concat_map (fun file ->
-  goroutine_starts file @ boundary_crossings file @ process_crossings file @ environment_reads file)
+  goroutine_starts file @ boundary_crossings file @ process_crossings file @ environment_reads file @
+  atomic_writes file)
+
+(* CS-20, one runtime per application (ticket #527): the process and runtime
+   boundaries of an application, counted statically. Four rows, each its own
+   policy ID (advisory under the 2026-10-06 operator ruling recorded in
+   policy.ml), read over selected non-test Go so they match the
+   operator's meter (tests build their own runtime and are not an application's).
+
+   CS-20-HOST     an application (app/<name>/cmd) builds exactly one
+                  runtime.NewHostRuntime; a count other than 1 is the offense.
+   CS-20-RUNTIME  runtime.NewHostRuntime is called only in a package-main file:
+                  the one runtime of a process is the binary's own.
+   CS-20-SPAWN    os/exec is imported only under io/ipc/proc/: every other
+                  subprocess spawn takes proc.ILauncher in the constructor.
+   CS-20-LISTEN   a socket is bound only under io/ (in the io/net tier) or in
+                  a package-main file: a library serves a listener it is handed.
+                  A bind is an import-resolved net.Listen* / net/http.ListenAndServe*,
+                  or a `.ListenAndServe`/`.ListenAndServeTLS` method call; a
+                  `net.ListenConfig` literal and a `.Listen`/`.Serve` method
+                  that serves a bound listener are not binds. *)
+let host_runtime_root = "github.com/candacelabs/csf/runtime"
+
+let host_runtime_calls (file : Source.file) =
+  let imports = Source.imports file in
+  descendants file.root |> List.filter (fun node ->
+    kind node = "call_expression" &&
+    match Option.bind (field_text file node "function") (qualified imports) with
+    | Some (path, name) -> path = host_runtime_root && name = "NewHostRuntime"
+    | None -> false)
+
+let runtime_only_in_binary (file : Source.file) =
+  if is_test file || package file = Some "main" then [] else
+  host_runtime_calls file |> List.map (fun node ->
+    issue file node "CS-20-RUNTIME"
+      "runtime.NewHostRuntime outside a package-main file: the one host runtime of a process is built in its binary's main package")
+
+let spawn_through_proc (file : Source.file) =
+  if is_test file || under proc_root file.path then [] else
+  descendants file.root |> List.filter_map (fun node ->
+    if kind node <> "import_spec" then None else
+    match Option.map Checker.string_value (field_text file node "path") with
+    | Some "os/exec" ->
+        Some (issue file node "CS-20-SPAWN"
+          "import of os/exec outside io/ipc/proc: route subprocess spawn through proc.ILauncher, taken in the constructor")
+    | _ -> None)
+
+let listen_calls = [
+  "net", ["Listen"; "ListenPacket"; "ListenTCP"; "ListenUDP"; "ListenUnix"; "ListenUnixgram";
+          "ListenIP"; "ListenMulticastUDP"];
+  "net/http", ["ListenAndServe"; "ListenAndServeTLS"];
+]
+let listen_methods = ["ListenAndServe"; "ListenAndServeTLS"]
+let listen_tiers = ["io/"]
+
+let listens (file : Source.file) =
+  if is_test file || package file = Some "main" ||
+     List.exists (fun prefix -> under prefix file.path) listen_tiers then []
+  else
+  let imports = Source.imports file in
+  descendants file.root |> List.filter_map (fun node ->
+    if kind node <> "call_expression" then None else
+    match field node "function" with
+    | Some callee when kind callee = "selector_expression" ->
+        (match qualified imports (text file callee) with
+         | Some (path, name) when member listen_calls (path, name) ->
+             Some (issue file node "CS-20-LISTEN" (path ^ "." ^ name ^
+               " binds a socket outside io/ and outside a package-main file: bind through io/net, or let the binary's main package own the listener"))
+         | Some _ -> None
+         | None ->
+             (match field_text file callee "field" with
+              | Some field when List.mem field listen_methods ->
+                  Some (issue file node "CS-20-LISTEN" ("." ^ field ^
+                    " binds a socket outside io/ and outside a package-main file: serve a listener the caller bound through io/net"))
+              | _ -> None))
+    | _ -> None)
+
+let application path = match String.split_on_char '/' path with
+  | "app" :: name :: "cmd" :: _ -> Some ("app/" ^ name ^ "/cmd")
+  | _ -> None
+
+let consistency_rows files =
+  let sources = files |> List.filter selected |> List.filter (fun file -> not (is_test file)) in
+  let applications = sources |> List.filter_map (fun (file : Source.file) -> application file.path)
+    |> List.sort_uniq String.compare in
+  let host_row = applications |> List.filter_map (fun name ->
+    let count = sources |> List.filter (fun (file : Source.file) -> application file.path = Some name)
+      |> List.concat_map host_runtime_calls |> List.length in
+    if count = 1 then None else
+    Some { path = name; line = 1; rule = "CS-20-HOST";
+      message = Printf.sprintf
+        "application %s builds %d host runtimes; exactly one runtime.NewHostRuntime is required" name count }) in
+  host_row @ (sources |> List.concat_map runtime_only_in_binary) @
+  (sources |> List.concat_map spawn_through_proc) @ (sources |> List.concat_map listens)
 
 (* ONTOLOGY-DIRS. The terms are read from the ontology source itself, so the
    rule cannot drift from the dictionary it enforces. A directory name matches

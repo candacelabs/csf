@@ -101,10 +101,17 @@ ocaml_module(
 )
 
 ocaml_module(
+    name = "Grammar",
+    sig = "grammar.mli",
+    struct = "grammar.ml",
+)
+
+ocaml_module(
     name = "Facts",
     sig = "facts.mli",
     struct = "facts.ml",
     deps = [
+        ":Grammar",
         ":Model",
         ":Syntax_cgen",
         "//csf/compiler/third_party/datalog:Datalog_top_down",
@@ -130,6 +137,7 @@ ocaml_module(
     struct = "validate.ml",
     deps = [
         ":Facts",
+        ":Grammar",
         ":Model",
         ":Rules_cgen",
         "//csf/compiler/third_party/datalog:Datalog_top_down",
@@ -212,7 +220,9 @@ ocaml_module(
     deps = [
         ":Compiler",
         ":Model",
+        ":Shell",
         "@opam.cmdliner//lib",
+        "@opam.ocamlsdk//unix/lib",
     ],
 )
 
@@ -323,6 +333,39 @@ ocaml_test(
     name = "rules_test",
     size = "small",
     main = ":Rules_test",
+)
+
+ocaml_module(
+    name = "Grammar_test",
+    struct = "grammar_test.ml",
+    deps = [
+        ":Grammar",
+        ":Model",
+        ":Shell",
+        ":Validate",
+    ],
+)
+
+ocaml_test(
+    name = "grammar_test",
+    size = "small",
+    args = [
+        "$(rootpath :decision.ebnf)",
+        "$(rootpath :gate.ebnf)",
+        "$(rootpath :language.ebnf)",
+        "$(rootpath :shell.ebnf)",
+        "$(rootpath //csf/compiler/language:grammar.ebnf)",
+        "$(rootpath //csf/compiler/language:meta.ebnf)",
+    ],
+    data = [
+        "decision.ebnf",
+        "gate.ebnf",
+        "language.ebnf",
+        "shell.ebnf",
+        "//csf/compiler/language:grammar.ebnf",
+        "//csf/compiler/language:meta.ebnf",
+    ],
+    main = ":Grammar_test",
 )
 
 ocaml_module(
@@ -513,4 +556,179 @@ ocaml_test(
         "//csf/editor/tree-sitter-csf:src/scanner.c",
     ],
     main = ":Highlight_codegen_test",
+)
+
+ocaml_module(
+    name = "Gate",
+    struct = "gate.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Gate_test",
+    struct = "gate_test.ml",
+    deps = [
+        ":Gate",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Decision",
+    struct = "decision.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Decision_main",
+    struct = "decision_main.ml",
+    deps = [
+        ":Decision",
+        ":Model",
+    ],
+)
+
+ocaml_binary(
+    name = "decision_codegen",
+    main = ":Decision_main",
+)
+
+ocaml_module(
+    name = "Decision_test",
+    struct = "decision_test.ml",
+    deps = [
+        ":Decision",
+        ":Model",
+    ],
+)
+
+ocaml_test(
+    name = "decision_test",
+    size = "small",
+    args = [
+        "$(rootpath :decision.ebnf)",
+        "$(rootpath //csf/compiler:verification/question_tree.csf)",
+        "$(rootpath //csf/compiler:verification/CSFCVerifier.lean)",
+        "$(rootpath //csf/compiler:verification/question_kind_enum.txt)",
+        "$(rootpath //csf/compiler:verification/question_directory.txt)",
+        "$(rootpath //csf/compiler:verification/question_cli_layer.txt)",
+        "$(rootpath //csf/compiler:verification/question_jev_prompt.txt)",
+    ],
+    data = [
+        "decision.ebnf",
+        "//csf/compiler:verification/CSFCVerifier.lean",
+        "//csf/compiler:verification/question_cli_layer.txt",
+        "//csf/compiler:verification/question_directory.txt",
+        "//csf/compiler:verification/question_jev_prompt.txt",
+        "//csf/compiler:verification/question_kind_enum.txt",
+        "//csf/compiler:verification/question_tree.csf",
+    ],
+    main = ":Decision_test",
+)
+
+ocaml_test(
+    name = "gate_test",
+    size = "small",
+    args = [
+        "$(rootpath :gate.ebnf)",
+        "$(rootpath //csf/compiler/testdata/golden/github_gate:github_gate.csf)",
+        "$(rootpath //csf/compiler/testdata/golden/github_gate:github_shell.dl)",
+        "$(rootpath //csf/compiler/testdata/golden/github_gate:github_gate.go)",
+    ],
+    data = [
+        "gate.ebnf",
+        "//csf/compiler/testdata/golden/github_gate:github_gate.csf",
+        "//csf/compiler/testdata/golden/github_gate:github_gate.go",
+        "//csf/compiler/testdata/golden/github_gate:github_shell.dl",
+    ],
+    main = ":Gate_test",
+)
+
+ocaml_module(
+    name = "Shell",
+    struct = "shell.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Shell_test",
+    struct = "shell_test.ml",
+    deps = [
+        ":Model",
+        ":Shell",
+    ],
+)
+
+ocaml_test(
+    name = "shell_test",
+    size = "small",
+    args = [
+        "$(rootpath :shell.ebnf)",
+        "$(rootpath //csf/compiler/testdata/golden/service/blah:blah.csf)",
+        "$(rootpath //csf/compiler/testdata/golden/service/email:email.csf)",
+    ],
+    data = [
+        "shell.ebnf",
+        "//csf/compiler/testdata/golden/service/blah:blah.csf",
+        "//csf/compiler/testdata/golden/service/blah:observability/blah-dashboard.json",
+        "//csf/compiler/testdata/golden/service/blah/services/blah:blah.go",
+        "//csf/compiler/testdata/golden/service/blah/services/blah:blah_suite_test.go",
+        "//csf/compiler/testdata/golden/service/blah/services/blah:doc.go",
+        "//csf/compiler/testdata/golden/service/blah/services/blah:greet.go",
+        "//csf/compiler/testdata/golden/service/blah/services/blah:greet_test.go",
+        "//csf/compiler/testdata/golden/service/email:email.csf",
+        "//csf/compiler/testdata/golden/service/email/services/email:email_suite_test.go",
+        "//csf/compiler/testdata/golden/service/email/services/email:provenance.go",
+        "//csf/compiler/testdata/golden/service/email/services/email:provenance_test.go",
+        "//csf/compiler/testdata/golden/service/email/services/email:receipts.go",
+        "//csf/compiler/testdata/golden/service/email/services/email:receipts_test.go",
+        "//csf/compiler/testdata/golden/service/email/services/email:transport.go",
+        "//csf/compiler/testdata/golden/service/email/services/email:transport_test.go",
+    ],
+    main = ":Shell_test",
+)
+
+ocaml_module(
+    name = "Slice_planner",
+    struct = "slice_planner.ml",
+    deps = [
+        ":Frontend",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Slice_planner_test",
+    struct = "slice_planner_test.ml",
+    deps = [
+        ":Model",
+        ":Slice_planner",
+    ],
+)
+
+ocaml_test(
+    name = "slice_planner_test",
+    size = "small",
+    args = [
+        "$(rootpath :slice_planner.ebnf)",
+        "$(rootpath //csf/compiler/testdata/golden/slice_planner:slice_planner.csf)",
+        "$(rootpath //csf/compiler/testdata/golden/slice_planner:slice_planner.go)",
+    ],
+    data = [
+        "slice_planner.ebnf",
+        "//csf/compiler/testdata/golden/slice_planner:slice_planner.csf",
+        "//csf/compiler/testdata/golden/slice_planner:slice_planner.go",
+    ],
+    main = ":Slice_planner_test",
 )

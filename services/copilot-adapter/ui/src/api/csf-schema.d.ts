@@ -344,6 +344,244 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/harness/sessions/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Admit one agent assignment recipe as a session of this host's agent harness: the worktree is created, the session gates are installed and the turn executor is kept open for later messages. The receipt links the session, branch and trace; it does not prove the task succeeded. */
+        post: operations["Research_SubmitAgentSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Queue one message for an open session; its owner starts the turn at the next safepoint. The turn identifier acknowledges acceptance, not completion. Follow the session's event stream to read the turn. */
+        post: operations["Research_SendAgentSessionMessage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/propose": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Apply a proposed patch to a session's worktree in patch mode, returning a typed rejection when it is not accepted. */
+        post: operations["Research_ProposeProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** List every session this harness process holds, with its phase, turns and queue, and the one process they all run in. */
+        post: operations["Research_ListAgentSessions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/inbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report every message in a session's inbox with its state and priority class. */
+        post: operations["Research_ListInbox"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read one session's state by its assignment identifier. */
+        post: operations["Research_GetAgentSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Ask a session's owner to stop at its next safepoint: at once between turns, or after the running turn is interrupted. Read the session again to see it reach CANCELED. */
+        post: operations["Research_CancelAgentSession"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Report the launch check a recipe would meet now, without admitting it: the host's measured load, free disk and worker cap, the findings, and why admission is held when it is. */
+        post: operations["Research_CheckAgentSessionAdmission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Mark a session's draft pull request ready for review. The action is recorded in the session's event log. */
+        post: operations["Research_ReadyAgentSessionPullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/sessions/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merge a session's pull request through the repository's merge path (tools/merge-pr.sh when the worktree has one, else gh's squash merge). It waits for the merge path's checks; the report is the path's output. The action is recorded in the session's event log. */
+        post: operations["Research_MergeAgentSessionPullRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/rulings/record": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Record one operator ruling and the alternatives it rules out. From the next turn of every session, the question gate refuses a question, or an offered alternative, that names an excluded alternative. Returns the rulings in force. */
+        post: operations["Research_RecordRuling"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/stop": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Stop the harness process in order: listeners first, then every open session. Running sessions are closed, not completed. */
+        post: operations["Research_StopHarness"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/executor/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Read the turn executor and model a recipe that names no executor runs on. */
+        post: operations["Research_GetAgentExecutorDefault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/harness/executor/set": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Switch the turn executor and model every session submitted from now on runs on when its recipe names no executor: the way to move the whole harness to another model provider at once, as when one provider's usage quota runs out. Running sessions keep theirs. */
+        post: operations["Research_SetAgentExecutorDefault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/knowledge/graph": {
         parameters: {
             query?: never;
@@ -374,12 +612,38 @@ export interface components {
             recipeSha256?: string;
             sessionKey?: string;
         };
+        /** @description The consumer retains session links even if prompt acceptance is unconfirmed:
+         *     an empty turn_id identifies a partial receipt. A populated turn_id records
+         *     acknowledged acceptance, not successful completion of the turn or its task. */
+        "candace.brainspine.v1.AgentAssignmentReceipt": {
+            /** @description For a harness run: the work branch, the draft pull request the commit
+             *     gate opened (empty when none exists yet) and the run's trace. */
+            branch?: string;
+            /** @description The turn executor the session ran on, as the recipe names it; never empty
+             *     for a harness run. */
+            executor?: string;
+            plan?: components["schemas"]["candace.brainspine.v1.AgentAssignmentPlan"];
+            pullRequestUrl?: string;
+            /** @description Set on the first turn after the session hypervisor resumed a suspended
+             *     session, so the cost of resuming is on the receipt. */
+            resumed?: components["schemas"]["candace.brainspine.v1.ResumedTurn"];
+            sessionId?: string;
+            sessionUrl?: string;
+            traceId?: string;
+            turnId?: string;
+            worktreeId?: string;
+        };
         /** @description One immutable assignment recipe. Retain this file to retry the assignment;
          *     changing its contents requires a new assignment_id. Model and repository
          *     identifiers come from the Workbench catalog. This slice creates a worktree. */
         "candace.brainspine.v1.AgentAssignmentRecipe": {
             agent?: components["schemas"]["candace.brainspine.v1.AgentDefinition"];
             assignmentId?: string;
+            /** @description The turn executor a harness session runs on: "claude-code" (also when
+             *     empty) runs Claude Code and "copilot" runs the GitHub Copilot CLI. The
+             *     model is passed to the chosen executor unchanged, so it is spelled as that
+             *     executor spells it. */
+            executor?: string;
             model?: string;
             repositoryId?: string;
             task?: string;
@@ -435,7 +699,9 @@ export interface components {
          *     use, and the title of the draft pull request the commit gate opens. */
         "candace.brainspine.v1.AgentWorkspace": {
             /** @description Claude Code tool rules the session may use without asking, such as
-             *     "Bash", "Edit" or "Bash(git *)". Everything else is denied. */
+             *     "Bash", "Edit" or "Bash(git *)". Everything else is denied. A Copilot
+             *     session runs the same rules translated to Copilot's tools; a rule with
+             *     no Copilot equivalent refuses the recipe. */
             allowedTools?: string[];
             /** @description The ref the work branch starts from and the pull request targets. */
             baseBranch?: string;
@@ -444,6 +710,8 @@ export interface components {
             /** @description A file holding the task, read by the launcher in place of an inline
              *     task; relative paths resolve against the recipe file. */
             briefPath?: string;
+            /** @description Workspace mode: "normal" (default) or "patch" for submit-then-verify flow. */
+            mode?: string;
             /** @description Title of the draft pull request opened after the first commit. */
             pullRequestTitle?: string;
             /** @description Absolute path of the local repository the worktree is created from. */
@@ -665,17 +933,40 @@ export interface components {
         } | {
             receipt: components["schemas"]["candace.brainspine.v1.CommandReceipt"];
         });
+        /** @description The cost of the first turn on a resumed session, whose turn executor the
+         *     hypervisor had closed on suspend and opened again on the recorded
+         *     conversation for this turn: the time from the turn's request to the
+         *     executor's first assistant event, and how long the session was suspended. */
+        "candace.brainspine.v1.ResumedTurn": {
+            /** Format: double */
+            suspendedSeconds?: number;
+            /** Format: double */
+            timeToFirstTokenMs?: number;
+        };
         "candace.brainspine.v1.RunStatus": {
             evidencePath?: string;
             message?: string;
             phase?: string;
             runId?: string;
         };
+        /** @description A hit is one chunk of a document: the lines it spans, its score in the
+         *     result's order, and why it ranked there. */
         "candace.brainspine.v1.SearchHit": {
             document?: components["schemas"]["candace.brainspine.v1.SourceDocument"];
             excerpt?: string;
+            /** Format: int64 */
+            lineEnd?: number;
+            /**
+             * Format: int64
+             * @description The 1-based lines of the document the excerpt spans.
+             */
+            lineStart?: number;
+            /** @description The document's title: a repository-relative path, a ticket or a run. */
+            path?: string;
             /** Format: double */
             score?: number;
+            /** @description Which retrievers found the chunk, at what rank, and the reranker's score. */
+            why?: string;
         };
         "candace.brainspine.v1.SearchResponse": {
             result?: components["schemas"]["candace.brainspine.v1.SearchResult"];
@@ -684,6 +975,8 @@ export interface components {
             embeddingModel?: string;
             hits?: components["schemas"]["candace.brainspine.v1.SearchHit"][];
             mode?: string;
+            /** @description The cross-encoder that ordered the hits; empty when none did. */
+            reranker?: string;
         };
         "candace.brainspine.v1.SimulationArtifact": {
             mediaType?: string;
@@ -794,6 +1087,249 @@ export interface components {
         };
         "candace.email.v1.SendEmailResponse": {
             receipt?: components["schemas"]["candace.email.v1.EmailReceipt"];
+        };
+        /** @description The turn executor and model a recipe that names no executor runs on: the
+         *     host's default, set when csf serve starts and switchable while it runs. A
+         *     recipe that names its executor runs as written. */
+        "candace.harness.v1.AgentExecutorDefault": {
+            executor?: string;
+            /** @description The model such a recipe runs on, spelled as the executor spells it.
+             *     Empty keeps each recipe's own model, which is only meaningful for the
+             *     executor recipes are written for, Claude Code. */
+            model?: string;
+        };
+        /**
+         * @description Where a session is in its life. The harness service owns the transitions:
+         *     a session is OPEN between turns, RUNNING while its turn executor carries
+         *     out a turn, and ends CANCELED, FAILED or CLOSED.
+         * @enum {string}
+         */
+        "candace.harness.v1.AgentSessionPhase": "AGENT_SESSION_PHASE_UNSPECIFIED" | "AGENT_SESSION_PHASE_STARTING" | "AGENT_SESSION_PHASE_RUNNING" | "AGENT_SESSION_PHASE_OPEN" | "AGENT_SESSION_PHASE_CANCELING" | "AGENT_SESSION_PHASE_CANCELED" | "AGENT_SESSION_PHASE_FAILED" | "AGENT_SESSION_PHASE_CLOSED";
+        /** @description The state of one session the harness runs. It is a projection of the run
+         *     record and the owner's position; the events.jsonl of the run is the full
+         *     record. */
+        "candace.harness.v1.AgentSessionState": {
+            agentId?: string;
+            assignmentId?: string;
+            branch?: string;
+            /** @description The failure that ended the session, when the phase is FAILED. */
+            error?: string;
+            /** Format: int64 */
+            eventsLast10m?: number;
+            /** Format: int64 */
+            inboxDepth?: number;
+            lastCommand?: string;
+            /**
+             * Format: date-time
+             * @description Activity counters tracked as events are written.
+             */
+            lastEventAt?: string;
+            lastTool?: string;
+            phase?: components["schemas"]["candace.harness.v1.AgentSessionPhase"];
+            pullRequestUrl?: string;
+            /**
+             * Format: int64
+             * @description Messages accepted by Send and not yet started as turns.
+             */
+            queued?: number;
+            sessionId?: string;
+            /** Format: date-time */
+            startedAt?: string;
+            /** @description The session is suspended: its turn executor is closed, the session stays
+             *     OPEN with its recorded conversation, and the next message resumes it. */
+            suspended?: boolean;
+            traceId?: string;
+            /**
+             * Format: int64
+             * @description Turns started on the session so far.
+             */
+            turns?: number;
+            /** Format: date-time */
+            updatedAt?: string;
+            worktree?: string;
+        };
+        /** @description The state at the moment the request was recorded: CANCELING while a turn
+         *     is still running, CANCELED once the owner has stopped at its safepoint. */
+        "candace.harness.v1.CancelAgentSessionResponse": {
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
+        };
+        "candace.harness.v1.CheckAgentSessionAdmissionResponse": {
+            check?: components["schemas"]["candace.harness.v1.LaunchCheck"];
+            /** @description Why every Submit is refused right now; empty while sessions are admitted. */
+            held?: string;
+        };
+        "candace.harness.v1.GetAgentExecutorDefaultResponse": {
+            executorDefault?: components["schemas"]["candace.harness.v1.AgentExecutorDefault"];
+        };
+        "candace.harness.v1.GetAgentSessionResponse": {
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
+        };
+        "candace.harness.v1.InboxMessage": {
+            /** Format: date-time */
+            answeredAt?: string;
+            /** Format: date-time */
+            deliveredAt?: string;
+            /** @description priority_class determines interrupt behavior. */
+            priorityClass?: components["schemas"]["candace.harness.v1.MessagePriorityClass"];
+            /** Format: date-time */
+            readAt?: string;
+            receiptId?: string;
+            /** Format: date-time */
+            sentAt?: string;
+            /**
+             * Format: uint64
+             * @description sequence: stable order key combined with priority_class.
+             */
+            sequence?: string;
+            state?: components["schemas"]["candace.harness.v1.MessageState"];
+            text?: string;
+        };
+        /** @description The check made before a session is launched, with its measurements. Both
+         *     bounds are derived from what the host measures; while the check is
+         *     report-only a failing bound is recorded and the session is admitted anyway. */
+        "candace.harness.v1.LaunchCheck": {
+            admitted?: boolean;
+            /** Format: int64 */
+            cores?: number;
+            /**
+             * Format: uint64
+             * @description The disk floor: the free bytes a new session must leave.
+             */
+            diskFloorBytes?: string;
+            findings?: string[];
+            /** Format: uint64 */
+            freeBytes?: string;
+            /** Format: double */
+            ioPressureBound?: number;
+            /**
+             * Format: double
+             * @description The io bound: the percent of the last 10 s in which every non-idle task
+             *     stalled on io, and the derived bound above which launches are held.
+             */
+            ioPressureFullAvg10?: number;
+            /** Format: double */
+            loadOneMinute?: number;
+            /**
+             * Format: uint64
+             * @description The memory bound: the memory available on the host and the memory a
+             *     session may use, its memory.max. A launch that does not fit is refused
+             *     even while the check is report-only.
+             */
+            memoryAvailableBytes?: string;
+            memoryFits?: boolean;
+            reportOnly?: boolean;
+            /** Format: int64 */
+            runningSessions?: number;
+            /** Format: uint64 */
+            sessionMemoryBytes?: string;
+            /**
+             * Format: int64
+             * @description The worker cap: how many sessions the measured idle capacity admits.
+             */
+            workerCap?: number;
+        };
+        "candace.harness.v1.ListAgentSessionsResponse": {
+            /**
+             * Format: int32
+             * @description The one harness process every listed session runs in.
+             */
+            hostPid?: number;
+            sessions?: components["schemas"]["candace.harness.v1.AgentSessionState"][];
+        };
+        "candace.harness.v1.ListInboxResponse": {
+            messages?: components["schemas"]["candace.harness.v1.InboxMessage"][];
+        };
+        /** @description The merge path's report: what the repository's merge script or gh printed. */
+        "candace.harness.v1.MergeAgentSessionPullRequestResponse": {
+            report?: string;
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
+        };
+        /** @enum {string} */
+        "candace.harness.v1.MessagePriorityClass": "MESSAGE_PRIORITY_CLASS_UNSPECIFIED" | "MESSAGE_PRIORITY_CLASS_QUEUE" | "MESSAGE_PRIORITY_CLASS_INTERRUPT" | "MESSAGE_PRIORITY_CLASS_PREEMPT";
+        /** @enum {string} */
+        "candace.harness.v1.MessageState": "MESSAGE_STATE_UNSPECIFIED" | "MESSAGE_STATE_QUEUED" | "MESSAGE_STATE_DELIVERED" | "MESSAGE_STATE_READ" | "MESSAGE_STATE_ANSWERED";
+        /** @description A proposed patch to be applied, with the diff and metadata. */
+        "candace.harness.v1.Proposal": {
+            assignmentId?: string;
+            /** @description Unified diff of the changes. */
+            diff?: string;
+            /** @description Commit message for the proposed changes. */
+            message?: string;
+            /** Format: date-time */
+            proposedAt?: string;
+        };
+        "candace.harness.v1.ProposeProposalResponse": {
+            /** @description The rejection reason if the proposal was not accepted. */
+            rejection?: components["schemas"]["candace.harness.v1.Rejection"];
+            /** @description The session state after the proposal, or absent if rejected. */
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
+        };
+        "candace.harness.v1.ReadyAgentSessionPullRequestResponse": {
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
+        };
+        /** @description The rulings in force after the record, in the order first recorded. */
+        "candace.harness.v1.RecordRulingResponse": {
+            inForce?: components["schemas"]["candace.harness.v1.Ruling"][];
+        };
+        /** @description A typed rejection of a proposed patch. */
+        "candace.harness.v1.Rejection": {
+            code?: components["schemas"]["candace.harness.v1.Rejection.Code"];
+            details?: string;
+        };
+        /** @enum {string} */
+        "candace.harness.v1.Rejection.Code": "CODE_UNSPECIFIED" | "CODE_APPLY_FAILED" | "CODE_VALIDATION_FAILED" | "CODE_DECLINED" | "CODE_MODE_UNSUPPORTED";
+        /** @description One operator ruling: what it decides, the operator's own words, whom it
+         *     binds, why, and the gate that enforces it. A ruling no gate enforces is
+         *     UNENFORCED, and the Workbench and the rulings view flag it. An agent
+         *     question, or an alternative it offers, that names an excluded alternative
+         *     re-litigates the ruling, and the question gate refuses it. */
+        "candace.harness.v1.Ruling": {
+            /** @description The gate that enforces the ruling; empty is UNENFORCED. */
+            enforcedBy?: string;
+            /** @description Phrases naming the alternatives the ruling rules out, matched word by
+             *     word after stemming; none blank (the service checks). A ruling with none
+             *     is never matched by the question gate. */
+            excludes?: string[];
+            /** @description The gate that will enforce the ruling once it merges. The ruling stays
+             *     UNENFORCED until enforced_by names a gate. */
+            pendingGate?: string;
+            /** @description The operator's words, copied verbatim and never paraphrased. */
+            quote?: string;
+            /** @description The day the operator ruled, as YYYY-MM-DD. */
+            ruledOn?: string;
+            rulingId?: string;
+            /** @description Whom the ruling binds: every actor, the sessions, the orchestrator. */
+            scope?: string;
+            statement?: string;
+            /** @description The ruling this one replaces; it stops being in force. */
+            supersedes?: string;
+            /** @description Why the operator ruled: what happened that the ruling answers. */
+            why?: string;
+        };
+        /** @description A turn identifier acknowledges that the message was queued for the
+         *     session's next safepoint; it does not prove the turn ran or succeeded. */
+        "candace.harness.v1.SendAgentSessionMessageResponse": {
+            receipt?: components["schemas"]["candace.harness.v1.InboxMessage"];
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
+            /** @description turn_id acknowledges the message's turn; receipt carries its queued inbox message. */
+            turnId?: string;
+        };
+        "candace.harness.v1.SetAgentExecutorDefaultResponse": {
+            executorDefault?: components["schemas"]["candace.harness.v1.AgentExecutorDefault"];
+            previous?: components["schemas"]["candace.harness.v1.AgentExecutorDefault"];
+        };
+        "candace.harness.v1.StopHarnessResponse": {
+            /**
+             * Format: int64
+             * @description Sessions still running when the stop was requested; each is closed in
+             *     the harness's ordered shutdown.
+             */
+            sessionsRunning?: number;
+        };
+        "candace.harness.v1.SubmitAgentSessionResponse": {
+            check?: components["schemas"]["candace.harness.v1.LaunchCheck"];
+            receipt?: components["schemas"]["candace.brainspine.v1.AgentAssignmentReceipt"];
+            session?: components["schemas"]["candace.harness.v1.AgentSessionState"];
         };
         "candace.provenance.v1.ContainerObservation": {
             image?: string;
@@ -1567,6 +2103,504 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["candace.brainspine.v1.PutEdgeResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_SubmitAgentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    recipe?: components["schemas"]["candace.brainspine.v1.AgentAssignmentRecipe"];
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.SubmitAgentSessionResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_SendAgentSessionMessage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assignmentId?: string;
+                    message?: string;
+                    /** @description The message is the operator's own words: a chat turn the operator sent,
+                     *     or a relayed message that quotes the operator verbatim. The harness
+                     *     computes the message's unvetted terms, records them as an event and puts
+                     *     them into the turn, and the reply gate holds the reply to them. */
+                    operatorAuthored?: boolean;
+                    /** @description priority_class determines if message interrupts running turn or queues normally. */
+                    priorityClass?: components["schemas"]["candace.harness.v1.MessagePriorityClass"];
+                    /** @description The operator wanted the question the question gate last refused in this
+                     *     session: the send is recorded as an override, the false-positive
+                     *     evidence for the gate's classifier. */
+                    questionWanted?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description A turn identifier acknowledges that the message was queued for the
+             *     session's next safepoint; it does not prove the turn ran or succeeded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.SendAgentSessionMessageResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_ProposeProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    proposal?: components["schemas"]["candace.harness.v1.Proposal"];
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.ProposeProposalResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_ListAgentSessions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.ListAgentSessionsResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_ListInbox: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assignmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.ListInboxResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_GetAgentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assignmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.GetAgentSessionResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_CancelAgentSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assignmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The state at the moment the request was recorded: CANCELING while a turn
+             *     is still running, CANCELED once the owner has stopped at its safepoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.CancelAgentSessionResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_CheckAgentSessionAdmission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    recipe?: components["schemas"]["candace.brainspine.v1.AgentAssignmentRecipe"];
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.CheckAgentSessionAdmissionResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_ReadyAgentSessionPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assignmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.ReadyAgentSessionPullRequestResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_MergeAgentSessionPullRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    assignmentId?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The merge path's report: what the repository's merge script or gh printed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.MergeAgentSessionPullRequestResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_RecordRuling: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    ruling?: components["schemas"]["candace.harness.v1.Ruling"];
+                };
+            };
+        };
+        responses: {
+            /** @description The rulings in force after the record, in the order first recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.RecordRulingResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_StopHarness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.StopHarnessResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_GetAgentExecutorDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.GetAgentExecutorDefaultResponse"];
+                };
+            };
+            /** @description An unexpected error response. */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["google.rpc.Status"];
+                };
+            };
+        };
+    };
+    Research_SetAgentExecutorDefault: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    executorDefault?: components["schemas"]["candace.harness.v1.AgentExecutorDefault"];
+                };
+            };
+        };
+        responses: {
+            /** @description A successful response. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["candace.harness.v1.SetAgentExecutorDefaultResponse"];
                 };
             };
             /** @description An unexpected error response. */

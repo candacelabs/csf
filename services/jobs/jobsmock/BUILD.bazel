@@ -12,7 +12,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/jobs/jobsmock",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
+        "//io/ipc/db/csfpg",
         "//services/jobs",
         "@com_github_aws_aws_sdk_go_v2_service_batch//:batch",
         "@com_github_aws_aws_sdk_go_v2_service_cloudwatchlogs//:cloudwatchlogs",

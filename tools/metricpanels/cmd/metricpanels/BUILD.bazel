@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "metricpanels_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/tools/metricpanels/cmd/metricpanels",
+    visibility = ["//visibility:private"],
+    deps = ["//services/views"],
+)
+
+go_binary(
+    name = "metricpanels",
+    embed = [":metricpanels_lib"],
+    visibility = ["//visibility:public"],
+)

@@ -6,7 +6,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/cron/crontest",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
+        "//io/ipc/db/csfpg",
         "//pkg/pgmem",
         "//services/cron",
     ],

@@ -18,15 +18,15 @@ import (
 // deduplication memory, and the rate-limit arithmetic.
 
 const (
-	unitRepository = "example/widgets"
+	unitRepository = "candacelabs/widgets"
 	issueComment   = `[{"id":"9","type":"IssueCommentEvent","actor":{"login":"octo"},"created_at":"2026-10-01T12:00:00Z",
 	  "payload":{"action":"created","issue":{"number":3},
-	   "comment":{"id":77,"html_url":"https://github.com/example/widgets/issues/3#issuecomment-77","body":"ping","user":{"login":"octo"}}}},
+	   "comment":{"id":77,"html_url":"https://github.com/candacelabs/widgets/issues/3#issuecomment-77","body":"ping","user":{"login":"octo"}}}},
 	 {"id":"10","type":"IssueCommentEvent","actor":{"login":"octo"},"created_at":"2026-10-01T12:00:01Z",
 	  "payload":{"action":"edited","issue":{"number":3},"comment":{"id":77}}},
 	 {"id":"11","type":"PullRequestReviewCommentEvent","actor":{"login":"octo"},"created_at":"2026-10-01T12:00:02Z",
 	  "payload":{"action":"created","pull_request":{"number":4},
-	   "comment":{"id":78,"html_url":"https://github.com/example/widgets/pull/4#discussion_r78","body":"nit","user":{"login":"octo"}}}}]`
+	   "comment":{"id":78,"html_url":"https://github.com/candacelabs/widgets/pull/4#discussion_r78","body":"nit","user":{"login":"octo"}}}}]`
 	mixedRuns = `{"workflow_runs":[
 	 {"id":1,"name":"CI","run_attempt":2,"conclusion":"failure","head_branch":"main","updated_at":"2026-10-01T12:00:00Z","pull_requests":[]},
 	 {"id":2,"name":"CI","run_attempt":1,"conclusion":"success","head_branch":"main","updated_at":"2026-10-01T12:00:00Z","pull_requests":[]}]}`

@@ -4,8 +4,8 @@ The root `MODULE.bazel` pins the OCaml binding/runtime and Go/Python grammar arc
 by immutable revision and SHA-256. Bazel builds the upstream generated C parser
 through `grammar.BUILD.bazel`; no Go text is rewritten before parsing.
 
-The Go grammar currently uses upstream [pull request #193](https://github.com/tree-sitter/tree-sitter-go/pull/193),
-commit [`5a6af13a0a5b45bc76cac289c783b315b2b74e13`](https://github.com/tree-sitter/tree-sitter-go/commit/5a6af13a0a5b45bc76cac289c783b315b2b74e13),
+The Go grammar currently uses upstream pull request 193 of
+[tree-sitter-go](https://github.com/tree-sitter/tree-sitter-go), commit [`5a6af13a0a5b45bc76cac289c783b315b2b74e13`](https://github.com/tree-sitter/tree-sitter-go/commit/5a6af13a0a5b45bc76cac289c783b315b2b74e13),
 an **unmerged compatibility revision**, checked on 2026-09-17. Its parent is
 upstream master revision `2346a3ab1bb3857b48b29d779a1ef9799a248cd7`.
 The archive SHA-256 is

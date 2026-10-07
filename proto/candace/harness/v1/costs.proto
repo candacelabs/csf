@@ -1,0 +1,173 @@
+// The cost model of the harness's session operations: one cost event per
+// operation a virtual session's life on real sessions costs, derived from
+// the recorded runs; the inputs measured from them; each decision's policies
+// replayed over them; and the parameters chosen by that replay.
+syntax = "proto3";
+
+package candace.harness.v1;
+
+import "google/protobuf/timestamp.proto";
+import "liquidproto/v1/refinement.proto";
+
+option go_package = "github.com/candacelabs/csf/proto/candace/harness/v1;harnessv1";
+
+// What a virtual session did on its real sessions.
+enum HypervisorOperation {
+  HYPERVISOR_OPERATION_UNSPECIFIED = 0;
+  // A turn on a real session whose prompt cache was still warm.
+  HYPERVISOR_OPERATION_TURN_WARM = 1;
+  // A turn after the gap since the conversation's previous turn outlived
+  // the cache lifetime.
+  HYPERVISOR_OPERATION_TURN_COLD = 2;
+  // A virtual session opened a new real session.
+  HYPERVISOR_OPERATION_BIND = 3;
+  // A virtual session attached to an existing real session.
+  HYPERVISOR_OPERATION_REBIND = 4;
+  // A turn ran on another model than the conversation's previous turn.
+  HYPERVISOR_OPERATION_MODEL_FLIP = 5;
+  // A turn executor was closed between turns.
+  HYPERVISOR_OPERATION_IDLE_CLOSE = 6;
+  // A closed turn executor was opened again on its conversation.
+  HYPERVISOR_OPERATION_REOPEN = 7;
+  // A request whose only purpose is to keep the prompt cache warm. None is
+  // recorded today; the simulator prices them.
+  HYPERVISOR_OPERATION_KEEP_ALIVE = 8;
+}
+
+// A field of a cost event, named when the field was inferred rather than
+// read as recorded, or when the record does not carry it.
+enum CostField {
+  COST_FIELD_UNSPECIFIED = 0;
+  COST_FIELD_OPERATION = 1;
+  COST_FIELD_TOKENS = 2;
+  COST_FIELD_USD = 3;
+  COST_FIELD_TTFT = 4;
+  COST_FIELD_RESIDENT = 5;
+}
+
+// The decisions the cost model evaluates.
+enum HypervisorDecision {
+  HYPERVISOR_DECISION_UNSPECIFIED = 0;
+  HYPERVISOR_DECISION_IDLE_CLOSE = 1;
+  HYPERVISOR_DECISION_KEEP_ALIVE = 2;
+  HYPERVISOR_DECISION_MODEL_FLIP = 3;
+  HYPERVISOR_DECISION_PLACEMENT = 4;
+  // Route a new request to the warm real session whose area signature
+  // covers it best, or open a new one.
+  HYPERVISOR_DECISION_AREA_AFFINITY = 5;
+}
+
+// Input tokens by how the endpoint charged them, and output tokens.
+message TokenCounts {
+  int64 uncached_input = 1 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  int64 cache_write = 2 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  int64 cache_read = 3 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  int64 output = 4 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+}
+
+// One operation and what it cost.
+message CostEvent {
+  HypervisorOperation operation = 1;
+  google.protobuf.Timestamp at = 2;
+  string virtual_session = 3;
+  string real_session = 4;
+  string agent = 5;
+  string model = 6;
+  // A turn's tokens; for bind, rebind, model flip and reopen, the cache
+  // write of the first model call after it: the prefix the operation made
+  // the endpoint build again.
+  TokenCounts tokens = 7;
+  double usd = 8;
+  // Time to first token of the turn, or of the first turn after the
+  // operation.
+  int64 ttft_ms = 9;
+  // Since the end of the conversation's previous turn.
+  int64 gap_ms = 10;
+  // The conversation's size at the end of the previous turn: what a later
+  // turn reads, or writes again once the cache has expired.
+  int64 prefix_tokens = 11;
+  // Turn executor memory released by an idle close.
+  int64 resident_bytes = 12;
+  repeated CostField inferred = 13;
+  repeated CostField missing = 14;
+}
+
+// A 95% interval.
+message Interval {
+  double low = 1;
+  double high = 2;
+}
+
+// One measured input of the cost model.
+message MeasuredInput {
+  string name = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0"}];
+  // What the input is measured over: a model, an agent, a gap band.
+  string group = 2;
+  double value = 3;
+  string unit = 4;
+  int64 n = 5 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  Interval interval = 6;
+  // The value is read from the record rather than inferred from it.
+  bool exact = 7;
+  string method = 8;
+}
+
+// One policy for one decision, replayed over the recorded runs.
+message PolicyOutcome {
+  HypervisorDecision decision = 1;
+  string policy = 2;
+  // The policy's own parameter, when it has one: a threshold in seconds, a
+  // number of keep-alive requests.
+  double parameter = 3;
+  double usd_per_day = 4;
+  Interval usd_per_day_interval = 5;
+  // Against today's behaviour; positive is cheaper.
+  double saving_usd_per_day = 6;
+  Interval saving_interval = 7;
+  bool today = 8;
+  bool chosen = 9;
+  string note = 10;
+  // For idle close, whose two sides the record prices in different units:
+  // turn executor memory held while idle, and time added to first tokens
+  // by reopens.
+  double resident_gb_hours_per_day = 11;
+  double added_latency_seconds_per_day = 12;
+}
+
+// A parameter the hypervisor reads, with how it was derived.
+message HypervisorParameter {
+  string name = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0"}];
+  double value = 2;
+  string unit = 3;
+  HypervisorDecision decision = 4;
+  string derivation = 5;
+  // False when the record is too thin to choose; the value is then today's.
+  bool chosen = 6;
+}
+
+// One UTC day of the series.
+message CostDay {
+  string day = 1;
+  double session_hours = 2;
+  // Keyed by the operation's enum name.
+  map<string, double> usd_per_session_hour = 3;
+  double h_fleet = 4;
+  double saving_usd = 5;
+}
+
+// The whole cost model of one state directory at one time.
+message CostReport {
+  google.protobuf.Timestamp at = 1;
+  int64 runs = 2;
+  // UTC days with a turn. Dollars per day divide by the record's span,
+  // first turn to last.
+  int64 days = 3;
+  // Cost events by operation enum name.
+  map<string, int64> operations = 4;
+  repeated MeasuredInput inputs = 5;
+  repeated PolicyOutcome policies = 6;
+  repeated HypervisorParameter parameters = 7;
+  repeated CostDay series = 8;
+  // Where the record is too thin to decide, in words.
+  repeated string thin = 9;
+}

@@ -4,7 +4,7 @@ This OCaml compiler projects the owned protobuf RPC descriptor and upstream
 OpenAPI document into CSF's Go client, HTTP/MCP registration and CLI catalog.
 Protobuf `go_package` owns each message's Go import, including operations from
 different packages. Only the supported empty-input GET and whole-message POST
-routes are accepted. MCP schemas retain only reachable definitions.
+routes are accepted. [MCP](../../docs/generated/ontology_cgen.md#term-mcp) schemas retain only reachable definitions.
 
 ```sh
 bash tools/bazel.sh test //csf/compiler/api_codegen:tests

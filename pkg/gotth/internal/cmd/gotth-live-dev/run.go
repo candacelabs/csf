@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 )
 
 // supervisor builds the application and keeps exactly one of it running.

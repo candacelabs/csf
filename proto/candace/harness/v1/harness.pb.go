@@ -101,6 +101,172 @@ func (AgentSessionPhase) EnumDescriptor() ([]byte, []int) {
 	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{0}
 }
 
+type MessageState int32
+
+const (
+	MessageState_MESSAGE_STATE_UNSPECIFIED MessageState = 0
+	MessageState_MESSAGE_STATE_QUEUED      MessageState = 1
+	MessageState_MESSAGE_STATE_DELIVERED   MessageState = 2
+	MessageState_MESSAGE_STATE_READ        MessageState = 3
+	MessageState_MESSAGE_STATE_ANSWERED    MessageState = 4
+)
+
+// Enum value maps for MessageState.
+var (
+	MessageState_name = map[int32]string{
+		0: "MESSAGE_STATE_UNSPECIFIED",
+		1: "MESSAGE_STATE_QUEUED",
+		2: "MESSAGE_STATE_DELIVERED",
+		3: "MESSAGE_STATE_READ",
+		4: "MESSAGE_STATE_ANSWERED",
+	}
+	MessageState_value = map[string]int32{
+		"MESSAGE_STATE_UNSPECIFIED": 0,
+		"MESSAGE_STATE_QUEUED":      1,
+		"MESSAGE_STATE_DELIVERED":   2,
+		"MESSAGE_STATE_READ":        3,
+		"MESSAGE_STATE_ANSWERED":    4,
+	}
+)
+
+func (x MessageState) Enum() *MessageState {
+	p := new(MessageState)
+	*p = x
+	return p
+}
+
+func (x MessageState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MessageState) Descriptor() protoreflect.EnumDescriptor {
+	return file_candace_harness_v1_harness_proto_enumTypes[1].Descriptor()
+}
+
+func (MessageState) Type() protoreflect.EnumType {
+	return &file_candace_harness_v1_harness_proto_enumTypes[1]
+}
+
+func (x MessageState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MessageState.Descriptor instead.
+func (MessageState) EnumDescriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{1}
+}
+
+type MessagePriorityClass int32
+
+const (
+	MessagePriorityClass_MESSAGE_PRIORITY_CLASS_UNSPECIFIED MessagePriorityClass = 0
+	MessagePriorityClass_MESSAGE_PRIORITY_CLASS_QUEUE       MessagePriorityClass = 1
+	MessagePriorityClass_MESSAGE_PRIORITY_CLASS_INTERRUPT   MessagePriorityClass = 2
+	MessagePriorityClass_MESSAGE_PRIORITY_CLASS_PREEMPT     MessagePriorityClass = 3
+)
+
+// Enum value maps for MessagePriorityClass.
+var (
+	MessagePriorityClass_name = map[int32]string{
+		0: "MESSAGE_PRIORITY_CLASS_UNSPECIFIED",
+		1: "MESSAGE_PRIORITY_CLASS_QUEUE",
+		2: "MESSAGE_PRIORITY_CLASS_INTERRUPT",
+		3: "MESSAGE_PRIORITY_CLASS_PREEMPT",
+	}
+	MessagePriorityClass_value = map[string]int32{
+		"MESSAGE_PRIORITY_CLASS_UNSPECIFIED": 0,
+		"MESSAGE_PRIORITY_CLASS_QUEUE":       1,
+		"MESSAGE_PRIORITY_CLASS_INTERRUPT":   2,
+		"MESSAGE_PRIORITY_CLASS_PREEMPT":     3,
+	}
+)
+
+func (x MessagePriorityClass) Enum() *MessagePriorityClass {
+	p := new(MessagePriorityClass)
+	*p = x
+	return p
+}
+
+func (x MessagePriorityClass) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MessagePriorityClass) Descriptor() protoreflect.EnumDescriptor {
+	return file_candace_harness_v1_harness_proto_enumTypes[2].Descriptor()
+}
+
+func (MessagePriorityClass) Type() protoreflect.EnumType {
+	return &file_candace_harness_v1_harness_proto_enumTypes[2]
+}
+
+func (x MessagePriorityClass) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MessagePriorityClass.Descriptor instead.
+func (MessagePriorityClass) EnumDescriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{2}
+}
+
+type Rejection_Code int32
+
+const (
+	Rejection_CODE_UNSPECIFIED Rejection_Code = 0
+	// Patch could not be parsed or applied.
+	Rejection_CODE_APPLY_FAILED Rejection_Code = 1
+	// Commit message or diff validation failed.
+	Rejection_CODE_VALIDATION_FAILED Rejection_Code = 2
+	// User declined the proposal.
+	Rejection_CODE_DECLINED Rejection_Code = 3
+	// Workspace mode does not allow patches.
+	Rejection_CODE_MODE_UNSUPPORTED Rejection_Code = 4
+)
+
+// Enum value maps for Rejection_Code.
+var (
+	Rejection_Code_name = map[int32]string{
+		0: "CODE_UNSPECIFIED",
+		1: "CODE_APPLY_FAILED",
+		2: "CODE_VALIDATION_FAILED",
+		3: "CODE_DECLINED",
+		4: "CODE_MODE_UNSUPPORTED",
+	}
+	Rejection_Code_value = map[string]int32{
+		"CODE_UNSPECIFIED":       0,
+		"CODE_APPLY_FAILED":      1,
+		"CODE_VALIDATION_FAILED": 2,
+		"CODE_DECLINED":          3,
+		"CODE_MODE_UNSUPPORTED":  4,
+	}
+)
+
+func (x Rejection_Code) Enum() *Rejection_Code {
+	p := new(Rejection_Code)
+	*p = x
+	return p
+}
+
+func (x Rejection_Code) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Rejection_Code) Descriptor() protoreflect.EnumDescriptor {
+	return file_candace_harness_v1_harness_proto_enumTypes[3].Descriptor()
+}
+
+func (Rejection_Code) Type() protoreflect.EnumType {
+	return &file_candace_harness_v1_harness_proto_enumTypes[3]
+}
+
+func (x Rejection_Code) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Rejection_Code.Descriptor instead.
+func (Rejection_Code) EnumDescriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{33, 0}
+}
+
 // The state of one session the harness runs. It is a projection of the run
 // record and the owner's position; the events.jsonl of the run is the full
 // record.
@@ -121,9 +287,18 @@ type AgentSessionState struct {
 	StartedAt *timestamppb.Timestamp `protobuf:"bytes,11,opt,name=started_at,json=startedAt,proto3" json:"started_at,omitempty"`
 	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
 	// The failure that ended the session, when the phase is FAILED.
-	Error         string `protobuf:"bytes,13,opt,name=error,proto3" json:"error,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Error string `protobuf:"bytes,13,opt,name=error,proto3" json:"error,omitempty"`
+	// The session is suspended: its turn executor is closed, the session stays
+	// OPEN with its recorded conversation, and the next message resumes it.
+	Suspended bool `protobuf:"varint,14,opt,name=suspended,proto3" json:"suspended,omitempty"`
+	// Activity counters tracked as events are written.
+	LastEventAt    *timestamppb.Timestamp `protobuf:"bytes,15,opt,name=last_event_at,json=lastEventAt,proto3" json:"last_event_at,omitempty"`
+	EventsLast_10M uint32                 `protobuf:"varint,16,opt,name=events_last_10m,json=eventsLast10m,proto3" json:"events_last_10m,omitempty"`
+	LastCommand    string                 `protobuf:"bytes,17,opt,name=last_command,json=lastCommand,proto3" json:"last_command,omitempty"`
+	LastTool       string                 `protobuf:"bytes,18,opt,name=last_tool,json=lastTool,proto3" json:"last_tool,omitempty"`
+	InboxDepth     uint32                 `protobuf:"varint,19,opt,name=inbox_depth,json=inboxDepth,proto3" json:"inbox_depth,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *AgentSessionState) Reset() {
@@ -247,6 +422,48 @@ func (x *AgentSessionState) GetError() string {
 	return ""
 }
 
+func (x *AgentSessionState) GetSuspended() bool {
+	if x != nil {
+		return x.Suspended
+	}
+	return false
+}
+
+func (x *AgentSessionState) GetLastEventAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastEventAt
+	}
+	return nil
+}
+
+func (x *AgentSessionState) GetEventsLast_10M() uint32 {
+	if x != nil {
+		return x.EventsLast_10M
+	}
+	return 0
+}
+
+func (x *AgentSessionState) GetLastCommand() string {
+	if x != nil {
+		return x.LastCommand
+	}
+	return ""
+}
+
+func (x *AgentSessionState) GetLastTool() string {
+	if x != nil {
+		return x.LastTool
+	}
+	return ""
+}
+
+func (x *AgentSessionState) GetInboxDepth() uint32 {
+	if x != nil {
+		return x.InboxDepth
+	}
+	return 0
+}
+
 // The check made before a session is launched, with its measurements. Both
 // bounds are derived from what the host measures; while the check is
 // report-only a failing bound is recorded and the session is admitted anyway.
@@ -263,8 +480,18 @@ type LaunchCheck struct {
 	Admitted       bool     `protobuf:"varint,7,opt,name=admitted,proto3" json:"admitted,omitempty"`
 	ReportOnly     bool     `protobuf:"varint,8,opt,name=report_only,json=reportOnly,proto3" json:"report_only,omitempty"`
 	Findings       []string `protobuf:"bytes,9,rep,name=findings,proto3" json:"findings,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// The io bound: the percent of the last 10 s in which every non-idle task
+	// stalled on io, and the derived bound above which launches are held.
+	IoPressureFullAvg10 float64 `protobuf:"fixed64,10,opt,name=io_pressure_full_avg10,json=ioPressureFullAvg10,proto3" json:"io_pressure_full_avg10,omitempty"`
+	IoPressureBound     float64 `protobuf:"fixed64,11,opt,name=io_pressure_bound,json=ioPressureBound,proto3" json:"io_pressure_bound,omitempty"`
+	// The memory bound: the memory available on the host and the memory a
+	// session may use, its memory.max. A launch that does not fit is refused
+	// even while the check is report-only.
+	MemoryAvailableBytes uint64 `protobuf:"varint,12,opt,name=memory_available_bytes,json=memoryAvailableBytes,proto3" json:"memory_available_bytes,omitempty"`
+	SessionMemoryBytes   uint64 `protobuf:"varint,13,opt,name=session_memory_bytes,json=sessionMemoryBytes,proto3" json:"session_memory_bytes,omitempty"`
+	MemoryFits           bool   `protobuf:"varint,14,opt,name=memory_fits,json=memoryFits,proto3" json:"memory_fits,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *LaunchCheck) Reset() {
@@ -358,6 +585,41 @@ func (x *LaunchCheck) GetFindings() []string {
 		return x.Findings
 	}
 	return nil
+}
+
+func (x *LaunchCheck) GetIoPressureFullAvg10() float64 {
+	if x != nil {
+		return x.IoPressureFullAvg10
+	}
+	return 0
+}
+
+func (x *LaunchCheck) GetIoPressureBound() float64 {
+	if x != nil {
+		return x.IoPressureBound
+	}
+	return 0
+}
+
+func (x *LaunchCheck) GetMemoryAvailableBytes() uint64 {
+	if x != nil {
+		return x.MemoryAvailableBytes
+	}
+	return 0
+}
+
+func (x *LaunchCheck) GetSessionMemoryBytes() uint64 {
+	if x != nil {
+		return x.SessionMemoryBytes
+	}
+	return 0
+}
+
+func (x *LaunchCheck) GetMemoryFits() bool {
+	if x != nil {
+		return x.MemoryFits
+	}
+	return false
 }
 
 type SubmitAgentSessionRequest struct {
@@ -464,17 +726,138 @@ func (x *SubmitAgentSessionResponse) GetCheck() *LaunchCheck {
 	return nil
 }
 
+type InboxMessage struct {
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	ReceiptId   string                 `protobuf:"bytes,1,opt,name=receipt_id,json=receiptId,proto3" json:"receipt_id,omitempty"`
+	Text        string                 `protobuf:"bytes,2,opt,name=text,proto3" json:"text,omitempty"`
+	State       MessageState           `protobuf:"varint,3,opt,name=state,proto3,enum=candace.harness.v1.MessageState" json:"state,omitempty"`
+	SentAt      *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	DeliveredAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
+	ReadAt      *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=read_at,json=readAt,proto3" json:"read_at,omitempty"`
+	AnsweredAt  *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=answered_at,json=answeredAt,proto3" json:"answered_at,omitempty"`
+	// priority_class determines interrupt behavior.
+	PriorityClass MessagePriorityClass `protobuf:"varint,8,opt,name=priority_class,json=priorityClass,proto3,enum=candace.harness.v1.MessagePriorityClass" json:"priority_class,omitempty"`
+	// sequence: stable order key combined with priority_class.
+	Sequence      uint64 `protobuf:"varint,9,opt,name=sequence,proto3" json:"sequence,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *InboxMessage) Reset() {
+	*x = InboxMessage{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *InboxMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InboxMessage) ProtoMessage() {}
+
+func (x *InboxMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InboxMessage.ProtoReflect.Descriptor instead.
+func (*InboxMessage) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *InboxMessage) GetReceiptId() string {
+	if x != nil {
+		return x.ReceiptId
+	}
+	return ""
+}
+
+func (x *InboxMessage) GetText() string {
+	if x != nil {
+		return x.Text
+	}
+	return ""
+}
+
+func (x *InboxMessage) GetState() MessageState {
+	if x != nil {
+		return x.State
+	}
+	return MessageState_MESSAGE_STATE_UNSPECIFIED
+}
+
+func (x *InboxMessage) GetSentAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.SentAt
+	}
+	return nil
+}
+
+func (x *InboxMessage) GetDeliveredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DeliveredAt
+	}
+	return nil
+}
+
+func (x *InboxMessage) GetReadAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ReadAt
+	}
+	return nil
+}
+
+func (x *InboxMessage) GetAnsweredAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.AnsweredAt
+	}
+	return nil
+}
+
+func (x *InboxMessage) GetPriorityClass() MessagePriorityClass {
+	if x != nil {
+		return x.PriorityClass
+	}
+	return MessagePriorityClass_MESSAGE_PRIORITY_CLASS_UNSPECIFIED
+}
+
+func (x *InboxMessage) GetSequence() uint64 {
+	if x != nil {
+		return x.Sequence
+	}
+	return 0
+}
+
 type SendAgentSessionMessageRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
-	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	Message      string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	// The message is the operator's own words: a chat turn the operator sent,
+	// or a relayed message that quotes the operator verbatim. The harness
+	// computes the message's unvetted terms, records them as an event and puts
+	// them into the turn, and the reply gate holds the reply to them.
+	OperatorAuthored bool `protobuf:"varint,3,opt,name=operator_authored,json=operatorAuthored,proto3" json:"operator_authored,omitempty"`
+	// The operator wanted the question the question gate last refused in this
+	// session: the send is recorded as an override, the false-positive
+	// evidence for the gate's classifier.
+	QuestionWanted bool `protobuf:"varint,4,opt,name=question_wanted,json=questionWanted,proto3" json:"question_wanted,omitempty"`
+	// priority_class determines if message interrupts running turn or queues normally.
+	PriorityClass MessagePriorityClass `protobuf:"varint,5,opt,name=priority_class,json=priorityClass,proto3,enum=candace.harness.v1.MessagePriorityClass" json:"priority_class,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SendAgentSessionMessageRequest) Reset() {
 	*x = SendAgentSessionMessageRequest{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[4]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -486,7 +869,7 @@ func (x *SendAgentSessionMessageRequest) String() string {
 func (*SendAgentSessionMessageRequest) ProtoMessage() {}
 
 func (x *SendAgentSessionMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[4]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -499,7 +882,7 @@ func (x *SendAgentSessionMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendAgentSessionMessageRequest.ProtoReflect.Descriptor instead.
 func (*SendAgentSessionMessageRequest) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{4}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SendAgentSessionMessageRequest) GetAssignmentId() string {
@@ -516,19 +899,263 @@ func (x *SendAgentSessionMessageRequest) GetMessage() string {
 	return ""
 }
 
+func (x *SendAgentSessionMessageRequest) GetOperatorAuthored() bool {
+	if x != nil {
+		return x.OperatorAuthored
+	}
+	return false
+}
+
+func (x *SendAgentSessionMessageRequest) GetQuestionWanted() bool {
+	if x != nil {
+		return x.QuestionWanted
+	}
+	return false
+}
+
+func (x *SendAgentSessionMessageRequest) GetPriorityClass() MessagePriorityClass {
+	if x != nil {
+		return x.PriorityClass
+	}
+	return MessagePriorityClass_MESSAGE_PRIORITY_CLASS_UNSPECIFIED
+}
+
+// One operator ruling: what it decides, the operator's own words, whom it
+// binds, why, and the gate that enforces it. A ruling no gate enforces is
+// UNENFORCED, and the Workbench and the rulings view flag it. An agent
+// question, or an alternative it offers, that names an excluded alternative
+// re-litigates the ruling, and the question gate refuses it.
+type Ruling struct {
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	RulingId  string                 `protobuf:"bytes,1,opt,name=ruling_id,json=rulingId,proto3" json:"ruling_id,omitempty"`
+	Statement string                 `protobuf:"bytes,2,opt,name=statement,proto3" json:"statement,omitempty"`
+	// Phrases naming the alternatives the ruling rules out, matched word by
+	// word after stemming; none blank (the service checks). A ruling with none
+	// is never matched by the question gate.
+	Excludes []string `protobuf:"bytes,3,rep,name=excludes,proto3" json:"excludes,omitempty"`
+	// The ruling this one replaces; it stops being in force.
+	Supersedes string `protobuf:"bytes,4,opt,name=supersedes,proto3" json:"supersedes,omitempty"`
+	// The operator's words, copied verbatim and never paraphrased.
+	Quote string `protobuf:"bytes,5,opt,name=quote,proto3" json:"quote,omitempty"`
+	// The day the operator ruled, as YYYY-MM-DD.
+	RuledOn string `protobuf:"bytes,6,opt,name=ruled_on,json=ruledOn,proto3" json:"ruled_on,omitempty"`
+	// Whom the ruling binds: every actor, the sessions, the orchestrator.
+	Scope string `protobuf:"bytes,7,opt,name=scope,proto3" json:"scope,omitempty"`
+	// Why the operator ruled: what happened that the ruling answers.
+	Why string `protobuf:"bytes,8,opt,name=why,proto3" json:"why,omitempty"`
+	// The gate that enforces the ruling; empty is UNENFORCED.
+	EnforcedBy string `protobuf:"bytes,9,opt,name=enforced_by,json=enforcedBy,proto3" json:"enforced_by,omitempty"`
+	// The gate that will enforce the ruling once it merges. The ruling stays
+	// UNENFORCED until enforced_by names a gate.
+	PendingGate   string `protobuf:"bytes,10,opt,name=pending_gate,json=pendingGate,proto3" json:"pending_gate,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Ruling) Reset() {
+	*x = Ruling{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Ruling) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Ruling) ProtoMessage() {}
+
+func (x *Ruling) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Ruling.ProtoReflect.Descriptor instead.
+func (*Ruling) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *Ruling) GetRulingId() string {
+	if x != nil {
+		return x.RulingId
+	}
+	return ""
+}
+
+func (x *Ruling) GetStatement() string {
+	if x != nil {
+		return x.Statement
+	}
+	return ""
+}
+
+func (x *Ruling) GetExcludes() []string {
+	if x != nil {
+		return x.Excludes
+	}
+	return nil
+}
+
+func (x *Ruling) GetSupersedes() string {
+	if x != nil {
+		return x.Supersedes
+	}
+	return ""
+}
+
+func (x *Ruling) GetQuote() string {
+	if x != nil {
+		return x.Quote
+	}
+	return ""
+}
+
+func (x *Ruling) GetRuledOn() string {
+	if x != nil {
+		return x.RuledOn
+	}
+	return ""
+}
+
+func (x *Ruling) GetScope() string {
+	if x != nil {
+		return x.Scope
+	}
+	return ""
+}
+
+func (x *Ruling) GetWhy() string {
+	if x != nil {
+		return x.Why
+	}
+	return ""
+}
+
+func (x *Ruling) GetEnforcedBy() string {
+	if x != nil {
+		return x.EnforcedBy
+	}
+	return ""
+}
+
+func (x *Ruling) GetPendingGate() string {
+	if x != nil {
+		return x.PendingGate
+	}
+	return ""
+}
+
+type RecordRulingRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ruling        *Ruling                `protobuf:"bytes,1,opt,name=ruling,proto3" json:"ruling,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordRulingRequest) Reset() {
+	*x = RecordRulingRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordRulingRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordRulingRequest) ProtoMessage() {}
+
+func (x *RecordRulingRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordRulingRequest.ProtoReflect.Descriptor instead.
+func (*RecordRulingRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RecordRulingRequest) GetRuling() *Ruling {
+	if x != nil {
+		return x.Ruling
+	}
+	return nil
+}
+
+// The rulings in force after the record, in the order first recorded.
+type RecordRulingResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	InForce       []*Ruling              `protobuf:"bytes,1,rep,name=in_force,json=inForce,proto3" json:"in_force,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecordRulingResponse) Reset() {
+	*x = RecordRulingResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecordRulingResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecordRulingResponse) ProtoMessage() {}
+
+func (x *RecordRulingResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecordRulingResponse.ProtoReflect.Descriptor instead.
+func (*RecordRulingResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *RecordRulingResponse) GetInForce() []*Ruling {
+	if x != nil {
+		return x.InForce
+	}
+	return nil
+}
+
 // A turn identifier acknowledges that the message was queued for the
 // session's next safepoint; it does not prove the turn ran or succeeded.
 type SendAgentSessionMessageResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Session       *AgentSessionState     `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
-	TurnId        string                 `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Session *AgentSessionState     `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	// turn_id acknowledges the message's turn; receipt carries its queued inbox message.
+	TurnId        string        `protobuf:"bytes,2,opt,name=turn_id,json=turnId,proto3" json:"turn_id,omitempty"`
+	Receipt       *InboxMessage `protobuf:"bytes,3,opt,name=receipt,proto3" json:"receipt,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SendAgentSessionMessageResponse) Reset() {
 	*x = SendAgentSessionMessageResponse{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[5]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -540,7 +1167,7 @@ func (x *SendAgentSessionMessageResponse) String() string {
 func (*SendAgentSessionMessageResponse) ProtoMessage() {}
 
 func (x *SendAgentSessionMessageResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[5]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -553,7 +1180,7 @@ func (x *SendAgentSessionMessageResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SendAgentSessionMessageResponse.ProtoReflect.Descriptor instead.
 func (*SendAgentSessionMessageResponse) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{5}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *SendAgentSessionMessageResponse) GetSession() *AgentSessionState {
@@ -570,6 +1197,399 @@ func (x *SendAgentSessionMessageResponse) GetTurnId() string {
 	return ""
 }
 
+func (x *SendAgentSessionMessageResponse) GetReceipt() *InboxMessage {
+	if x != nil {
+		return x.Receipt
+	}
+	return nil
+}
+
+type ListInboxRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInboxRequest) Reset() {
+	*x = ListInboxRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInboxRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInboxRequest) ProtoMessage() {}
+
+func (x *ListInboxRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInboxRequest.ProtoReflect.Descriptor instead.
+func (*ListInboxRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ListInboxRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+type ListInboxResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*InboxMessage        `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListInboxResponse) Reset() {
+	*x = ListInboxResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListInboxResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListInboxResponse) ProtoMessage() {}
+
+func (x *ListInboxResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListInboxResponse.ProtoReflect.Descriptor instead.
+func (*ListInboxResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *ListInboxResponse) GetMessages() []*InboxMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+// Queue operations: move reorders a message in the queue, top promotes it.
+type MoveInboxMessageRequest struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	ReceiptId    string                 `protobuf:"bytes,2,opt,name=receipt_id,json=receiptId,proto3" json:"receipt_id,omitempty"`
+	// index: 0 moves to the front of the queue.
+	Index         uint32 `protobuf:"varint,3,opt,name=index,proto3" json:"index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MoveInboxMessageRequest) Reset() {
+	*x = MoveInboxMessageRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MoveInboxMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MoveInboxMessageRequest) ProtoMessage() {}
+
+func (x *MoveInboxMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MoveInboxMessageRequest.ProtoReflect.Descriptor instead.
+func (*MoveInboxMessageRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *MoveInboxMessageRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *MoveInboxMessageRequest) GetReceiptId() string {
+	if x != nil {
+		return x.ReceiptId
+	}
+	return ""
+}
+
+func (x *MoveInboxMessageRequest) GetIndex() uint32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+type MoveInboxMessageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*InboxMessage        `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MoveInboxMessageResponse) Reset() {
+	*x = MoveInboxMessageResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MoveInboxMessageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MoveInboxMessageResponse) ProtoMessage() {}
+
+func (x *MoveInboxMessageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MoveInboxMessageResponse.ProtoReflect.Descriptor instead.
+func (*MoveInboxMessageResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *MoveInboxMessageResponse) GetMessages() []*InboxMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+type TopInboxMessageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	ReceiptId     string                 `protobuf:"bytes,2,opt,name=receipt_id,json=receiptId,proto3" json:"receipt_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopInboxMessageRequest) Reset() {
+	*x = TopInboxMessageRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopInboxMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopInboxMessageRequest) ProtoMessage() {}
+
+func (x *TopInboxMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopInboxMessageRequest.ProtoReflect.Descriptor instead.
+func (*TopInboxMessageRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *TopInboxMessageRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *TopInboxMessageRequest) GetReceiptId() string {
+	if x != nil {
+		return x.ReceiptId
+	}
+	return ""
+}
+
+type TopInboxMessageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*InboxMessage        `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TopInboxMessageResponse) Reset() {
+	*x = TopInboxMessageResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TopInboxMessageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TopInboxMessageResponse) ProtoMessage() {}
+
+func (x *TopInboxMessageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TopInboxMessageResponse.ProtoReflect.Descriptor instead.
+func (*TopInboxMessageResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *TopInboxMessageResponse) GetMessages() []*InboxMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
+type DropInboxMessageRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	ReceiptId     string                 `protobuf:"bytes,2,opt,name=receipt_id,json=receiptId,proto3" json:"receipt_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DropInboxMessageRequest) Reset() {
+	*x = DropInboxMessageRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DropInboxMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DropInboxMessageRequest) ProtoMessage() {}
+
+func (x *DropInboxMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DropInboxMessageRequest.ProtoReflect.Descriptor instead.
+func (*DropInboxMessageRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DropInboxMessageRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *DropInboxMessageRequest) GetReceiptId() string {
+	if x != nil {
+		return x.ReceiptId
+	}
+	return ""
+}
+
+type DropInboxMessageResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Messages      []*InboxMessage        `protobuf:"bytes,1,rep,name=messages,proto3" json:"messages,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DropInboxMessageResponse) Reset() {
+	*x = DropInboxMessageResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DropInboxMessageResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DropInboxMessageResponse) ProtoMessage() {}
+
+func (x *DropInboxMessageResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DropInboxMessageResponse.ProtoReflect.Descriptor instead.
+func (*DropInboxMessageResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *DropInboxMessageResponse) GetMessages() []*InboxMessage {
+	if x != nil {
+		return x.Messages
+	}
+	return nil
+}
+
 type ListAgentSessionsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -578,7 +1598,7 @@ type ListAgentSessionsRequest struct {
 
 func (x *ListAgentSessionsRequest) Reset() {
 	*x = ListAgentSessionsRequest{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[6]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +1610,7 @@ func (x *ListAgentSessionsRequest) String() string {
 func (*ListAgentSessionsRequest) ProtoMessage() {}
 
 func (x *ListAgentSessionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[6]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +1623,7 @@ func (x *ListAgentSessionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentSessionsRequest.ProtoReflect.Descriptor instead.
 func (*ListAgentSessionsRequest) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{6}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{18}
 }
 
 type ListAgentSessionsResponse struct {
@@ -617,7 +1637,7 @@ type ListAgentSessionsResponse struct {
 
 func (x *ListAgentSessionsResponse) Reset() {
 	*x = ListAgentSessionsResponse{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[7]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -629,7 +1649,7 @@ func (x *ListAgentSessionsResponse) String() string {
 func (*ListAgentSessionsResponse) ProtoMessage() {}
 
 func (x *ListAgentSessionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[7]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -642,7 +1662,7 @@ func (x *ListAgentSessionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListAgentSessionsResponse.ProtoReflect.Descriptor instead.
 func (*ListAgentSessionsResponse) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{7}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ListAgentSessionsResponse) GetSessions() []*AgentSessionState {
@@ -668,7 +1688,7 @@ type GetAgentSessionRequest struct {
 
 func (x *GetAgentSessionRequest) Reset() {
 	*x = GetAgentSessionRequest{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[8]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -680,7 +1700,7 @@ func (x *GetAgentSessionRequest) String() string {
 func (*GetAgentSessionRequest) ProtoMessage() {}
 
 func (x *GetAgentSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[8]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -693,7 +1713,7 @@ func (x *GetAgentSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentSessionRequest.ProtoReflect.Descriptor instead.
 func (*GetAgentSessionRequest) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{8}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GetAgentSessionRequest) GetAssignmentId() string {
@@ -712,7 +1732,7 @@ type GetAgentSessionResponse struct {
 
 func (x *GetAgentSessionResponse) Reset() {
 	*x = GetAgentSessionResponse{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[9]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +1744,7 @@ func (x *GetAgentSessionResponse) String() string {
 func (*GetAgentSessionResponse) ProtoMessage() {}
 
 func (x *GetAgentSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[9]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -737,7 +1757,7 @@ func (x *GetAgentSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetAgentSessionResponse.ProtoReflect.Descriptor instead.
 func (*GetAgentSessionResponse) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{9}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GetAgentSessionResponse) GetSession() *AgentSessionState {
@@ -756,7 +1776,7 @@ type CancelAgentSessionRequest struct {
 
 func (x *CancelAgentSessionRequest) Reset() {
 	*x = CancelAgentSessionRequest{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[10]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -768,7 +1788,7 @@ func (x *CancelAgentSessionRequest) String() string {
 func (*CancelAgentSessionRequest) ProtoMessage() {}
 
 func (x *CancelAgentSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[10]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -781,7 +1801,7 @@ func (x *CancelAgentSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelAgentSessionRequest.ProtoReflect.Descriptor instead.
 func (*CancelAgentSessionRequest) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{10}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *CancelAgentSessionRequest) GetAssignmentId() string {
@@ -802,7 +1822,7 @@ type CancelAgentSessionResponse struct {
 
 func (x *CancelAgentSessionResponse) Reset() {
 	*x = CancelAgentSessionResponse{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[11]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -814,7 +1834,7 @@ func (x *CancelAgentSessionResponse) String() string {
 func (*CancelAgentSessionResponse) ProtoMessage() {}
 
 func (x *CancelAgentSessionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[11]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -827,7 +1847,7 @@ func (x *CancelAgentSessionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelAgentSessionResponse.ProtoReflect.Descriptor instead.
 func (*CancelAgentSessionResponse) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{11}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *CancelAgentSessionResponse) GetSession() *AgentSessionState {
@@ -835,6 +1855,290 @@ func (x *CancelAgentSessionResponse) GetSession() *AgentSessionState {
 		return x.Session
 	}
 	return nil
+}
+
+// The launch check a recipe would meet now, without admitting it: the same
+// measurements Submit reports, and why admission is held when it is.
+type CheckAgentSessionAdmissionRequest struct {
+	state         protoimpl.MessageState    `protogen:"open.v1"`
+	Recipe        *v1.AgentAssignmentRecipe `protobuf:"bytes,1,opt,name=recipe,proto3" json:"recipe,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckAgentSessionAdmissionRequest) Reset() {
+	*x = CheckAgentSessionAdmissionRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckAgentSessionAdmissionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckAgentSessionAdmissionRequest) ProtoMessage() {}
+
+func (x *CheckAgentSessionAdmissionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckAgentSessionAdmissionRequest.ProtoReflect.Descriptor instead.
+func (*CheckAgentSessionAdmissionRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *CheckAgentSessionAdmissionRequest) GetRecipe() *v1.AgentAssignmentRecipe {
+	if x != nil {
+		return x.Recipe
+	}
+	return nil
+}
+
+type CheckAgentSessionAdmissionResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Check *LaunchCheck           `protobuf:"bytes,1,opt,name=check,proto3" json:"check,omitempty"`
+	// Why every Submit is refused right now; empty while sessions are admitted.
+	Held          string `protobuf:"bytes,2,opt,name=held,proto3" json:"held,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CheckAgentSessionAdmissionResponse) Reset() {
+	*x = CheckAgentSessionAdmissionResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CheckAgentSessionAdmissionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CheckAgentSessionAdmissionResponse) ProtoMessage() {}
+
+func (x *CheckAgentSessionAdmissionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CheckAgentSessionAdmissionResponse.ProtoReflect.Descriptor instead.
+func (*CheckAgentSessionAdmissionResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{25}
+}
+
+func (x *CheckAgentSessionAdmissionResponse) GetCheck() *LaunchCheck {
+	if x != nil {
+		return x.Check
+	}
+	return nil
+}
+
+func (x *CheckAgentSessionAdmissionResponse) GetHeld() string {
+	if x != nil {
+		return x.Held
+	}
+	return ""
+}
+
+type ReadyAgentSessionPullRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadyAgentSessionPullRequestRequest) Reset() {
+	*x = ReadyAgentSessionPullRequestRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[26]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadyAgentSessionPullRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadyAgentSessionPullRequestRequest) ProtoMessage() {}
+
+func (x *ReadyAgentSessionPullRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[26]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadyAgentSessionPullRequestRequest.ProtoReflect.Descriptor instead.
+func (*ReadyAgentSessionPullRequestRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{26}
+}
+
+func (x *ReadyAgentSessionPullRequestRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+type ReadyAgentSessionPullRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       *AgentSessionState     `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReadyAgentSessionPullRequestResponse) Reset() {
+	*x = ReadyAgentSessionPullRequestResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[27]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReadyAgentSessionPullRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadyAgentSessionPullRequestResponse) ProtoMessage() {}
+
+func (x *ReadyAgentSessionPullRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[27]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadyAgentSessionPullRequestResponse.ProtoReflect.Descriptor instead.
+func (*ReadyAgentSessionPullRequestResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{27}
+}
+
+func (x *ReadyAgentSessionPullRequestResponse) GetSession() *AgentSessionState {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+type MergeAgentSessionPullRequestRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId  string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeAgentSessionPullRequestRequest) Reset() {
+	*x = MergeAgentSessionPullRequestRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[28]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeAgentSessionPullRequestRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeAgentSessionPullRequestRequest) ProtoMessage() {}
+
+func (x *MergeAgentSessionPullRequestRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[28]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeAgentSessionPullRequestRequest.ProtoReflect.Descriptor instead.
+func (*MergeAgentSessionPullRequestRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{28}
+}
+
+func (x *MergeAgentSessionPullRequestRequest) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+// The merge path's report: what the repository's merge script or gh printed.
+type MergeAgentSessionPullRequestResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Session       *AgentSessionState     `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	Report        string                 `protobuf:"bytes,2,opt,name=report,proto3" json:"report,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MergeAgentSessionPullRequestResponse) Reset() {
+	*x = MergeAgentSessionPullRequestResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MergeAgentSessionPullRequestResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MergeAgentSessionPullRequestResponse) ProtoMessage() {}
+
+func (x *MergeAgentSessionPullRequestResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MergeAgentSessionPullRequestResponse.ProtoReflect.Descriptor instead.
+func (*MergeAgentSessionPullRequestResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *MergeAgentSessionPullRequestResponse) GetSession() *AgentSessionState {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+func (x *MergeAgentSessionPullRequestResponse) GetReport() string {
+	if x != nil {
+		return x.Report
+	}
+	return ""
 }
 
 type StopHarnessRequest struct {
@@ -845,7 +2149,7 @@ type StopHarnessRequest struct {
 
 func (x *StopHarnessRequest) Reset() {
 	*x = StopHarnessRequest{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[12]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -857,7 +2161,7 @@ func (x *StopHarnessRequest) String() string {
 func (*StopHarnessRequest) ProtoMessage() {}
 
 func (x *StopHarnessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[12]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -870,7 +2174,7 @@ func (x *StopHarnessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopHarnessRequest.ProtoReflect.Descriptor instead.
 func (*StopHarnessRequest) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{12}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{30}
 }
 
 type StopHarnessResponse struct {
@@ -884,7 +2188,7 @@ type StopHarnessResponse struct {
 
 func (x *StopHarnessResponse) Reset() {
 	*x = StopHarnessResponse{}
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[13]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -896,7 +2200,7 @@ func (x *StopHarnessResponse) String() string {
 func (*StopHarnessResponse) ProtoMessage() {}
 
 func (x *StopHarnessResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_candace_harness_v1_harness_proto_msgTypes[13]
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -909,7 +2213,7 @@ func (x *StopHarnessResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopHarnessResponse.ProtoReflect.Descriptor instead.
 func (*StopHarnessResponse) Descriptor() ([]byte, []int) {
-	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{13}
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *StopHarnessResponse) GetSessionsRunning() uint32 {
@@ -919,11 +2223,469 @@ func (x *StopHarnessResponse) GetSessionsRunning() uint32 {
 	return 0
 }
 
+// A proposed patch to be applied, with the diff and metadata.
+type Proposal struct {
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	AssignmentId string                 `protobuf:"bytes,1,opt,name=assignment_id,json=assignmentId,proto3" json:"assignment_id,omitempty"`
+	// Unified diff of the changes.
+	Diff string `protobuf:"bytes,2,opt,name=diff,proto3" json:"diff,omitempty"`
+	// Commit message for the proposed changes.
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
+	ProposedAt    *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=proposed_at,json=proposedAt,proto3" json:"proposed_at,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Proposal) Reset() {
+	*x = Proposal{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[32]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Proposal) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Proposal) ProtoMessage() {}
+
+func (x *Proposal) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[32]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Proposal.ProtoReflect.Descriptor instead.
+func (*Proposal) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{32}
+}
+
+func (x *Proposal) GetAssignmentId() string {
+	if x != nil {
+		return x.AssignmentId
+	}
+	return ""
+}
+
+func (x *Proposal) GetDiff() string {
+	if x != nil {
+		return x.Diff
+	}
+	return ""
+}
+
+func (x *Proposal) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *Proposal) GetProposedAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.ProposedAt
+	}
+	return nil
+}
+
+// A typed rejection of a proposed patch.
+type Rejection struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Code          Rejection_Code         `protobuf:"varint,1,opt,name=code,proto3,enum=candace.harness.v1.Rejection_Code" json:"code,omitempty"`
+	Details       string                 `protobuf:"bytes,2,opt,name=details,proto3" json:"details,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Rejection) Reset() {
+	*x = Rejection{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[33]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Rejection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Rejection) ProtoMessage() {}
+
+func (x *Rejection) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[33]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Rejection.ProtoReflect.Descriptor instead.
+func (*Rejection) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{33}
+}
+
+func (x *Rejection) GetCode() Rejection_Code {
+	if x != nil {
+		return x.Code
+	}
+	return Rejection_CODE_UNSPECIFIED
+}
+
+func (x *Rejection) GetDetails() string {
+	if x != nil {
+		return x.Details
+	}
+	return ""
+}
+
+type ProposeProposalRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Proposal      *Proposal              `protobuf:"bytes,1,opt,name=proposal,proto3" json:"proposal,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProposeProposalRequest) Reset() {
+	*x = ProposeProposalRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[34]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProposeProposalRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProposeProposalRequest) ProtoMessage() {}
+
+func (x *ProposeProposalRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[34]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProposeProposalRequest.ProtoReflect.Descriptor instead.
+func (*ProposeProposalRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{34}
+}
+
+func (x *ProposeProposalRequest) GetProposal() *Proposal {
+	if x != nil {
+		return x.Proposal
+	}
+	return nil
+}
+
+type ProposeProposalResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The session state after the proposal, or absent if rejected.
+	Session *AgentSessionState `protobuf:"bytes,1,opt,name=session,proto3" json:"session,omitempty"`
+	// The rejection reason if the proposal was not accepted.
+	Rejection     *Rejection `protobuf:"bytes,2,opt,name=rejection,proto3" json:"rejection,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ProposeProposalResponse) Reset() {
+	*x = ProposeProposalResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[35]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ProposeProposalResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ProposeProposalResponse) ProtoMessage() {}
+
+func (x *ProposeProposalResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[35]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ProposeProposalResponse.ProtoReflect.Descriptor instead.
+func (*ProposeProposalResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{35}
+}
+
+func (x *ProposeProposalResponse) GetSession() *AgentSessionState {
+	if x != nil {
+		return x.Session
+	}
+	return nil
+}
+
+func (x *ProposeProposalResponse) GetRejection() *Rejection {
+	if x != nil {
+		return x.Rejection
+	}
+	return nil
+}
+
+// The turn executor and model a recipe that names no executor runs on: the
+// host's default, set when csf serve starts and switchable while it runs. A
+// recipe that names its executor runs as written.
+type AgentExecutorDefault struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Executor string                 `protobuf:"bytes,1,opt,name=executor,proto3" json:"executor,omitempty"`
+	// The model such a recipe runs on, spelled as the executor spells it.
+	// Empty keeps each recipe's own model, which is only meaningful for the
+	// executor recipes are written for, Claude Code.
+	Model         string `protobuf:"bytes,2,opt,name=model,proto3" json:"model,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AgentExecutorDefault) Reset() {
+	*x = AgentExecutorDefault{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[36]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AgentExecutorDefault) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AgentExecutorDefault) ProtoMessage() {}
+
+func (x *AgentExecutorDefault) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[36]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AgentExecutorDefault.ProtoReflect.Descriptor instead.
+func (*AgentExecutorDefault) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{36}
+}
+
+func (x *AgentExecutorDefault) GetExecutor() string {
+	if x != nil {
+		return x.Executor
+	}
+	return ""
+}
+
+func (x *AgentExecutorDefault) GetModel() string {
+	if x != nil {
+		return x.Model
+	}
+	return ""
+}
+
+type GetAgentExecutorDefaultRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAgentExecutorDefaultRequest) Reset() {
+	*x = GetAgentExecutorDefaultRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[37]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentExecutorDefaultRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentExecutorDefaultRequest) ProtoMessage() {}
+
+func (x *GetAgentExecutorDefaultRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[37]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentExecutorDefaultRequest.ProtoReflect.Descriptor instead.
+func (*GetAgentExecutorDefaultRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{37}
+}
+
+type GetAgentExecutorDefaultResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ExecutorDefault *AgentExecutorDefault  `protobuf:"bytes,1,opt,name=executor_default,json=executorDefault,proto3" json:"executor_default,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *GetAgentExecutorDefaultResponse) Reset() {
+	*x = GetAgentExecutorDefaultResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[38]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAgentExecutorDefaultResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAgentExecutorDefaultResponse) ProtoMessage() {}
+
+func (x *GetAgentExecutorDefaultResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[38]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAgentExecutorDefaultResponse.ProtoReflect.Descriptor instead.
+func (*GetAgentExecutorDefaultResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{38}
+}
+
+func (x *GetAgentExecutorDefaultResponse) GetExecutorDefault() *AgentExecutorDefault {
+	if x != nil {
+		return x.ExecutorDefault
+	}
+	return nil
+}
+
+// Switch the default for every session submitted from now on; running
+// sessions keep the executor they opened on.
+type SetAgentExecutorDefaultRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ExecutorDefault *AgentExecutorDefault  `protobuf:"bytes,1,opt,name=executor_default,json=executorDefault,proto3" json:"executor_default,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetAgentExecutorDefaultRequest) Reset() {
+	*x = SetAgentExecutorDefaultRequest{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[39]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetAgentExecutorDefaultRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetAgentExecutorDefaultRequest) ProtoMessage() {}
+
+func (x *SetAgentExecutorDefaultRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[39]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetAgentExecutorDefaultRequest.ProtoReflect.Descriptor instead.
+func (*SetAgentExecutorDefaultRequest) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{39}
+}
+
+func (x *SetAgentExecutorDefaultRequest) GetExecutorDefault() *AgentExecutorDefault {
+	if x != nil {
+		return x.ExecutorDefault
+	}
+	return nil
+}
+
+type SetAgentExecutorDefaultResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	ExecutorDefault *AgentExecutorDefault  `protobuf:"bytes,1,opt,name=executor_default,json=executorDefault,proto3" json:"executor_default,omitempty"`
+	Previous        *AgentExecutorDefault  `protobuf:"bytes,2,opt,name=previous,proto3" json:"previous,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetAgentExecutorDefaultResponse) Reset() {
+	*x = SetAgentExecutorDefaultResponse{}
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetAgentExecutorDefaultResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetAgentExecutorDefaultResponse) ProtoMessage() {}
+
+func (x *SetAgentExecutorDefaultResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_candace_harness_v1_harness_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetAgentExecutorDefaultResponse.ProtoReflect.Descriptor instead.
+func (*SetAgentExecutorDefaultResponse) Descriptor() ([]byte, []int) {
+	return file_candace_harness_v1_harness_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *SetAgentExecutorDefaultResponse) GetExecutorDefault() *AgentExecutorDefault {
+	if x != nil {
+		return x.ExecutorDefault
+	}
+	return nil
+}
+
+func (x *SetAgentExecutorDefaultResponse) GetPrevious() *AgentExecutorDefault {
+	if x != nil {
+		return x.Previous
+	}
+	return nil
+}
+
 var File_candace_harness_v1_harness_proto protoreflect.FileDescriptor
 
 const file_candace_harness_v1_harness_proto_rawDesc = "" +
 	"\n" +
-	" candace/harness/v1/harness.proto\x12\x12candace.harness.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1fliquidproto/v1/refinement.proto\x1a&candace/brainspine/v1/brainspine.proto\"\xe2\x03\n" +
+	" candace/harness/v1/harness.proto\x12\x12candace.harness.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1fliquidproto/v1/refinement.proto\x1a&candace/brainspine/v1/brainspine.proto\"\xc9\x05\n" +
 	"\x11AgentSessionState\x12#\n" +
 	"\rassignment_id\x18\x01 \x01(\tR\fassignmentId\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1d\n" +
@@ -941,7 +2703,14 @@ const file_candace_harness_v1_harness_proto_rawDesc = "" +
 	"started_at\x18\v \x01(\v2\x1a.google.protobuf.TimestampR\tstartedAt\x129\n" +
 	"\n" +
 	"updated_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x14\n" +
-	"\x05error\x18\r \x01(\tR\x05error\"\xb7\x02\n" +
+	"\x05error\x18\r \x01(\tR\x05error\x12\x1c\n" +
+	"\tsuspended\x18\x0e \x01(\bR\tsuspended\x12>\n" +
+	"\rlast_event_at\x18\x0f \x01(\v2\x1a.google.protobuf.TimestampR\vlastEventAt\x12&\n" +
+	"\x0fevents_last_10m\x18\x10 \x01(\rR\reventsLast10m\x12!\n" +
+	"\flast_command\x18\x11 \x01(\tR\vlastCommand\x12\x1b\n" +
+	"\tlast_tool\x18\x12 \x01(\tR\blastTool\x12\x1f\n" +
+	"\vinbox_depth\x18\x13 \x01(\rR\n" +
+	"inboxDepth\"\xa1\x04\n" +
 	"\vLaunchCheck\x12\x14\n" +
 	"\x05cores\x18\x01 \x01(\rR\x05cores\x12&\n" +
 	"\x0fload_one_minute\x18\x02 \x01(\x01R\rloadOneMinute\x12\x1d\n" +
@@ -954,21 +2723,99 @@ const file_candace_harness_v1_harness_proto_rawDesc = "" +
 	"\badmitted\x18\a \x01(\bR\badmitted\x12\x1f\n" +
 	"\vreport_only\x18\b \x01(\bR\n" +
 	"reportOnly\x12\x1a\n" +
-	"\bfindings\x18\t \x03(\tR\bfindings\"a\n" +
+	"\bfindings\x18\t \x03(\tR\bfindings\x123\n" +
+	"\x16io_pressure_full_avg10\x18\n" +
+	" \x01(\x01R\x13ioPressureFullAvg10\x12*\n" +
+	"\x11io_pressure_bound\x18\v \x01(\x01R\x0fioPressureBound\x124\n" +
+	"\x16memory_available_bytes\x18\f \x01(\x04R\x14memoryAvailableBytes\x120\n" +
+	"\x14session_memory_bytes\x18\r \x01(\x04R\x12sessionMemoryBytes\x12\x1f\n" +
+	"\vmemory_fits\x18\x0e \x01(\bR\n" +
+	"memoryFits\"a\n" +
 	"\x19SubmitAgentSessionRequest\x12D\n" +
 	"\x06recipe\x18\x01 \x01(\v2,.candace.brainspine.v1.AgentAssignmentRecipeR\x06recipe\"\xdd\x01\n" +
 	"\x1aSubmitAgentSessionResponse\x12G\n" +
 	"\areceipt\x18\x01 \x01(\v2-.candace.brainspine.v1.AgentAssignmentReceiptR\areceipt\x12?\n" +
 	"\asession\x18\x02 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\x125\n" +
-	"\x05check\x18\x03 \x01(\v2\x1f.candace.harness.v1.LaunchCheckR\x05check\"\xe1\x01\n" +
+	"\x05check\x18\x03 \x01(\v2\x1f.candace.harness.v1.LaunchCheckR\x05check\"\xcc\x03\n" +
+	"\fInboxMessage\x12\x1d\n" +
+	"\n" +
+	"receipt_id\x18\x01 \x01(\tR\treceiptId\x12\x12\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\x126\n" +
+	"\x05state\x18\x03 \x01(\x0e2 .candace.harness.v1.MessageStateR\x05state\x123\n" +
+	"\asent_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\x06sentAt\x12=\n" +
+	"\fdelivered_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\vdeliveredAt\x123\n" +
+	"\aread_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\x06readAt\x12;\n" +
+	"\vanswered_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"answeredAt\x12O\n" +
+	"\x0epriority_class\x18\b \x01(\x0e2(.candace.harness.v1.MessagePriorityClassR\rpriorityClass\x12\x1a\n" +
+	"\bsequence\x18\t \x01(\x04R\bsequence\"\x88\x03\n" +
 	"\x1eSendAgentSessionMessageRequest\x12z\n" +
 	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
 	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12C\n" +
 	"\amessage\x18\x02 \x01(\tB)\x92\x82\x19%\n" +
-	"#len(this) > 0 && len(this) <= 32000R\amessage\"{\n" +
+	"#len(this) > 0 && len(this) <= 32000R\amessage\x12+\n" +
+	"\x11operator_authored\x18\x03 \x01(\bR\x10operatorAuthored\x12'\n" +
+	"\x0fquestion_wanted\x18\x04 \x01(\bR\x0equestionWanted\x12O\n" +
+	"\x0epriority_class\x18\x05 \x01(\x0e2(.candace.harness.v1.MessagePriorityClassR\rpriorityClass\"\xd7\x04\n" +
+	"\x06Ruling\x12U\n" +
+	"\truling_id\x18\x01 \x01(\tB8\x92\x82\x194\n" +
+	"2matches(this, `^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$`)R\brulingId\x12F\n" +
+	"\tstatement\x18\x02 \x01(\tB(\x92\x82\x19$\n" +
+	"\"len(this) > 0 && len(this) <= 4000R\tstatement\x12\x1a\n" +
+	"\bexcludes\x18\x03 \x03(\tR\bexcludes\x125\n" +
+	"\n" +
+	"supersedes\x18\x04 \x01(\tB\x15\x92\x82\x19\x11\n" +
+	"\x0flen(this) <= 80R\n" +
+	"supersedes\x12>\n" +
+	"\x05quote\x18\x05 \x01(\tB(\x92\x82\x19$\n" +
+	"\"len(this) > 0 && len(this) <= 4000R\x05quote\x12N\n" +
+	"\bruled_on\x18\x06 \x01(\tB3\x92\x82\x19/\n" +
+	"-matches(this, `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)R\aruledOn\x12,\n" +
+	"\x05scope\x18\a \x01(\tB\x16\x92\x82\x19\x12\n" +
+	"\x10len(this) <= 400R\x05scope\x12)\n" +
+	"\x03why\x18\b \x01(\tB\x17\x92\x82\x19\x13\n" +
+	"\x11len(this) <= 4000R\x03why\x127\n" +
+	"\venforced_by\x18\t \x01(\tB\x16\x92\x82\x19\x12\n" +
+	"\x10len(this) <= 400R\n" +
+	"enforcedBy\x129\n" +
+	"\fpending_gate\x18\n" +
+	" \x01(\tB\x16\x92\x82\x19\x12\n" +
+	"\x10len(this) <= 400R\vpendingGate\"Q\n" +
+	"\x13RecordRulingRequest\x12:\n" +
+	"\x06ruling\x18\x01 \x01(\v2\x1a.candace.harness.v1.RulingB\x06\x92\x82\x19\x02 \x01R\x06ruling\"M\n" +
+	"\x14RecordRulingResponse\x125\n" +
+	"\bin_force\x18\x01 \x03(\v2\x1a.candace.harness.v1.RulingR\ainForce\"\xb7\x01\n" +
 	"\x1fSendAgentSessionMessageResponse\x12?\n" +
 	"\asession\x18\x01 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\x12\x17\n" +
-	"\aturn_id\x18\x02 \x01(\tR\x06turnId\"\x1a\n" +
+	"\aturn_id\x18\x02 \x01(\tR\x06turnId\x12:\n" +
+	"\areceipt\x18\x03 \x01(\v2 .candace.harness.v1.InboxMessageR\areceipt\"\x8e\x01\n" +
+	"\x10ListInboxRequest\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\"Q\n" +
+	"\x11ListInboxResponse\x12<\n" +
+	"\bmessages\x18\x01 \x03(\v2 .candace.harness.v1.InboxMessageR\bmessages\"\xca\x01\n" +
+	"\x17MoveInboxMessageRequest\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12\x1d\n" +
+	"\n" +
+	"receipt_id\x18\x02 \x01(\tR\treceiptId\x12\x14\n" +
+	"\x05index\x18\x03 \x01(\rR\x05index\"X\n" +
+	"\x18MoveInboxMessageResponse\x12<\n" +
+	"\bmessages\x18\x01 \x03(\v2 .candace.harness.v1.InboxMessageR\bmessages\"\xb3\x01\n" +
+	"\x16TopInboxMessageRequest\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12\x1d\n" +
+	"\n" +
+	"receipt_id\x18\x02 \x01(\tR\treceiptId\"W\n" +
+	"\x17TopInboxMessageResponse\x12<\n" +
+	"\bmessages\x18\x01 \x03(\v2 .candace.harness.v1.InboxMessageR\bmessages\"\xb4\x01\n" +
+	"\x17DropInboxMessageRequest\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12\x1d\n" +
+	"\n" +
+	"receipt_id\x18\x02 \x01(\tR\treceiptId\"X\n" +
+	"\x18DropInboxMessageResponse\x12<\n" +
+	"\bmessages\x18\x01 \x03(\v2 .candace.harness.v1.InboxMessageR\bmessages\"\x1a\n" +
 	"\x18ListAgentSessionsRequest\"y\n" +
 	"\x19ListAgentSessionsResponse\x12A\n" +
 	"\bsessions\x18\x01 \x03(\v2%.candace.harness.v1.AgentSessionStateR\bsessions\x12\x19\n" +
@@ -982,10 +2829,62 @@ const file_candace_harness_v1_harness_proto_rawDesc = "" +
 	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
 	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\"]\n" +
 	"\x1aCancelAgentSessionResponse\x12?\n" +
-	"\asession\x18\x01 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\"\x14\n" +
+	"\asession\x18\x01 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\"i\n" +
+	"!CheckAgentSessionAdmissionRequest\x12D\n" +
+	"\x06recipe\x18\x01 \x01(\v2,.candace.brainspine.v1.AgentAssignmentRecipeR\x06recipe\"o\n" +
+	"\"CheckAgentSessionAdmissionResponse\x125\n" +
+	"\x05check\x18\x01 \x01(\v2\x1f.candace.harness.v1.LaunchCheckR\x05check\x12\x12\n" +
+	"\x04held\x18\x02 \x01(\tR\x04held\"\xa1\x01\n" +
+	"#ReadyAgentSessionPullRequestRequest\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\"g\n" +
+	"$ReadyAgentSessionPullRequestResponse\x12?\n" +
+	"\asession\x18\x01 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\"\xa1\x01\n" +
+	"#MergeAgentSessionPullRequestRequest\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\"\x7f\n" +
+	"$MergeAgentSessionPullRequestResponse\x12?\n" +
+	"\asession\x18\x01 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\x12\x16\n" +
+	"\x06report\x18\x02 \x01(\tR\x06report\"\x14\n" +
 	"\x12StopHarnessRequest\"@\n" +
 	"\x13StopHarnessResponse\x12)\n" +
-	"\x10sessions_running\x18\x01 \x01(\rR\x0fsessionsRunning*\x9e\x02\n" +
+	"\x10sessions_running\x18\x01 \x01(\rR\x0fsessionsRunning\"\xc9\x02\n" +
+	"\bProposal\x12z\n" +
+	"\rassignment_id\x18\x01 \x01(\tBU\x92\x82\x19Q\n" +
+	"Omatches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)R\fassignmentId\x12@\n" +
+	"\x04diff\x18\x02 \x01(\tB,\x92\x82\x19(\n" +
+	"&len(this) > 0 && len(this) <= 10000000R\x04diff\x12B\n" +
+	"\amessage\x18\x03 \x01(\tB(\x92\x82\x19$\n" +
+	"\"len(this) > 0 && len(this) <= 8000R\amessage\x12;\n" +
+	"\vproposed_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"proposedAt\"\xdc\x01\n" +
+	"\tRejection\x126\n" +
+	"\x04code\x18\x01 \x01(\x0e2\".candace.harness.v1.Rejection.CodeR\x04code\x12\x18\n" +
+	"\adetails\x18\x02 \x01(\tR\adetails\"}\n" +
+	"\x04Code\x12\x14\n" +
+	"\x10CODE_UNSPECIFIED\x10\x00\x12\x15\n" +
+	"\x11CODE_APPLY_FAILED\x10\x01\x12\x1a\n" +
+	"\x16CODE_VALIDATION_FAILED\x10\x02\x12\x11\n" +
+	"\rCODE_DECLINED\x10\x03\x12\x19\n" +
+	"\x15CODE_MODE_UNSUPPORTED\x10\x04\"R\n" +
+	"\x16ProposeProposalRequest\x128\n" +
+	"\bproposal\x18\x01 \x01(\v2\x1c.candace.harness.v1.ProposalR\bproposal\"\x97\x01\n" +
+	"\x17ProposeProposalResponse\x12?\n" +
+	"\asession\x18\x01 \x01(\v2%.candace.harness.v1.AgentSessionStateR\asession\x12;\n" +
+	"\trejection\x18\x02 \x01(\v2\x1d.candace.harness.v1.RejectionR\trejection\"\x90\x01\n" +
+	"\x14AgentExecutorDefault\x12J\n" +
+	"\bexecutor\x18\x01 \x01(\tB.\x92\x82\x19*\n" +
+	"(matches(this, `^(claude-code|copilot)$`)R\bexecutor\x12,\n" +
+	"\x05model\x18\x02 \x01(\tB\x16\x92\x82\x19\x12\n" +
+	"\x10len(this) <= 200R\x05model\" \n" +
+	"\x1eGetAgentExecutorDefaultRequest\"v\n" +
+	"\x1fGetAgentExecutorDefaultResponse\x12S\n" +
+	"\x10executor_default\x18\x01 \x01(\v2(.candace.harness.v1.AgentExecutorDefaultR\x0fexecutorDefault\"}\n" +
+	"\x1eSetAgentExecutorDefaultRequest\x12[\n" +
+	"\x10executor_default\x18\x01 \x01(\v2(.candace.harness.v1.AgentExecutorDefaultB\x06\x92\x82\x19\x02 \x01R\x0fexecutorDefault\"\xbc\x01\n" +
+	"\x1fSetAgentExecutorDefaultResponse\x12S\n" +
+	"\x10executor_default\x18\x01 \x01(\v2(.candace.harness.v1.AgentExecutorDefaultR\x0fexecutorDefault\x12D\n" +
+	"\bprevious\x18\x02 \x01(\v2(.candace.harness.v1.AgentExecutorDefaultR\bprevious*\x9e\x02\n" +
 	"\x11AgentSessionPhase\x12#\n" +
 	"\x1fAGENT_SESSION_PHASE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cAGENT_SESSION_PHASE_STARTING\x10\x01\x12\x1f\n" +
@@ -994,7 +2893,18 @@ const file_candace_harness_v1_harness_proto_rawDesc = "" +
 	"\x1dAGENT_SESSION_PHASE_CANCELING\x10\x04\x12 \n" +
 	"\x1cAGENT_SESSION_PHASE_CANCELED\x10\x05\x12\x1e\n" +
 	"\x1aAGENT_SESSION_PHASE_FAILED\x10\x06\x12\x1e\n" +
-	"\x1aAGENT_SESSION_PHASE_CLOSED\x10\aB?Z=github.com/candacelabs/csf/proto/candace/harness/v1;harnessv1b\x06proto3"
+	"\x1aAGENT_SESSION_PHASE_CLOSED\x10\a*\x98\x01\n" +
+	"\fMessageState\x12\x1d\n" +
+	"\x19MESSAGE_STATE_UNSPECIFIED\x10\x00\x12\x18\n" +
+	"\x14MESSAGE_STATE_QUEUED\x10\x01\x12\x1b\n" +
+	"\x17MESSAGE_STATE_DELIVERED\x10\x02\x12\x16\n" +
+	"\x12MESSAGE_STATE_READ\x10\x03\x12\x1a\n" +
+	"\x16MESSAGE_STATE_ANSWERED\x10\x04*\xaa\x01\n" +
+	"\x14MessagePriorityClass\x12&\n" +
+	"\"MESSAGE_PRIORITY_CLASS_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cMESSAGE_PRIORITY_CLASS_QUEUE\x10\x01\x12$\n" +
+	" MESSAGE_PRIORITY_CLASS_INTERRUPT\x10\x02\x12\"\n" +
+	"\x1eMESSAGE_PRIORITY_CLASS_PREEMPT\x10\x03B?Z=github.com/candacelabs/csf/proto/candace/harness/v1;harnessv1b\x06proto3"
 
 var (
 	file_candace_harness_v1_harness_proto_rawDescOnce sync.Once
@@ -1008,45 +2918,103 @@ func file_candace_harness_v1_harness_proto_rawDescGZIP() []byte {
 	return file_candace_harness_v1_harness_proto_rawDescData
 }
 
-var file_candace_harness_v1_harness_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_candace_harness_v1_harness_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_candace_harness_v1_harness_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_candace_harness_v1_harness_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_candace_harness_v1_harness_proto_goTypes = []any{
-	(AgentSessionPhase)(0),                  // 0: candace.harness.v1.AgentSessionPhase
-	(*AgentSessionState)(nil),               // 1: candace.harness.v1.AgentSessionState
-	(*LaunchCheck)(nil),                     // 2: candace.harness.v1.LaunchCheck
-	(*SubmitAgentSessionRequest)(nil),       // 3: candace.harness.v1.SubmitAgentSessionRequest
-	(*SubmitAgentSessionResponse)(nil),      // 4: candace.harness.v1.SubmitAgentSessionResponse
-	(*SendAgentSessionMessageRequest)(nil),  // 5: candace.harness.v1.SendAgentSessionMessageRequest
-	(*SendAgentSessionMessageResponse)(nil), // 6: candace.harness.v1.SendAgentSessionMessageResponse
-	(*ListAgentSessionsRequest)(nil),        // 7: candace.harness.v1.ListAgentSessionsRequest
-	(*ListAgentSessionsResponse)(nil),       // 8: candace.harness.v1.ListAgentSessionsResponse
-	(*GetAgentSessionRequest)(nil),          // 9: candace.harness.v1.GetAgentSessionRequest
-	(*GetAgentSessionResponse)(nil),         // 10: candace.harness.v1.GetAgentSessionResponse
-	(*CancelAgentSessionRequest)(nil),       // 11: candace.harness.v1.CancelAgentSessionRequest
-	(*CancelAgentSessionResponse)(nil),      // 12: candace.harness.v1.CancelAgentSessionResponse
-	(*StopHarnessRequest)(nil),              // 13: candace.harness.v1.StopHarnessRequest
-	(*StopHarnessResponse)(nil),             // 14: candace.harness.v1.StopHarnessResponse
-	(*timestamppb.Timestamp)(nil),           // 15: google.protobuf.Timestamp
-	(*v1.AgentAssignmentRecipe)(nil),        // 16: candace.brainspine.v1.AgentAssignmentRecipe
-	(*v1.AgentAssignmentReceipt)(nil),       // 17: candace.brainspine.v1.AgentAssignmentReceipt
+	(AgentSessionPhase)(0),                       // 0: candace.harness.v1.AgentSessionPhase
+	(MessageState)(0),                            // 1: candace.harness.v1.MessageState
+	(MessagePriorityClass)(0),                    // 2: candace.harness.v1.MessagePriorityClass
+	(Rejection_Code)(0),                          // 3: candace.harness.v1.Rejection.Code
+	(*AgentSessionState)(nil),                    // 4: candace.harness.v1.AgentSessionState
+	(*LaunchCheck)(nil),                          // 5: candace.harness.v1.LaunchCheck
+	(*SubmitAgentSessionRequest)(nil),            // 6: candace.harness.v1.SubmitAgentSessionRequest
+	(*SubmitAgentSessionResponse)(nil),           // 7: candace.harness.v1.SubmitAgentSessionResponse
+	(*InboxMessage)(nil),                         // 8: candace.harness.v1.InboxMessage
+	(*SendAgentSessionMessageRequest)(nil),       // 9: candace.harness.v1.SendAgentSessionMessageRequest
+	(*Ruling)(nil),                               // 10: candace.harness.v1.Ruling
+	(*RecordRulingRequest)(nil),                  // 11: candace.harness.v1.RecordRulingRequest
+	(*RecordRulingResponse)(nil),                 // 12: candace.harness.v1.RecordRulingResponse
+	(*SendAgentSessionMessageResponse)(nil),      // 13: candace.harness.v1.SendAgentSessionMessageResponse
+	(*ListInboxRequest)(nil),                     // 14: candace.harness.v1.ListInboxRequest
+	(*ListInboxResponse)(nil),                    // 15: candace.harness.v1.ListInboxResponse
+	(*MoveInboxMessageRequest)(nil),              // 16: candace.harness.v1.MoveInboxMessageRequest
+	(*MoveInboxMessageResponse)(nil),             // 17: candace.harness.v1.MoveInboxMessageResponse
+	(*TopInboxMessageRequest)(nil),               // 18: candace.harness.v1.TopInboxMessageRequest
+	(*TopInboxMessageResponse)(nil),              // 19: candace.harness.v1.TopInboxMessageResponse
+	(*DropInboxMessageRequest)(nil),              // 20: candace.harness.v1.DropInboxMessageRequest
+	(*DropInboxMessageResponse)(nil),             // 21: candace.harness.v1.DropInboxMessageResponse
+	(*ListAgentSessionsRequest)(nil),             // 22: candace.harness.v1.ListAgentSessionsRequest
+	(*ListAgentSessionsResponse)(nil),            // 23: candace.harness.v1.ListAgentSessionsResponse
+	(*GetAgentSessionRequest)(nil),               // 24: candace.harness.v1.GetAgentSessionRequest
+	(*GetAgentSessionResponse)(nil),              // 25: candace.harness.v1.GetAgentSessionResponse
+	(*CancelAgentSessionRequest)(nil),            // 26: candace.harness.v1.CancelAgentSessionRequest
+	(*CancelAgentSessionResponse)(nil),           // 27: candace.harness.v1.CancelAgentSessionResponse
+	(*CheckAgentSessionAdmissionRequest)(nil),    // 28: candace.harness.v1.CheckAgentSessionAdmissionRequest
+	(*CheckAgentSessionAdmissionResponse)(nil),   // 29: candace.harness.v1.CheckAgentSessionAdmissionResponse
+	(*ReadyAgentSessionPullRequestRequest)(nil),  // 30: candace.harness.v1.ReadyAgentSessionPullRequestRequest
+	(*ReadyAgentSessionPullRequestResponse)(nil), // 31: candace.harness.v1.ReadyAgentSessionPullRequestResponse
+	(*MergeAgentSessionPullRequestRequest)(nil),  // 32: candace.harness.v1.MergeAgentSessionPullRequestRequest
+	(*MergeAgentSessionPullRequestResponse)(nil), // 33: candace.harness.v1.MergeAgentSessionPullRequestResponse
+	(*StopHarnessRequest)(nil),                   // 34: candace.harness.v1.StopHarnessRequest
+	(*StopHarnessResponse)(nil),                  // 35: candace.harness.v1.StopHarnessResponse
+	(*Proposal)(nil),                             // 36: candace.harness.v1.Proposal
+	(*Rejection)(nil),                            // 37: candace.harness.v1.Rejection
+	(*ProposeProposalRequest)(nil),               // 38: candace.harness.v1.ProposeProposalRequest
+	(*ProposeProposalResponse)(nil),              // 39: candace.harness.v1.ProposeProposalResponse
+	(*AgentExecutorDefault)(nil),                 // 40: candace.harness.v1.AgentExecutorDefault
+	(*GetAgentExecutorDefaultRequest)(nil),       // 41: candace.harness.v1.GetAgentExecutorDefaultRequest
+	(*GetAgentExecutorDefaultResponse)(nil),      // 42: candace.harness.v1.GetAgentExecutorDefaultResponse
+	(*SetAgentExecutorDefaultRequest)(nil),       // 43: candace.harness.v1.SetAgentExecutorDefaultRequest
+	(*SetAgentExecutorDefaultResponse)(nil),      // 44: candace.harness.v1.SetAgentExecutorDefaultResponse
+	(*timestamppb.Timestamp)(nil),                // 45: google.protobuf.Timestamp
+	(*v1.AgentAssignmentRecipe)(nil),             // 46: candace.brainspine.v1.AgentAssignmentRecipe
+	(*v1.AgentAssignmentReceipt)(nil),            // 47: candace.brainspine.v1.AgentAssignmentReceipt
 }
 var file_candace_harness_v1_harness_proto_depIdxs = []int32{
 	0,  // 0: candace.harness.v1.AgentSessionState.phase:type_name -> candace.harness.v1.AgentSessionPhase
-	15, // 1: candace.harness.v1.AgentSessionState.started_at:type_name -> google.protobuf.Timestamp
-	15, // 2: candace.harness.v1.AgentSessionState.updated_at:type_name -> google.protobuf.Timestamp
-	16, // 3: candace.harness.v1.SubmitAgentSessionRequest.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
-	17, // 4: candace.harness.v1.SubmitAgentSessionResponse.receipt:type_name -> candace.brainspine.v1.AgentAssignmentReceipt
-	1,  // 5: candace.harness.v1.SubmitAgentSessionResponse.session:type_name -> candace.harness.v1.AgentSessionState
-	2,  // 6: candace.harness.v1.SubmitAgentSessionResponse.check:type_name -> candace.harness.v1.LaunchCheck
-	1,  // 7: candace.harness.v1.SendAgentSessionMessageResponse.session:type_name -> candace.harness.v1.AgentSessionState
-	1,  // 8: candace.harness.v1.ListAgentSessionsResponse.sessions:type_name -> candace.harness.v1.AgentSessionState
-	1,  // 9: candace.harness.v1.GetAgentSessionResponse.session:type_name -> candace.harness.v1.AgentSessionState
-	1,  // 10: candace.harness.v1.CancelAgentSessionResponse.session:type_name -> candace.harness.v1.AgentSessionState
-	11, // [11:11] is the sub-list for method output_type
-	11, // [11:11] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	45, // 1: candace.harness.v1.AgentSessionState.started_at:type_name -> google.protobuf.Timestamp
+	45, // 2: candace.harness.v1.AgentSessionState.updated_at:type_name -> google.protobuf.Timestamp
+	45, // 3: candace.harness.v1.AgentSessionState.last_event_at:type_name -> google.protobuf.Timestamp
+	46, // 4: candace.harness.v1.SubmitAgentSessionRequest.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
+	47, // 5: candace.harness.v1.SubmitAgentSessionResponse.receipt:type_name -> candace.brainspine.v1.AgentAssignmentReceipt
+	4,  // 6: candace.harness.v1.SubmitAgentSessionResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	5,  // 7: candace.harness.v1.SubmitAgentSessionResponse.check:type_name -> candace.harness.v1.LaunchCheck
+	1,  // 8: candace.harness.v1.InboxMessage.state:type_name -> candace.harness.v1.MessageState
+	45, // 9: candace.harness.v1.InboxMessage.sent_at:type_name -> google.protobuf.Timestamp
+	45, // 10: candace.harness.v1.InboxMessage.delivered_at:type_name -> google.protobuf.Timestamp
+	45, // 11: candace.harness.v1.InboxMessage.read_at:type_name -> google.protobuf.Timestamp
+	45, // 12: candace.harness.v1.InboxMessage.answered_at:type_name -> google.protobuf.Timestamp
+	2,  // 13: candace.harness.v1.InboxMessage.priority_class:type_name -> candace.harness.v1.MessagePriorityClass
+	2,  // 14: candace.harness.v1.SendAgentSessionMessageRequest.priority_class:type_name -> candace.harness.v1.MessagePriorityClass
+	10, // 15: candace.harness.v1.RecordRulingRequest.ruling:type_name -> candace.harness.v1.Ruling
+	10, // 16: candace.harness.v1.RecordRulingResponse.in_force:type_name -> candace.harness.v1.Ruling
+	4,  // 17: candace.harness.v1.SendAgentSessionMessageResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	8,  // 18: candace.harness.v1.SendAgentSessionMessageResponse.receipt:type_name -> candace.harness.v1.InboxMessage
+	8,  // 19: candace.harness.v1.ListInboxResponse.messages:type_name -> candace.harness.v1.InboxMessage
+	8,  // 20: candace.harness.v1.MoveInboxMessageResponse.messages:type_name -> candace.harness.v1.InboxMessage
+	8,  // 21: candace.harness.v1.TopInboxMessageResponse.messages:type_name -> candace.harness.v1.InboxMessage
+	8,  // 22: candace.harness.v1.DropInboxMessageResponse.messages:type_name -> candace.harness.v1.InboxMessage
+	4,  // 23: candace.harness.v1.ListAgentSessionsResponse.sessions:type_name -> candace.harness.v1.AgentSessionState
+	4,  // 24: candace.harness.v1.GetAgentSessionResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	4,  // 25: candace.harness.v1.CancelAgentSessionResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	46, // 26: candace.harness.v1.CheckAgentSessionAdmissionRequest.recipe:type_name -> candace.brainspine.v1.AgentAssignmentRecipe
+	5,  // 27: candace.harness.v1.CheckAgentSessionAdmissionResponse.check:type_name -> candace.harness.v1.LaunchCheck
+	4,  // 28: candace.harness.v1.ReadyAgentSessionPullRequestResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	4,  // 29: candace.harness.v1.MergeAgentSessionPullRequestResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	45, // 30: candace.harness.v1.Proposal.proposed_at:type_name -> google.protobuf.Timestamp
+	3,  // 31: candace.harness.v1.Rejection.code:type_name -> candace.harness.v1.Rejection.Code
+	36, // 32: candace.harness.v1.ProposeProposalRequest.proposal:type_name -> candace.harness.v1.Proposal
+	4,  // 33: candace.harness.v1.ProposeProposalResponse.session:type_name -> candace.harness.v1.AgentSessionState
+	37, // 34: candace.harness.v1.ProposeProposalResponse.rejection:type_name -> candace.harness.v1.Rejection
+	40, // 35: candace.harness.v1.GetAgentExecutorDefaultResponse.executor_default:type_name -> candace.harness.v1.AgentExecutorDefault
+	40, // 36: candace.harness.v1.SetAgentExecutorDefaultRequest.executor_default:type_name -> candace.harness.v1.AgentExecutorDefault
+	40, // 37: candace.harness.v1.SetAgentExecutorDefaultResponse.executor_default:type_name -> candace.harness.v1.AgentExecutorDefault
+	40, // 38: candace.harness.v1.SetAgentExecutorDefaultResponse.previous:type_name -> candace.harness.v1.AgentExecutorDefault
+	39, // [39:39] is the sub-list for method output_type
+	39, // [39:39] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_candace_harness_v1_harness_proto_init() }
@@ -1059,8 +3027,8 @@ func file_candace_harness_v1_harness_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_candace_harness_v1_harness_proto_rawDesc), len(file_candace_harness_v1_harness_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   14,
+			NumEnums:      4,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

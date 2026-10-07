@@ -174,10 +174,11 @@ func (service *Continuity) log(ctx context.Context, event string, checkpoint *wo
 		if err != nil {
 			return err
 		}
-		ctx, _, err = telemetry.ContextWithChildSpan(ctx)
+		childSpan, err := telemetry.ContextWithChildSpan(ctx)
 		if err != nil {
 			return err
 		}
+		ctx = childSpan.Context
 	}
 	return service.logger.Log(ctx, telemetryv1.Severity_SEVERITY_INFO, event, event, map[string]string{
 		attributeTask: taskURL, attributeCheckpoint: checkpoint.GetId(), attributeRevision: checkpoint.GetRevision(),

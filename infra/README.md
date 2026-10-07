@@ -1,14 +1,14 @@
 # CSF standalone infrastructure
 
-This Compose project supplies local Langfuse, OpenSearch and PostgreSQL for the
-CSF runtime. The native HTTP MCP servers provide traces and retrieval for an
-inspectable agent loop. It does not deploy a robot or capture this desktop
-agent's internal model calls automatically.
+This Compose project supplies local Langfuse, [OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch) and PostgreSQL for the
+CSF [runtime](../csf/docs/generated/ontology_cgen.md#term-runtime). The native HTTP [MCP](../csf/docs/generated/ontology_cgen.md#term-mcp) servers provide traces and retrieval for an
+inspectable [agent](../csf/docs/generated/ontology_cgen.md#term-agent) loop. It does not deploy a robot or capture this desktop
+[agent](../csf/docs/generated/ontology_cgen.md#term-agent)'s internal model calls automatically.
 
 Install the standalone Rust operator with `./install.sh`, inspect its dry
 startup plan with `csf`, and start the complete composition with
 `csf up`. Use `csf --help` for the command reference. The
-runtime is built in its pinned container; private
+[runtime](../csf/docs/generated/ontology_cgen.md#term-runtime) is built in its pinned container; private
 credentials, database schema and evidence state are provisioned automatically.
 See the [CSF operator guide](../tools/csf-operator/README.md).
 
@@ -29,9 +29,9 @@ for research compatibility, but they are not part of the CSF core start path.
 | Local endpoint | Purpose |
 | --- | --- |
 | `http://127.0.0.1:14300` | Langfuse UI and API |
-| `http://127.0.0.1:14300/api/public/mcp` | Langfuse native MCP, project Basic Auth |
-| `http://127.0.0.1:19200/_plugins/_ml/mcp` | OpenSearch native MCP |
-| `http://127.0.0.1:19200` | OpenSearch API |
+| `http://127.0.0.1:14300/api/public/mcp` | Langfuse native [MCP](../csf/docs/generated/ontology_cgen.md#term-mcp), project Basic Auth |
+| `http://127.0.0.1:19200/_plugins/_ml/mcp` | [OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch) native [MCP](../csf/docs/generated/ontology_cgen.md#term-mcp) |
+| `http://127.0.0.1:19200` | [OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch) API |
 | `127.0.0.1:15432` | PostgreSQL; separate `brain` and `langfuse` databases/users |
 
 Search has no application authentication in this local profile, and its host
@@ -70,13 +70,13 @@ MLflow proxies uploads into its named `mlflow-artifacts` volume. The doctor uses
 the upstream REST API to create a run, log a metric and parameter, upload an
 artifact, download identical bytes, finish the run and retrieve the stored
 metric. The probe experiment is `brain-infrastructure-probes` and its runs are
-explicitly marked synthetic; they are not training results. No MLflow MCP server
+explicitly marked synthetic; they are not training results. No MLflow [MCP](../csf/docs/generated/ontology_cgen.md#term-mcp) server
 is invented by this deployment.
 
 ## Retrieval projection
 
 The Go protobuf and PostgreSQL records own source identity and revision.
-OpenSearch is their query projection, not the durable authority.
+[OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch) is their query projection, not the durable authority.
 
 - `brain-logs`: `recorded_at`, `run_id`, `kind`, `level`, `message`,
   `evidence_path`, `controller_hash`, and unindexed `metadata`.
@@ -87,8 +87,8 @@ OpenSearch is their query projection, not the durable authority.
   `text`. The model identifier is recorded in the private `embedding-model.json`
   under the CSF state directory.
 - `brain-infra-probes`: synthetic doctor documents using that same pipeline,
-  kept separate from source records returned by the knowledge store.
-- MCP exposes upstream `ListIndexTool`, `IndexMappingTool`, `SearchIndexTool`.
+  kept separate from source records returned by the [knowledge](../csf/docs/generated/ontology_cgen.md#term-knowledge) store.
+- [MCP](../csf/docs/generated/ontology_cgen.md#term-mcp) exposes upstream `ListIndexTool`, `IndexMappingTool`, `SearchIndexTool`.
   The search tool accepts `{"index":"brain-knowledge","query":"<JSON DSL>"}`;
   use the same neural query DSL as the direct API.
 
@@ -101,7 +101,7 @@ connectivity and inference only, not retrieval quality or code understanding.
 ## Trace boundary
 
 The doctor sends a real OTLP/HTTP JSON span with Langfuse's v4 ingestion header
-and retrieves it with native `listObservations` MCP. Its `operator-tool-receipt`
+and retrieves it with native `listObservations` [MCP](../csf/docs/generated/ontology_cgen.md#term-mcp). Its `operator-tool-receipt`
 label distinguishes this explicit service check from a model generation. Real
 runtime/agent instrumentation should preserve trace/span IDs, task/run/source
 IDs, tool inputs/results, elapsed time and outcome. Never invent token usage,
@@ -116,17 +116,17 @@ official `full` image (includes its PostgreSQL driver). It adapts Langfuse's
 Dependencies are PostgreSQL 17, ClickHouse 25.12, Redis 7, and the upstream
 Chainguard MinIO image, each digest-pinned. This profile needs Docker Compose,
 Rust 1.91 to build the operator; no Python runtime, GPU or provider key.
-Container memory limits in the CSF core total about 16 GiB. Image pulls and the model require
+Container [memory](../csf/docs/generated/ontology_cgen.md#term-memory) limits in the CSF core total about 16 GiB. Image pulls and the model require
 internet on first start; subsequent operation uses local volumes. MiniLM's
 TorchScript artifact is 91,789,778 bytes, pinned by its upstream SHA-256; the
-first deployment also downloads CPU inference libraries inside OpenSearch.
+first deployment also downloads CPU inference libraries inside [OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch).
 Exact observed image sizes are retained in `receipts/image-inventory.json`;
 those uncompressed sizes do not measure unique disk use or network transfer.
 Native ARM
 images are not selected by these pins.
 
 Licenses are upstream-owned: Langfuse's main code is MIT (its enterprise subtree
-has separate terms); OpenSearch, Dashboards, ClickHouse, MLflow and MiniLM are Apache-2.0;
+has separate terms); [OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch), Dashboards, ClickHouse, MLflow and MiniLM are Apache-2.0;
 PostgreSQL uses the PostgreSQL License; MinIO is AGPL-3.0; Redis 7.4 has the
 upstream RSALv2/SSPLv1 dual license. Redis is an unmodified internal dependency
 from the official Langfuse recipe. The archive includes our configuration,
@@ -150,18 +150,18 @@ Primary references:
 - [Redis 7.4 declared license](https://github.com/redis/redis/blob/7.4/LICENSE.txt).
 
 The source monorepo retains redacted historical acceptance receipts separately
-from this standalone application. Those recorded checks are neither shipped
-runtime state nor continuous uptime evidence.
+from this standalone [application](../csf/docs/generated/ontology_cgen.md#term-application). Those recorded checks are neither shipped
+[runtime](../csf/docs/generated/ontology_cgen.md#term-runtime) state nor continuous uptime evidence.
 
 ## Runtime boundary
 
 The `runtime` container builds `candace/app/csf/cmd` from the checked-out Go
 module, initializes and migrates the durable PostgreSQL schema, mounts persistent
-work/evidence state, and connects to the CSF-owned OpenSearch service. It binds
+work/evidence state, and connects to the CSF-owned [OpenSearch](../csf/docs/generated/ontology_cgen.md#term-opensearch) service. It binds
 HTTP/MCP to loopback by default. Its PostgreSQL and artifact state survives
 `csf down` and later starts.
 
-Workbench session scheduling remains disabled until the standalone runtime
+[Workbench](../csf/docs/generated/ontology_cgen.md#term-bench) session scheduling remains disabled until the standalone [runtime](../csf/docs/generated/ontology_cgen.md#term-runtime)
 image includes the Copilot CLI and an operator supplies GitHub Copilot
 authorization. The `csf up` startup output states this boundary; core CSF
 services do not wait for provider credentials.

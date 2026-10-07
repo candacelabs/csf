@@ -305,7 +305,7 @@ The operator's words, verbatim, 2026-09-02, reading live P1 interpreter code:
 
 > dude stuff like this man
 
-The code being read was `pkg/widget/internal/validate/invariants.go`
+The code being read was `pkg/widget/internal/validate/validator_invariants.go`
 line 17, on branch `foundry/p1-widget-sdk` (not this branch — do not go and
 edit it; it is evidence, and P1 owns it):
 
@@ -409,7 +409,7 @@ Zero is the honest reading and not a broken detector, and it was verified in
 both directions before the number was recorded:
 
 - **Positive:** run against the founding evidence
-  (`pkg/widget/internal/validate/invariants.go` on
+  (`pkg/widget/internal/validate/validator_invariants.go` on
   `foundry/p1-widget-sdk`), the heuristic reports exactly one finding naming all
   six sibling calls. The shape it is named after, it detects.
 - **Negative:** lowering the threshold from three to **one** still reports 0
@@ -425,9 +425,9 @@ row (`dispatch_methods`, `dispatch_calls_total`, `dispatch_calls_max`,
 
 **The tripwire has since fired.** At `5fb75ef2a` on
 `feat/widget-foundry`, which merged the P1 interpreter, CS-6 reports **2**
-findings: `pkg/widget/internal/validate/invariants.go:17` — the six-way
+findings: `pkg/widget/internal/validate/validator_invariants.go:17` — the six-way
 dispatch list that founded the rule, now inside the measured corpus — and
-`pkg/widget/internal/validate/build.go:24`, a **15**-call dispatch list
+`pkg/widget/internal/validate/validator_build.go:24`, a **15**-call dispatch list
 that did not exist when the rule was written. That second one is what
 `dispatch_calls_max` was added for. Neither is fixed here; they belong to P1,
 and this is the report, not the repair.
@@ -2118,3 +2118,98 @@ three parts are advisory: each is a retrofit backlog, and per this skill's
 standing practice a part becomes mandatory only after a fix wave drives it to
 zero — never by turning a gate red. The native report owns the current
 counts.
+
+
+## CS-20 — Every compound type is named
+
+The operator, 2026-10-06, verbatim:
+
+> WE'RE NOT GOING TO CREATE A 4TUPLE TYPE WITHOUT NAMING IT
+
+### The rule
+
+A compound value that crosses a boundary — several Go results, an anonymous
+struct, an OCaml tuple of three or more elements, an inline CSF field, an
+undeclared Datalog relation — carries no name, so no reader can reason about
+what it is. The fix is always the same: declare a named type and use it.
+
+1. **A Go function or method returns at most two values**, and only in the
+   sanctioned shapes `(value, error)` and `(value, bool)`. Three or more
+   results are a compound without a name; declare a struct type and return it.
+2. **A Go struct type literal has a name.** A struct written inline — an
+   anonymous field type or a local variable — is a compound without a name;
+   declare `type Foo struct { ... }` and use `Foo`. The empty `struct{}` is the
+   set idiom (`map[K]struct{}`), declares no field, and is not a compound.
+3. **An OCaml tuple of arity three or more is a named record.** `(start, stop,
+   prose)` names nothing; declare a record with one field per element.
+4. **A CSF kind field names its type.** A field written inline as a bare
+   `record` or a `[...]` list carries no name; declare the kind and refer to it
+   by name.
+5. **A Datalog relation is declared before it is read.** A rule body that reads
+   a relation no declaration or clause head in the file introduces is a
+   relation the reader cannot look up.
+
+### Counterweights, written down honestly
+
+- **`(value, error)` and `(value, bool)` are two results**, and never fire.
+- **An OCaml pair is the allowed shape.**
+- **Generated files are exempt** — their compounds belong to the generator.
+
+### Enforcement
+
+Advisory (relaxed from mandatory by operator ruling 2026-10-06; see
+`tools/house_lint/policy.ml`), in `tools/house_lint/cs20.ml`, five native locators:
+
+- `go_results_3_or_more_unnamed` — a function or method whose result list holds
+  three or more types.
+- `go_anonymous_struct_type` — a `struct_type` node that is not a declared
+  type's body and declares a field.
+- `ocaml_tuple_arity_3_or_more` — a text scanner over `.ml`/`.mli` counting
+  top-level commas inside parentheses (a pair or a code group never fires).
+- `csf_inline_compound_field` — a `.csf` field `:` before `[`, `{`, or a bare
+  `record`.
+- `datalog_relation_undeclared` — a `.dl` body term with no declaration, clause
+  head, or engine built-in.
+
+## CS-21 — Code of one type lives together
+
+The operator, 2026-10-06, verbatim:
+
+> PUT CODE OF SIMILAR TYPES TOGETHER IT MAKES IT EASIER TO REASON ABOUT THE
+> RUNTIME
+
+### The rule
+
+Code of one type belongs in one place: a file named for the type, or the file
+that declares it. A file named for a role (`options.go`, `metrics.go`,
+`errors.go`, ...) collects unrelated types that share only their role, and a
+method living away from its receiver's file forces a reader to hold several
+files in mind at once.
+
+1. **A file is named for its type.** `<snake(type)>.go`, or a concern split
+   still sorted beside it: `<snake(type)>_<concern>.go`.
+2. **A role-named file declares at most one type.** `options.go` holding two
+   unrelated capabilities' options is the failure the ticket names; give each
+   type its own file.
+3. **A method lives beside its receiver.** A method whose receiver type is
+   declared in another file moves into the receiver's file (or a file named for
+   it).
+
+### Counterweights, written down honestly
+
+- **Generated files are exempt only with a declared layout.** A generated
+  role-named file proves a generator emitted a layout by role; the generator
+  must declare that layout (`Layout:` in its config), and that declaration,
+  not the file, is what exempts it.
+
+### Enforcement
+
+Advisory (relaxed from mandatory by operator ruling 2026-10-06; see
+`tools/house_lint/policy.ml`), in `tools/house_lint/cs21.ml`, three native locators:
+
+- `role_named_file_mixing_types` — a role-named file declaring two or more
+  top-level types.
+- `method_outside_its_type_files` — a method whose receiver type is declared in
+  another selected file the method's file is not named for.
+- `generated_layout_by_role` — a generated role-named file whose generator
+  declares no layout.

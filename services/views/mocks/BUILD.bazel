@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = ["mock_stack.go"],
+    importpath = "github.com/candacelabs/csf/services/views/mocks",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/ipc/docker",
+        "@org_uber_go_mock//gomock",
+    ],
+)

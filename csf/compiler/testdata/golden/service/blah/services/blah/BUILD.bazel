@@ -1,0 +1,43 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# The blah service's generated projections, read by the csfc golden test that
+# pins the generator's output byte for byte. Every file here is emitted from
+# blah.csf; blah is the fresh case, so there is no seam and nothing hand-written.
+# The layout is by declared thing: blah.go for the service and greet.go for its
+# one operation, with a test file beside the operation.
+exports_files([
+    "blah.go",
+    "blah_suite_test.go",
+    "doc.go",
+    "greet.go",
+    "greet_test.go",
+])
+
+go_library(
+    name = "blah",
+    srcs = [
+        "blah.go",
+        "doc.go",
+        "greet.go",
+    ],
+    importpath = "github.com/candacelabs/csf/csf/compiler/testdata/golden/service/blah/services/blah",
+    deps = [
+        "//pkg/telemetry",
+        "@com_github_prometheus_client_golang//prometheus",
+    ],
+)
+
+go_test(
+    name = "blah_test",
+    srcs = [
+        "blah_suite_test.go",
+        "greet_test.go",
+    ],
+    embed = [":blah"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

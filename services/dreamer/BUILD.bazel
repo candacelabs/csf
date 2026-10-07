@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "dreamer",
+    srcs = [
+        "backlog.go",
+        "doc.go",
+        "dreamer.go",
+        "dreamer_metrics.go",
+        "heldout.go",
+        "rank.go",
+        "sources.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/dreamer",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//io/inproc",
+        "//io/ipc/proc",
+        "//pkg/cron",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//proto/candace/dispatch/v1:dispatch",
+        "//runtime",
+        "//services/cron",
+        "//services/dispatch",
+        "//services/harness",
+        "//services/harness/session",
+        "//services/ouroboros",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

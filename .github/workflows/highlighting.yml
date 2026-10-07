@@ -3,7 +3,7 @@ on:
   pull_request:
     paths: ['csf/editor/**', 'csf/compiler/architecture/**', 'csf/architecture/architecture.csf', 'csf/compiler/language/architecture.csf', 'MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', 'tools/bazel.sh', 'bazel/**', 'tools/devcontainer/**', '.dis/**', 'install.sh', 'bootstrap.sh', 'tools/csf-operator/**', '.github/workflows/highlighting.yml']
   push:
-    branches: [main]
+    branches: [main, 'release/**']
     paths: ['csf/editor/**', 'csf/compiler/architecture/**', 'csf/architecture/architecture.csf', 'csf/compiler/language/architecture.csf', 'MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', 'tools/bazel.sh', 'bazel/**', 'tools/devcontainer/**', '.dis/**', 'install.sh', 'bootstrap.sh', 'tools/csf-operator/**', '.github/workflows/highlighting.yml']
   workflow_dispatch:
 concurrency:
@@ -13,9 +13,9 @@ permissions:
   contents: read
 jobs:
   consumers:
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 30   # operator ruling 2026-10-06; the consumers job hit 15 minutes twice on cold caches
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:

@@ -1,9 +1,9 @@
 # The counter example
 
-The smallest complete gotth-live application: a number that lives in Go, four
+The smallest complete [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) [application](../../../csf/docs/generated/ontology_cgen.md#term-application): a number that lives in Go, four
 buttons that change it, and every open tab kept in step by the server.
 
-It is the app [`pkg/gotth/docs/bench/equivalence-spec.md` §2.1](../../../pkg/gotth/docs/bench/equivalence-spec.md)
+It is the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) [`pkg/gotth/docs/bench/equivalence-spec.md` §2.1](../../../pkg/gotth/docs/bench/equivalence-spec.md)
 specifies as **C-B** (features F-CTR-1..7), so the Phase 5 benchmark measures
 this rather than a second counter written to be measured. It satisfies PRD
 FR-60 and, with its Ginkgo suite, FR-63.
@@ -61,7 +61,7 @@ Open <http://127.0.0.1:8080>.
 
 | File | What is in it |
 |---|---|
-| [`counter.go`](counter.go) | `State`, the pure `Reduce`, the derived display, and the `live.Config` — all the application logic |
+| [`counter.go`](counter.go) | `State`, the pure `Reduce`, the derived display, and the `live.Config` — all the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) logic |
 | [`store.go`](store.go) | The shared counter every session reads and writes, and the subscription that pushes changes |
 | [`view.templ`](view.templ) | Two fragments and the page, with `live.Region`, `live.On` and `app.Document` |
 | [`main.go`](main.go) | Flags, routing, the Origin allowlist, graceful shutdown |
@@ -117,7 +117,7 @@ out-of-order delivery repairs itself.
 
 `Config.Origins` is a **real allowlist**, derived from `-addr`, never
 `live.AnyOrigin`. A request whose `Origin` is not on it is refused with 403
-before any per-session memory is allocated, and a request with no `Origin` at
+before any per-session [memory](../../../csf/docs/generated/ontology_cgen.md#term-memory) is allocated, and a request with no `Origin` at
 all is refused too — an absent Origin is not an allowed one.
 
 The three escape hatches this example does use are each there because a counter
@@ -125,9 +125,9 @@ demo has no accounts, and each is named so an audit is one `grep`:
 
 | Hatch | Why here | What production sets instead |
 |---|---|---|
-| `live.Anonymous` | no user database to derive an identity from | the session cookie or bearer token the app already trusts |
+| `live.Anonymous` | no user database to derive an identity from | the session cookie or bearer token the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) already trusts |
 | `live.AllowAll` | no per-identity rule about who may count | the check that says which identities may change what |
-| `live.NoCSRFCheck` | safe **only because** `Origins` is a real allowlist — the origin check is then the whole CSRF posture | a token bound to the authenticated application session |
+| `live.NoCSRFCheck` | safe **only because** `Origins` is a real allowlist — the origin check is then the whole CSRF posture | a token bound to the authenticated [application](../../../csf/docs/generated/ontology_cgen.md#term-application) session |
 
 `Config.Dev` is `true` here, which puts stack traces in error frames. It must
 be `false` in production.
@@ -266,7 +266,7 @@ Phase 4 decision, not something to work around here.
 >
 > **So the real reason this example does not implement it is a scope
 > judgement about this example, not a limit of the library.** `examples/counter`
-> is *"the smallest complete gotth-live application"*, and it is deliberately
+> is *"the smallest complete [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) [application](../../../csf/docs/generated/ontology_cgen.md#term-application)"*, and it is deliberately
 > the demonstration of one idea — state in Go, buttons that change it, tabs kept
 > in step — rather than a checklist of C-B's seven features. F-CTR-6 is the one
 > feature of the seven that would add a second binding idiom (`OnAll` with a key

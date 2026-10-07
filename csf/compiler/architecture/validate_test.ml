@@ -18,6 +18,8 @@ let connection ?(transport = Subprocess) ?(boundary = Some "gateway")
     ?(state = Existing) caller callee = {
   caller; callee; transport; boundary; connection_state = state; connection_at = at;
 }
+let directory path allowed : directory = { path; allowed; tier = None; directory_at = at }
+let directory_tiered path allowed tier : directory = { path; allowed; tier = Some tier; directory_at = at }
 let valid = {
   name = "fixture"; version = 1; at;
   processes = [process "host" Go (Some "app/main.go"); process "vendor" External None];
@@ -25,7 +27,7 @@ let valid = {
   components = [consumer; provider; gateway; external_target];
   dependencies = [dependency "consumer" "provider"];
   connections = [connection "consumer" "target"];
-  scan_roots = []; generated_roots = [];
+  scan_roots = []; generated_roots = []; directories = [];
 }
 let edit_component id change (architecture : architecture) = {
   architecture with components = List.map (fun (c : component) ->
@@ -198,6 +200,85 @@ let tests = [
   "reused gateway does not create consolidation debt", (fun () ->
     let resolved = accepted { valid with connections = valid.connections @ [connection "provider" "target"] } in
     check (not (has_obligation (fun o -> contains o.requirement "one audited gateway") resolved)) "Duplicate references counted as gateways");
+  "tree census passes declared files and empty paths", (fun () ->
+    let architecture = { valid with directories = [directory "." ["go"]] } in
+    let report = Validate.tree_diagnostics architecture ["src/consumer.go"; "src/provider.go"] in
+    check (report.offenses = []) "Declared files drew offenses";
+    check (report.directories_declared = 1 && report.directories_tracked = 2)
+      "Directory counts do not match declarations and tracked dirs";
+    let empty = Validate.tree_diagnostics architecture [] in
+    check (empty.offenses = [] && empty.directories_tracked = 0) "Empty paths invented offenses or dirs");
+  "tree census reports undeclared files", (fun () ->
+    let report = Validate.tree_diagnostics valid ["services/harness/sessiongate/github_gate.csf"] in
+    check (List.exists (fun d -> d.code = "tree_undeclared") report.offenses)
+      "Undeclared file drew no offense");
+  "tree census reports csf files outside csf", (fun () ->
+    let architecture = { valid with directories = [directory "." ["csf"]] } in
+    let report = Validate.tree_diagnostics architecture ["services/harness/sessiongate/github_gate.csf"] in
+    check (List.exists (fun d -> d.code = "tree_csf_outside_csf") report.offenses)
+      "CSF file outside csf/ drew no offense");
+  "tree census reports disallowed kinds", (fun () ->
+    let architecture = { valid with directories = [directory "." ["go"]] } in
+    let report = Validate.tree_diagnostics architecture ["csf/architecture/architecture.csf"] in
+    check (List.exists (fun d -> d.code = "tree_kind_not_allowed" && contains d.message "csf") report.offenses)
+      "Disallowed kind drew no offense");
+  "nested directory declarations shadow the root", (fun () ->
+    let architecture = { valid with directories = [directory "." ["go"; "csf"]; directory "csf" ["csf"]] } in
+    let report = Validate.tree_diagnostics architecture ["csf/architecture/architecture.csf"; "go/main.go"] in
+    check (report.offenses = []) "Nested declaration did not shadow the root");
+  "a question with seventeen options reports fanout", (fun () ->
+    let directories = directory "." ["go"] :: List.init 17 (fun i -> directory ("a" ^ string_of_int i) ["go"]) in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (List.mem (".", 17) report.fanout) "Seventeen options did not report fanout";
+    check (List.length report.fanout = 1) "Unexpected fanout answers");
+  "sixteen options stay under the fanout bound", (fun () ->
+    let directories = directory "." ["go"] :: List.init 16 (fun i -> directory ("b" ^ string_of_int i) ["go"]) in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (report.fanout = []) "Sixteen options reported fanout");
+  "a testdata directory is data, not a choice", (fun () ->
+    let directories = [directory "." ["go"]; directory "testdata" ["go"]] @
+      List.init 17 (fun i -> directory ("testdata/c" ^ string_of_int i) ["go"]) in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (report.fanout = []) "Testdata directory drew a fanout");
+  "io with its four tier directories draws no shape offense", (fun () ->
+    let directories = [
+      directory "." ["go"];
+      directory "io" ["go"];
+      directory_tiered "io/inproc" ["go"] In_process;
+      directory_tiered "io/kernel" ["go"] Kernel;
+      directory_tiered "io/ipc" ["go"] Ipc;
+      directory_tiered "io/net" ["go"] Net;
+    ] in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (not (List.exists (fun d -> d.code = "tree_io_children_stray" || d.code = "tree_io_children_missing" || d.code = "tree_tier_mismatch") report.offenses))
+      "True-to-hardware io drew a shape offense");
+  "a stray child under io draws io_children_stray", (fun () ->
+    let directories = [
+      directory "." ["go"]; directory "io" ["go"];
+      directory_tiered "io/inproc" ["go"] In_process; directory_tiered "io/kernel" ["go"] Kernel;
+      directory_tiered "io/ipc" ["go"] Ipc; directory_tiered "io/net" ["go"] Net;
+      directory "io/db" ["go"];
+    ] in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (List.exists (fun d -> d.code = "tree_io_children_stray" && contains d.message "io/db") report.offenses)
+      "Stray io child drew no offense");
+  "a missing tier directory draws io_children_missing", (fun () ->
+    let directories = [
+      directory "." ["go"]; directory "io" ["go"];
+      directory_tiered "io/inproc" ["go"] In_process; directory_tiered "io/kernel" ["go"] Kernel;
+      directory_tiered "io/net" ["go"] Net;
+    ] in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (List.exists (fun d -> d.code = "tree_io_children_missing" && contains d.message "ipc") report.offenses)
+      "Missing io/ipc drew no offense");
+  "a directory crossing off its io tier draws tier_mismatch", (fun () ->
+    let directories = [
+      directory "." ["go"]; directory "io" ["go"];
+      directory_tiered "io/ipc" ["go"] Net;
+    ] in
+    let report = Validate.tree_diagnostics { valid with directories } [] in
+    check (List.exists (fun d -> d.code = "tree_tier_mismatch" && contains d.message "io/ipc") report.offenses)
+      "A directory crossing off its tier drew no mismatch");
 ] @ List.map (fun (name, code, architecture) -> name, (fun () -> reject code architecture)) invalid_cases
 
 let () =

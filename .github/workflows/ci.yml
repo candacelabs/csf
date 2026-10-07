@@ -13,6 +13,7 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
   pull_request:
   workflow_dispatch:
 
@@ -65,9 +66,9 @@ jobs:
     name: Operator identifiers
     # Cheapest job in the file and the one whose failure matters most, so it
     # runs on its own runner rather than behind a build.
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
 
     steps:
       - name: Check out source
@@ -84,7 +85,7 @@ jobs:
 
   csf_operator:
     name: Standalone CSF operator
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 20
 
@@ -112,9 +113,9 @@ jobs:
 
   bazel_inventory:
     name: Complete Bazel target inventory
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -129,9 +130,9 @@ jobs:
 
   bazel_runtime_base:
     name: Prepare Bazel runtime (${{ matrix.stage }})
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     strategy:
       fail-fast: false
       matrix:
@@ -148,9 +149,9 @@ jobs:
   bazel_runtime_network:
     name: Prepare Bazel Rust network dependencies
     needs: bazel_runtime_base
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -163,9 +164,9 @@ jobs:
   bazel_runtime_support:
     name: Prepare Bazel Rust storage and generator dependencies
     needs: bazel_runtime_network
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -178,9 +179,9 @@ jobs:
   bazel_runtime_rust:
     name: Prepare Bazel Rust libraries
     needs: bazel_runtime_support
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -193,15 +194,15 @@ jobs:
   bazel:
     name: Bazel build and test (${{ matrix.partition }})
     needs: [bazel_inventory, bazel_runtime_rust]
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     strategy:
       fail-fast: false
       matrix:
         partition: [go-libraries, go-services, go-programs, go-chaos, rust]
     env:
-      CANDACE_BAZEL_DISK_CACHE: /bazel-home/sharedtaskcache
+      CANDACE_BAZEL_DISK_CACHE: ${{ github.workspace }}/.git/csf-bazel-runtime/sharedtaskcache
     steps:
       - name: Bound optional Bazel cache maintenance
         run: printf 'OPTIONAL_CACHE_SAVE_DEADLINE=%s\n' "$(( $(date +%s) + 180 ))" >> "$GITHUB_ENV"
@@ -220,7 +221,7 @@ jobs:
         with:
           path: |
             ${{ env.CANDACE_BAZEL_CACHE }}/output/cache/repos/v1/
-            ${{ env.CANDACE_BAZEL_CACHE }}/home/sharedtaskcache/
+            ${{ env.CANDACE_BAZEL_CACHE }}/sharedtaskcache/
           key: bazel-partition-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.partition }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', '.bazelversion', 'tools/bazel.sh', 'tools/check-bazel-partition.sh') }}-${{ github.sha }}
           restore-keys: bazel-partition-v2-${{ runner.os }}-${{ runner.arch }}-${{ matrix.partition }}-${{ hashFiles('MODULE.bazel', 'MODULE.bazel.lock', '.bazelrc', '.bazelversion', 'tools/bazel.sh', 'tools/check-bazel-partition.sh') }}-
       - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -239,14 +240,14 @@ jobs:
           deadline: ${{ env.OPTIONAL_CACHE_SAVE_DEADLINE }}
           path: |
             ${{ env.CANDACE_BAZEL_CACHE }}/output/cache/repos/v1/
-            ${{ env.CANDACE_BAZEL_CACHE }}/home/sharedtaskcache/
+            ${{ env.CANDACE_BAZEL_CACHE }}/sharedtaskcache/
           key: ${{ steps.bazel-cache.outputs.cache-primary-key }}
 
   ocaml_repository:
     name: Prepare pinned tooling and opam metadata
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -258,9 +259,9 @@ jobs:
   ocaml_bytecode:
     needs: ocaml_repository
     name: Prepare the OCaml bytecode bootstrap
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -272,9 +273,9 @@ jobs:
   ocaml_compiler:
     needs: ocaml_bytecode
     name: Prepare the pinned OCaml compiler
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -286,9 +287,9 @@ jobs:
   ocaml_toolchain:
     name: Prepare the locked OCaml libraries
     needs: ocaml_compiler
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -300,9 +301,9 @@ jobs:
   bazel_compiler:
     name: Bazel compiler build and test
     needs: [bazel_inventory, ocaml_toolchain]
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -320,9 +321,9 @@ jobs:
   bazel_metadata:
     name: Generated Bazel metadata drift
     needs: ocaml_toolchain
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -335,9 +336,9 @@ jobs:
 
   go_dependencies:
     name: Go dependencies and standard library
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     env:
       GOCACHE: /tmp/csf-go-cache/build
       GOMODCACHE: /tmp/csf-go-cache/modules
@@ -388,9 +389,9 @@ jobs:
     # sorted `go list ./...` inventory, so a new package or a manual Bazel
     # target cannot silently fall out of coverage. Build and vet cover that
     # complete inventory in their own jobs instead of consuming the test budget.
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     needs: go_dependencies
     strategy:
       fail-fast: false
@@ -506,9 +507,9 @@ jobs:
     # they say the same thing here that they say in the monorepo. The suites
     # that need a live stack or a model provider stay in the monorepo, where the
     # credentials and the GPU are.
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
 
     steps:
       - name: Check out source
@@ -520,13 +521,13 @@ jobs:
       # or reaches for Docker. Runs against a stub `docker` that fails loudly if
       # it is called at all.
       - name: Installer validation
-        run: ./deploy/test-install-validation.sh
+        run: ./infra/deploy-kit/test-install-validation.sh
 
       # Drives the updater's deployment ledger, retry backoff, and rollback
       # bookkeeping in-process, then builds the updater image and exercises its
       # read-only health and credential-askpass entrypoints.
       - name: Updater
-        run: ./deploy/test-updater.sh
+        run: ./infra/deploy-kit/test-updater.sh
 
       # Plans every fleet topology against stub transports that fail if they are
       # ever invoked, and renders each Compose overlay with `docker compose
@@ -534,13 +535,13 @@ jobs:
       # self-skips its one operator-side bundle check when it is not running
       # inside a Git worktree.
       - name: Fleet
-        run: ./deploy/test-fleet.sh
+        run: ./infra/deploy-kit/test-fleet.sh
 
   public_contracts:
     name: Public contract generation (${{ matrix.component }})
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     strategy:
       fail-fast: false
       matrix:
@@ -565,9 +566,9 @@ jobs:
   csf_contracts:
     name: CSF API contract generation
     needs: ocaml_toolchain
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -580,9 +581,9 @@ jobs:
 
   csf_workbench:
     name: Workbench browser generation, tests and build
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates between us and 100%
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7

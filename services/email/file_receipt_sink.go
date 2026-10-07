@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	emailv1 "github.com/candacelabs/csf/proto/candace/email/v1"
 )
 
@@ -69,42 +70,9 @@ func (sink *FileReceiptSink) Record(ctx context.Context, receipt *emailv1.EmailR
 }
 
 func (sink *FileReceiptSink) replace(receiptID string, data []byte) error {
-	temporary, err := os.CreateTemp(sink.directory, receiptID+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary receipt: %w", err)
-	}
-	temporaryName := temporary.Name()
-	defer func() { _ = os.Remove(temporaryName) }()
-	if err := temporary.Chmod(receiptFileMode); err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("securing temporary receipt: %w", err)
-	}
-	if _, err := temporary.Write(data); err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("writing temporary receipt: %w", err)
-	}
-	if err := temporary.Sync(); err != nil {
-		_ = temporary.Close()
-		return fmt.Errorf("syncing temporary receipt: %w", err)
-	}
-	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("closing temporary receipt: %w", err)
-	}
 	path := filepath.Join(sink.directory, receiptID+".pb")
-	if err := os.Rename(temporaryName, path); err != nil {
+	if err := atomicfile.WriteFile(path, data, receiptFileMode); err != nil {
 		return fmt.Errorf("replacing receipt: %w", err)
-	}
-	return syncDirectory(sink.directory)
-}
-
-func syncDirectory(directory string) error {
-	dir, err := os.Open(directory)
-	if err != nil {
-		return fmt.Errorf("opening receipt directory for sync: %w", err)
-	}
-	defer dir.Close()
-	if err := dir.Sync(); err != nil {
-		return fmt.Errorf("syncing receipt directory: %w", err)
 	}
 	return nil
 }

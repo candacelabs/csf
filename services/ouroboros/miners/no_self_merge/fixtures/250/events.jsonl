@@ -1,0 +1,3 @@
+{"number":250,"title":"fix: some security issue","author_session":"orchestrator-session-1","merge_commit_sha":"abc1234"}
+{"type":"review","reviewer_session":"security-reviewer-1","body":"{\"verdict\":\"APPROVED\",\"comment\":\"looks good\"}"}
+{"type":"merge","merge_session":"orchestrator-session-1"}

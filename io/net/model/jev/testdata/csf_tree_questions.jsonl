@@ -1,0 +1,24 @@
+{"state":"panic: nil map access in request handler","kind":"noul","question":"This is a runtime error.","answer":"true","source":"ipc/model/jev/eval.go"}
+{"state":"The service started and bound to port 8080.","kind":"noul","question":"The service failed to start.","answer":"false","source":"ipc/model/jev/eval.go"}
+{"state":"My order arrived cracked. I want a refund.","kind":"choice","question":"What does the customer want?","options":["refund","replacement","discount"],"answer":"refund","source":"ipc/model/jev/jev.go"}
+{"state":"A memory leak in production crashes a pod every hour.","kind":"score","question":"How severe is this issue?","answer":"5","source":"ipc/model/jev/jev.go"}
+{"state":"The README has a typo in the third paragraph.","kind":"score","question":"How severe is this issue?","answer":"1","source":"ipc/model/jev/jev.go"}
+{"state":"git commit -m 'fix the linter warning'","kind":"noul","question":"This is a commit command.","answer":"true","source":"ipc/model/jev/eval.go"}
+{"state":"The CI pipeline is red because the Go linter failed on a new file.","kind":"choice","question":"What should be fixed first?","options":["the linter errors","the unit tests","the documentation"],"answer":"the linter errors","source":"ipc/model/jev/eval.go"}
+{"state":"A user reported the login page does not load in Safari.","kind":"noul","question":"This is a frontend bug.","answer":"true","source":"ipc/model/jev/eval.go"}
+{"state":"A dependency has a security advisory affecting production.","kind":"score","question":"How urgent is addressing this?","answer":"5","source":"ipc/model/jev/eval.go"}
+{"state":"The database migration failed to apply on staging.","kind":"choice","question":"Which environment is affected?","options":["staging","production","local"],"answer":"staging","source":"ipc/model/jev/eval.go"}
+{"state":"The build passed and all tests are green.","kind":"noul","question":"The code is ready to merge.","answer":"true","source":"ipc/model/jev/eval.go"}
+{"state":"A function is 40 lines long and does one clear thing.","kind":"noul","question":"This function needs to be split.","answer":"false","source":"ipc/model/jev/eval.go"}
+{"state":"The server returns HTTP 500 on every request.","kind":"score","question":"How broken is the service?","answer":"5","source":"ipc/model/jev/eval.go"}
+{"state":"The style guide asks for two spaces of indentation.","kind":"choice","question":"How many spaces does the style guide want?","options":["one","two","four"],"answer":"two","source":"ipc/model/jev/eval.go"}
+{"state":"A new endpoint was added but has no test.","kind":"noul","question":"The endpoint is covered by tests.","answer":"false","source":"ipc/model/jev/eval.go"}
+{"state":"The deploy rolled back cleanly to the previous version.","kind":"noul","question":"The rollback succeeded.","answer":"true","source":"ipc/model/jev/eval.go"}
+{"state":"A customer cannot complete checkout because the card form rejects valid numbers.","kind":"choice","question":"What kind of bug is this?","options":["billing","shipping","search"],"answer":"billing","source":"ipc/model/jev/eval.go"}
+{"state":"The logs show no errors and latency is under 50ms.","kind":"score","question":"How healthy is the service?","answer":"0","source":"ipc/model/jev/eval.go"}
+{"state":"A comment explains why the code diverges from the obvious approach.","kind":"noul","question":"This comment is useful.","answer":"true","source":"ipc/model/jev/eval.go"}
+{"state":"The pull request changes one line and has no description.","kind":"score","question":"How complete is this pull request?","answer":"1","source":"ipc/model/jev/eval.go"}
+{"state":"The test suite takes forty minutes and must finish in ten.","kind":"choice","question":"What is the problem?","options":["the suite is too slow","the suite is too fast","the suite is flaky"],"answer":"the suite is too slow","source":"ipc/model/jev/eval.go"}
+{"state":"A goroutine leak grows memory until the process is killed.","kind":"noul","question":"The memory growth is bounded.","answer":"false","source":"ipc/model/jev/eval.go"}
+{"state":"The merge gate refuses a branch because it has no pull request.","kind":"choice","question":"What is missing?","options":["a pull request","a commit","a branch"],"answer":"a pull request","source":"ipc/model/jev/eval.go"}
+{"state":"The operator asked for a short report, not a summary of everything.","kind":"noul","question":"A long report is wanted.","answer":"false","source":"ipc/model/jev/eval.go"}

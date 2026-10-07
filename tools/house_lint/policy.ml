@@ -1,6 +1,16 @@
 type severity = Mandatory | Advisory
 type rule = { id : string; severity : severity; description : string }
 
+(* OPERATOR RULING (2026-10-06), verbatim: "WE NEED TO RELAX MERGE GATES THAT
+   ARE STOPPING US FROM GETTING TO 100% CONSISTENCY" and "you can relax
+   pre-existing invariants if our chief invariants need to be compromised".
+   CS-20, CS-21, CS-20-HOST, CS-20-RUNTIME, CS-20-SPAWN, CS-20-LISTEN and
+   NO-MAIN-TEST were registered Mandatory before the tree was retrofitted, so
+   they blocked every push with a backlog no single change could clear. They
+   are Advisory under that ruling: every finding stays in the report and a scan
+   error still fails, but a finding no longer blocks. A rule returns to
+   Mandatory only in the change that drives its count to zero. *)
+
 let rules = [
   {id="CS-1"; severity=Mandatory; description="I-prefixed interfaces"};
   {id="CS-2"; severity=Mandatory; description="Named input parameters"};
@@ -25,13 +35,32 @@ let rules = [
   {id="FUNCTION-LENGTH"; severity=Advisory; description="Functions exceeding 60 non-comment lines"};
   {id="GOROUTINE-SHARED-STATE"; severity=Advisory; description="Captured shared writes with later caller access; local synchronization review"};
   {id="CS-15"; severity=Advisory; description="Goroutines with no visible join or context-driven exit"};
-  {id="CS-16"; severity=Advisory; description="Network listen/dial and gRPC clients outside ipc/; fork/exec outside ipc/proc"};
-  {id="CS-16-DB"; severity=Mandatory; description="PostgreSQL pools and connections outside ipc/db/csfpg, tests included"};
+  {id="CS-16"; severity=Advisory; description="Network listen/dial and gRPC clients outside the io/ crossing mechanisms; fork/exec outside io/ipc/proc"};
+  {id="CS-16-DB"; severity=Mandatory; description="PostgreSQL pools and connections outside io/ipc/db/csfpg, tests included"};
   {id="CS-17"; severity=Advisory; description="Process environment reads outside the config capability"};
+  {id="ATOMIC-WRITE"; severity=Mandatory; description="Files written and renamed into place outside pkg/atomicfile, tests included"};
   {id="CS-18-MOCKGEN"; severity=Advisory; description="Exported interfaces without a mockgen directive and tracked generated mock"};
   {id="CS-18-CROSSING"; severity=Advisory; description="Tests crossing real sockets, subprocesses, database pools or containers outside a labelled acceptance suite"};
   {id="CS-18-EXTERNAL"; severity=Advisory; description="Packages with exported API but no external _test package holding specs"};
+  {id="CS-19"; severity=Advisory; description="Reflection, anonymous-struct decoding, string maps for typed fields and local generic helpers"};
+  {id="CS-20"; severity=Advisory; description="Every compound is named"};
+  {id="CS-21"; severity=Advisory; description="Code of one type lives together"};
+  {id="CS-20-HOST"; severity=Advisory; description="Applications not mounting exactly one runtime.HostRuntime"};
+  {id="CS-20-RUNTIME"; severity=Advisory; description="runtime.HostRuntime built outside a package-main file"};
+  {id="CS-20-SPAWN"; severity=Advisory; description="Subprocess spawn (os/exec) outside io/ipc/proc"};
+  {id="CS-20-LISTEN"; severity=Advisory; description="Socket bind outside io/ and outside a package-main file"};
   {id="ONTOLOGY-DIRS"; severity=Advisory; description="Directories not named by CSF ontology terms"};
+  {id="NO-MAIN-TEST"; severity=Advisory; description="Test file cannot have package main or main_test"};
+  (* Operator ruling, 2026-10-06: "THE MERGE GATES DON'T MATTER ANYMORE WE NEED TO RELAX MERGE GATES THAT ARE STOPPING US
+     FROM GETTING TO 100% CONSISTENCY". The document rules were written for the paper draft and flag 1,545 findings across
+     about 240 tracked Markdown files; they report, and no longer block. *)
+  {id="DOC-MATH"; severity=Advisory; description="Math symbols outside $...$; unbalanced $ delimiters; unknown LaTeX commands"};
+  {id="DOC-CONTRAST"; severity=Advisory; description="Contrast sentences must name both sides and provide examples"};
+  {id="DOC-EXAMPLE"; severity=Advisory; description="Abstract claims must have examples within two sentences"};
+  {id="DOC-EVIDENCE"; severity=Advisory; description="Numbers outside References need daggers; agent-draft banner required"};
+  {id="DOC-PROVENANCE"; severity=Advisory; description="Document provenance: δ (generated), σ (model output), η (signed human)"};
+  {id="DOC-GAP"; severity=Advisory; description="Gap markers need next-step markers in the same paragraph"};
+  {id="DOC-CONTRADICTION"; severity=Advisory; description="Present-tense claims about incomplete terms/milestones"};
 ]
 
 let find id = List.find (fun rule -> rule.id = id) rules

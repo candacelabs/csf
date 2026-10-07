@@ -1,7 +1,8 @@
 // Copyright 2026 Candace Labs
 
-// Actionable repository events, normalized by services/intake and delivered
-// through the relay to the agent that owns the pull request or issue.
+// Repository events, normalized by services/intake from GitHub's webhook
+// deliveries or its REST feeds and delivered to the owner of the pull
+// request, issue or branch they are about.
 syntax = "proto3";
 
 package candace.intake.v1;
@@ -23,6 +24,22 @@ enum EventKind {
   EVENT_KIND_REVIEW_COMMENT = 3;
   // A continuous-integration run that concluded in failure.
   EVENT_KIND_CHECK_FAILURE = 4;
+  // A pull request marked as ready for review.
+  EVENT_KIND_PULL_REQUEST_READY = 5;
+  // A pull request was opened, merged, or closed without merging.
+  EVENT_KIND_PULL_REQUEST_OPENED = 6;
+  EVENT_KIND_PULL_REQUEST_MERGED = 7;
+  EVENT_KIND_PULL_REQUEST_CLOSED = 8;
+  // A check run or a check suite completed; conclusion says how.
+  EVENT_KIND_CHECK_RUN_COMPLETED = 9;
+  EVENT_KIND_CHECK_SUITE_COMPLETED = 10;
+  // Commits were pushed to a branch.
+  EVENT_KIND_PUSH = 11;
+  // An issue was opened or closed.
+  EVENT_KIND_ISSUE_OPENED = 12;
+  EVENT_KIND_ISSUE_CLOSED = 13;
+  // A release was published; summary is its tag.
+  EVENT_KIND_RELEASE_PUBLISHED = 14;
 }
 
 // Which thread an event belongs to.
@@ -57,4 +74,27 @@ message Event {
   // A short excerpt: the comment body, the review state, the failed run's name.
   string summary = 6 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096"}];
   google.protobuf.Timestamp occurred_at = 7;
+  // PullRequestReady fields for EVENT_KIND_PULL_REQUEST_READY.
+  PullRequestReady pull_request_ready = 8;
+  // The branch the event is about: a pull request's or a check's head
+  // branch, or the branch a push updated. Routing to a virtual session keys
+  // on it.
+  string branch = 9 [(candace.liquid.v1.field) = {expr: "len(this) <= 255"}];
+  // A pull request's base branch.
+  string base = 10 [(candace.liquid.v1.field) = {expr: "len(this) <= 255"}];
+  // How a check or a review ended: success, failure, approved, ...
+  string conclusion = 11 [(candace.liquid.v1.field) = {expr: "len(this) <= 64"}];
+  // The webhook delivery the event arrived in (X-GitHub-Delivery); empty for
+  // a polled event.
+  string delivery = 12 [(candace.liquid.v1.field) = {expr: "len(this) <= 64"}];
+}
+
+// Details for a pull request marked ready for review.
+message PullRequestReady {
+  // The head commit SHA of the pull request.
+  string head = 1;
+  // The title of the pull request.
+  string title = 2;
+  // Whether this is a LANG PR (edits csf/compiler or architecture.csf).
+  bool is_lang = 3;
 }

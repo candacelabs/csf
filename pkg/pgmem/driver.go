@@ -9,38 +9,6 @@ import (
 	"sync"
 )
 
-// Connector returns a database/sql connector for the public schema.
-//
-// The returned connector does not own DB. Close the database/sql pool before
-// closing DB.
-func (db *DB) Connector() driver.Connector {
-	return db.Public().Connector()
-}
-
-// Open returns a database/sql pool backed by the public schema. The returned
-// pool and DB have independent lifetimes and both must be closed.
-func (db *DB) Open() *sql.DB {
-	return db.Public().Open()
-}
-
-// Connector returns a database/sql connector whose unqualified statements use
-// this schema. The returned connector does not own the schema's DB.
-func (s *Schema) Connector() driver.Connector {
-	return &sqlConnector{database: s.database, schema: s}
-}
-
-// Open returns a database/sql pool whose unqualified statements use this
-// schema. Close the pool before closing its DB.
-func (s *Schema) Open() *sql.DB {
-	pool := sql.OpenDB(s.Connector())
-	// The embedded engine intentionally owns one physical connection. Keeping
-	// the adapter pool to one logical connection avoids building up connector
-	// calls that can only wait for that same engine connection.
-	pool.SetMaxOpenConns(1)
-	pool.SetMaxIdleConns(1)
-	return pool
-}
-
 type sqlConnector struct {
 	database *DB
 	schema   *Schema

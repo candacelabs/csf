@@ -5,9 +5,10 @@ name: CSF compiler
 on:
   pull_request:
     paths: ['csf/compiler/**', 'csf/editor/**', 'csf/examples/proof/**', 'tools/bazel.sh', 'MODULE.bazel', 'MODULE.bazel.lock', 'BUILD.bazel', '.bazelrc', '.bazelversion', '.gitattributes', '.github/actions/ocaml-toolchain/**', '.github/workflows/csfc.yml']
+  # No path filter on push: the check-generated step reads the census of the whole tracked tree, so any file can
+  # change its verdict, and a filter that skips those files is green by never looking.
   push:
-    branches: [main, candace-export]
-    paths: ['csf/compiler/**', 'csf/editor/**', 'csf/examples/proof/**', 'tools/bazel.sh', 'MODULE.bazel', 'MODULE.bazel.lock', 'BUILD.bazel', '.bazelrc', '.bazelversion', '.gitattributes', '.github/actions/ocaml-toolchain/**', '.github/workflows/csfc.yml']
+    branches: [main, candace-export, 'release/**']
 
 permissions:
   contents: read
@@ -18,7 +19,7 @@ concurrency:
 
 jobs:
   opam-repository-prepare:
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -32,7 +33,7 @@ jobs:
 
   ocaml-bytecode-prepare:
     needs: opam-repository-prepare
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -46,7 +47,7 @@ jobs:
 
   ocaml-compiler-prepare:
     needs: ocaml-bytecode-prepare
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -60,7 +61,7 @@ jobs:
 
   ocaml-toolchain-prepare:
     needs: ocaml-compiler-prepare
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -74,9 +75,9 @@ jobs:
 
   compiler:
     needs: ocaml-toolchain-prepare
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 15   # operator ruling 2026-10-06: relax gates that stand between us and 100%; a cold build with the goldens took 5m08s
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -95,15 +96,14 @@ jobs:
         run: bazel-bin/csf/compiler/bin/csfc check-generated
 
   proof:
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - name: Bootstrap pinned Lean and compile the verifier stub
+      - name: Bootstrap the pinned Lean and check both proofs
         run: |
           bash csf/examples/proof/check.sh
-          cd csf/compiler/verification
-          ../../examples/proof/.cache/lean-4.34.0-linux/bin/lake build
+          bash csf/compiler/verification/check.sh

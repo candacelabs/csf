@@ -1,6 +1,6 @@
 // Package store provides persistence for warden.PersistentState (the Raft
 // current term and vote). Two implementations are offered: FileStore, which
-// writes durably to disk with an atomic temp-file-plus-rename, and MemStore,
+// writes durably to disk through pkg/atomicfile, and MemStore,
 // an in-memory store for tests. Both are safe for concurrent use.
 //
 // # On-disk format: protobuf-JSON, reads both encodings
@@ -27,6 +27,7 @@ import (
 
 	"google.golang.org/protobuf/encoding/protojson"
 
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/services/warden"
 	wardenv1 "github.com/candacelabs/csf/services/warden/proto/warden/v1"
 	"github.com/candacelabs/csf/services/warden/wireconv"
@@ -70,10 +71,12 @@ func unmarshalState(data []byte) (warden.PersistentState, error) {
 	return wireconv.PersistentStateFromProto(&pb), nil
 }
 
+// stateFileMode keeps the term and vote readable by the owner only.
+const stateFileMode = 0o600
+
 // FileStore persists PersistentState to a single JSON file. Save is atomic
-// and durable: it writes to a temp file in the same directory, fsyncs it,
-// then renames it over the target (and fsyncs the directory) so a crash never
-// leaves a partially written state file.
+// and durable through pkg/atomicfile, so a crash never leaves a partially
+// written state file.
 type FileStore struct {
 	path string
 	mu   sync.Mutex
@@ -101,35 +104,8 @@ func (s *FileStore) Save(st warden.PersistentState) error {
 		return err
 	}
 
-	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temp state file: %w", err)
-	}
-	tmpName := tmp.Name()
-	// Best-effort cleanup if we bail out before the rename succeeds.
-	defer func() { _ = os.Remove(tmpName) }()
-
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing temp state file: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("fsyncing temp state file: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("closing temp state file: %w", err)
-	}
-
-	if err := os.Rename(tmpName, s.path); err != nil {
-		return fmt.Errorf("renaming state file into place: %w", err)
-	}
-
-	// Fsync the directory so the rename itself is durable. A failure here is
-	// non-fatal to correctness (the file content is already synced) but we
-	// surface it.
-	if err := syncDir(dir); err != nil {
-		return fmt.Errorf("fsyncing state dir: %w", err)
+	if err := atomicfile.WriteFile(s.path, data, stateFileMode); err != nil {
+		return fmt.Errorf("replacing state file: %w", err)
 	}
 	return nil
 }
@@ -153,16 +129,6 @@ func (s *FileStore) Load() (warden.PersistentState, bool, error) {
 		return warden.PersistentState{}, false, fmt.Errorf("unmarshaling state file %q: %w", s.path, err)
 	}
 	return st, true, nil
-}
-
-// syncDir opens dir and fsyncs it so a preceding rename is durable.
-func syncDir(dir string) error {
-	f, err := os.Open(dir)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return f.Sync()
 }
 
 // MemStore is an in-memory warden.IStore for tests. It is safe for concurrent

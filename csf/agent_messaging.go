@@ -10,9 +10,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/model/copilot"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/net/model/copilot"
 	agentv1 "github.com/candacelabs/csf/proto/candace/agent/v1"
 	"github.com/candacelabs/csf/services/relay"
 )

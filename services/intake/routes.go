@@ -94,7 +94,7 @@ func (routes *StaticRoutes) Repositories() []string {
 	return slices.Compact(repositories)
 }
 
-// Route specification separators: "owner/name#12=agent,owner/name=agent".
+// Route specification separators: "candacelabs/example#12=agent,candacelabs/example=agent".
 const (
 	routeListSeparator   = ","
 	routeAgentSeparator  = "="

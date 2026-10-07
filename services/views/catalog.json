@@ -1,0 +1,390 @@
+{
+  "metrics": [
+    {
+      "name": "csf_sessions",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": ["phase", "agent", "executor", "model", "slice"],
+      "definition": "Agent sessions this host holds, by phase (starting, running, open, canceling, canceled, failed, closed), read from the session service at each scrape."
+    },
+    {
+      "name": "csf_session_turns_total",
+      "type": "counter",
+      "row": "Sessions and spend",
+      "labels": ["agent", "executor", "model", "slice"],
+      "definition": "Turns finished: the result records in each run's events.jsonl."
+    },
+    {
+      "name": "csf_tokens_total",
+      "type": "counter",
+      "row": "Sessions and spend",
+      "labels": ["kind", "agent", "executor", "model", "slice"],
+      "definition": "Tokens by kind (uncached, cache_write, cache_read, output), summed over the per-turn usage of each run's result records."
+    },
+    {
+      "name": "csf_cost_usd_total",
+      "type": "counter",
+      "row": "Sessions and spend",
+      "labels": ["agent", "executor", "model", "slice"],
+      "definition": "Executor-reported spend in US dollars: total_cost_usd is cumulative within one executor process, so each result record adds its rise over the previous one, or its whole value after the process restarted."
+    },
+    {
+      "name": "csf_admission_worker_cap",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": [],
+      "definition": "Sessions the host admits at once, max(1, floor(cores - 1-minute load)), from the harness launch check."
+    },
+    {
+      "name": "csf_admission_free_disk_bytes",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": [],
+      "definition": "Free bytes on the state directory's filesystem, from the harness launch check."
+    },
+    {
+      "name": "csf_admission_disk_floor_bytes",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": [],
+      "definition": "Free-disk floor of the harness launch check: twice the largest run directory."
+    },
+    {
+      "name": "csf_admission_held",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": [],
+      "definition": "1 while housekeeping holds session admission, otherwise 0."
+    },
+    {
+      "name": "csf_host_pressure_some_avg10",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": ["resource"],
+      "definition": "Percent of the last 10 s in which some task waited for the resource (cpu, memory or io), from the kernel's pressure stall information."
+    },
+    {
+      "name": "csf_resumes_held",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": [],
+      "definition": "Open runs the last restart still holds because the launch check does not admit them, from the resume queue."
+    },
+    {
+      "name": "csf_dispatch_slices",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": ["state"],
+      "definition": "Slices in the dispatcher's snapshot by state: queued, held and running."
+    },
+    {
+      "name": "csf_dispatch_limit_remaining",
+      "type": "gauge",
+      "row": "Sessions and spend",
+      "labels": ["limit"],
+      "definition": "Launches each bounded dispatch limit (harness, budget, rate) still allows, from the dispatcher's snapshot."
+    },
+    {
+      "name": "csf_dispatch_stage_slices",
+      "type": "gauge",
+      "row": "Flow",
+      "labels": ["stage"],
+      "definition": "Slices in each stage of the line, from the dispatcher's snapshot: ready, blocked, contended, running, merged, failed, canceled."
+    },
+    {
+      "name": "csf_dispatch_stage_age_seconds",
+      "type": "gauge",
+      "row": "Flow",
+      "labels": ["stage"],
+      "definition": "Seconds the oldest slice in each stage has stood there since its state last moved, from the dispatcher's snapshot."
+    },
+    {
+      "name": "csf_dispatch_lead_time_seconds",
+      "type": "gauge",
+      "row": "Flow",
+      "labels": [],
+      "definition": "Mean seconds from enqueue to merge of the slices merged in the last day, from the dispatcher's snapshot; absent when none merged."
+    },
+    {
+      "name": "csf_gate_decisions_total",
+      "type": "counter",
+      "row": "Sessions and spend",
+      "labels": ["gate", "decision", "agent", "executor", "model", "slice"],
+      "definition": "Session gate decisions recorded in each run's events.jsonl, by gate (wait, ready, commit, reply) and decision."
+    },
+    {
+      "name": "csf_reply_gate_refusals_total",
+      "type": "counter",
+      "row": "Sessions and spend",
+      "labels": ["rule", "agent", "executor", "model", "slice"],
+      "definition": "Replies the reply gate refused, counted once for each rule the refusal names (research_check, commitment)."
+    },
+    {
+      "name": "csf_struggle_rate_per_1k_tool_calls",
+      "type": "gauge",
+      "row": "Improvement loop",
+      "labels": ["period", "bound"],
+      "definition": "Struggle episodes (tool errors, permission denials, retries) per 1,000 tool calls over the current week or day of every run's events.jsonl (ouroboros.Struggles), with its 95% Garwood interval as bound low and high."
+    },
+    {
+      "name": "csf_compounding_factor",
+      "type": "gauge",
+      "row": "Improvement loop",
+      "labels": ["period", "bound"],
+      "definition": "Per-period factor of the struggle rate: exp of the struggle-weighted log-linear slope over the periods with at least one struggle and 200 tool calls, with its 95% interval; below 1 is improvement, and it needs 3 such periods."
+    },
+    {
+      "name": "csf_harness_cache_hit_ratio",
+      "type": "gauge",
+      "row": "Improvement loop",
+      "labels": ["scope", "assignment", "agent", "real_session", "model"],
+      "definition": "Share of submitted input tokens read from the prompt cache."
+    },
+    {
+      "name": "csf_harness_cache_creation_tokens",
+      "type": "gauge",
+      "row": "Improvement loop",
+      "labels": ["scope", "assignment", "agent", "real_session", "model"],
+      "definition": "Input tokens written to the prompt cache."
+    },
+    {
+      "name": "csf_harness_cache_sessions",
+      "type": "gauge",
+      "row": "Improvement loop",
+      "labels": ["scope"],
+      "definition": "Virtual and real sessions measured."
+    },
+    {
+      "name": "csf_harness_cache_first_turn_creation_share",
+      "type": "gauge",
+      "row": "Improvement loop",
+      "labels": [],
+      "definition": "Share of cache creation paid by first turns."
+    },
+    {
+      "name": "csf_harness_routing_decisions",
+      "type": "counter",
+      "row": "Improvement loop",
+      "labels": ["arm", "reason"],
+      "definition": "Routing decisions recorded, by arm and reason."
+    },
+    {
+      "name": "csf_merges_total",
+      "type": "counter",
+      "row": "Ontology alignment",
+      "labels": ["slice"],
+      "definition": "Pull requests merged into main, from GitHub's list of merged pull requests; slice is the title's leading slice name."
+    },
+    {
+      "name": "csf_ontology_alignment_score",
+      "type": "gauge",
+      "row": "Ontology alignment",
+      "labels": [],
+      "definition": "Ontology alignment score after the latest merged pull request whose body reports one (the after value of its Ontology score line); lower is better."
+    },
+    {
+      "name": "csf_ontology_alignment_signal",
+      "type": "gauge",
+      "row": "Ontology alignment",
+      "labels": ["signal"],
+      "definition": "Count of each ontology alignment signal after the latest merged pull request whose body reports the signal table."
+    },
+    {
+      "name": "csf_operator_corrections_total",
+      "type": "counter",
+      "row": "Orchestrator quality",
+      "labels": ["class", "source"],
+      "definition": "Operator corrections: distinct mistakes the operator flagged, by class; source hand_labeled is the hand-labeled window in corrections.json, classed by the ticket or gate that owns the class; source affect is every correction pkg/affect reads, classed by its failure code (#417) once the ouroboros codes verb has coded it and uncoded until then."
+    },
+    {
+      "name": "csf_operator_attention_hours_total",
+      "type": "counter",
+      "row": "Orchestrator quality",
+      "labels": ["source"],
+      "definition": "Operator-attention hours: distinct UTC hours holding at least one operator-authored message, from the runs' send records (source runs) or hand-counted for the corrections.json window (source hand_labeled)."
+    },
+    {
+      "name": "csf_harness_questions_total",
+      "type": "counter",
+      "row": "Orchestrator quality",
+      "labels": ["gate", "class", "verdict"],
+      "definition": "Questions agents put to the operator, by the gate that judged them, their class and verdict."
+    },
+    {
+      "name": "csf_harness_question_overrides_total",
+      "type": "counter",
+      "row": "Orchestrator quality",
+      "labels": [],
+      "definition": "Sends by which the operator said they wanted a question the question gate refused."
+    },
+    {
+      "name": "csf_rulings_in_force",
+      "type": "gauge",
+      "row": "Orchestrator quality",
+      "labels": ["enforcement"],
+      "definition": "Operator rulings in force, from the harness's ruling records, by whether a gate enforces them (enforced) or none does (unenforced)."
+    },
+    {
+      "name": "csf_hypervisor_cost_events_total",
+      "type": "counter",
+      "row": "Hypervisor",
+      "labels": ["operation", "agent", "model"],
+      "definition": "Hypervisor cost events (#353): one per session operation (warm or cold turn, bind, rebind, model flip, idle close, reopen, keep-alive), derived from every run's records by services/harness/costs, by operation."
+    },
+    {
+      "name": "csf_hypervisor_cost_usd_total",
+      "type": "counter",
+      "row": "Hypervisor",
+      "labels": ["operation", "agent", "model"],
+      "definition": "US dollars the hypervisor cost events (#353) price, at the per-model prices services/harness/costs fits from the record, by operation."
+    },
+    {
+      "name": "csf_information_density",
+      "type": "gauge",
+      "row": "Hypervisor",
+      "labels": ["agent", "executor", "model", "slice"],
+      "pending": "#348",
+      "definition": "Information density of a session's turns; no samples until slice #348 lands."
+    },
+    {
+      "name": "csf_merge_checks_total",
+      "type": "counter",
+      "row": "Build",
+      "labels": ["action", "outcome", "agent", "executor", "model", "slice"],
+      "definition": "Ready and merge control actions on sessions, each of which runs the merge path's checks, by outcome (ok, failed), from each run's events.jsonl."
+    },
+    {
+      "name": "csf_bazel_build_wall_seconds",
+      "type": "gauge",
+      "row": "Build",
+      "labels": ["arm"],
+      "definition": "Median wall seconds of a clean Bazel build of the Go tree by arm (A is the defaults), from BAZEL-RAM's lab entry docs/lab/2026-10-05-bazel-ram.md as lab.json records it."
+    },
+    {
+      "name": "csf_bazel_peak_memory_bytes",
+      "type": "gauge",
+      "row": "Build",
+      "labels": ["arm"],
+      "definition": "Median peak memory of a clean Bazel build of the Go tree by arm (A is the defaults), from BAZEL-RAM's lab entry docs/lab/2026-10-05-bazel-ram.md as lab.json records it."
+    },
+    {
+      "name": "csf_cloud_spend_usd_total",
+      "type": "counter",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "Spend of every cloud job in the record, in dollars; its rate is spend per hour."
+    },
+    {
+      "name": "csf_cloud_spend_today_usd",
+      "type": "gauge",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "Spend of the cloud jobs created today (UTC), in dollars."
+    },
+    {
+      "name": "csf_cloud_daily_cap_usd",
+      "type": "gauge",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "The day's cap on cloud spend, in dollars."
+    },
+    {
+      "name": "csf_cloud_jobs_running",
+      "type": "gauge",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "Cloud jobs that may still be spending."
+    },
+    {
+      "name": "csf_cloud_job_spend_usd",
+      "type": "gauge",
+      "row": "Cloud",
+      "labels": ["job", "flavor", "purpose"],
+      "definition": "One cloud job's spend so far, in dollars."
+    },
+    {
+      "name": "csf_cloud_job_cap_usd",
+      "type": "gauge",
+      "row": "Cloud",
+      "labels": ["job", "flavor", "purpose"],
+      "definition": "One cloud job's cap, in dollars."
+    },
+    {
+      "name": "csf_cloud_burst_sessions_total",
+      "type": "counter",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "Fixer sessions launched in burst jobs."
+    },
+    {
+      "name": "csf_cloud_burst_pull_requests_merged_total",
+      "type": "counter",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "Pull requests merged from ended burst jobs."
+    },
+    {
+      "name": "csf_cloud_burst_spend_usd_total",
+      "type": "counter",
+      "row": "Cloud",
+      "labels": [],
+      "definition": "Spend of ended burst jobs whose merged pull requests are counted, in dollars: the denominator of pull requests per dollar."
+    },
+    {
+      "name": "csf_chat_settle_seconds",
+      "type": "histogram",
+      "row": "Workbench",
+      "labels": [],
+      "definition": "Seconds from an event log record's timestamp to a connected chat page's live session accepting it, per record: how long a session's event takes to reach its transcript."
+    },
+    {
+      "name": "csf_github_deliveries_total",
+      "type": "counter",
+      "row": "GitHub",
+      "labels": ["outcome", "refusal"],
+      "definition": "GitHub webhook deliveries this host's receiver answered since it started, by outcome (accepted, duplicate, ignored, refused, failed) and, for a refused one, why."
+    },
+    {
+      "name": "csf_github_events_total",
+      "type": "counter",
+      "row": "GitHub",
+      "labels": ["kind"],
+      "definition": "Typed GitHub events this host's receiver recorded on the GitHub event stream since it started, by kind."
+    },
+    {
+      "name": "csf_github_event_latency_seconds",
+      "type": "gauge",
+      "row": "GitHub",
+      "labels": ["kind"],
+      "definition": "Seconds from when GitHub says the latest event of each kind happened to when this host recorded it as a typed event."
+    },
+    {
+      "name": "csf_eval_struggle_rate_per_1k_tool_calls",
+      "type": "gauge",
+      "row": "Evaluation suite",
+      "labels": ["build", "suite", "bound"],
+      "definition": "A csf build's score on the held-out evaluation suite: struggle episodes per 1,000 tool calls over its replays at the suite's budget, with the 95% Garwood interval as bound low and high."
+    },
+    {
+      "name": "csf_eval_score_wall_seconds",
+      "type": "gauge",
+      "row": "Evaluation suite",
+      "labels": ["build", "suite"],
+      "definition": "Wall-clock seconds to score a build: from the first replay launched to the last recorded."
+    },
+    {
+      "name": "csf_eval_score_cost_usd",
+      "type": "gauge",
+      "row": "Evaluation suite",
+      "labels": ["build", "suite"],
+      "definition": "Dollars to score a build: the model cost of its replays."
+    },
+    {
+      "name": "csf_eval_shards",
+      "type": "gauge",
+      "row": "Evaluation suite",
+      "labels": ["build", "suite", "node"],
+      "definition": "Replays of a build's score run on each node kind: this host or a cloud burst job."
+    }
+  ]
+}

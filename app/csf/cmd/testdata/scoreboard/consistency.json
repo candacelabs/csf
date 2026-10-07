@@ -1,0 +1,20 @@
+{
+  "measured_on": "2026-10-06",
+  "commit": "369d12d",
+  "invariants": [
+    {"name": "code_compiles", "satisfied": 249, "checked": 250, "mode": "hard_gate", "raised_by": "green_main"},
+    {"name": "fanout_at_most_16", "satisfied": 242, "checked": 245, "mode": "ratchet", "raised_by": "tiers_true_to_hardware"},
+    {"name": "every_directory_declared", "satisfied": 69, "checked": 631, "mode": "ratchet", "raised_by": "tree_declared"},
+    {"name": "csf_only_under_csf", "satisfied": 2, "checked": 3, "mode": "hard_gate", "raised_by": "tree_declared"},
+    {"name": "grammar_decision_fits_one_pick", "satisfied": 33, "checked": 80, "mode": "advisory_until_zero", "raised_by": "jev_writable"},
+    {"name": "grammar_generated_from_kinds", "satisfied": 0, "checked": 130, "mode": "ratchet", "raised_by": "one_tree"},
+    {"name": "cs20", "satisfied": 2060, "checked": 2210, "mode": "ratchet", "raised_by": "named_and_colocated"},
+    {"name": "cs21", "satisfied": 3946, "checked": 4664, "mode": "ratchet", "raised_by": "named_and_colocated"},
+    {"name": "cli_purpose_declared", "satisfied": 0, "checked": 28, "mode": "hard_gate", "raised_by": "cli_from_csf"},
+    {"name": "tests", "satisfied": 147, "checked": 181, "mode": "hard_gate", "raised_by": "test_coverage"},
+    {"name": "coverage", "satisfied": 117, "checked": 250, "mode": "ratchet", "raised_by": "test_coverage"},
+    {"name": "server_listens_in_tier", "satisfied": 9, "checked": 11, "mode": "hard_gate", "raised_by": "tiers_true_to_hardware"},
+    {"name": "runtime_one_host", "satisfied": 4, "checked": 6, "mode": "hard_gate", "raised_by": "one_tree"},
+    {"name": "process_spawned_via_ipc", "satisfied": 7, "checked": 13, "mode": "hard_gate", "raised_by": "ipc_proc_only"}
+  ]
+}

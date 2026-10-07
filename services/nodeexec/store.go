@@ -1,6 +1,7 @@
 package nodeexec
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -9,8 +10,11 @@ import (
 	"sync"
 	"time"
 
-	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"google.golang.org/protobuf/proto"
+
+	"github.com/candacelabs/csf/pkg/atomicfile"
+	pkgstore "github.com/candacelabs/csf/pkg/store"
+	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 )
 
 // persistedSnapshot is the stable on-disk JSON boundary. It intentionally
@@ -37,13 +41,14 @@ type persistedAssignment struct {
 	ContentSHA256  *string `json:"content_sha256,omitempty"`
 }
 
-// IStore persists a reconciliation snapshot.
+// IStore persists a reconciliation snapshot (legacy interface).
 type IStore interface {
 	Load() (Snapshot, bool, error)
 	Save(snapshot Snapshot) error
 }
 
 // FileStore atomically and durably stores one JSON state record.
+// It implements both IStore (legacy) and pkgstore.IStore[Snapshot].
 type FileStore struct {
 	path string
 	mu   sync.Mutex
@@ -55,6 +60,7 @@ func NewFileStore(path string) *FileStore {
 }
 
 // Load reads the current state, reporting ok=false when it does not exist.
+// This is the legacy IStore interface method.
 func (s *FileStore) Load() (Snapshot, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -79,6 +85,15 @@ func (s *FileStore) Load() (Snapshot, bool, error) {
 		return Snapshot{}, false, fmt.Errorf("validating persisted assignment: %w", err)
 	}
 	return cloneSnapshot(snapshot), true, nil
+}
+
+// Save writes state through a same-directory temporary file, fsync, rename,
+// and directory fsync. A crash cannot expose a partially written fence.
+// This is the legacy IStore interface method.
+func (s *FileStore) Save(snapshot Snapshot) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.writeSnapshotAtomically(snapshot)
 }
 
 func (s *FileStore) readSnapshotFile() (Snapshot, bool, bool, error) {
@@ -119,14 +134,6 @@ func (s *FileStore) adoptLegacyFenceOnlySnapshot(snapshot Snapshot) (Snapshot, b
 	return cloneSnapshot(snapshot), true, nil
 }
 
-// Save writes state through a same-directory temporary file, fsync, rename,
-// and directory fsync. A crash cannot expose a partially written fence.
-func (s *FileStore) Save(snapshot Snapshot) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.writeSnapshotAtomically(snapshot)
-}
-
 func (s *FileStore) writeSnapshotAtomically(snapshot Snapshot) error {
 	data, err := json.Marshal(encodePersistedSnapshot(snapshot))
 	if err != nil {
@@ -137,38 +144,8 @@ func (s *FileStore) writeSnapshotAtomically(snapshot Snapshot) error {
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("creating state directory: %w", err)
 	}
-	tmp, err := os.CreateTemp(dir, filepath.Base(s.path)+".tmp-*")
-	if err != nil {
-		return fmt.Errorf("creating temporary state file: %w", err)
-	}
-	tmpName := tmp.Name()
-	defer func() { _ = os.Remove(tmpName) }()
-
-	if err := tmp.Chmod(0o600); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("setting temporary state permissions: %w", err)
-	}
-	if _, err := tmp.Write(data); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("writing temporary state: %w", err)
-	}
-	if err := tmp.Sync(); err != nil {
-		_ = tmp.Close()
-		return fmt.Errorf("syncing temporary state: %w", err)
-	}
-	if err := tmp.Close(); err != nil {
-		return fmt.Errorf("closing temporary state: %w", err)
-	}
-	if err := os.Rename(tmpName, s.path); err != nil {
+	if err := atomicfile.WriteFile(s.path, data, 0o600); err != nil {
 		return fmt.Errorf("installing state file: %w", err)
-	}
-	dirHandle, err := os.Open(dir)
-	if err != nil {
-		return fmt.Errorf("opening state directory for sync: %w", err)
-	}
-	defer dirHandle.Close()
-	if err := dirHandle.Sync(); err != nil {
-		return fmt.Errorf("syncing state directory: %w", err)
 	}
 	return nil
 }
@@ -262,22 +239,49 @@ func persistedDesiredState(state deployv1.DesiredState) string {
 }
 
 // MemoryStore is a concurrent in-memory store used by tests and embedders.
+// It implements both IStore (legacy) and pkgstore.IStore[Snapshot].
 type MemoryStore struct {
 	mu       sync.Mutex
 	snapshot Snapshot
 	saved    bool
 }
 
+// Load returns a clone of the current snapshot (legacy IStore interface).
 func (s *MemoryStore) Load() (Snapshot, bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return cloneSnapshot(s.snapshot), s.saved, nil
 }
 
+// Save atomically writes the snapshot (legacy IStore interface).
 func (s *MemoryStore) Save(snapshot Snapshot) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.snapshot = cloneSnapshot(snapshot)
 	s.saved = true
 	return nil
+}
+
+// StoreAdapter adapts the legacy IStore interface to pkgstore.IStore[Snapshot].
+type StoreAdapter struct {
+	store IStore
+}
+
+// Compile-time assertion that StoreAdapter satisfies pkgstore.IStore[Snapshot].
+var _ pkgstore.IStore[Snapshot] = (*StoreAdapter)(nil)
+
+// NewStoreAdapter wraps a legacy IStore as a pkgstore.IStore[Snapshot].
+func NewStoreAdapter(store IStore) *StoreAdapter {
+	return &StoreAdapter{store: store}
+}
+
+// Load implements pkgstore.IStore[Snapshot].Load.
+func (a *StoreAdapter) Load(ctx context.Context) (Snapshot, error) {
+	snapshot, _, err := a.store.Load()
+	return snapshot, err
+}
+
+// Save implements pkgstore.IStore[Snapshot].Save.
+func (a *StoreAdapter) Save(ctx context.Context, snapshot Snapshot) error {
+	return a.store.Save(snapshot)
 }

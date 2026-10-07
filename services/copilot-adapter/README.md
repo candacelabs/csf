@@ -5,7 +5,7 @@ sessions, prompt or steer them, watch the transcript stream, and answer the
 requests the CLI blocks on. It is the [Copilot Pair](../../extensions/copilot-pair/README.md)
 feature list expressed as a typed HTTP contract instead of an extension.
 
-The service is a **library package** (house rule CS-10): its entry point is
+The [service](../../csf/docs/generated/ontology_cgen.md#term-service) is a **library package** (house rule CS-10): its entry point is
 `NewCopilotAdapter(options ...Option) (*CopilotAdapter, error)`, it reads no
 environment, parses no flags, installs no signal handler and requires no
 container. There is no `cmd/` and no Dockerfile here: those are one-to-one with
@@ -42,11 +42,11 @@ list the CLI reports.
 
 ### Handler and service boundary
 
-`apiHandlers` decodes HTTP input, calls typed in-process service operations, and
+`apiHandlers` decodes HTTP input, calls typed in-process [service](../../csf/docs/generated/ontology_cgen.md#term-service) operations, and
 encodes responses. Handlers and middleware never own database handles, SQLC
-queries, or transactions. Service operations own durable reads and writes,
+queries, or transactions. [Service](../../csf/docs/generated/ontology_cgen.md#term-service) operations own durable reads and writes,
 including session creation, permission policies, and event replay. This adds
-no IPC between the HTTP and business layers. A request still awaits its service
+no [IPC](../../csf/docs/generated/ontology_cgen.md#term-ipc) between the HTTP and business layers. A request still awaits its [service](../../csf/docs/generated/ontology_cgen.md#term-service)
 result; PostgreSQL I/O remains synchronous and context-cancellable.
 
 Configuration belongs to [`config`](config/config.go): it loads the declared
@@ -76,8 +76,8 @@ that mode and both allowlist fields as arrays. Policies and their ordered lists
 are immutable parts of the creation receipt, so reusing an idempotency key with
 a different policy is a conflict.
 
-`allowlist` compares trusted SDK identities only. MCP tools, custom tools, and
-hooks must have an exact, case-sensitive `ToolName`; native read and write
+`allowlist` compares trusted SDK identities only. [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp) tools, custom tools, and
+[hooks](../../csf/docs/generated/ontology_cgen.md#term-hook) must have an exact, case-sensitive `ToolName`; native read and write
 requests have no trusted name and remain pending. Shell entries are Go
 [`path.Match`](https://pkg.go.dev/path#Match) patterns matched against the
 entire `FullCommandText`, never a command prefix or argument segment. The match
@@ -99,15 +99,15 @@ generated into Go and TypeScript. Clients resume with `Last-Event-ID`.
 Redocly reports `SessionEvent` as an unused component for exactly this reason;
 that warning is expected and correct.
 
-The live Kanban uses gotth-live's WebSocket handler at `/v1/kanban/live` and
+The live Kanban uses [gotth-live](../../csf/docs/generated/ontology_cgen.md#term-gotth_live)'s WebSocket handler at `/v1/kanban/live` and
 server-rendered markup at `/v1/kanban/view`. Both mount on the existing host
-router. Cards are keyed widget instances; committed adapter writes notify them
-in memory, without a polling timer. Task columns come from continuity
-checkpoints, independently of whether the associated agent session is idle.
+router. Cards are keyed [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) instances; committed adapter writes notify them
+in [memory](../../csf/docs/generated/ontology_cgen.md#term-memory), without a polling timer. Task columns come from continuity
+[checkpoints](../../csf/docs/generated/ontology_cgen.md#term-checkpoint), independently of whether the associated [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) session is idle.
 
 The [widget integration guide](widget-ui/README.md) explains task associations,
-checkpoint requirements and explicit refresh of external issue changes. Given
-an existing adapter and router, mounting and shutdown look like:
+[checkpoint](../../csf/docs/generated/ontology_cgen.md#term-checkpoint) requirements and explicit refresh of external issue changes. Given
+an existing adapter and router, [mounting](../../csf/docs/generated/ontology_cgen.md#term-mount) and shutdown look like:
 
 ```go
 board, err := kanban.NewBoard(adapter, []string{"https://workbench.example.invalid"}, logger)
@@ -172,11 +172,11 @@ composition mounts the live board. Its `--listen` and `--origin` defaults are
 `127.0.0.1:14111` and `http://127.0.0.1:14111`; when changing the address or using
 a proxy, set `--origin` to the actual browser origin. An optional
 `--workbench-token-file` supplies a token to the Copilot bridge and the HTTP
-GitHub task source. A consumer embedding the Workbench supplies its own
+GitHub task source. A consumer embedding the [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) supplies its own
 `workbench.WithTaskContinuity(...)` for checkpoint-backed moves.
 
 A container is one **deployment option** for that binary, never the definition
-of the service.
+of the [service](../../csf/docs/generated/ontology_cgen.md#term-service).
 
 ## Implementation and tests
 
@@ -197,15 +197,15 @@ error answer goes through one typed failure and one strict middleware; nullable
 columns are guregu/null values by sqlc override, so no Null* helper exists): `service.go`/`options.go` (the CS-10
 library: `NewCopilotAdapter(options...)` and `Register(gin.IRouter)`, its only
 mount point), `handlers.go` and the other transport files (the strict
-interface through `apiHandlers`), `*_operations.go` (typed service operations
-and their persistence), `sessions.go` (one owning goroutine for live CLI handles and one per
+interface through `apiHandlers`), `*_operations.go` (typed [service](../../csf/docs/generated/ontology_cgen.md#term-service) operations
+and their persistence), `sessions.go` (one owning [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine) for live CLI handles and one per
 session projecting bridge events into `session_events`, `transcript_items`,
 `pending_requests` and turn state), `sse.go` (the event stream over gin's own `Stream` loop and
 `gin-contrib/sse` framing; the generated `text/event-stream` visitor cannot flush per frame),
 `copilotbridge` (the SDK seam; needs a Copilot CLI on the host),
 and `store/migrate.go` (the embedded migrations, the only schema source, applied by `pkg/sqlmigrate`). The `IStore` seam is sqlc's generated `Querier`, so it cannot drift from the queries.
 
-Mount it into a binary's existing engine — a service never opens a listener,
+[Mount](../../csf/docs/generated/ontology_cgen.md#term-mount) it into a binary's existing engine — a [service](../../csf/docs/generated/ontology_cgen.md#term-service) never opens a listener,
 never has a `cmd/`, and never ships a Dockerfile; those are one-to-one with a
 binary and live in `app/`:
 
@@ -214,7 +214,7 @@ maintained reference composition. It supplies every required option and is
 compiled in CI, so consumers should follow that source instead of copying a
 partial constructor example that can drift out of date.
 
-Capabilities: the service does no I/O of its own. The binary opens the pool
+Capabilities: the [service](../../csf/docs/generated/ontology_cgen.md#term-service) does no I/O of its own. The binary opens the pool
 with `csfpg.OpenPool`, applies `store.Migrations` with the shared
 `pkg/sqlmigrate` on the pool's `OpenSQL` handle, and grants the pool to
 `store.NewPostgresStore` (or `workbench.NewWorkbench`) as a `csfpg.IDB`. The

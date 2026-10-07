@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "endpoint",
+    srcs = ["endpoint.go"],
+    importpath = "github.com/candacelabs/csf/services/harness/endpoint",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "endpoint_test",
+    srcs = [
+        "endpoint_suite_test.go",
+        "endpoint_test.go",
+    ],
+    deps = [
+        ":endpoint",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

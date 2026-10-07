@@ -1,0 +1,17 @@
+# The foreign repository fixture the bootstrap loop drives to
+# chief_violations(0), hermetic and committed. Exported so
+# services/bootstrap's specs read it out of the runfiles tree.
+
+filegroup(
+    name = "foreign_go",
+    srcs = glob(["testdata/foreign_go/**"]),
+    visibility = ["//visibility:public"],
+)
+
+# The two bootstrap verbs, declared once in CSF. Exported so app/csf/cmd's
+# golden test reads the declaration out of the runfiles tree and pins the
+# binary's dispatch against it.
+exports_files(
+    ["bootstrap.csf"],
+    visibility = ["//app/csf/cmd:__pkg__"],
+)

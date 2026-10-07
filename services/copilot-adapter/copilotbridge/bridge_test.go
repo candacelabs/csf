@@ -159,7 +159,7 @@ var _ = Describe("session resume classification", func() {
 		Expect(observed.WorkingDirectory).To(Equal(spec.WorkingDirectory))
 		Expect(observed.Streaming).NotTo(BeNil())
 		Expect(*observed.Streaming).To(BeTrue())
-		Expect(observed.SystemMessage).To(Equal(&copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: spec.SystemInstructions}))
+		Expect(observed.SystemMessage).To(Equal(&copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: workbenchPickerInstructions + "\n\n" + spec.SystemInstructions}))
 		Expect(observed.ContinuePendingWork).NotTo(BeNil())
 		Expect(*observed.ContinuePendingWork).To(BeFalse())
 		Expect(observed.OnPermissionRequest).NotTo(BeNil())
@@ -187,10 +187,15 @@ var _ = Describe("session SDK configuration", func() {
 		Expect(configuration.WorkingDirectory).To(Equal(spec.WorkingDirectory))
 		Expect(configuration.Streaming).NotTo(BeNil())
 		Expect(*configuration.Streaming).To(BeTrue())
-		Expect(configuration.SystemMessage).To(Equal(&copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: spec.SystemInstructions}))
+		Expect(configuration.SystemMessage).To(Equal(&copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: workbenchPickerInstructions + "\n\n" + spec.SystemInstructions}))
 		Expect(configuration.OnPermissionRequest).NotTo(BeNil())
 		Expect(configuration.OnEvent).NotTo(BeNil())
 		Expect(configuration.MCPServers).To(HaveKey("csf"))
+	})
+
+	It("teaches the picker even when the session has no instructions of its own", func() {
+		Expect(sessionSystemMessage("")).To(Equal(&copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: workbenchPickerInstructions}))
+		Expect(workbenchPickerInstructions).To(ContainSubstring("csf-picker"))
 	})
 })
 

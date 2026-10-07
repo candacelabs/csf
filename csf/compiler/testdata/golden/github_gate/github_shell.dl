@@ -1,0 +1,21 @@
+% GITHUB-GATE: the Datalog program csfc emits from the github_gate gate
+% declaration (csf/compiler/testdata/golden/github_gate/github_gate.csf). A session reaches GitHub
+% through CSF's typed GitHub tools, which record every call; the simple
+% commands in one Bash tool call are the claims.
+
+/* facts
+   universe   N: gh nouns the gate names; V: gh verbs; T: CSF GitHub tool names
+   relation   word ⊆ N
+   relation   replacement ⊆ N × V × T
+*/
+
+/* predicate github_shell
+   universe   C: the simple commands in one Bash tool call
+   relation   gh_noun : C ⇀ N, the gh noun a command names, when it names one
+   relation   gh_verb : C ⇀ V, the gh verb a command names, when it names one
+   clause     ∀c ∈ C. gh_noun(c) ∈ dom(word) ⇒ refused(c)
+   finding    github_shell = {c ∈ C | gh_noun(c) ∈ dom(word)}
+   tool       replacement_of = {(c, t) | gh_noun(c, n), gh_verb(c, v), replacement(n, v, t)}
+*/
+github_shell(C) :- gh_noun(C, N), word(N).
+replacement_of(C, T) :- gh_noun(C, N), gh_verb(C, V), replacement(N, V, T).

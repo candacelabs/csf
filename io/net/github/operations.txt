@@ -1,0 +1,33 @@
+# The GitHub operations CSF's GitHub protocol client and its MCP tools carry:
+# one operationId of GitHub's OpenAPI description per line. Adding an
+# endpoint is one line here, then `bash ipc/github/generate.sh write`.
+#
+# Marking a draft ready is not in the REST description (GitHub offers it in
+# GraphQL only); GitHubClient.MarkPullRequestReady carries it by hand.
+
+# Issues: file, comment, edit and close (update), list, view with comments.
+issues/create
+issues/create-comment
+issues/update
+issues/list-for-repo
+issues/get
+issues/list-comments
+issues/add-blocked-by-dependency
+
+# Pull requests: open a draft (create), merge, list, view, checks, update the body.
+pulls/create
+pulls/merge
+pulls/list
+pulls/get
+pulls/update
+checks/list-for-ref
+
+# Repository: refs and commits.
+git/get-ref
+repos/get-commit
+
+# Webhooks: the receiver's recovery lists a repository's hooks and their
+# deliveries. Asking a redelivery answers 202 with no named body, so
+# GitHubClient.RedeliverHookDelivery carries it by hand.
+repos/list-webhooks
+repos/list-webhook-deliveries

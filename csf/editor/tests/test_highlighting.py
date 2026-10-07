@@ -33,15 +33,15 @@ def test_real_architecture_and_all_declarations():
       service worker in host scope root source "services/worker" state existing lifecycle scoped verification test "test";
       manager boss in host scope root state planned lifecycle borrowed verification pending;
       library lib in host scope root state planned lifecycle borrowed verification pending;
-      adapter net in host scope root state planned lifecycle scoped verification pending;
+      adapter wire in host scope root state planned lifecycle scoped verification pending;
       gateway proc in host scope root state planned lifecycle scoped verification pending;
       resource db in host scope root state planned lifecycle scoped verification pending;
       requires worker->lib;
       connect worker -> lib via call state planned;
       connect worker -> lib via channel state planned;
       connect worker -> peer via subprocess boundary proc state planned;
-      connect worker -> peer via remote boundary net state planned;
-      connect worker -> peer via device boundary net state planned;
+      connect worker -> peer via remote boundary wire state planned;
+      connect worker -> peer via device boundary wire state planned;
       scan "services";
       generated "generated";
     }'''

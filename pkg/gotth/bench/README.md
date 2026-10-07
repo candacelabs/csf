@@ -26,7 +26,7 @@
 > sequence stays contiguous.
 >
 > That list was **four blockers on 2026-08-05 and is one after the same day's
-> re-run.** Three were work and got done — the gotth-live SUT image and its
+> re-run.** Three were work and got done — the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) SUT image and its
 > committed recipe (deviation D-9), `docker/.env`, and the driver cpuset. The
 > one left is **Q-7**, and it is not work: a GPU streaming container is running
 > on this host, waiting is the only permitted mitigation, and nothing in this
@@ -72,7 +72,7 @@ bench/
 ```
 
 Everything node/npm lives under this directory and nowhere else (FR-74). The
-library and all three gotth-live examples build and run on a machine with no
+library and all three [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) examples build and run on a machine with no
 node installed; nothing here is in the Go module build.
 
 ---
@@ -106,7 +106,7 @@ docker run --rm --network host -u "$(id -u):$(id -g)" -e HOME=/tmp \
 ```
 
 (The repository root is mounted rather than `bench/` alone, because the
-gotth-live driver imports `../../client/codec.gen.js` — the shipped codec, by
+[gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) driver imports `../../client/codec.gen.js` — the shipped codec, by
 relative path per FR-74(a) — and a mount that stopped at `bench/` would put that
 file outside the container.)
 
@@ -155,8 +155,8 @@ BENCH_VARIANT=poll npm run build -w @gotth-live-bench/dashboard-next   # D3/D4 o
 
 `ws` additionally starts the sidecar as a second process **in the same
 container** — which is the point: §3.6 counts whatever processes the idiomatic
-architecture requires, so the sidecar's RSS is part of the ws variant's memory
-number, exactly as gotth-live's single Go binary is the whole of its own.
+architecture requires, so the sidecar's RSS is part of the ws variant's [memory](../../../csf/docs/generated/ontology_cgen.md#term-memory)
+number, exactly as [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live)'s single Go binary is the whole of its own.
 
 All three variants ship. `docs/OPERATOR-QUESTIONS.md` Q-5: the PRD makes it a
 Phase 5 gate that none is dropped for schedule (FR-76).
@@ -182,7 +182,7 @@ treated as "not `next`".
 
 Last run, on this tree:
 
-| app | passed | failed | skipped | DOM at rest | §2 bound |
+| [app](../../../csf/docs/generated/ontology_cgen.md#term-app) | passed | failed | skipped | DOM at rest | §2 bound |
 |---|---:|---:|---|---:|---:|
 | counter | 7 | 0 | CTR-7 (cross-tab) | 45 elements | ≤ 150 |
 | chat | 8 | 0 | CHT-3 (push) | 237 elements | ≤ 2000 |
@@ -265,13 +265,13 @@ poor joke.
 The source-of-truth banner is in the served bytes, because a banner only in the
 source is a banner the person editing a copy never sees. `ready.js` therefore
 grew **4,103 → 4,340 B raw and 1,868 → 1,986 B gzip-6** (measured, `wc -c` and
-`gzip -6 -c`), and §3.5 counts every one of those bytes against **gotth-live's**
+`gzip -6 -c`), and §3.5 counts every one of those bytes against **[gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live)'s**
 D1 figure — see G-6. It is a real regression in this stack's own payload number
 and it is not netted off anywhere.
 
 ### The better home this could not use
 
-The natural place for this assertion is each app's existing
+The natural place for this assertion is each [app](../../../csf/docs/generated/ontology_cgen.md#term-app)'s existing
 `§2.0 the shared assets, byte for byte` Ginkgo `Describe`, which already
 `Expect(stylesheet).To(Equal(want))` for the committed stylesheet copy: same
 shape, same suite, already run by `ci.sh`'s bench step, and **no new `ci.sh`
@@ -304,18 +304,18 @@ one that publishes a port** (`127.0.0.1` only). `app` is the server under test:
 plaintext HTTP/WebSocket, **no published port, no TLS listener**. Swapping
 `BENCH_SUT_IMAGE` is the only difference between an A run and a B run — same
 proxy image by digest, same Caddyfile, same constraints, same cpuset. On a
-gotth-live run two more values move with it, and they are **values, not a second
+[gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) run two more values move with it, and they are **values, not a second
 proxy configuration**: `BENCH_UPSTREAM_WS=app:3000`, because this stack has no
-WebSocket sidecar and its WS lives at the app's own mount path, and
+WebSocket sidecar and its WS lives at the [app](../../../csf/docs/generated/ontology_cgen.md#term-app)'s own mount path, and
 `BENCH_ORIGIN`, because the library's Origin allowlist is deny-by-default and
 the origin the browser sends is the *proxy's*. `docker/.env.example` sets both
 alongside the port they have to agree with.
 
 **The build-context asymmetry, declared.** The Next.js build's context stops at
-`bench/`; the gotth-live build's context is the gotth-live root, which is why
+`bench/`; the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) build's context is the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) root, which is why
 the two commands above differ in their last argument. The reason is each
 ecosystem's own dependency mechanism: `bench/apps/*/gotth/go.mod` carries a
-`replace` onto the checkout — that is what makes these apps measure the
+`replace` onto the checkout — that is what makes these [apps](../../../csf/docs/generated/ontology_cgen.md#term-app) measure the
 **working tree** rather than a published version — so the library source has to
 be inside the context, and the only context containing it is the repository
 root. The Next.js side gets its dependency from `npm ci` against the committed
@@ -335,7 +335,7 @@ building `--target build` and listing `/src`.
 
 Both images are audited against §3.6's absence list by inspection — no Go
 toolchain, no node, no npm, no TLS material anywhere on the filesystem, PID 1 is
-the application binary itself, and `USER 65534:65534`:
+the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) binary itself, and `USER 65534:65534`:
 
 ```bash
 docker inspect gotth-live-bench/dashboard-gotth:local \
@@ -371,7 +371,7 @@ generator**, which is invoked with `--http-version 1.1`; it is not a claim about
 browser traffic. Stated because a reader who sees `HTTP/2` above should not have
 to wonder whether §3.7 was ignored.
 
-Since D-9 closed, the same assertion runs against the **gotth-live** SUT in the
+Since D-9 closed, the same assertion runs against the **[gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live)** SUT in the
 same topology (`BENCH_SUT_IMAGE=gotth-live-bench/dashboard-gotth:local`), which
 is the claim `docker/gotth.Dockerfile` exists to make:
 
@@ -383,10 +383,10 @@ is the claim `docker/gotth.Dockerfile` exists to make:
 ```
 
 Two things in that output would otherwise invite a wrong reading. The second
-listening port is **not the application**: `docker exec bench-app cat
+listening port is **not the [application](../../../csf/docs/generated/ontology_cgen.md#term-application)**: `docker exec bench-app cat
 /proc/net/tcp` shows it bound to `0B00007F:9507`, which is `127.0.0.11:38151` —
 Docker's embedded DNS resolver inside the container's own network namespace. It
-is present on both stacks, it answers no TLS ClientHello, and the app's own
+is present on both stacks, it answers no TLS ClientHello, and the [app](../../../csf/docs/generated/ontology_cgen.md#term-app)'s own
 socket is the `[::]:3000` (`0BB8`) beside it. And the proxy carries **two**
 `repoDigests` because `caddy:2.11.4` has been rebuilt since the pin was taken;
 the pinned one is still in the list, which is what §5.2's comparison compares
@@ -396,8 +396,8 @@ The third check is the one that cannot be talked around: a real TLS ClientHello
 to every port the container is listening on. A plaintext HTTP server cannot
 answer one, so a negative is *positive evidence* of absence rather than absence
 of evidence. This asymmetry is worth ~18,000 B/session and is disqualifying **in
-either direction** — the pre-amendment spec bound gotth-live alone and the
-asymmetry ran *against* gotth-live (T-21).
+either direction** — the pre-amendment spec bound [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) alone and the
+asymmetry ran *against* [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) (T-21).
 
 ---
 
@@ -467,15 +467,15 @@ each is flagged for QA-2 to overrule rather than left to be discovered.
 
 | # | Where | Reading, and why |
 |---|---|---|
-| R-1 | §2.3 CHT-4, room switching | A **Server Action, not a navigation**. §2 forbids client-side routing on both sides, and §3.2 requires `t_input` and `t_paint` from the *same page's* `performance.now()` timeline. A document navigation puts them in two timelines and makes CHT-4 unmeasurable under the spec's own definition. The `[room]` segment is the entry point, not a router. |
-| R-2 | §2.4 DSH-5, pause | **Server-authoritative.** §2.4 says pause "halts application of live updates (client-visible), stream continues server-side". A client-side pause would make DSH-5 a local paint here and a round trip on the other stack — the category error §2.2 exists to keep out of the tables. The feed keeps running for other sessions and a resume shows the *current* tick, which is the gotth-live dashboard's own behaviour. |
+| R-1 | §2.3 CHT-4, room switching | A **Server [Action](../../../csf/docs/generated/ontology_cgen.md#term-action), not a navigation**. §2 forbids client-side routing on both sides, and §3.2 requires `t_input` and `t_paint` from the *same page's* `performance.now()` timeline. A document navigation puts them in two timelines and makes CHT-4 unmeasurable under the spec's own definition. The `[room]` segment is the entry point, not a router. |
+| R-2 | §2.4 DSH-5, pause | **Server-authoritative.** §2.4 says pause "halts application of live updates (client-visible), stream continues server-side". A client-side pause would make DSH-5 a local paint here and a round trip on the other stack — the category error §2.2 exists to keep out of the tables. The feed keeps running for other sessions and a resume shows the *current* tick, which is the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) dashboard's own behaviour. |
 | R-3 | §2.4 controls | The status filter and rows-per-page are **buttons**, not `<select>`s. §2.4 writes "select 50 / 100 / 200", read as "choose one of". Buttons make DSH-1 and DSH-4 a native `pointerdown`, which is what §3.2's `t_input` is defined against; a `<select>` would put the causal start in a change event the spec does not define. |
 | R-4 | §2.4 regions A and C | Each sparkline point and each series point is **its own element**. §2.4 sizes region A at "8 × ~70 nodes = 560", which is unreachable with a single `<polyline>` — the region would be an order of magnitude cheaper than the document the spec asks to be measured. Both stacks render per-point elements; the SVG budget lands at 729 of ≤ 800. |
 | R-5 | §2.4 push payload | The push channel carries **patches**, not whole views. A full `DashView` is ~14 KB at perPage 200; pushing one twice a second would be 28 KB/s/session of ~90 % unchanged bytes, and §4.6's wire-byte row would be measuring an author's choice rather than a framework. |
-| R-6 | §2.1 F-CTR-1 | The counter is **global**, not per session. F-CTR-1 says "server state, per session"; the gotth-live counter this app must match keeps one counter shared by every connection, and its "2 tabs sharing this counter" line is that sharing made visible. Under E1/E3/E4 the app that gets measured is the app that exists. The `session` scope is implemented too, so a spec amendment toward the literal reading is not blocked by this side. |
+| R-6 | §2.1 F-CTR-1 | The counter is **global**, not per session. F-CTR-1 says "server state, per session"; the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) counter this [app](../../../csf/docs/generated/ontology_cgen.md#term-app) must match keeps one counter shared by every connection, and its "2 tabs sharing this counter" line is that sharing made visible. Under E1/E3/E4 the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) that gets measured is the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) that exists. The `session` scope is implemented too, so a spec amendment toward the literal reading is not blocked by this side. |
 | R-7 | §2.3, chat stress row | One fixture, two rates. The corpus is generated at the 2 msg/s latency rate; the 20 msg/s stress row replays **the same committed bytes** with the tick interval divided by 10. §2.5 requires both servers to read the same bytes, not that a rate be baked into them. The interval in force is recorded in the manifest. |
-| R-8 | §3.6, "differ by more than 10 %" | The denominator is the **10-real-tab figure**, not the mean and not the larger of the two. The clause reads "the driver misrepresents a browser", so the browser is the quantity being represented and is what the error is relative to. It is also the **stricter** of the two readings whenever the synthetic side is the larger one — the direction that would invent per-session memory a real tab does not cost — so §12's "take the reading least favourable to gotth-live" is discharged by taking it in both directions. Worked example in `harness/driver.test.mjs`: 100 000 vs 110 500 B/session refuses here and would pass under the max-denominator reading. |
-| R-9 | §3.6, "consumes and discards pushed payloads at the rate a browser would" | The gotth-live driver sends an **Ack and a ClientTelemetry per applied frame**, as `client/runtime.js` does — at the dashboard's rate that is ~106 client frames/s/session the server would otherwise never see. It has no DOM, so `morph_micros` / `apply_micros` carry its own decode-and-discard timings: same frame, same rate, same uint32 clamp, two different values inside. Declared at the top of `harness/driver.mjs`. |
+| R-8 | §3.6, "differ by more than 10 %" | The denominator is the **10-real-tab figure**, not the mean and not the larger of the two. The clause reads "the driver misrepresents a browser", so the browser is the quantity being represented and is what the error is relative to. It is also the **stricter** of the two readings whenever the synthetic side is the larger one — the direction that would invent per-session [memory](../../../csf/docs/generated/ontology_cgen.md#term-memory) a real tab does not cost — so §12's "take the reading least favourable to [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live)" is discharged by taking it in both directions. Worked example in `harness/driver.test.mjs`: 100 000 vs 110 500 B/session refuses here and would pass under the max-denominator reading. |
+| R-9 | §3.6, "consumes and discards pushed payloads at the rate a browser would" | The [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) driver sends an **Ack and a ClientTelemetry per applied frame**, as `client/runtime.js` does — at the dashboard's rate that is ~106 client frames/s/session the server would otherwise never see. It has no DOM, so `morph_micros` / `apply_micros` carry its own decode-and-discard timings: same frame, same rate, same uint32 clamp, two different values inside. Declared at the top of `harness/driver.mjs`. |
 | R-10 | §3.6, "the same number of full-page loads" | §3.6 fixes only that M(0)'s warm-up **matches** M(N)'s; it names no count. This tree uses **50 loads**, identical on both stacks, sequential, recorded in the manifest — and `warmUpsMatch()` asserts the counts are equal and publishes **both** elapsed times, because a clause reading "the same elapsed time" is not discharged by a harness that only promises it. |
 
 ### Deviations from the spec's letter
@@ -485,11 +485,11 @@ each is flagged for QA-2 to overrule rather than left to be discovered.
 | D-1 | §4, "Playwright" | The browser driver is a **CDP client over the container's pinned Chromium**, not Playwright. Playwright downloads its own browser build from a CDN at install time — a network fetch this tree is not permitted to make. Every property §4 actually requires holds: one harness for both stacks, same binary, same flags, same viewport (1440×900 DPR 1), same profile handling, no per-stack branch. §4 is not in §12's freeze list. |
 | D-2 | §5.3, "self-signed cert **committed** to the bench tree" | The **generation script** is committed and the key is not. Committing a TLS private key is a habit worth not establishing, and this repository's own rules put key material on the never-commit list. What §5.3 needs — reproducible, local, trusted by nothing but the harness — is delivered by `docker/gen-cert.sh` plus an SPKI pin passed to the browser, which trusts *exactly* that certificate rather than the blanket `--ignore-certificate-errors` a committed cert would have needed anyway. **Both halves of the harness trust it, and neither does so by disabling verification.** The browser half takes the pin (`--ignore-certificate-errors-spki-list`); the node half — the synthetic driver, its three Next.js channels and §3.6's warm-up — adds the certificate to the process's default CA store in `harness/bench-tls.mjs`, so chain *and* hostname verification stay on and a name the certificate does not cover is still refused. The pin is recomputed from the certificate there and a disagreement between `bench.crt` and `bench.spki` is a startup failure, because two halves of one harness trusting two different servers is not a thing that should be discoverable only from the numbers. |
 | D-3 | §5.4, "Mutations … Server Actions" | The chat **typing heartbeat** is a Route Handler. React serialises Server Actions, so a keystroke heartbeat would queue in front of the user's Send and CHT-2 — the headline chat latency — would be measuring the heartbeat draining. Listed as a declared deviation in the audit output. |
-| D-4 | §5.4, "bundle-analyzer output committed" | The analyzer runs in **JSON mode** and `scripts/audit.mjs` distils it into `audit/bundle-analyzer/*.json`. The default HTML report is ~1 MB per app per side; committing 6 MB of generated report to satisfy "output committed" would be committing a screenshot of the evidence. The raw JSON is regenerable by the documented command. |
-| D-5 | §5.1, Next's own compression | `compress: false`. §3.5 mandates gzip level 6 on both stacks and calls a mismatch a disqualifying method error; the only place one level can be guaranteed for both is the container they share — the §3.6 proxy. Both application containers serve identity-encoded bytes. |
-| D-7 | §3.4's active-light / active-heavy, **Next.js side only** | **The synthetic driver refuses to dispatch a Server Action, so those two rows read "not measured" per §7 on the Next.js stack.** §5.4 makes every Next.js mutation a Server Action; a Server Action is a `POST` carrying a build-time `Next-Action` id and a body in React's Flight reply encoding, neither of which is a protocol this tree can write against without guessing — and "a driver written against a guessed frame layout would fail the validation gate for a reason that is not the stack" is the exact failure §3.6's gate exists to catch. The alternative, a Route Handler the app does not use, would measure a mechanism §5.4 forbids it from using. The gotth-live side of both workloads **is** driven, as real `Event` frames over the real transport. **This is an asymmetry in what the harness can drive, and QA-2 should rule on it before Phase 5**: either the Flight encoding is implemented against the built app's client chunks (where `createServerReference("<id>", …, "<export>")` names both halves), or §3.4's grid publishes four cells and two "not measured, and why" for this stack. It is never inferred from the idle row. |
+| D-4 | §5.4, "bundle-analyzer output committed" | The analyzer runs in **JSON mode** and `scripts/audit.mjs` distils it into `audit/bundle-analyzer/*.json`. The default HTML report is ~1 MB per [app](../../../csf/docs/generated/ontology_cgen.md#term-app) per side; committing 6 MB of generated report to satisfy "output committed" would be committing a screenshot of the evidence. The raw JSON is regenerable by the documented command. |
+| D-5 | §5.1, Next's own compression | `compress: false`. §3.5 mandates gzip level 6 on both stacks and calls a mismatch a disqualifying method error; the only place one level can be guaranteed for both is the container they share — the §3.6 proxy. Both [application](../../../csf/docs/generated/ontology_cgen.md#term-application) containers serve identity-encoded bytes. |
+| D-7 | §3.4's active-light / active-heavy, **Next.js side only** | **The synthetic driver refuses to dispatch a Server [Action](../../../csf/docs/generated/ontology_cgen.md#term-action), so those two rows read "not measured" per §7 on the Next.js stack.** §5.4 makes every Next.js mutation a Server [Action](../../../csf/docs/generated/ontology_cgen.md#term-action); a Server [Action](../../../csf/docs/generated/ontology_cgen.md#term-action) is a `POST` carrying a build-time `Next-Action` id and a body in React's Flight reply encoding, neither of which is a [protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol) this tree can write against without guessing — and "a driver written against a guessed frame layout would fail the validation gate for a reason that is not the stack" is the exact failure §3.6's gate exists to catch. The alternative, a Route Handler the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) does not use, would measure a mechanism §5.4 forbids it from using. The [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) side of both workloads **is** driven, as real `Event` frames over the real transport. **This is an asymmetry in what the harness can drive, and QA-2 should rule on it before Phase 5**: either the Flight encoding is implemented against the built [app](../../../csf/docs/generated/ontology_cgen.md#term-app)'s client chunks (where `createServerReference("<id>", …, "<export>")` names both halves), or §3.4's grid publishes four cells and two "not measured, and why" for this stack. It is never inferred from the idle row. |
 | D-8 | §3.6's two secondary figures | **Both read "not measured" on both stacks, symmetrically.** The runtime-internal row needs Go's `runtime/metrics` and Node's `process.memoryUsage()`/`v8.getHeapStatistics()` read from *inside* the measured container, and the forced-GC floor needs `debug.FreeOSMemory()` and `--expose-gc` + `global.gc()`. Neither bench image carries an introspection route and the Node image is not started with `--expose-gc`, so there is nothing symmetric to read. §3.6 says the floor is "a secondary, labelled number on both sides or on neither", so `secondaryFigures()` returns the pair or neither and refuses to take whichever happens to be reachable. **What would close it is one introspection route per stack, added in the same landing or not at all** — a route on one side only is the method error the clause names. |
-| D-9 | §3.6's topology, gotth-live side | ~~**There is no gotth-live SUT image and no committed recipe that builds one.** `docker/` carries `next.Dockerfile` and no counterpart, so `docker/compose.yaml`'s `BENCH_SUT_IMAGE` can be pointed at only one of the two stacks today. §5.2 requires both sides behind the same proxy image by digest with identical constraints and cpuset, so the missing half is a blocker for **every** D3 and D4 number, not only for the validation gate — which is why `validate-driver.mjs`'s preflight names it as its own blocker rather than failing at `docker compose up`.~~ **Resolved 2026-08-05.** `docker/gotth.Dockerfile` is committed and both stacks now run under the same `docker/compose.yaml`; see [The measured topology](#the-measured-topology-36--construction-only) for the build command and what was checked. Struck rather than deleted because a deviation that was real for the length of a phase is part of the record. The one thing that did **not** become true is a published image digest — the image is a local tag, never pushed, so `versions.lock.md` pins the two bases it is built FROM and records image IDs as observations. |
+| D-9 | §3.6's topology, [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) side | ~~**There is no [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) SUT image and no committed recipe that builds one.** `docker/` carries `next.Dockerfile` and no counterpart, so `docker/compose.yaml`'s `BENCH_SUT_IMAGE` can be pointed at only one of the two stacks today. §5.2 requires both sides behind the same proxy image by digest with identical constraints and cpuset, so the missing half is a blocker for **every** D3 and D4 number, not only for the validation gate — which is why `validate-driver.mjs`'s preflight names it as its own blocker rather than failing at `docker compose up`.~~ **Resolved 2026-08-05.** `docker/gotth.Dockerfile` is committed and both stacks now run under the same `docker/compose.yaml`; see [The measured topology](#the-measured-topology-36--construction-only) for the build command and what was checked. Struck rather than deleted because a deviation that was real for the length of a phase is part of the record. The one thing that did **not** become true is a published image digest — the image is a local tag, never pushed, so `versions.lock.md` pins the two bases it is built FROM and records image IDs as observations. |
 
 ### Ambiguities in the spec, resolved and flagged for QA-2
 
@@ -498,16 +498,16 @@ each is flagged for QA-2 to overrule rather than left to be discovered.
 | Q-A | §2.0 vs §2.3 CHT-2 | §2.0 defines `data-bench-value` as *the element whose `textContent` is the predicate's subject*; §2.3 reads it as an attribute holding the message body ("last message node's `data-bench-value` === sent body"). | **Both.** The `<li>` carries `data-bench-value="<body>"` *and* the body span's `textContent` is the same string, so either reading of the predicate is true. No behaviour depends on which one QA-2 meant. |
 | Q-B | §2.5 seed `0xG07TH11VE` | Not a hex literal — `G`, `T` and `H` are not hex digits. | Used as the **ASCII string it is written as**, FNV-1a'd to 32 bits. The derivation is in `fixtures/generate.mjs` rather than left for a reader to reverse-engineer. |
 | Q-C | §2.4, "≈ 53 logical updates/s" | The stated rates (A 8×1 Hz, B 20×2 Hz, C 2×1 Hz, D 5 Hz) sum to **55**, not 53. | The **rates** are implemented as stated, since they are the load; the arithmetic is reported as 55 and the 2-update discrepancy is flagged here rather than fudged in either direction. |
-| Q-D | §2.1 F-CTR-1 vs the gotth-live example | See R-6. | Recorded here because the counter app's own source references a `Q-BENCH-1` in `docs/OPERATOR-QUESTIONS.md` that **does not exist** — that file has Q-1..Q-7 and no bench series. The same is true of the `Q-BENCH-2` reference for the polling interval. Both defaults are documented here instead; adding them to `OPERATOR-QUESTIONS.md` is outside this turn's write scope. |
-| Q-E | §2 apps vs `gotth-live/examples/` | §10 puts the gotth-live side at `bench/apps/<app>/gotth/`, distinct from `examples/<app>/`. The existing examples do **not** implement §2.3's or §2.4's product surface — `examples/chat` has one room, no typing indicator and no unread badges; `examples/dashboard` has meters/alerts/controls rather than regions A–E. | These apps are built to **§2's tables**, because E2 says the harness drives identical `data-bench-id` hooks per §2 and §12 freezes §2. `bench/apps/{chat,dashboard}/gotth/` must therefore be built to §2 as well, and is not the same program as `examples/{chat,dashboard}`. **This is the largest open item and QA-2/PM-1 should confirm it.** |
-| Q-F | §3.6, driver validation gate | §3.6 fixes N at 10 and the tolerance at 10 %, and says nothing about **which workload** (§3.4 defines three) or **which app** the validation runs against. A driver validated on idle sessions has not been validated on the event path. | `validate-driver.mjs` takes `--app` and `--workload`, defaults to `dashboard`/`idle`, and **writes both into the artifact**; `G-DRIVER` then refuses a run whose app or variant the artifact does not name. So a validation is never silently reused across a pair it did not cover, and the narrowness is visible rather than assumed. QA-2 should say whether the gate must be run per workload as well as per app. |
+| Q-D | §2.1 F-CTR-1 vs the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) example | See R-6. | Recorded here because the counter [app](../../../csf/docs/generated/ontology_cgen.md#term-app)'s own source references a `Q-BENCH-1` in `docs/OPERATOR-QUESTIONS.md` that **does not exist** — that file has Q-1..Q-7 and no bench series. The same is true of the `Q-BENCH-2` reference for the polling interval. Both defaults are documented here instead; adding them to `OPERATOR-QUESTIONS.md` is outside this turn's write scope. |
+| Q-E | §2 [apps](../../../csf/docs/generated/ontology_cgen.md#term-app) vs `gotth-live/examples/` | §10 puts the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) side at `bench/apps/<app>/gotth/`, distinct from `examples/<app>/`. The existing examples do **not** implement §2.3's or §2.4's product surface — `examples/chat` has one room, no typing indicator and no unread badges; `examples/dashboard` has meters/alerts/controls rather than regions A–E. | These [apps](../../../csf/docs/generated/ontology_cgen.md#term-app) are built to **§2's tables**, because E2 says the harness drives identical `data-bench-id` [hooks](../../../csf/docs/generated/ontology_cgen.md#term-hook) per §2 and §12 freezes §2. `bench/apps/{chat,dashboard}/gotth/` must therefore be built to §2 as well, and is not the same program as `examples/{chat,dashboard}`. **This is the largest open item and QA-2/PM-1 should confirm it.** |
+| Q-F | §3.6, driver validation gate | §3.6 fixes N at 10 and the tolerance at 10 %, and says nothing about **which workload** (§3.4 defines three) or **which [app](../../../csf/docs/generated/ontology_cgen.md#term-app)** the validation runs against. A driver validated on idle sessions has not been validated on the event path. | `validate-driver.mjs` takes `--app` and `--workload`, defaults to `dashboard`/`idle`, and **writes both into the artifact**; `G-DRIVER` then refuses a run whose [app](../../../csf/docs/generated/ontology_cgen.md#term-app) or variant the artifact does not name. So a validation is never silently reused across a pair it did not cover, and the narrowness is visible rather than assumed. QA-2 should say whether the gate must be run per workload as well as per [app](../../../csf/docs/generated/ontology_cgen.md#term-app). |
 
 ### Defaults this tree took that the spec left open
 
 | Default | Value | Why |
 |---|---|---|
-| Polling interval (§5.4 names the mechanism, not the interval) | 1000 ms | The rate at which the dashboard's slowest region updates (§2.4 region A, 1 Hz), so a polling client is not asked to be slower than the app's own slowest live region. The same value in all three apps so the three polling columns are comparable. D4 should sweep it rather than assume it. |
-| SSE heartbeat | 15 s | Well inside any default proxy idle timeout. Its bytes are counted in §4.6 exactly like gotth-live's heartbeats. |
+| Polling interval (§5.4 names the mechanism, not the interval) | 1000 ms | The rate at which the dashboard's slowest region updates (§2.4 region A, 1 Hz), so a polling client is not asked to be slower than the [app](../../../csf/docs/generated/ontology_cgen.md#term-app)'s own slowest live region. The same value in all three [apps](../../../csf/docs/generated/ontology_cgen.md#term-app) so the three polling columns are comparable. D4 should sweep it rather than assume it. |
+| SSE heartbeat | 15 s | Well inside any default proxy idle timeout. Its bytes are counted in §4.6 exactly like [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live)'s heartbeats. |
 | Chat typing heartbeat | 1 Hz | The coarsest rate that keeps "N people are typing" continuously true while somebody types, against F-CHT-6's 3 s decay. |
 | Session eviction grace | 30 s | D4 requests the document with a **fresh cookie per request** at the highest rate the stack will serve. Without eviction the RPS ceiling would be measuring an unbounded map and the D3 numbers taken afterwards would be measuring its residue. |
 | Default rows-per-page | 200 | The size §2.4's DOM bound is stated against ("200 × 10 = 2000") and the state DSH-7's push row is measured in. DSH-4 drives 50 → 200, so its setup establishes 50 first. |
@@ -525,7 +525,7 @@ that the library compiles.
 They are built to **§2's tables**, not to `examples/{chat,dashboard}` — which is
 ambiguity **Q-E** above, and this side confirms it rather than reopening it. The
 counter is close to `examples/counter` because that example already carries §2's
-hooks; the chat room and the dashboard are different programs from the examples
+[hooks](../../../csf/docs/generated/ontology_cgen.md#term-hook); the chat room and the dashboard are different programs from the examples
 of the same name.
 
 ### Building and running
@@ -538,8 +538,8 @@ docker run --rm -v "$PWD:/workspace" -w /workspace/candace/pkg/gotth/bench/apps/
   dis-gotth-live:latest bash -c 'templ generate && go build ./... && go test -race ./...'
 ```
 
-Each app takes the same three paths and defaults them relative to its own
-directory, so `go run .` from the app directory needs no flags:
+Each [app](../../../csf/docs/generated/ontology_cgen.md#term-app) takes the same three paths and defaults them relative to its own
+directory, so `go run .` from the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) directory needs no flags:
 
 ```bash
 go run .                     # counter    → http://127.0.0.1:3000/counter
@@ -554,7 +554,7 @@ go run . -htmx ../../../../test/internal/conformance/testdata/htmx-2.0.10.min.js
 ```
 
 `npm run fixtures` in `bench/` must have run first for chat and dashboard: the
-generator and the SHA-256 are committed, the JSONL is not, and each app hashes
+generator and the SHA-256 are committed, the JSONL is not, and each [app](../../../csf/docs/generated/ontology_cgen.md#term-app) hashes
 the bytes it read and publishes the digest on `/api/bench/clock` so the run
 manifest records what was actually replayed. A missing fixture, a missing shim
 or an HTMX bundle whose digest is not the recorded one is a **startup failure**,
@@ -568,7 +568,7 @@ proxy container and `harness/assert-no-tls.mjs` proves the absence from outside.
 
 **The measured form of all three is a container**, and `go run .` above is the
 development form. `docker/gotth.Dockerfile` is the committed recipe; run it from
-`bench/`, with a context of `..` because these apps' `replace` directives put the
+`bench/`, with a context of `..` because these [apps](../../../csf/docs/generated/ontology_cgen.md#term-app)' `replace` directives put the
 library source in the build:
 
 ```bash
@@ -619,7 +619,7 @@ wrong value looks like when it is wrong.
 
 Last run against a bare `go run .`, on this tree:
 
-| app | passed | failed | skipped | DOM at rest | §2 bound |
+| [app](../../../csf/docs/generated/ontology_cgen.md#term-app) | passed | failed | skipped | DOM at rest | §2 bound |
 |---|---:|---:|---|---:|---:|
 | counter | 7 | 0 | CTR-7 (cross-tab) | 29 elements | ≤ 150 |
 | chat | 7 | 0 | CHT-2b (`nextOnly`), CHT-3 (push) | 214 elements | ≤ 2000 |
@@ -632,13 +632,13 @@ cannot, which is now skipped rather than failed.**
 The chat row was **re-taken on 2026-08-05** after the composer adopted F-CHT-3
 (see item 1 below) and is reproduced above unchanged, to the element: 7 passed,
 0 failed, the same two skips, 214 elements. A row copied forward across a change
-to the app it describes is a row nobody re-ran, so it was re-run; that it did not
+to the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) it describes is a row nobody re-ran, so it was re-run; that it did not
 move is the finding, and it is the one the adoption predicted, because a binding
 that adds no element and matches no key any `CHT-*` row presses cannot move a
 smoke count.
 
 **CHT-2b is `nextOnly` and is skipped here.** It is the optimistic-send row,
-AS-2, `nextOnly: true` in its own interaction file: *"the gotth-live column for
+AS-2, `nextOnly: true` in its own interaction file: *"the [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) column for
 this row reads 'no equivalent', never a blank and never a slower number."* There
 is no optimistic UI on this stack by construction (BL-4), so no markup can ever
 carry `data-bench-state="pending"` and the predicate times out.
@@ -666,14 +666,14 @@ the place it applies as well as here.
 |---|---|---|
 | G-1 | chat, `view.templ` | **The textarea is rendered with no text content and the composer is wrapped in a `<form>`.** The empty render is the runtime's controlled/uncontrolled rule: a non-empty server render overwrites the live value, an empty one leaves it alone — which is what makes F-CHT-8 and CHT-7 true even while the log repaints twice a second. The `<form>` is because the runtime serialises an event's fields from the bound element's form when it has one and from its own name/value when it does not, so a Send **button** outside a form would carry no body at all. That is one element more than the Next.js markup in region B. |
 | G-2 | chat, `chat.go` | **A confirmed send clears the composer by changing the textarea's `id`.** The rule that preserves a draft also means the server cannot clear the box: an empty render is "uncontrolled", not "empty". Changing the id makes morph's id match fail, so the node is replaced rather than reconciled and the replacement is empty. It costs the composer's focus on a send. |
-| G-3 | chat, dashboard | **Every session folds its own copy of the shared data** — all three rooms' logs, and the dashboard's 200 rows — where the Next.js stores keep one array and derive per-session views from it. `live.Event.Fields` is `map[string]string`, so an effect cannot hand a session a pointer to a shared immutable value, and a reducer that reached into the feed for one would not be a pure function of `(state, event)`. **This is a real per-session memory cost that D3 will measure**, and it is a property of today's API rather than an implementation choice. |
-| G-4 | dashboard, `dashboard.go` | **A tick's twenty changed rows travel as one compact string, not as fields.** protocol H-4 bounds `Event.fields` at 64 and §2.4's "20 rows changed per tick" is 120 values on its own. It never reaches a wire — an emitted event is delivered in-process and what leaves the server is rendered HTML — so it is not the JSON side channel review-checklist §3.2 forbids. |
-| G-5 | dashboard, `view.templ` | **Region E is not a live fragment.** §2.4 gives it to plain HTMX on this stack (AS-3, FR-62), and a patch that named it would revert HTMX's swap on the next tick. Its panel is keyed by the page-load cookie rather than by the live session, because a plain HTMX `GET` carries cookies and nothing else — so two tabs of this app in one browser share region E's refresh counter where two Next.js tabs do not. No `DSH-*` row opens a second tab. |
-| G-6 | all three, `bench/ready.js` | **§3.3's `ready` signal is a served `.js` file, not an inline `<script>`.** It is 4,340 B raw / 1,986 B gzip-6, and it is served with a JavaScript MIME type **so §3.5 counts it against gotth-live's D1 figure**. (It was 4,103 B / 1,868 B before D-6's source-of-truth banner was added to it; the banner is served, so it is counted, and it is counted against **this** side. Measured with `wc -c` and `gzip -6 -c`, not estimated.) Inlining it would have moved those bytes into the HTML total, which is an accounting advantage this side has not earned: the Next.js equivalent lives inside its hydration bundle and is counted there. It is byte-identical across the three apps and it also mirrors `data-gotth-status` onto `data-bench-status`, because the one stylesheet each app serves is the Next.js side's file byte for byte and that file selects the connection indicator on the latter. |
-| G-7 | all three | **The stylesheets are committed copies of `apps/*/next/src/app/*.css`, and a spec `cmp`s them.** A copy is a second file that agrees today; the agreement is asserted rather than promised. The shim is not copied at all — each app reads `harness/shim.js` at run time and serves those bytes, so §2.0's "one file, byte-identical" has nothing left to verify. |
-| G-8 | chat, `chat.go` | **F-CHT-9's refusal is in the reducer, not in `Config.Authorize`.** A `live.DenyError` rejects the event before the reducer runs, so there is no render, so there is no **visible** error — and "rejected server-side with a visible error" is the whole of F-CHT-9. The library has no application hook that can render a denial (there is no patch hook, by design, api-surface §7.1). `Authorize` is still a real check, and the executor refuses the same send a second time, so the rule is enforced twice and rendered once. |
+| G-3 | chat, dashboard | **Every session folds its own copy of the shared data** — all three rooms' logs, and the dashboard's 200 rows — where the Next.js stores keep one array and derive per-session views from it. `live.Event.Fields` is `map[string]string`, so an effect cannot hand a session a pointer to a shared immutable value, and a reducer that reached into the feed for one would not be a pure function of `(state, event)`. **This is a real per-session [memory](../../../csf/docs/generated/ontology_cgen.md#term-memory) cost that D3 will measure**, and it is a property of today's API rather than an implementation choice. |
+| G-4 | dashboard, `dashboard.go` | **A tick's twenty changed rows travel as one compact string, not as fields.** [protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol) H-4 bounds `Event.fields` at 64 and §2.4's "20 rows changed per tick" is 120 values on its own. It never reaches a wire — an emitted event is delivered in-process and what leaves the server is rendered HTML — so it is not the JSON side channel review-checklist §3.2 forbids. |
+| G-5 | dashboard, `view.templ` | **Region E is not a live fragment.** §2.4 gives it to plain HTMX on this stack (AS-3, FR-62), and a patch that named it would revert HTMX's swap on the next tick. Its panel is keyed by the page-load cookie rather than by the live session, because a plain HTMX `GET` carries cookies and nothing else — so two tabs of this [app](../../../csf/docs/generated/ontology_cgen.md#term-app) in one browser share region E's refresh counter where two Next.js tabs do not. No `DSH-*` row opens a second tab. |
+| G-6 | all three, `bench/ready.js` | **§3.3's `ready` signal is a served `.js` file, not an inline `<script>`.** It is 4,340 B raw / 1,986 B gzip-6, and it is served with a JavaScript MIME type **so §3.5 counts it against [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live)'s D1 figure**. (It was 4,103 B / 1,868 B before D-6's source-of-truth banner was added to it; the banner is served, so it is counted, and it is counted against **this** side. Measured with `wc -c` and `gzip -6 -c`, not estimated.) Inlining it would have moved those bytes into the HTML total, which is an accounting advantage this side has not earned: the Next.js equivalent lives inside its hydration bundle and is counted there. It is byte-identical across the three [apps](../../../csf/docs/generated/ontology_cgen.md#term-app) and it also mirrors `data-gotth-status` onto `data-bench-status`, because the one stylesheet each [app](../../../csf/docs/generated/ontology_cgen.md#term-app) serves is the Next.js side's file byte for byte and that file selects the connection indicator on the latter. |
+| G-7 | all three | **The stylesheets are committed copies of `apps/*/next/src/app/*.css`, and a spec `cmp`s them.** A copy is a second file that agrees today; the agreement is asserted rather than promised. The shim is not copied at all — each [app](../../../csf/docs/generated/ontology_cgen.md#term-app) reads `harness/shim.js` at run time and serves those bytes, so §2.0's "one file, byte-identical" has nothing left to verify. |
+| G-8 | chat, `chat.go` | **F-CHT-9's refusal is in the reducer, not in `Config.Authorize`.** A `live.DenyError` rejects the event before the reducer runs, so there is no render, so there is no **visible** error — and "rejected server-side with a visible error" is the whole of F-CHT-9. The library has no [application](../../../csf/docs/generated/ontology_cgen.md#term-application) [hook](../../../csf/docs/generated/ontology_cgen.md#term-hook) that can render a denial (there is no patch [hook](../../../csf/docs/generated/ontology_cgen.md#term-hook), by design, api-surface §7.1). `Authorize` is still a real check, and the executor refuses the same send a second time, so the rule is enforced twice and rendered once. |
 | G-9 | chat | **The composer's debounced draft binding doubles as the typing signal.** The Next.js side sends a separate 1 Hz typing ping (its declared deviation D-3); this side derives F-CHT-6 from the draft event it already sends. Because the debounce is trailing-edge, continuous typing sends *nothing* until the typist pauses 150 ms, so the outbound rate is roughly one event per burst — fewer frames than the ping, not more. Declared because §4.6 counts frames in both directions. |
-| G-10 | counter, `bindings.go` | **F-CTR-6 is implemented with a real key filter, on both stacks.** `live.Bind.Keys` and `live.OnAll` landed at api-surface checkpoint 3 (F-3) *for exactly this row*, so `+` and `−` are two filtered bindings on one focusable element and CTR-5 passes. `CTR-5.mjs` used to carry a note saying gotth-live could not express the row; it was true when written and is now **corrected in that file** rather than only contradicted here. ~~The residual — `Bind.Keys` compares the key and not the modifier state, and a key binding never calls `preventDefault` — is F-CHT-3's problem, not this row's, and is recorded in full below.~~ **Corrected 2026-08-05: there is no residual.** `Bind.NoModifiers` compares the modifier state and `Bind.PreventDefault` takes the key, both per binding and both defaulting to what this row already had, so **CTR-5's two bindings render byte-identically** — the counter's `+` and `−` set neither option and must not, because `+` **is** Shift+`=`. The sentence is struck rather than deleted because it was true when written and because it is the sentence that routed the gap to the chat app, which is where it was closed. See the corrected item 1 below. |
+| G-10 | counter, `bindings.go` | **F-CTR-6 is implemented with a real key filter, on both stacks.** `live.Bind.Keys` and `live.OnAll` landed at api-surface checkpoint 3 (F-3) *for exactly this row*, so `+` and `−` are two filtered bindings on one focusable element and CTR-5 passes. `CTR-5.mjs` used to carry a note saying [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) could not express the row; it was true when written and is now **corrected in that file** rather than only contradicted here. ~~The residual — `Bind.Keys` compares the key and not the modifier state, and a key binding never calls `preventDefault` — is F-CHT-3's problem, not this row's, and is recorded in full below.~~ **Corrected 2026-08-05: there is no residual.** `Bind.NoModifiers` compares the modifier state and `Bind.PreventDefault` takes the key, both per binding and both defaulting to what this row already had, so **CTR-5's two bindings render byte-identically** — the counter's `+` and `−` set neither option and must not, because `+` **is** Shift+`=`. The sentence is struck rather than deleted because it was true when written and because it is the sentence that routed the gap to the chat [app](../../../csf/docs/generated/ontology_cgen.md#term-app), which is where it was closed. See the corrected item 1 below. |
 
 ### What §2 asks for that today's library API cannot express
 
@@ -681,7 +681,7 @@ the place it applies as well as here.
 is not this turn's call to make.~~
 
 **Corrected 2026-08-05.** It was not this turn's call and it became somebody's:
-**item 1 was fixed by extending the library**, in three landings, and this app
+**item 1 was fixed by extending the library**, in three landings, and this [app](../../../csf/docs/generated/ontology_cgen.md#term-app)
 has adopted the fix. The list is one shorter and the entry stays on the page
 with what closed it underneath, because the useful thing about a list like this
 is which of its entries stopped being true and when. Items 2, 3 and 4 stand
@@ -704,7 +704,7 @@ exactly as written.
    `preventDefault` half as "a finding for PM-1"; this is the second consumer to
    hit it.~~
 
-   **F-CHT-3 IS MET. 2026-08-05. Three reasons, three landings, and the app
+   **F-CHT-3 IS MET. 2026-08-05. Three reasons, three landings, and the [app](../../../csf/docs/generated/ontology_cgen.md#term-app)
    adopted it.**
 
    Every sentence above is struck and none is deleted: this is a benchmark
@@ -736,7 +736,7 @@ exactly as written.
    in `apps/chat/gotth/bindings.go` says what each component does; four Ginkgo
    specs in `chat_test.go` pin it by component subscript.
 
-   **Driven in Chromium against this app, not asserted about it** (Chrome/151,
+   **Driven in Chromium against this [app](../../../csf/docs/generated/ontology_cgen.md#term-app), not asserted about it** (Chrome/151,
    the bench image, the committed fixture replaying beside it): `Shift+Enter`
    left `value="hi\n"`, appended **no** message and updated the server's draft
    to 3 characters; `Enter` raised the send and the room confirmed a body of
@@ -768,14 +768,14 @@ exactly as written.
    - *"No harness row drives Enter, so no interaction is affected"* — true, and
      it was doing more work than it should have. **A feature nothing drives is
      still a feature E1 requires**, and while this side did not have it the
-     difference between the two apps was an asymmetry that is **not in §2.6's
+     difference between the two [apps](../../../csf/docs/generated/ontology_cgen.md#term-app) was an asymmetry that is **not in §2.6's
      register** — a closed list only §12 may add to. So the exposure was not
      "half-met", it was an undeclared asymmetry of exactly the class amendment
      A-2 was raised to fix for G-3 and G-5, and E6 prices it at *"invalidates
      the affected dimension and forces a re-run"*. **Adoption is the only remedy
      this tree could take on its own**; the alternative was a §2.6 amendment,
      which is L9-1's to approve and not this report's to write. That, and not
-     tidiness, is why the app changed rather than only the sentence.
+     tidiness, is why the [app](../../../csf/docs/generated/ontology_cgen.md#term-app) changed rather than only the sentence.
 2. **An emitted event cannot carry an opaque payload.** `live.Event.Fields` is
    `map[string]string`, bounded at 64 entries. Everything in G-3 and G-4 above
    follows from it: per-session copies of shared data, and a hand-rolled
@@ -796,7 +796,7 @@ exactly as written.
 - **The counter's C-A row.** §2.2 makes the client-local `useState` counter
   Next.js-only by specification and BL-3 makes it unimplementable here. There is
   no `/counter-local` on this side, and `counter.go`'s package comment says so
-  where a harness reader looking for the hook will be. Reporting C-A is the
+  where a harness reader looking for the [hook](../../../csf/docs/generated/ontology_cgen.md#term-hook) will be. Reporting C-A is the
   point; suppressing it would be the strawman FR-73 forbids.
 - **Optimistic send (CHT-2b).** Same shape, AS-2, BL-4. `nextOnly: true`, so
   the smoke runner skips it on `--stack gotth` and drives it on `--stack next`.
@@ -810,12 +810,12 @@ exactly as written.
 ## What Phase 5 still needs
 
 Nothing below is blocked on the Next.js side; all of it is either the
-gotth-live half or an operator decision.
+[gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) half or an operator decision.
 
 1. ~~**`bench/apps/{counter,chat,dashboard}/gotth/`.**~~ **Built** — see
    [the gotth-live sides](#the-gotth-live-sides) below. All three serve the
    byte-identical `harness/shim.js` (§2.0) and the byte-identical stylesheets,
-   expose the same `data-bench-id` hooks, and chat and dashboard expose the same
+   expose the same `data-bench-id` [hooks](../../../csf/docs/generated/ontology_cgen.md#term-hook), and chat and dashboard expose the same
    `/api/bench/clock` shape §3.2's skew estimate needs. Struck rather than
    deleted, because a list of what is missing is more useful to the next reader
    when it also records what stopped being missing.
@@ -823,7 +823,7 @@ gotth-live half or an operator decision.
    tick under a paused clock. It **gates the measurement**: it must pass before
    any run counts.
 3. ~~**The synthetic session driver (§3.6).**~~ **Built** — `harness/driver.mjs`.
-   It speaks each stack's actual protocol: for gotth-live, liquid proto over the
+   It speaks each stack's actual [protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol): for [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live), liquid proto over the
    ADR-001 `internal/wsx` transport, with the frame layout **imported from the
    shipped `client/codec.gen.js` by relative path** (FR-74(a)) rather than
    re-implemented, and with `client/runtime.js`'s behaviour transcribed — the
@@ -850,7 +850,7 @@ gotth-live half or an operator decision.
      container blocks whether or not anybody is streaming through it. **Still
      standing, and it is the only one.** Nothing in this tree may stop, restart
      or reconfigure a co-tenant container to shorten it.
-   - ~~**no gotth-live SUT image**, and no recipe that builds one — deviation
+   - ~~**no [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) SUT image**, and no recipe that builds one — deviation
      D-9.~~ **Discharged** — `docker/gotth.Dockerfile`, and all three
      `gotth-live-bench/{counter,chat,dashboard}-gotth:local` built from it.
    - ~~**no `docker/.env`** on this host, so compose has no parameters.~~
@@ -883,9 +883,9 @@ gotth-live half or an operator decision.
   carries its `contended` flag and its host state. This is spec threat **T-5**,
   not a solved problem.
 - **C-A and CHT-2b ship.** The client-local counter and the optimistic send are
-  interactions gotth-live structurally loses, they are measured, and they are
+  interactions [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) structurally loses, they are measured, and they are
   reported in the same table with the same typography. Suppressing them is the
   strawman FR-73 forbids.
 - **The Next.js static/ISR row ships.** §5.5 forbids caching on the *measured*
-  route because the equivalent gotth-live route is dynamic; the cached variant
+  route because the equivalent [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live) route is dynamic; the cached variant
   is measured separately and published as an explicit Next.js-advantage row.

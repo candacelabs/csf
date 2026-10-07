@@ -24,7 +24,7 @@ import (
 )
 
 const workspaceOrigin = "http://example.invalid"
-const workspaceTaskURL = "https://github.com/example/project/issues/207"
+const workspaceTaskURL = "https://github.com/candacelabs/project/issues/207"
 
 type workspaceFixture struct {
 	adapter   *copilotadapter.CopilotAdapter
@@ -42,8 +42,8 @@ func newWorkspaceFixture(options ...copilotadapter.Option) *workspaceFixture {
 	worktrees.EXPECT().Repositories().Return([]copilotadapter.Repository{}).AnyTimes()
 	terminals := NewMockITerminalManager(controller)
 	terminals.EXPECT().Close().Return(nil)
-	options = append(options, copilotadapter.WithStore(persistence), copilotadapter.WithBridge(NewMockICopilotBridge(controller)),
-		copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())))
+	options = append(options, copilotadapter.WithStore(persistence.Store), copilotadapter.WithBridge(NewMockICopilotBridge(controller)),
+		copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store))
 	adapter, err := copilotadapter.NewCopilotAdapter(options...)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(adapter.Close)
@@ -60,7 +60,7 @@ func newWorkspaceFixture(options ...copilotadapter.Option) *workspaceFixture {
 	server := adaptertest.Serve(GinkgoT(), router)
 	client, err := api.NewClientWithResponses(server.URL, api.WithHTTPClient(server.Client))
 	Expect(err).NotTo(HaveOccurred())
-	return &workspaceFixture{adapter: adapter, board: board, router: router, client: client, sessionID: seedWorkspaceSession(persistence)}
+	return &workspaceFixture{adapter: adapter, board: board, router: router, client: client, sessionID: seedWorkspaceSession(persistence.Store)}
 }
 
 func seedWorkspaceSession(persistence copilotadapter.IStore) uuid.UUID {

@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/boundedbuffer"
 	boundedbufferv1 "github.com/candacelabs/csf/pkg/boundedbuffer/v1"
 

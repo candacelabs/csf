@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/candacelabs/csf/ipc"
+	"github.com/candacelabs/csf/io"
 )
 
 const (
@@ -17,7 +17,7 @@ const (
 	// receiver or acknowledged by a host or network agent, by tier.
 	MetricEnvelopesDelivered = "csf_relay_envelopes_delivered_total"
 	// MetricTierLabel is the label both counters carry: in_process, host or
-	// network, as ipc.Tier names them.
+	// network, as io.Tier names them.
 	MetricTierLabel = "tier"
 )
 
@@ -48,20 +48,20 @@ func newRelayMetrics(registerer prometheus.Registerer) (*relayMetrics, error) {
 		}
 		// Every tier is exported from the start, so a dashboard reads zero
 		// rather than a missing series for a tier nothing has crossed yet.
-		for _, tier := range ipc.Tiers {
+		for _, tier := range io.Tiers {
 			collector.WithLabelValues(tier.String())
 		}
 	}
 	return metrics, nil
 }
 
-func (metrics *relayMetrics) sent(tier ipc.Tier) {
+func (metrics *relayMetrics) sent(tier io.Tier) {
 	if metrics != nil {
 		metrics.sentTotal.WithLabelValues(tier.String()).Inc()
 	}
 }
 
-func (metrics *relayMetrics) delivered(tier ipc.Tier) {
+func (metrics *relayMetrics) delivered(tier io.Tier) {
 	if metrics != nil {
 		metrics.deliveredTotal.WithLabelValues(tier.String()).Inc()
 	}

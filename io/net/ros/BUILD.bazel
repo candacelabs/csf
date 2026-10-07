@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# The CSF source observer reads the spine contract from its allowlist.
+exports_files(
+    ["spine.go"],
+    visibility = ["//csf:__pkg__"],
+)
+
+go_library(
+    name = "ros",
+    srcs = ["spine.go"],
+    importpath = "github.com/candacelabs/csf/io/net/ros",
+    visibility = ["//visibility:public"],
+    deps = ["//proto/candace/brainspine/v1:brainspine"],
+)
+
+go_test(
+    name = "ros_test",
+    srcs = [
+        "mock_spine_test.go",
+        "ros_suite_test.go",
+        "spine_internal_test.go",
+        "spine_test.go",
+    ],
+    embed = [":ros"],
+    deps = [
+        "//proto/candace/brainspine/v1:brainspine",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

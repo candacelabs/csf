@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"

@@ -20,7 +20,7 @@ const (
 
 var _ = Describe("StaticRoutes", func() {
 	It("parses a route list and prefers a subject's own route over its repository's", func(ctx SpecContext) {
-		parsed, err := intake.ParseRoutes(" example/widgets#7=owner , example/widgets=fallback,")
+		parsed, err := intake.ParseRoutes(" candacelabs/widgets#7=owner , candacelabs/widgets=fallback,")
 		Expect(err).NotTo(HaveOccurred())
 		Expect(parsed).To(Equal([]intake.Route{
 			{Repository: repository, Number: pullRequest, Agent: owner},
@@ -36,7 +36,7 @@ var _ = Describe("StaticRoutes", func() {
 		agent, err = routes.Route(ctx, &intakev1.Subject{Repository: repository, Number: 8})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(agent).To(Equal(fallback))
-		_, err = routes.Route(ctx, &intakev1.Subject{Repository: "example/other", Number: pullRequest})
+		_, err = routes.Route(ctx, &intakev1.Subject{Repository: "candacelabs/other", Number: pullRequest})
 		Expect(err).To(MatchError(intake.ErrUnrouted))
 		_, err = routes.Route(ctx, nil)
 		Expect(err).To(MatchError(intake.ErrUnrouted))
@@ -57,9 +57,9 @@ var _ = Describe("StaticRoutes", func() {
 			Expect(err).To(MatchError(intake.ErrInvalidRoute))
 		},
 		Entry("empty", " , "),
-		Entry("no agent", "example/widgets"),
-		Entry("no number after #", "example/widgets#=owner"),
-		Entry("zero number", "example/widgets#0=owner"),
+		Entry("no agent", "candacelabs/widgets"),
+		Entry("no number after #", "candacelabs/widgets#=owner"),
+		Entry("zero number", "candacelabs/widgets#0=owner"),
 	)
 
 	DescribeTable("rejects an invalid table",

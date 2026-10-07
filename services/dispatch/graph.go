@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"slices"
 	"sort"
+	"strings"
+	"time"
 
 	"google.golang.org/protobuf/proto"
 
@@ -50,6 +52,17 @@ type graph struct {
 	// running maps a session's assignment to the slice it runs.
 	running  map[string]string
 	sequence uint64
+	// paused is the reason the dispatcher was paused; empty while it runs.
+	paused string
+	// held is the reason each held slice is held, by slice.
+	held map[string]string
+	// controls is the sequence of the latest recorded control.
+	controls uint64
+	// capacity is how many dispatched sessions the latest pass admitted at
+	// once; limits are what it was derived from, at passAt.
+	capacity int
+	limits   []Limit
+	passAt   time.Time
 }
 
 func newGraph() *graph {
@@ -63,6 +76,7 @@ func newGraph() *graph {
 		nodes:   map[string]*node{},
 		intents: map[string]*dispatchv1.Intent{},
 		running: map[string]string{},
+		held:    map[string]string{},
 	}
 }
 
@@ -173,6 +187,40 @@ func (store *graph) frontier(ranks map[string]float64) []string {
 	return ready
 }
 
+// launchable is the frontier less the held slices, in dispatch order.
+func (store *graph) launchable(ranks map[string]float64) []string {
+	return slices.DeleteFunc(store.frontier(ranks), func(id string) bool {
+		_, held := store.held[id]
+		return held
+	})
+}
+
+// throttle is the provider whose rate limit holds this slice to no launches
+// now, empty when none does: a slice runs only when the provider its model is
+// served by has headroom.
+func (store *graph) throttle(id string) string {
+	provider := providerOfModel(store.nodes[id].proto.GetSlice().GetRecipe().GetModel())
+	for _, limit := range store.limits {
+		if limit.Name == LimitRate && limit.Bounded && limit.Provider == provider {
+			return provider
+		}
+	}
+	return ""
+}
+
+// heldBranch is the reason the slice whose recipe branch is branch is held,
+// when one is: its pull request may not merge. The branch is read from the
+// recipe, so a hold reaches it after a restart with no separate record.
+func (store *graph) heldBranch(branch string) (string, bool) {
+	for _, id := range store.order() {
+		reason, held := store.held[id]
+		if held && store.nodes[id].proto.GetSlice().GetRecipe().GetWorkspace().GetBranch() == branch {
+			return reason, true
+		}
+	}
+	return "", false
+}
+
 // runningIDs is every slice holding a session, in enqueue order.
 func (store *graph) runningIDs() []string {
 	var running []string
@@ -256,4 +304,84 @@ func (store *graph) targets(intent *dispatchv1.Intent) []string {
 		}
 	}
 	return covering
+}
+
+// apply changes the graph's controls; it is the replay a restore makes too.
+func (store *graph) apply(control Control) {
+	switch control.Action {
+	case ControlPause:
+		store.paused = control.Reason
+	case ControlResume:
+		store.paused = ""
+	case ControlHold:
+		store.held[control.SliceID] = control.Reason
+	case ControlRelease:
+		delete(store.held, control.SliceID)
+	}
+}
+
+// awaitingMerge is every unfinished slice that recorded a pull request.
+func (store *graph) awaitingMerge() []pendingMerge {
+	var pending []pendingMerge
+	for _, id := range store.order() {
+		record := store.nodes[id].proto
+		if url := record.GetPullRequestUrl(); url != "" && !terminal(record.GetState()) {
+			pending = append(pending, pendingMerge{slice: id, url: url})
+		}
+	}
+	return pending
+}
+
+// sliceView is one slice's row.
+func (store *graph) sliceView(id string, ranks map[string]float64, frontier []string) SliceView {
+	node := store.view(id, ranks, frontier)
+	ticket := node.GetSlice().GetRecipe().GetTicketUrl()
+	if ticket == "" {
+		ticket = node.GetProvenance().GetIssueUrl()
+	}
+	return SliceView{
+		SliceID: id, Title: node.GetSlice().GetTitle(), TicketURL: ticket, State: node.GetState().String(),
+		Rank: node.GetPriority().GetRank(), CriticalPath: node.GetPriority().GetCriticalPath(), Urgency: node.GetPriority().GetUrgency().String(),
+		Attempts: node.GetAttempts(), AssignmentID: node.GetAssignmentId(), PullRequestURL: node.GetPullRequestUrl(), Held: store.held[id],
+		DependsOn: store.edges.In(RelationDependsOn, id), Contends: store.edges.Out(RelationContends, id),
+		CreatedAt: node.GetCreatedAt().AsTime(), UpdatedAt: node.GetUpdatedAt().AsTime(),
+		Source: node.GetProvenance().GetSource(), Ready: slices.Contains(frontier, id),
+	}
+}
+
+// waiting says why a queued slice does not run: the first of its unmerged
+// predecessors, a running contender, a hold, the pause, or the admission.
+func (store *graph) waiting(id string, running []string) string {
+	var unmerged []string
+	for _, predecessor := range store.edges.In(RelationDependsOn, id) {
+		if !store.merged(predecessor) {
+			unmerged = append(unmerged, predecessor)
+		}
+	}
+	var contenders []string
+	for _, other := range running {
+		if store.conflicts(id, other) {
+			contenders = append(contenders, other)
+		}
+	}
+	switch {
+	case len(unmerged) > 0:
+		return fmt.Sprintf(waitingDepends, strings.Join(unmerged, listSeparator))
+	case store.held[id] != "":
+		return fmt.Sprintf(waitingHeld, store.held[id])
+	case len(contenders) > 0:
+		return fmt.Sprintf(waitingContends, strings.Join(contenders, listSeparator))
+	case store.paused != "":
+		return fmt.Sprintf(waitingPaused, store.paused)
+	case store.throttle(id) != "":
+		return fmt.Sprintf(waitingRate, store.throttle(id))
+	case len(running) >= store.capacity:
+		return fmt.Sprintf(waitingCapacity, store.capacity, len(running))
+	}
+	return waitingNextPass
+}
+
+// contendsRunning reports whether a running slice contends with id.
+func (store *graph) contendsRunning(id string, running []string) bool {
+	return slices.ContainsFunc(running, func(other string) bool { return store.conflicts(id, other) })
 }

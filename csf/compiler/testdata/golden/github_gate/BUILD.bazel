@@ -1,0 +1,13 @@
+# gazelle:ignore
+# github_gate.go is a fragment of services/harness/sessiongate (it uses that package's parse, gateCall and HookOutput),
+# compared byte for byte by the csfc golden test, never compiled on its own. Gazelle leaves this file alone.
+
+package(default_visibility = ["//visibility:public"])
+
+# The gate declaration and its two projections, read by the csfc golden test
+# that pins the generator's output byte for byte.
+exports_files([
+    "github_gate.csf",
+    "github_gate.go",
+    "github_shell.dl",
+])

@@ -5,10 +5,14 @@ module Names = Set.Make (String)
 let prefixed name = String.length name > 1
   && (name.[0] = 'I' || name.[0] = 'i') && exported (String.sub name 1 1)
 
+(* CS-20: the three fields an interface declaration carries travel as one named
+   record, never as a bare tuple. *)
+type interface_decl = { node : Node.t; name : string; body : Node.t }
+
 let interfaces file = descendants file.root |> List.filter_map (fun node ->
   if not (List.mem (kind node) ["type_spec"; "type_alias"]) then None else
   match field_text file node "name", field node "type" with
-  | Some name, Some body when kind body = "interface_type" -> Some (node, name, body)
+  | Some name, Some body when kind body = "interface_type" -> Some { node; name; body }
   | _ -> None)
 
 let parameter_nodes node = children node |> List.filter (fun child ->
@@ -32,9 +36,9 @@ let signature_findings file = descendants file.root |> List.filter_map (fun node
       Some (issue file node "CS-2" (Printf.sprintf "%s has %d unnamed parameter%s"
         name (List.length unnamed) (if List.length unnamed = 1 then "" else "s"))))
 
-let interface_findings file = interfaces file |> List.filter_map (fun (node, name, _) ->
-  if prefixed name then None else
-  Some (issue file node "CS-1" ("interface " ^ name ^ " lacks the house I/i prefix")))
+let interface_findings file = interfaces file |> List.filter_map (fun declaration ->
+  if prefixed declaration.name then None else
+  Some (issue file declaration.node "CS-1" ("interface " ^ declaration.name ^ " lacks the house I/i prefix")))
 
 (* Token spelling is used only to compare already-parsed contract types. It
    ignores comments/formatting while preserving spaces inside string tokens. *)
@@ -72,12 +76,12 @@ type interface_index = { names : Names.t; sealed : Names.t; hooks : Names.t }
 let interface_index files =
   let names = ref Names.empty and sealed = ref Names.empty and hooks = ref Names.empty in
   List.iter (fun file ->
-    interfaces file |> List.iter (fun (_, name, body) ->
-      names := Names.add name !names;
-      if exported name && List.exists (fun child -> kind child = "method_elem" &&
+    interfaces file |> List.iter (fun declaration ->
+      names := Names.add declaration.name !names;
+      if exported declaration.name && List.exists (fun child -> kind child = "method_elem" &&
         Option.fold ~none:false ~some:(fun method_name -> String.length method_name > 0 &&
           method_name.[0] >= 'a' && method_name.[0] <= 'z') (field_text file child "name"))
-        (children body) then sealed := Names.add name !sealed);
+        (children declaration.body) then sealed := Names.add declaration.name !sealed);
     walk (fun node -> if List.mem (kind node) ["function_type"; "func_literal"] then
       hooks := Names.add (signature file node) !hooks) file.root
   ) files;
@@ -220,6 +224,14 @@ let else_after_return_findings file = descendants file.root |> List.filter_map (
         "else follows a branch that returns on every path; remove the nesting and keep an explicit block if the branch needs its lexical scope")
   | _ -> None)
 
+let main_test_findings file =
+  if not (is_test file) then [] else
+  match Source.package file, children file.root |> List.find_opt (fun node -> kind node = "package_clause") with
+  | Some ("main" | "main_test"), Some node ->
+      [issue file node "NO-MAIN-TEST"
+        ("test file cannot have package main; use the default test package or a named package")]
+  | _ -> []
+
 let collect files =
   let selected_files = List.filter selected files in
   let first_party = List.filter (fun (file : file) -> not (List.mem "vendor" (String.split_on_char '/' file.path))) files in
@@ -227,8 +239,10 @@ let collect files =
      consumers, even though findings must never target generated source. *)
   let index = interface_index (List.filter (fun (file : file) -> not (excluded file.path)) files) in
   let collision = collision_index first_party in
+  let main_test_violations = files |> List.filter is_test |> List.concat_map main_test_findings in
   List.concat_map (fun file -> interface_findings file @ signature_findings file @ return_findings index file @
     else_after_return_findings file)
     selected_files @
   (first_party |> List.filter (fun file -> not (generated file))
-   |> List.concat_map (fun file -> assertion_findings collision file @ bootstrap_findings file))
+   |> List.concat_map (fun file -> assertion_findings collision file @ bootstrap_findings file)) @
+  main_test_violations

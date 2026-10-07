@@ -1,0 +1,63 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# The email service's generated projections, read by the csfc golden test that
+# pins the generator's output byte for byte. Every file here is emitted from
+# email.csf; there is no seam and nothing hand-written. The layout is by
+# declared thing: email.go for the service, send.go for its one operation, one
+# file per capability, and a test file beside each declared thing.
+exports_files([
+    "doc.go",
+    "email.go",
+    "email_suite_test.go",
+    "provenance.go",
+    "provenance_test.go",
+    "receipts.go",
+    "receipts_test.go",
+    "send.go",
+    "send_test.go",
+    "transport.go",
+    "transport_test.go",
+])
+
+go_library(
+    name = "email",
+    srcs = [
+        "doc.go",
+        "email.go",
+        "provenance.go",
+        "receipts.go",
+        "send.go",
+        "transport.go",
+    ],
+    importpath = "github.com/candacelabs/csf/csf/compiler/testdata/golden/service/email/services/email",
+    deps = [
+        "//pkg/telemetry",
+        "//proto/candace/email/v1:email",
+        "//proto/candace/provenance/v1:provenance",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "email_test",
+    srcs = [
+        "email_suite_test.go",
+        "provenance_test.go",
+        "receipts_test.go",
+        "send_test.go",
+        "transport_test.go",
+    ],
+    embed = [":email"],
+    deps = [
+        "//proto/candace/email/v1:email",
+        "//proto/candace/provenance/v1:provenance",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

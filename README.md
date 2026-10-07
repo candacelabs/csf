@@ -3,7 +3,7 @@
   <p><b>One Go runtime for agent work, typed tools, shared knowledge and observable experiments.</b></p>
   <p>
     <a href="LICENSE"><img src="docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.2.9"></a>
+    <a href="#6-consume-it"><img src="docs/assets/badge-version.svg" alt="version: 0.3.0"></a>
     <a href="#8-build-it"><img src="docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -21,6 +21,31 @@
     <a href="#10-citation"><b>Citation</b></a>
   </p>
 </div>
+
+<hr>
+
+## Start here
+
+If you are reading this cold, here is the whole idea in three measured
+sentences, each term defined the first time it appears.
+
+CSF is **one Go process** — a single program written in the Go language — that
+holds the tools, records, schedules and experiments around an **[agent](csf/docs/generated/ontology_cgen.md#term-agent)** (a
+program that works a software ticket on its own). A **compiler** named `csfc`
+checks the code against a written declaration of what the system is and
+**generates** what used to be hand-written. The **harness** is the part of that
+process that runs [agent](csf/docs/generated/ontology_cgen.md#term-agent) sessions behind a **gate** — a check on every shell
+command and every commit.
+
+One real example, measured: on 2026-10-02 a [miner](csf/docs/generated/ontology_cgen.md#term-miner) found that 64 of the 124
+declared terms owned no directory; that one finding became a ticket stating the
+gate's predicate. The whole loop is this — a [miner](csf/docs/generated/ontology_cgen.md#term-miner) reads the record, finds one
+divergence between intent and code, and turns it into the next gate or change.
+
+The scoreboard (`csf scoreboard`) prints the program's meters as measured
+numbers only: `consistency` is `percent(59.0)` today, `generated_share` is
+`percent(2.0)` against a target of `percent(100)`, and no row prints a word
+where a number is known.
 
 <hr>
 
@@ -86,7 +111,7 @@ It has four parts, and together they form one loop:
    the [dictionary](csf/docs/generated/ontology_cgen.md), the architecture
    diagrams below, and this README's north star. For example,
    [`tools/merge-pr.sh`](tools/merge-pr.sh) refuses a pull request whose
-   ontology alignment score regresses against `main`.
+   [ontology alignment](csf/docs/generated/ontology_cgen.md#term-ontology_alignment) score regresses against `main`.
 3. **A [harness](csf/docs/generated/ontology_cgen.md#term-harness).** One process per machine runs coding-agent
    [sessions](csf/docs/generated/ontology_cgen.md#term-session) with a [gate](csf/docs/generated/ontology_cgen.md#term-session_gate) on every shell
    command and every commit. For example,
@@ -111,7 +136,7 @@ What you get, grouped by what it is for:
 
 - **[CSF — The Cerebrospinal Fluid](csf)**, the [core](csf/docs/generated/ontology_cgen.md#term-core): a Go library and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) for the coordination around an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system, covering typed tools, sessions and worktrees, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge) ingestion and search, traces and retained evidence. Its [services](csf/docs/generated/ontology_cgen.md#term-service) are libraries [mounted](csf/docs/generated/ontology_cgen.md#term-mount) into one Go process through functional options, and each operation is generated once and served as HTTP, CLI and [MCP](csf/docs/generated/ontology_cgen.md#term-mcp). Start with the [consumer example](examples/csf-consumer).
   - **[Agent harness and ops view](app/harness):** one process per machine runs every [agent](csf/docs/generated/ontology_cgen.md#term-agent) session with gates on every command and commit. The `csf` binary is both that process and its client: `csf init` puts CSF into a repository, `csf submit` takes an [assignment](csf/docs/generated/ontology_cgen.md#term-assignment) recipe, `csf send` adds a turn, and `csf view` serves a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) page with one live card per session ([command reference](app/harness/cmd)). See [Quick start](#5-quick-start).
-  - **[Ouroboros](services/ouroboros/README.md):** miners that read the record of what [agents](csf/docs/generated/ontology_cgen.md#term-agent) did, find mistakes no gate catches yet, and turn each into a gate once a walk-forward backtest on history finds every labeled case.
+  - **[Ouroboros](services/ouroboros/README.md):** [miners](csf/docs/generated/ontology_cgen.md#term-miner) that read the record of what [agents](csf/docs/generated/ontology_cgen.md#term-agent) did, find mistakes no gate catches yet, and turn each into a gate once a [walk-forward](docs/GLOSSARY.md#lit-walk_forward_analysis) [backtest](csf/docs/generated/ontology_cgen.md#term-backtest) on history finds every labeled case.
   - **[RRSI](https://github.com/candacelabs/rrsi):** Regularized Recursive Self-Improvement [[14]](#ref-rrsi), [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros)'s method: it rewrites an [agent](csf/docs/generated/ontology_cgen.md#term-agent)'s harness (prompts, tools and loop, not the model) and keeps only changes that beat noise on an exam mined from your own git history.
   - **[`csfc` compiler](csf/compiler/README.md):** checks the code against [`architecture.csf`](csf/compiler/language/architecture.csf) and generates the [glossary](docs/GLOSSARY.md), the [dictionary](csf/docs/generated/ontology_cgen.md), the diagrams and this README's north star.
 - **[Deploy](services/deploy)**, an agent-operated deployment system: an [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness proposes, the deploy [service](csf/docs/generated/ontology_cgen.md#term-service) approves and fences every change, the node executor reconciles Compose [applications](csf/docs/generated/ontology_cgen.md#term-application), and the operator UI watches.
@@ -127,13 +152,22 @@ robot's CPU 0. Click it to open it full size.
 
 <a id="figure-3"></a>
 
-<p align="center"><a href="docs/assets/tour/csf-master-diagram.svg"><img src="docs/assets/tour/csf-master-diagram.svg" width="1000" alt="How CSF fits together on a robot's CPU 0"></a></p>
+<p align="center"><a href="docs/assets/tour/csf-master-diagram.svg"><img src="docs/assets/tour/csf-master-diagram.svg" width="1000" alt="How CSF fits together: the autonomy loop around CPU 0 and the Ouroboros mining loop beside it"></a></p>
 
-**Figure 3.** How CSF fits together. Eight parts sit clockwise around CPU 0:
-declare (the languages and csfc), run (the [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) library), show ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live)),
-change (the [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness), ship (deploy and Warden), learn (xetcas; amber marks
-planned work), improve ([Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros)) and evolve (RRSI). The centre is one Go process
-built on the `pkg/` primitives.
+**Figure 3.** How CSF fits together: two loops. The big loop builds the robot's
+autonomy. Six parts sit clockwise around CPU 0: declare (the languages and csfc),
+run (the [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) library), show ([gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live)),
+change (the [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness), ship (deploy and Warden) and learn
+(xetcas; amber marks planned work). The centre is one Go process built on the
+`pkg/` primitives. Beside the [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness sits the small loop,
+[Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), whose method is RRSI: it takes every session's trace
+and hands back the next gate. The panel below opens it up. A [miner](csf/docs/generated/ontology_cgen.md#term-miner) extracts
+facts from the corpus, a Datalog rule derives verdicts with proofs, and a
+[walk-forward](docs/GLOSSARY.md#lit-walk_forward_analysis) [backtest](csf/docs/generated/ontology_cgen.md#term-backtest) decides whether the [miner](csf/docs/generated/ontology_cgen.md#term-miner) becomes a gate; the gated runs
+become the next corpus. The numbers are the DRAFT-PR-LATE [miner](csf/docs/generated/ontology_cgen.md#term-miner)'s
+([worked example](services/ouroboros/README.md#worked-example-draft-pr-late)).
+Rose marks the steps that make LLM calls: the [agent](csf/docs/generated/ontology_cgen.md#term-agent) harness, an [agent](csf/docs/generated/ontology_cgen.md#term-agent) writing a
+[miner](csf/docs/generated/ontology_cgen.md#term-miner), and `csf label` proposing labels. Every other box is deterministic code.
 
 The north star is a robot software
 stack whose correctness is proven end to end; today that is a goal, not a
@@ -161,17 +195,109 @@ paper figures retain their own licenses.
 
 **Goal.** End-to-end correctness of a robot software stack, proven relative to stated assumptions and checked against them at [runtime](csf/docs/generated/ontology_cgen.md#term-runtime). The physical world and the models in it are not proven; the envelope around them is: check before execute, contracts at every io boundary, and [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) monitors with a safe fallback.
 
-**Milestones.** 0 done, 6 in progress, 1 planned. A done milestone names a path in this repository that the generator checks exists; PR and issue numbers refer to the source monorepo.
+**Milestones.** 0 done, 6 in progress, 2 planned. A done milestone names a path in this repository that the generator checks exists; PR and issue numbers refer to the source monorepo.
 
-| # | Milestone | Status | Terms | Evidence | Builds on |
-|---|---|---|---|---|---|
-| 1 | Every io boundary is a typed capability: a [service](csf/docs/generated/ontology_cgen.md#term-service) crosses only what its constructor was granted, and the io tree is sorted by crossing tier. Process launch and PostgreSQL are capabilities today; the move into the tier-sorted io directories is planned. | in progress | [I/O crossing](csf/docs/generated/ontology_cgen.md#term-io), [Crossing tier](csf/docs/generated/ontology_cgen.md#term-tier), [Capability](csf/docs/generated/ontology_cgen.md#term-capability) | [`ipc/proc`](ipc/proc), [`ipc/db/csfpg`](ipc/db/csfpg), PR #290, PR #301, PR #321, issue #264 | — |
-| 2 | Each crossing's tier is resolved from [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) and placement state instead of being declared by hand. | planned | [Crossing tier](csf/docs/generated/ontology_cgen.md#term-tier), [Placement rules](csf/docs/generated/ontology_cgen.md#term-placement), [Runtime](csf/docs/generated/ontology_cgen.md#term-runtime) | issue #264 | — |
-| 3 | The low-level controller is reached only through the ros seam, whose contract is proven ROS-side and monitored CSF-side with a safe fallback. The stub that answers every call with a typed not-connected error ships; the transport, proof and monitor are planned. | in progress | [ROS spine capability](csf/docs/generated/ontology_cgen.md#term-ros), [Low-level spine controller](csf/docs/generated/ontology_cgen.md#term-spine), [Check](csf/docs/generated/ontology_cgen.md#term-check) | [`ipc/ros`](ipc/ros), PR #299 | [KeYmaera X](https://keymaerax.org/) ([glossary](docs/GLOSSARY.md#lit-keymaera_x)), [VeriPhy](https://doi.org/10.1145/3192366.3192406) ([glossary](docs/GLOSSARY.md#lit-veriphy)) |
-| 4 | Turn executors are interchangeable behind one contract while CSF owns the session, its context and its tools. Claude Code runs as the first [turn executor](csf/docs/generated/ontology_cgen.md#term-turn_executor); CSF does not yet own the session's context. | in progress | [Turn executor](csf/docs/generated/ontology_cgen.md#term-turn_executor), [Workbench conversation session](csf/docs/generated/ontology_cgen.md#term-session), [Claude Code provider](csf/docs/generated/ontology_cgen.md#term-claudecode) | [`ipc/model/claudecode`](ipc/model/claudecode), [`examples/claudecode`](examples/claudecode), PR #322 | — |
-| 5 | Every unit of the system climbs the compilability ladder from prose to structured, typed, checked and finally discharged, where a checker discharges a stated proof obligation. csfc checks the declared architecture against its Go source on every change, and its check-generated command states lifetime and cleanup obligations that it does not yet discharge. | in progress | [Compiler](csf/docs/generated/ontology_cgen.md#term-compiler), [Compile](csf/docs/generated/ontology_cgen.md#term-compile), [Shared typed contracts](csf/docs/generated/ontology_cgen.md#term-contracts) | [`csf/compiler/architecture`](csf/compiler/architecture), issue #329 | [CompCert](https://compcert.org/) ([glossary](docs/GLOSSARY.md#lit-compcert)), [seL4](https://sel4.systems/) ([glossary](docs/GLOSSARY.md#lit-sel4)) |
-| 6 | The system improves itself through [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), under gates it may not change: mined evidence proposes each change and every accepted change is an operator-approved pull request. Session mining exists in the source monorepo, outside this repository; the CSF [service](csf/docs/generated/ontology_cgen.md#term-service) is planned. | in progress | [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), [Evaluate](csf/docs/generated/ontology_cgen.md#term-evaluate), [Save evidence](csf/docs/generated/ontology_cgen.md#term-save_evidence) | PR #237 | — |
-| 7 | No hand-written documentation: every claim is typed data in architecture.csf and its prose is generated, this section included. | in progress | [Compiler](csf/docs/generated/ontology_cgen.md#term-compiler), [Compile](csf/docs/generated/ontology_cgen.md#term-compile) | [`csf/compiler/language/architecture.csf`](csf/compiler/language/architecture.csf), [`docs/GLOSSARY.md`](docs/GLOSSARY.md), PR #333 | — |
+| # | Milestone | Status |
+|---|---|---|
+| 1 | Typed Io | in progress |
+| 2 | Resolved Tiers | planned |
+| 3 | Ros Seam | in progress |
+| 4 | Turn Executors | in progress |
+| 5 | Compilability | in progress |
+| 6 | Self Improvement | in progress |
+| 7 | Typed Documentation | in progress |
+| 8 | Post Training | planned |
+
+
+### 1. Typed Io
+
+Every io boundary is a typed capability: a [service](csf/docs/generated/ontology_cgen.md#term-service) crosses only what its constructor was granted, and the io tree is sorted by crossing tier. Process launch and PostgreSQL are capabilities today; the move into the tier-sorted io directories is planned.
+
+**Uses:** [I/O crossing](csf/docs/generated/ontology_cgen.md#term-io), [Crossing tier](csf/docs/generated/ontology_cgen.md#term-tier), [Capability](csf/docs/generated/ontology_cgen.md#term-capability)
+
+
+**Evidence:** [`io/ipc/proc`](io/ipc/proc), [`io/ipc/db/csfpg`](io/ipc/db/csfpg), PR #290, PR #301, PR #321, issue #264
+
+
+
+### 2. Resolved Tiers
+
+Each crossing's tier is resolved from [runtime](csf/docs/generated/ontology_cgen.md#term-runtime) and placement state instead of being declared by hand.
+
+**Uses:** [Crossing tier](csf/docs/generated/ontology_cgen.md#term-tier), [Placement rules](csf/docs/generated/ontology_cgen.md#term-placement), [Runtime](csf/docs/generated/ontology_cgen.md#term-runtime)
+
+
+**Evidence:** issue #264
+
+
+
+### 3. Ros Seam
+
+The low-level controller is reached only through the ros seam, whose contract is proven ROS-side and monitored CSF-side with a safe fallback. The stub that answers every call with a typed not-connected error ships; the transport, proof and monitor are planned.
+
+**Uses:** [ROS spine capability](csf/docs/generated/ontology_cgen.md#term-ros), [Low-level spine controller](csf/docs/generated/ontology_cgen.md#term-spine), [Check](csf/docs/generated/ontology_cgen.md#term-check)
+
+
+**Evidence:** [`io/net/ros`](io/net/ros), PR #299
+
+
+**Cites:** [KeYmaera X](https://keymaerax.org/) ([glossary](docs/GLOSSARY.md#lit-keymaera_x)), [VeriPhy](https://doi.org/10.1145/3192366.3192406) ([glossary](docs/GLOSSARY.md#lit-veriphy))
+
+### 4. Turn Executors
+
+Turn executors are interchangeable behind one contract while CSF owns the session, its context and its tools. Claude Code and the Copilot CLI run as [turn executors](csf/docs/generated/ontology_cgen.md#term-turn_executor) under the same [session gates](csf/docs/generated/ontology_cgen.md#term-session_gate), chosen by the recipe; CSF does not yet own the session's context.
+
+**Uses:** [Turn executor](csf/docs/generated/ontology_cgen.md#term-turn_executor), [Workbench conversation session](csf/docs/generated/ontology_cgen.md#term-session), [Claude Code provider](csf/docs/generated/ontology_cgen.md#term-claudecode), [Copilot CLI provider](csf/docs/generated/ontology_cgen.md#term-copilotcli)
+
+
+**Evidence:** [`io/net/model/claudecode`](io/net/model/claudecode), [`examples/claudecode`](examples/claudecode), [`io/net/model/copilotcli`](io/net/model/copilotcli), PR #322
+
+
+
+### 5. Compilability
+
+Every unit of the system climbs the compilability ladder from prose to structured, typed, checked and finally discharged, where a checker discharges a stated proof obligation. csfc checks the declared architecture against its Go source on every change, and its check-generated command states lifetime and cleanup obligations that it does not yet discharge.
+
+**Uses:** [Compiler](csf/docs/generated/ontology_cgen.md#term-compiler), [Compile](csf/docs/generated/ontology_cgen.md#term-compile), [Shared typed contracts](csf/docs/generated/ontology_cgen.md#term-contracts)
+
+
+**Evidence:** [`csf/compiler/architecture`](csf/compiler/architecture), issue #329
+
+
+**Cites:** [CompCert](https://compcert.org/) ([glossary](docs/GLOSSARY.md#lit-compcert)), [seL4](https://sel4.systems/) ([glossary](docs/GLOSSARY.md#lit-sel4))
+
+### 6. Self Improvement
+
+The system improves itself through [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), under gates it may not change: mined evidence proposes each change and every accepted change is an operator-approved pull request. The [mining loop](csf/docs/generated/ontology_cgen.md#term-ouroboros) runs inside CSF: [miners](csf/docs/generated/ontology_cgen.md#term-miner) mine every log as it changes, a [pre-check](csf/docs/generated/ontology_cgen.md#term-precheck) decides at no model cost which tickets a [fixer](csf/docs/generated/ontology_cgen.md#term-fixer) can take, [fixers](csf/docs/generated/ontology_cgen.md#term-fixer) run through the harness under a daily budget, the [merge train](csf/docs/generated/ontology_cgen.md#term-merge_train) merges what passes the gate, and the [compounding rate](csf/docs/generated/ontology_cgen.md#term-compounding_rate) is measured and shown. The [slice dispatcher](csf/docs/generated/ontology_cgen.md#term-slice_dispatcher) launches the ready slice graph within measured limits with no orchestrator. Unattended [fixer](csf/docs/generated/ontology_cgen.md#term-fixer) launch waits for sandboxed launch.
+
+**Uses:** [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), [Miner](csf/docs/generated/ontology_cgen.md#term-miner), [Pre-check](csf/docs/generated/ontology_cgen.md#term-precheck), [Fixer](csf/docs/generated/ontology_cgen.md#term-fixer), [Merge train](csf/docs/generated/ontology_cgen.md#term-merge_train), [Compounding rate](csf/docs/generated/ontology_cgen.md#term-compounding_rate), [Slice dispatcher](csf/docs/generated/ontology_cgen.md#term-slice_dispatcher)
+
+
+**Evidence:** [`services/ouroboros`](services/ouroboros), [`services/dispatch`](services/dispatch), PR #237
+
+
+
+### 7. Typed Documentation
+
+No hand-written documentation: every claim is typed data in architecture.csf and its prose is generated, this section included.
+
+**Uses:** [Compiler](csf/docs/generated/ontology_cgen.md#term-compiler), [Compile](csf/docs/generated/ontology_cgen.md#term-compile)
+
+
+**Evidence:** [`csf/compiler/language/architecture.csf`](csf/compiler/language/architecture.csf), [`docs/GLOSSARY.md`](docs/GLOSSARY.md), PR #333
+
+
+
+### 8. Post Training
+
+CSF post-trains its own model on its traces and the corrections its operator accepted, once the harness eval suite can score a post-trained model against the frozen one on the same tickets withheld from training. Until then CSF improves the harness only. Deferred by the operator on 2026-10-05; the question is csf\_staging issue 415, prompted by [NeoHorse-1](docs/GLOSSARY.md#lit-neohorse_1).
+
+**Uses:** [Ouroboros](csf/docs/generated/ontology_cgen.md#term-ouroboros), [Turn executor](csf/docs/generated/ontology_cgen.md#term-turn_executor), [Brain](csf/docs/generated/ontology_cgen.md#term-brain)
+
+
+
+
+**Cites:** [NeoHorse-1](https://arxiv.org/abs/2609.08183) ([glossary](docs/GLOSSARY.md#lit-neohorse_1))
 
 <!-- /csf:north_star correctness -->
 
@@ -190,7 +316,7 @@ computer by partitioning its [cores](csf/docs/generated/ontology_cgen.md#term-co
 
 LITHE treats inter-process communication as architecture (LITHE
 [§III-C](https://arxiv.org/html/2603.07442v1#S3.SS3)): the [Brain](csf/docs/generated/ontology_cgen.md#term-brain) and [Spine](csf/docs/generated/ontology_cgen.md#term-spine) exchange state through lock-free, zero-copy
-POSIX shared memory whose layout a build-time generator owns. Its abstract names
+POSIX shared [memory](csf/docs/generated/ontology_cgen.md#term-memory) whose layout a build-time generator owns. Its abstract names
 complex middleware as one cost of the conventional alternatives.
 
 The coordination an [agent](csf/docs/generated/ontology_cgen.md#term-agent) system needs — tools, sessions, schedules, [knowledge](csf/docs/generated/ontology_cgen.md#term-knowledge)
@@ -224,7 +350,7 @@ Figure 2 is our architectural mapping onto LITHE [[1](#ref-lithe)], drawn
 by hand; it is not generated from the architecture model. Its boundaries are exact:
 
 - PostgreSQL, [OpenSearch](csf/docs/generated/ontology_cgen.md#term-opensearch), Langfuse and external model or simulator processes
-  keep their protocol boundaries. CSF removes [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) between its own capabilities,
+  keep their [protocol](csf/docs/generated/ontology_cgen.md#term-protocol) boundaries. CSF removes [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) between its own capabilities,
   not [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) with systems that genuinely live elsewhere.
 - LITHE's [Brain](csf/docs/generated/ontology_cgen.md#term-brain)–[Spine](csf/docs/generated/ontology_cgen.md#term-spine) shared-memory [IPC](csf/docs/generated/ontology_cgen.md#term-ipc) remains a separate integration boundary.
 - CPU affinity and isolation are deployment configuration. CSF does not
@@ -309,7 +435,7 @@ flowchart LR
   n_execute["Execute (existing)"]:::csf_existing
   n_evaluate["Evaluate (existing)"]:::csf_existing
   n_save_evidence["Save evidence (existing)"]:::csf_existing
-  n_ouroboros["Ouroboros (planned)"]:::csf_planned
+  n_ouroboros["Ouroboros (existing)"]:::csf_existing
   n_select_controller["Select a controller between episodes (planned)"]:::csf_planned
   n_observe -.-> n_retrieve
   n_retrieve -.-> n_choose
@@ -319,8 +445,8 @@ flowchart LR
   n_evaluate --> n_save_evidence
   n_evaluate -.-> n_select_controller
   n_select_controller -.->|"next agent iteration"| n_choose
-  n_save_evidence -.-> n_ouroboros
-  n_ouroboros -.->|"next iteration"| n_observe
+  n_save_evidence --> n_ouroboros
+  n_ouroboros -->|"next iteration"| n_observe
   linkStyle 0 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 1 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
@@ -329,8 +455,8 @@ flowchart LR
   linkStyle 5 stroke:#0F766E,stroke-width:2px
   linkStyle 6 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 7 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
-  linkStyle 8 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
-  linkStyle 9 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 8 stroke:#0F766E,stroke-width:2px
+  linkStyle 9 stroke:#0F766E,stroke-width:2px
 ```
 <!-- /csf:diagram improvement -->
 
@@ -425,9 +551,9 @@ independence [[3]](#ref-codd):
 
 | CSF | ANSI/SPARC | Meaning |
 |---|---|---|
-| data structure (`pkg/graph`, Cell, Map, Queue) | conceptual level | the data and its operations, with no placement, locks or I/O |
-| store (`pkg/store.Store[D]`) | internal level | the physical placement of a data structure: memory (RAM), a file, or PostgreSQL; its crossing tier is derived from that backend |
-| `store places data_structure` | conceptual/internal mapping | changing a store's backend never changes code written against the data structure (physical data independence) |
+| [data structure](csf/docs/generated/ontology_cgen.md#term-data_structure) (`pkg/graph`, Cell, Map, Queue) | conceptual level | the data and its operations, with no placement, locks or I/O |
+| store (`pkg/store.Store[D]`) | internal level | the physical placement of a [data structure](csf/docs/generated/ontology_cgen.md#term-data_structure): [memory](csf/docs/generated/ontology_cgen.md#term-memory) (RAM), a file, or PostgreSQL; its crossing tier is derived from that backend |
+| `store places data_structure` | conceptual/internal mapping | changing a store's backend never changes code written against the [data structure](csf/docs/generated/ontology_cgen.md#term-data_structure) (physical data independence) |
 | view, dashboard | external level (specializes) | generated projections of typed records, not per-user schemas |
 
 *Status: operator ruling recorded 2026-10-02; `pkg/graph`, `pkg/store` and the ontology
@@ -437,18 +563,18 @@ terms are planned (source monorepo issue #366). The in-process Queue exists toda
 ### Aspects: hooks on service actions
 
 Anything that does something is a [service](csf/docs/generated/ontology_cgen.md#term-service),
-and cross-cutting behavior attaches to a [service](csf/docs/generated/ontology_cgen.md#term-service)'s actions the way aspect-oriented
-programming attaches advice to join points [[4]](#ref-aop):
+and cross-cutting behavior attaches to a [service](csf/docs/generated/ontology_cgen.md#term-service)'s [actions](csf/docs/generated/ontology_cgen.md#term-action) the way [aspect-oriented
+programming](docs/GLOSSARY.md#lit-aspect_oriented_programming) attaches advice to join points [[4]](#ref-aop):
 
-| CSF | AOP | Meaning |
+| CSF | [AOP](docs/GLOSSARY.md#lit-aspect_oriented_programming) | Meaning |
 |---|---|---|
-| action | join point | a [service](csf/docs/generated/ontology_cgen.md#term-service) operation (an RPC method); the only thing a hook attaches to |
-| hook | advice (before/after) | pre or post code on one action, supplied as a generated functional option such as `WithPreSubmit`, typed by that action's request and response |
-| pointcut | pointcut | a typed selector of actions |
-| aspect | aspect | one cross-cutting concern: a pointcut plus its hooks, e.g. the [session gate](csf/docs/generated/ontology_cgen.md#term-session_gate), telemetry, admission, the merge gate |
-| weaving (specializes) | weaving | applying aspects when the host [app](csf/docs/generated/ontology_cgen.md#term-app) composes its [services](csf/docs/generated/ontology_cgen.md#term-service); no source or bytecode rewriting |
+| [action](csf/docs/generated/ontology_cgen.md#term-action) | join point | a [service](csf/docs/generated/ontology_cgen.md#term-service) operation (an RPC method); the only thing a [hook](csf/docs/generated/ontology_cgen.md#term-hook) attaches to |
+| [hook](csf/docs/generated/ontology_cgen.md#term-hook) | advice (before/after) | pre or post code on one [action](csf/docs/generated/ontology_cgen.md#term-action), supplied as a generated functional option such as `WithPreSubmit`, typed by that [action](csf/docs/generated/ontology_cgen.md#term-action)'s request and response |
+| [pointcut](csf/docs/generated/ontology_cgen.md#term-pointcut) | [pointcut](csf/docs/generated/ontology_cgen.md#term-pointcut) | a typed selector of [actions](csf/docs/generated/ontology_cgen.md#term-action) |
+| [aspect](csf/docs/generated/ontology_cgen.md#term-aspect) | [aspect](csf/docs/generated/ontology_cgen.md#term-aspect) | one cross-cutting concern: a [pointcut](csf/docs/generated/ontology_cgen.md#term-pointcut) plus its [hooks](csf/docs/generated/ontology_cgen.md#term-hook), e.g. the [session gate](csf/docs/generated/ontology_cgen.md#term-session_gate), telemetry, admission, the merge gate |
+| [weaving](csf/docs/generated/ontology_cgen.md#term-weaving) (specializes) | [weaving](csf/docs/generated/ontology_cgen.md#term-weaving) | applying [aspects](csf/docs/generated/ontology_cgen.md#term-aspect) when the host [app](csf/docs/generated/ontology_cgen.md#term-app) composes its [services](csf/docs/generated/ontology_cgen.md#term-service); no source or bytecode rewriting |
 
-An action CSF does not execute itself, such as `git commit`, enters through an
+An [action](csf/docs/generated/ontology_cgen.md#term-action) CSF does not execute itself, such as `git commit`, enters through an
 adapter [service](csf/docs/generated/ontology_cgen.md#term-service) whose operation is the join point.
 
 *Status: operator ruling recorded 2026-10-02; the generated options and ontology
@@ -504,6 +630,39 @@ primitives usable on their own:
 | [`widget`](pkg/widget) | The [widget](csf/docs/generated/ontology_cgen.md#term-widget) dialect and its toolchain: interpreter, validator, generator, and the typed SDK that [mounts](csf/docs/generated/ontology_cgen.md#term-mount) generated cards into a [gotth-live](csf/docs/generated/ontology_cgen.md#term-gotth_live) host. |
 
 `pkg/proto` and `pkg/scripts` hold tooling rather than a package.
+
+<!-- csf:components components -->
+| Component | Kind | Home | Definition |
+|-----------|------|------|------------|
+| Ouroboros | component | `planned 355` | Use evaluated results to propose the next version of an agent's instructions or an allowed workflow.... |
+| Brain | component | `planned 346` | An agent loop over a large model, reached through an inference provider or API. Brains are external ... |
+| Agent | component | `planned 346` | A named worker: versioned instructions plus a live conversation session, holding assignments and rec... |
+| Work continuity | component | `candace/services/workcontinuity` | The task checkpoint service at candace/services/workcontinuity. It reads, validates and records chec... |
+| Workbench conversation session | component | `candace/services/harness` | A conversation and its execution records under a stable identifier. CSF stores Workbench sessions; t... |
+| Host runtime | component | `candace/runtime` | The runtime in source: candace/runtime.HostRuntime, one per process. The binary's main function buil... |
+| gotth-live | component | `candace/pkg/gotth` | The required owner of widgets and their web interaction. It belongs to CSF's web layer and runs with... |
+| gotth-live service | component | `candace/pkg/gotth` | The in-process capability that manages live UI connections and their goroutines for a host app. Its ... |
+| Deploy | component | `candace/services/deploy` | The deployment control plane: desired state, placement, operator approval, reconciliation against Wa... |
+| Node executor | component | `candace/app/nodeexec` | The service that applies one approved Compose assignment on one machine under a leader fence. It is ... |
+| Agent harness | component | `candace/services/harness` | The service that runs agent sessions: one process per machine runs every session concurrently, each ... |
+| Infrastructure kit | component | `candace/infra` | Deployment material that is not Go: Compose files, installers and shell drivers under candace/infra.... |
+| Deployment kit | component | `candace/infra/deploy-kit` | candace/infra/deploy-kit: the Compose files, installer, fleet driver and deploy-updater scripts that... |
+| Database backends | component | `candace/ipc/db` | ipc/db: one package per database backend CSF reaches, named csf&lt;backend&gt; (csfpg for PostgreSQL; a la... |
+| CSF PostgreSQL backend | component | `candace/ipc/db/csfpg` | candace/ipc/db/csfpg: CSF's PostgreSQL backend: the only pool owner, the schema's generated queries ... |
+| Model providers | component | `candace/ipc/model` | The ipc subtree ipc/model: the brain contract IBrain and the brain providers behind it, one subpacka... |
+| Copilot provider package | component | `candace/ipc/model/copilot` | The package ipc/model/copilot that implements the brain contract over the Copilot brain provider (ve... |
+| Claude Code provider | component | `candace/ipc/model/claudecode` | The ipc/model provider for Claude Code sessions, each an agent loop in its own process on the same m... |
+| Turn executor | component | `planned 346` | A turn executor is the external agent loop that carries out one turn: Claude Code, Codex, Copilot, w... |
+| Relay | component | `candace/services/relay` | The agent messaging service: it delivers typed envelopes from one agent address to another agent's i... |
+| Event intake | component | `candace/services/intake` | The service candace/services/intake: GitHub activity as the typed candace.intake.v1.Event. Its webho... |
+| Compiler | component | `candace/csf/compiler` | The CSF OCaml compilers under csf/compiler: the documentation language, the architecture checker and... |
+| ROS spine capability | component | `candace/ipc/ros` | candace/ipc/ros: the ISpine boundary through which CSF submits an Action to the external ROS-side sp... |
+| Job ledger | component | `candace/services/jobs` | candace/services/jobs: the durable record of requests admitted to external executors. The ledger is ... |
+| Cron | component | `candace/services/cron` | The cron service, candace/services/cron: the durable in-process scheduler that mounts into the host ... |
+| Session gate | component | `candace/services/harness/sessiongate` | A structural check the harness installs into every session it runs, as a hook the turn executor call... |
+| Recall | component | `planned 365` | Cross-session agent knowledge: retrieved when a new session resumes an agent's work. A capability se... |
+| Human zone | component | `candace/humans` | The operator interface and decisions, separate from CSF's automated runtime. Terms and operations wi... |
+<!-- /csf:components components -->
 
 ## 5. Quick start
 
@@ -599,7 +758,7 @@ Cite a tag, not a branch.
 
 ### Consume it in 60 seconds
 
-Releases are published on `candacelabs/csf`; the current one is `v0.2.9`. For a
+Releases are published on `candacelabs/csf`; the current one is `v0.3.0`. For a
 private staging release, download the release assets with authenticated access
 and use the
 [verified local-archive consumer](examples/csf-consumer#copy-into-your-own-go-repository).
@@ -636,7 +795,7 @@ archive_override(
     module_name = "csf",
     integrity = "sha256-...",          # base64 SRI output from the command above
     strip_prefix = "csf-<sha12>",
-    urls = ["https://github.com/candacelabs/csf/releases/download/v0.2.9/csf-<sha12>.tar.gz"],
+    urls = ["https://github.com/candacelabs/csf/releases/download/v0.3.0/csf-<sha12>.tar.gz"],
 )
 ```
 
@@ -648,7 +807,7 @@ deploy [service](csf/docs/generated/ontology_cgen.md#term-service) sits at `serv
 Not a Bazel repository? The module path is the repository path:
 
 ```bash
-go get github.com/candacelabs/csf@v0.2.9
+go get github.com/candacelabs/csf@v0.3.0
 ```
 
 Use the published semantic version matching your archive, not `@latest`.
@@ -767,7 +926,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.9},
+  version = {0.3.0},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }
@@ -793,7 +952,7 @@ Communications of the ACM 13(6):377–387, 1970. <https://doi.org/10.1145/362384
 <a id="ref-aop"></a>
 
 **[4]** G. Kiczales, J. Lamping, A. Mendhekar, C. Maeda, C. Lopes, J.-M. Loingtier and
-J. Irwin. *Aspect-oriented programming.* ECOOP '97, LNCS 1241, pp. 220–242, 1997.
+J. Irwin. *[Aspect-oriented programming](docs/GLOSSARY.md#lit-aspect_oriented_programming).* ECOOP '97, LNCS 1241, pp. 220–242, 1997.
 <https://doi.org/10.1007/BFb0053381>
 
 <a id="ref-raft"></a>
@@ -804,7 +963,7 @@ J. Irwin. *Aspect-oriented programming.* ECOOP '97, LNCS 1241, pp. 220–242, 19
 
 <a id="ref-xet"></a>
 
-**[6]** Hugging Face. *xet-core: the Xet storage protocol, client and content-addressed
+**[6]** Hugging Face. *xet-core: the Xet storage [protocol](csf/docs/generated/ontology_cgen.md#term-protocol), client and content-addressed
 chunk format.* <https://github.com/huggingface/xet-core>
 
 <a id="ref-git-lfs"></a>

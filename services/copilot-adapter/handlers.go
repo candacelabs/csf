@@ -3,11 +3,16 @@ package copilotadapter
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/candacelabs/csf/pkg/httpserver"
+	adapterconfig "github.com/candacelabs/csf/services/copilot-adapter/config"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 )
 
@@ -192,4 +197,30 @@ func renderFailures(next api.StrictHandlerFunc, operationID string) api.StrictHa
 }
 func errorBody(code string, message string) api.Error {
 	return api.Error{Code: code, Message: message}
+}
+
+func (handler *apiHandlers) streamSessionEvents(ginContext *gin.Context, sessionID uuid.UUID, afterSeq int64) {
+	ctx := ginContext.Request.Context()
+	cursor := afterSeq
+	ticker := time.NewTicker(adapterconfig.EventStreamPollInterval(handler.service.config))
+	defer ticker.Stop()
+	httpserver.EventStream(ginContext, func(writer io.Writer) bool {
+		page, err := handler.service.sessionEvents(ctx, sessionID, cursor)
+		for _, frame := range page.Frames {
+			if err := httpserver.EncodeEvent(writer, strconv.FormatInt(frame.Seq, 10), frame.Event); err != nil {
+				return false
+			}
+		}
+		// A later corrupt row must not discard the valid prefix already read.
+		if err != nil {
+			return false
+		}
+		cursor = page.AfterSeq
+		select {
+		case <-ctx.Done():
+			return false
+		case <-ticker.C:
+			return true
+		}
+	})
 }

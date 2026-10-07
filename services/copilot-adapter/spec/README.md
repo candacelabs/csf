@@ -3,7 +3,7 @@
 [`generate_sdk_openapi.py`](generate_sdk_openapi.py) produces a local
 **reference** OpenAPI 3.1 document from an installed Copilot CLI's JSON schemas.
 The derived document and upstream schemas are not included in this public
-snapshot. The reference describes the JSON-RPC protocol used over stdio; it is
+snapshot. The reference describes the JSON-RPC [protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol) used over stdio; it is
 not a Go code-generation input. The adapter's own HTTP contract is
 [`../openapi.yaml`](../openapi.yaml).
 
@@ -95,7 +95,7 @@ is that method's `params` member, the `200` body is the `result` member, and the
 `stdio://copilot` to make it obvious this is not a network API. Operations are
 tagged by group (`server`, `session`, `clientSession`, `clientGlobal`); the two
 `client*` groups are **reverse** calls — the CLI calling the SDK client — which
-is where tool invocation, hooks, permission prompts, user input and plan-mode
+is where tool invocation, [hooks](../../../csf/docs/generated/ontology_cgen.md#term-hook), permission prompts, user input and plan-mode
 round-trips live.
 
 ## Lint
@@ -108,7 +108,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp -e npm_config_cache=/tmp
 ```
 
 The recorded check produced **0 errors, 526 warnings**. Both warning classes arise from describing a
-JSON-RPC protocol in an HTTP vocabulary and are not defects to fix:
+JSON-RPC [protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol) in an HTTP vocabulary and are not defects to fix:
 
 - `operation-4xx-response` (341, one per method): JSON-RPC has no status codes.
   Every failure arrives as the `error` member, which the spec models once as the

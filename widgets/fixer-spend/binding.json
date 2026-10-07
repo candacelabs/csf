@@ -1,0 +1,9 @@
+{
+  "stream": "spendWatch",
+  "fields": [
+    {"wire": "day", "path": "day"},
+    {"wire": "spend_today", "path": "fixers.spend_today_usd"},
+    {"wire": "cap", "path": "fixers.budget_usd"},
+    {"wire": "sessions", "path": "fixers.sessions"}
+  ]
+}

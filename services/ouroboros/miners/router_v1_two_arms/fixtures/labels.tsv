@@ -1,0 +1,4 @@
+# instance	label	start	flagged	source
+0811bf5b-e134-474f-bba0-9a7b85b0ad10	-	2026-10-03T01:00:00Z	-	valid arms (attach_warm, attach_topic)
+252552ad-e50f-49c1-a3df-782a8805b5bb	+	2026-10-03T02:00:00Z	-	invalid arm (attach)
+3321228e-c5d5-4563-979f-fd619237838e	+	2026-10-03T03:00:00Z	-	invalid arm (new)

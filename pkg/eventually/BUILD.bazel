@@ -2,7 +2,10 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "eventually",
-    srcs = ["eventually.go"],
+    srcs = [
+        "eventually.go",
+        "until.go",
+    ],
     importpath = "github.com/candacelabs/csf/pkg/eventually",
     visibility = ["//visibility:public"],
     deps = [
@@ -17,6 +20,7 @@ go_test(
         "eventually_suite_test.go",
         "eventually_test.go",
         "export_test.go",
+        "until_test.go",
     ],
     embed = [":eventually"],
     deps = [

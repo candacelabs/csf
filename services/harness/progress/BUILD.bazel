@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "progress",
+    srcs = [
+        "progress.go",
+        "read.go",
+        "work.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/progress",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/ipc/proc",
+        "//io/kernel/fs",
+        "//pkg/textbound",
+        "//proto/candace/harness/v1:harness",
+        "//services/harness/session",
+    ],
+)
+
+go_test(
+    name = "progress_test",
+    srcs = [
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+        "progress_suite_test.go",
+        "progress_test.go",
+        "read_test.go",
+    ],
+    deps = [
+        ":progress",
+        "//io/ipc/proc",
+        "//io/kernel/fs",
+        "//proto/candace/harness/v1:harness",
+        "//services/harness/session",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

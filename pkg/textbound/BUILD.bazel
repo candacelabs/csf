@@ -1,0 +1,18 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "textbound",
+    srcs = ["textbound.go"],
+    importpath = "github.com/candacelabs/csf/pkg/textbound",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "textbound_test",
+    srcs = ["textbound_test.go"],
+    deps = [
+        ":textbound",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

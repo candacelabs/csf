@@ -1,0 +1,231 @@
+// golden_first, example 1 — the service kinds, and the email instance being
+// reverse-ported from services/email (issue #488, program describe_system).
+// This is step 1 of the method: declare.
+//
+// The kind/instance declaration is a proposed production for
+// csf/compiler/language/grammar.ebnf. csfc's shell reads the instance blocks
+// (service, operation, capability) and emits the three capability files from
+// them; the kind blocks below are stated here whole as in blah.csf beside it.
+// The kinds are the program's (`kind capability`, `kind outcome`,
+// `kind operation`, `kind service`). The retained-region asks at the foot use
+// the decision vocabulary `question` and `option` that #520 declares in the
+// meta language.
+//
+// There are no holes and no hand-written logic: an operation declares its body
+// as `logic` rules, an outcome declares its `when` rule or is `otherwise`, and
+// the generator emits every file. email is reverse-ported from a service that
+// already ships, so the retained behaviour — address validation, the receipt
+// evidence sequence, outcome classification — is declared here or asked as a
+// typed `question` whose preferred `option` names the kind it needs, never
+// left in a seam.
+//
+// Scope of this slice: steps 1 (declare), 2 (handwrite) and 4 (generate) for
+// the three capability files and their test files. The capability blocks
+// declare every fact the generator emits -- contract, method, import,
+// missing-boundary error, option and the noun the misuse spec names the
+// boundary by -- so transport.go, provenance.go and receipts.go and their
+// *_test.go gomock doubles are csfc output pinned byte-for-byte by the shell
+// golden test. Step 5 (replace) for the remaining files (email.go, send.go and
+// their tests) does not start until the operator approves the golden in
+// services/email.
+
+// One io capability per host dependency: the shape the host binds, never a
+// value the service invents. It is a kind, not an inline field: each capability
+// is declared once and reasoned about on its own. The contract interface, its
+// one method, the import it needs, the error a missing boundary returns, the
+// option that sets it and the noun the misuse spec names the boundary by are
+// declared fields, so the generated file is a projection of the declaration and
+// never an invention.
+kind capability {
+  name           identifier;
+  noun           text(max: 40);
+  purpose        text(max: 120);
+  io             smtp | runtime | file | text;
+  contract       identifier;
+  method         text(max: 200);
+  import         identifier, text;
+  missing        identifier, text, text;
+  interface_doc  [text];
+  option         identifier, identifier, text;
+  doc            [text];
+}
+
+// One bounded outcome an operation can produce. An outcome is declared by its
+// `when` rule, or is the `otherwise` default; the generated classifier is the
+// ordered list of these clauses. It is a kind, not an inline tuple.
+kind outcome {
+  name  identifier;
+  when  rule | otherwise;
+}
+
+// One operation is a named input, a named output, the bounded outcomes it can
+// produce, and the rules that produce them. Nothing is left to a seam: the
+// `logic` rules are the operation body the generator emits.
+kind operation {
+  name      identifier;
+  input     record;
+  output    record;
+  outcomes  [outcome];
+  logic     [rule];
+}
+
+kind service {
+  purpose     text(max: 120);
+  lifecycle   scoped | lazy | borrowed;
+  host        application;
+  capability  [capability];
+  op          [operation];
+  stores      [table] | none;
+  calls       [rest_client] | none;
+  config      record | none;
+  logic       [rule];                    // config validation, declared
+  template    "services";
+}
+
+// The decision vocabulary #520 declares in the meta language
+// (csf/compiler/language/meta.csf, commit fbc7d59 on dev/kinds-declared): a
+// question is the one declaration the CSF language, the decision tree, the
+// directory tree and the CLI project from, and an option is one branch of it. A
+// retained region the declaration cannot yet express as a rule is asked as one
+// question; the kind the region needs is the option it branches to, and what
+// the reverse-port actually did is that option's preferred spelling.
+// golden(email) holds only when every retained region is declared above or
+// asked below.
+kind question {
+  region  identifier;        // the retained region the ask is about
+  text    text(max: 160);
+}
+kind option {
+  question  question;        // the question this option branches from
+  preferred text(max: 160);  // what the reverse-port actually did
+}
+
+// The email service: deliver one bounded message and retain receipt evidence.
+// Every boundary it needs is a capability the host configures; send is the one
+// operation, and the three bounded outcomes are its classification.
+service email {
+  purpose     "Deliver one bounded email message and retain receipt evidence.";
+  lifecycle   scoped;
+  host        deploy;
+  type        mailer;
+  capability  [transport, provenance, receipts];
+  op          [send];
+  stores      none;
+  calls       none;
+  config      record(Sender, Recipients, Clock);
+  logic       [config invalid when from = "" | to = [] | header has CRLF | not parse(from) | not parse(to) | gt(len(to), max_recipients)];
+  template    "services";
+}
+
+// The one operation, send: a named input, a named output, its three bounded
+// outcomes, and the receipt-evidence sequence the generator emits as its body.
+operation send {
+  name      send;
+  input     EmailMessage;
+  output    EmailReceipt;
+  outcome   accepted when delivery = accepted;
+  outcome   failed   when delivery = failed;
+  outcome   unknown  otherwise;
+  logic     [
+    receipt.before = receipts.record(presend(provenance.snapshot(), now)),
+    delivery       = transport.send(render(message)),
+    receipt.after  = receipts.record(final(receipt.before, delivery)),
+  ];
+}
+
+// One io capability per host dependency, each the shape the host binds. The
+// contract interface, its one method, the import it needs, the error a missing
+// boundary returns, the option that sets it and the noun the misuse spec names
+// the boundary by are all declared: the generator emits the capability's file
+// as a projection of these facts.
+capability transport {
+  name           transport;
+  noun           "transport";
+  purpose        "Deliver one complete RFC 5322 message; ACCEPTED means accepted, not delivered.";
+  io             smtp;
+  contract       ITransport;
+  method         "Send(ctx context.Context, message []byte) (emailv1.DeliveryOutcome, error)";
+  import         emailv1 "github.com/candacelabs/csf/proto/candace/email/v1";
+  missing        ErrNoTransport "email: transport is required" "no delivery transport was configured";
+  interface_doc  ["delivers one complete RFC 5322 message. ACCEPTED means the", "transport accepted the message; it does not prove inbox delivery."];
+  option         WithTransport transport "configures the delivery boundary";
+  doc            ["The host chooses the transport;", "the service never invents one."];
+}
+capability provenance {
+  name           provenance;
+  noun           "provenance source";
+  purpose        "Observe the runtime facts attached to one send attempt.";
+  io             runtime;
+  contract       IProvenanceSource;
+  method         "Snapshot(ctx context.Context) (*provenancev1.ReceiptMetadata, error)";
+  import         provenancev1 "github.com/candacelabs/csf/proto/candace/provenance/v1";
+  missing        ErrNoProvenance "email: provenance source is required" "no runtime provenance source was configured";
+  interface_doc  ["observes the runtime facts attached to one send attempt.", "The service clones the returned message before assigning receipt-owned", "fields."];
+  option         WithProvenance source "configures the trusted runtime observation boundary";
+}
+capability receipts {
+  name           receipts;
+  noun           "receipt sink";
+  purpose        "Retain bounded receipt evidence keyed by receipt id.";
+  io             file;
+  contract       IReceiptSink;
+  method         "Record(ctx context.Context, receipt *emailv1.EmailReceipt) error";
+  import         emailv1 "github.com/candacelabs/csf/proto/candace/email/v1";
+  missing        ErrNoReceiptSink "email: receipt sink is required" "no receipt evidence sink was configured";
+  interface_doc  ["retains bounded receipt evidence. A later record with the same", "receipt id is the final replacement for the pre-send attempt."];
+  option         WithReceiptSink sink "configures receipt evidence retention";
+}
+
+// The retained regions the declaration covers as rules: send's logic and its
+// three when/otherwise outcomes, and the config `logic` rule above. The four
+// below are the ones it cannot yet express; each is a question whose preferred
+// option names the kind the region needs.
+question parse_addresses {
+  region  parse_addresses;
+  text    "Which primitive parses and bounds one RFC 5322 address and rejects a header injection?";
+}
+option address_validation {
+  question  parse_addresses;
+  preferred "net/mail.ParseAddress with CR/LF, @, and length bounds";
+}
+question render_message {
+  region  render_message;
+  text    "Which primitive serializes one bounded message into a complete RFC 5322 message?";
+}
+option message_renderer {
+  question  render_message;
+  preferred "hand-built header lines plus message.GetText()";
+}
+question receipt_evidence {
+  region  receipt_evidence;
+  text    "Which primitive assembles pre-send and final receipt evidence without inventing facts?";
+}
+option receipt_assembly {
+  question  receipt_evidence;
+  preferred "proto.Clone, sha256 digest, timestamppb and errors.Join fallback";
+}
+question normalize_outcome {
+  region  normalize_outcome;
+  text    "Which rule maps a transport's invalid outcome to the bounded unknown outcome?";
+}
+option outcome {
+  question  normalize_outcome;
+  preferred "an explicit when delivery = unspecified clause";
+}
+
+// The generated file's edges in the architecture graph: one component, the one
+// shared primitive it reuses, a local call depth, and what it exposes.
+architecture email {
+  component email;
+  requires  pkg/telemetry;
+  connect   depth(1).layout(local).pattern(call);
+  scan      expose();
+}
+
+// The service's own directory, and what it may hold.
+directory "services/email" {
+  tier     in_process;
+  role     source;
+  owner    component;
+  allowed  [go, go_test, md, bazel];
+}

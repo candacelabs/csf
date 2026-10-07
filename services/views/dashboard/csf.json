@@ -1,0 +1,2009 @@
+{
+  "uid": "csf",
+  "title": "CSF",
+  "tags": [
+    "csf"
+  ],
+  "editable": false,
+  "schemaVersion": 41,
+  "timezone": "utc",
+  "refresh": "1m",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "description": "CSF's own measurements, exported by csf serve at /metrics. Every panel's description carries the definition of each metric it queries; tools/metricpanels fails the merge path on a metric without a panel or a panel without a metric.",
+  "templating": {
+    "list": [
+      {
+        "name": "class",
+        "label": "correction class",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "csf-prometheus"
+        },
+        "query": {
+          "query": "label_values(csf_operator_corrections_total, class)",
+          "refId": "class"
+        },
+        "definition": "label_values(csf_operator_corrections_total, class)",
+        "refresh": 2,
+        "includeAll": true,
+        "multi": true,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Sessions and spend",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      }
+    },
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Sessions by phase",
+      "description": "How many sessions are in each phase now. csf_sessions: Agent sessions this host holds, by phase (starting, running, open, canceling, canceled, failed, closed), read from the session service at each scrape.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (phase) (csf_sessions)",
+          "legendFormat": "{{phase}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "Turns per day, by agent",
+      "description": "Turns finished in the 24 hours before each point. csf_session_turns_total: Turns finished: the result records in each run's events.jsonl.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 1
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (agent) (increase(csf_session_turns_total[1d]))",
+          "legendFormat": "{{agent}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Tokens per day, by kind",
+      "description": "Tokens the turns of the 24 hours before each point used, by kind. csf_tokens_total: Tokens by kind (uncached, cache_write, cache_read, output), summed over the per-turn usage of each run's result records.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (kind) (increase(csf_tokens_total[1d]))",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Spend per day, by model",
+      "description": "US dollars spent in the 24 hours before each point. csf_cost_usd_total: Executor-reported spend in US dollars: total_cost_usd is cumulative within one executor process, so each result record adds its rise over the previous one, or its whole value after the process restarted.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (model) (increase(csf_cost_usd_total[1d]))",
+          "legendFormat": "{{model}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "bargauge",
+      "title": "Spend in the last 24 hours, by slice",
+      "description": "The ten slices and agents that spent most in the last 24 hours. csf_cost_usd_total: Executor-reported spend in US dollars: total_cost_usd is cumulative within one executor process, so each result record adds its rise over the previous one, or its whole value after the process restarted.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 17
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "topk(10, sum by (slice, agent) (increase(csf_cost_usd_total[24h])))",
+          "legendFormat": "{{slice}} {{agent}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Admission: worker cap and hold",
+      "description": "How many sessions the host admits at once, and whether housekeeping holds admission. csf_admission_worker_cap: Sessions the host admits at once, max(1, floor(cores - 1-minute load)), from the harness launch check. csf_admission_held: 1 while housekeeping holds session admission, otherwise 0.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 17
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_admission_worker_cap",
+          "legendFormat": "worker cap",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_admission_held",
+          "legendFormat": "held",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Free disk against the admission floor",
+      "description": "Free disk and the floor below which the launch check fails. csf_admission_free_disk_bytes: Free bytes on the state directory's filesystem, from the harness launch check. csf_admission_disk_floor_bytes: Free-disk floor of the harness launch check: twice the largest run directory.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 25
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_admission_free_disk_bytes",
+          "legendFormat": "free",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_admission_disk_floor_bytes",
+          "legendFormat": "floor",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Dispatch queue",
+      "description": "Slices queued, held and running. csf_dispatch_slices: Slices in the dispatcher's snapshot by state: queued, held and running.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 25
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (state) (csf_dispatch_slices)",
+          "legendFormat": "{{state}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Dispatch limits: launches remaining",
+      "description": "Launches each bounded limit still allows. csf_dispatch_limit_remaining: Launches each bounded dispatch limit (harness, budget, rate) still allows, from the dispatcher's snapshot.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 33
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_dispatch_limit_remaining",
+          "legendFormat": "{{limit}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Gate decisions per day",
+      "description": "Session gate decisions in the 24 hours before each point. csf_gate_decisions_total: Session gate decisions recorded in each run's events.jsonl, by gate (wait, ready, commit, reply) and decision.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 33
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (gate, decision) (increase(csf_gate_decisions_total[1d]))",
+          "legendFormat": "{{gate}} {{decision}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Reply-gate refusals per day, by rule",
+      "description": "Replies refused in the 24 hours before each point. csf_reply_gate_refusals_total: Replies the reply gate refused, counted once for each rule the refusal names (research_check, commitment).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 41
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (rule) (increase(csf_reply_gate_refusals_total[1d]))",
+          "legendFormat": "{{rule}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 37,
+      "type": "timeseries",
+      "title": "Host pressure and held resumes",
+      "description": "Whether the host stalls, and how many open runs a restart holds until admission frees. csf_host_pressure_some_avg10: Percent of the last 10 s in which some task waited for the resource (cpu, memory or io), from the kernel's pressure stall information. csf_resumes_held: Open runs the last restart still holds because the launch check does not admit them, from the resume queue.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 41
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_host_pressure_some_avg10",
+          "legendFormat": "{{resource}} pressure %",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_resumes_held",
+          "legendFormat": "resumes held",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 101,
+      "type": "row",
+      "title": "Improvement loop",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Struggles per 1k tool calls, this week",
+      "description": "The customer unit: it must fall. Backfilled points carry the rate measured through the previous day. csf_struggle_rate_per_1k_tool_calls: Struggle episodes (tool errors, permission denials, retries) per 1,000 tool calls over the current week or day of every run's events.jsonl (ouroboros.Struggles), with its 95% Garwood interval as bound low and high.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 50
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_struggle_rate_per_1k_tool_calls{period=\"week\"}[1h])",
+          "legendFormat": "week {{bound}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_struggle_rate_per_1k_tool_calls{period=\"day\",bound=\"rate\"}[1h])",
+          "legendFormat": "day",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Compounding factor of the struggle rate",
+      "description": "Below 1 the struggle rate is falling; the baseline to beat is x1.156 per week. csf_compounding_factor: Per-period factor of the struggle rate: exp of the struggle-weighted log-linear slope over the periods with at least one struggle and 200 tool calls, with its 95% interval; below 1 is improvement, and it needs 3 such periods.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 50
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_compounding_factor{period=\"week\"}[1h])",
+          "legendFormat": "per week {{bound}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_compounding_factor{period=\"day\",bound=\"rate\"}[1h])",
+          "legendFormat": "per day",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "Prompt-cache hit ratio (h_fleet)",
+      "description": "scope=fleet is h_fleet; the other rows are per real session. csf_harness_cache_hit_ratio: Share of submitted input tokens read from the prompt cache.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 58
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_harness_cache_hit_ratio{scope=\"fleet\"}",
+          "legendFormat": "h_fleet",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Prompt-cache writes",
+      "description": "Tokens written to the cache over every measured run. csf_harness_cache_creation_tokens: Input tokens written to the prompt cache.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 58
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_harness_cache_creation_tokens{scope=\"fleet\"}",
+          "legendFormat": "fleet",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "First-turn share of cache writes",
+      "description": "Where cold starts pay for the whole prefix. csf_harness_cache_first_turn_creation_share: Share of cache creation paid by first turns.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 66
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_harness_cache_first_turn_creation_share",
+          "legendFormat": "first turns",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "Sessions measured for the cache",
+      "description": "Virtual sessions are runs; real sessions are executor conversations. csf_harness_cache_sessions: Virtual and real sessions measured.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 66
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_harness_cache_sessions",
+          "legendFormat": "{{scope}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "Routing decisions",
+      "description": "Whether a turn attached to a warm conversation or started fresh. csf_harness_routing_decisions: Routing decisions recorded, by arm and reason.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 74
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (arm, reason) (csf_harness_routing_decisions)",
+          "legendFormat": "{{arm}} {{reason}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 102,
+      "type": "row",
+      "title": "Ontology alignment",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 82
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "Ontology alignment score",
+      "description": "Lower is better; each step is a merge. csf_ontology_alignment_score: Ontology alignment score after the latest merged pull request whose body reports one (the after value of its Ontology score line); lower is better.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 83
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_ontology_alignment_score[1h])",
+          "legendFormat": "score",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "Ontology alignment signals",
+      "description": "The counts the score weighs. csf_ontology_alignment_signal: Count of each ontology alignment signal after the latest merged pull request whose body reports the signal table.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 83
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_ontology_alignment_signal[1h])",
+          "legendFormat": "{{signal}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "type": "timeseries",
+      "title": "Merges per day, by slice",
+      "description": "Pull requests merged into main in the 24 hours before each point. csf_merges_total: Pull requests merged into main, from GitHub's list of merged pull requests; slice is the title's leading slice name.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 91
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (slice) (increase(csf_merges_total[1d]))",
+          "legendFormat": "{{slice}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 103,
+      "type": "row",
+      "title": "Orchestrator quality",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 99
+      }
+    },
+    {
+      "id": 22,
+      "type": "timeseries",
+      "title": "Operator corrections per merged slice",
+      "description": "Always read beside merged slices per operator-attention hour, so it cannot be lowered by doing less or by asking more. The first point (2026-10-04 03:00Z to 2026-10-05 02:05Z, 15 corrections against 8 merged slices) is hand-labeled from #124 until AFFECT types corrections. csf_operator_corrections_total: Operator corrections: distinct mistakes the operator flagged, by class; source hand_labeled is the hand-labeled window in corrections.json, classed by the ticket or gate that owns the class; source affect is every correction pkg/affect reads, classed by its failure code (#417) once the ouroboros codes verb has coded it and uncoded until then. csf_merges_total: Pull requests merged into main, from GitHub's list of merged pull requests; slice is the title's leading slice name.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 100
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum(increase(csf_operator_corrections_total[1d])) / sum(increase(csf_merges_total[1d]))",
+          "legendFormat": "corrections per merged slice",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "type": "timeseries",
+      "title": "Merged slices per operator-attention hour",
+      "description": "The other half of the pair: the hand-labeled window counts 7 attention hours. csf_merges_total: Pull requests merged into main, from GitHub's list of merged pull requests; slice is the title's leading slice name. csf_operator_attention_hours_total: Operator-attention hours: distinct UTC hours holding at least one operator-authored message, from the runs' send records (source runs) or hand-counted for the corrections.json window (source hand_labeled).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 100
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum(increase(csf_merges_total[1d])) / sum(increase(csf_operator_attention_hours_total[1d]))",
+          "legendFormat": "merged slices per attention hour",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 24,
+      "type": "timeseries",
+      "title": "Operator corrections, class $class",
+      "description": "One panel per class of correction, repeated over the class variable: the class names the failure code, gate or ticket that owns it, so a rising panel is a failing gate and the largest class is the next gate to build. csf_operator_corrections_total: Operator corrections: distinct mistakes the operator flagged, by class; source hand_labeled is the hand-labeled window in corrections.json, classed by the ticket or gate that owns the class; source affect is every correction pkg/affect reads, classed by its failure code (#417) once the ouroboros codes verb has coded it and uncoded until then.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 108
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (source) (last_over_time(csf_operator_corrections_total{class=~\"$class\"}[1y]))",
+          "legendFormat": "{{source}}",
+          "refId": "A"
+        }
+      ],
+      "repeat": "class",
+      "repeatDirection": "h",
+      "maxPerRow": 4
+    },
+    {
+      "id": 25,
+      "type": "timeseries",
+      "title": "Questions to the operator per day, by verdict",
+      "description": "The question gate (#145) judges each question an agent asks. csf_harness_questions_total: Questions agents put to the operator, by the gate that judged them, their class and verdict.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 108
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (gate, verdict) (increase(csf_harness_questions_total[1d]))",
+          "legendFormat": "{{gate}} {{verdict}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 26,
+      "type": "timeseries",
+      "title": "Refused questions the operator wanted",
+      "description": "A rising line is the question gate refusing what the operator wanted asked. csf_harness_question_overrides_total: Sends by which the operator said they wanted a question the question gate refused.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 116
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "increase(csf_harness_question_overrides_total[1d])",
+          "legendFormat": "overrides",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Operator rulings: total and UNENFORCED (RULINGS)",
+      "description": "Every ruling in force and the ones no gate enforces; unenforced is driven to 0 by gating rulings, never by recording fewer. csf_rulings_in_force: Operator rulings in force, from the harness's ruling records, by whether a gate enforces them (enforced) or none does (unenforced).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 116
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum(csf_rulings_in_force)",
+          "legendFormat": "rulings",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_rulings_in_force{enforcement=\"unenforced\"}",
+          "legendFormat": "UNENFORCED",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 104,
+      "type": "row",
+      "title": "Hypervisor",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 124
+      }
+    },
+    {
+      "id": 27,
+      "type": "timeseries",
+      "title": "Hypervisor cost events per day, by operation",
+      "description": "How often each session operation happens. csf_hypervisor_cost_events_total: Hypervisor cost events (#353): one per session operation (warm or cold turn, bind, rebind, model flip, idle close, reopen, keep-alive), derived from every run's records by services/harness/costs, by operation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 125
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (operation) (increase(csf_hypervisor_cost_events_total[1d]))",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 28,
+      "type": "timeseries",
+      "title": "Hypervisor spend per day, by operation",
+      "description": "What each kind of session operation cost in the 24 hours before each point. csf_hypervisor_cost_usd_total: US dollars the hypervisor cost events (#353) price, at the per-model prices services/harness/costs fits from the record, by operation.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 125
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (operation) (increase(csf_hypervisor_cost_usd_total[1d]))",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 29,
+      "type": "timeseries",
+      "title": "Information density",
+      "description": "Plugs in when #348 lands. csf_information_density: Information density of a session's turns; no samples until slice #348 lands.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 133
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_information_density",
+          "legendFormat": "{{agent}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 105,
+      "type": "row",
+      "title": "Build",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 141
+      }
+    },
+    {
+      "id": 30,
+      "type": "timeseries",
+      "title": "Merge checks per day, by outcome",
+      "description": "Ready and merge actions run the merge path's checks. csf_merge_checks_total: Ready and merge control actions on sessions, each of which runs the merge path's checks, by outcome (ok, failed), from each run's events.jsonl.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 142
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (action, outcome) (increase(csf_merge_checks_total[1d]))",
+          "legendFormat": "{{action}} {{outcome}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 31,
+      "type": "bargauge",
+      "title": "Bazel build wall time by arm (BAZEL-RAM)",
+      "description": "The A/B result: the spreads overlap, so nothing landed. csf_bazel_build_wall_seconds: Median wall seconds of a clean Bazel build of the Go tree by arm (A is the defaults), from BAZEL-RAM's lab entry docs/lab/2026-10-05-bazel-ram.md as lab.json records it.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 142
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_bazel_build_wall_seconds[1y])",
+          "legendFormat": "{{arm}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 32,
+      "type": "bargauge",
+      "title": "Bazel peak memory by arm (BAZEL-RAM)",
+      "description": "Sandbox trees in RAM cost memory and saved no time. csf_bazel_peak_memory_bytes: Median peak memory of a clean Bazel build of the Go tree by arm (A is the defaults), from BAZEL-RAM's lab entry docs/lab/2026-10-05-bazel-ram.md as lab.json records it.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 150
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "last_over_time(csf_bazel_peak_memory_bytes[1y])",
+          "legendFormat": "{{arm}}",
+          "refId": "A",
+          "instant": true
+        }
+      ],
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 106,
+      "type": "row",
+      "title": "Cloud",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 158
+      }
+    },
+    {
+      "id": 33,
+      "type": "timeseries",
+      "title": "Cloud spend per hour (BURST-SESSIONS)",
+      "description": "Paid cloud jobs csf serve's cloud service launched, from <state>/cloud.json; spend is minutes since creation at the flavor's /api/jobs/hardware price, so it reads high, never low. csf_cloud_spend_usd_total: Spend of every cloud job in the record, in dollars; its rate is spend per hour.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 159
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "increase(csf_cloud_spend_usd_total[1h])",
+          "legendFormat": "$ per hour",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 34,
+      "type": "timeseries",
+      "title": "Cloud jobs running (BURST-SESSIONS)",
+      "description": "Each running job is watched every 30 s and cancelled at its cap and at the day's cap. csf_cloud_jobs_running: Cloud jobs that may still be spending.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 159
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_jobs_running",
+          "legendFormat": "running",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 35,
+      "type": "timeseries",
+      "title": "Cloud spend against cap (BURST-SESSIONS)",
+      "description": "The day's cloud spend against the day's cap, and each running job's spend against its own cap. csf_cloud_spend_today_usd: Spend of the cloud jobs created today (UTC), in dollars. csf_cloud_daily_cap_usd: The day's cap on cloud spend, in dollars. csf_cloud_job_spend_usd: One cloud job's spend so far, in dollars. csf_cloud_job_cap_usd: One cloud job's cap, in dollars.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 167
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_spend_today_usd",
+          "legendFormat": "today",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_daily_cap_usd",
+          "legendFormat": "day's cap",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_job_spend_usd",
+          "legendFormat": "{{job}} spend",
+          "refId": "C"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_job_cap_usd",
+          "legendFormat": "{{job}} cap",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "id": 36,
+      "type": "stat",
+      "title": "Burst sessions and merged pull requests per dollar (BURST-SESSIONS)",
+      "description": "A burst's merged pull requests are counted with gh once it ends; a running burst counts in sessions only. csf_cloud_burst_sessions_total: Fixer sessions launched in burst jobs. csf_cloud_burst_pull_requests_merged_total: Pull requests merged from ended burst jobs. csf_cloud_burst_spend_usd_total: Spend of ended burst jobs whose merged pull requests are counted, in dollars: the denominator of pull requests per dollar.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 167
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_burst_sessions_total",
+          "legendFormat": "burst sessions",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_cloud_burst_pull_requests_merged_total / (csf_cloud_burst_spend_usd_total > 0)",
+          "legendFormat": "merged PRs per $",
+          "refId": "B"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ]
+        }
+      }
+    },
+    {
+      "id": 107,
+      "type": "row",
+      "title": "Flow",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 175
+      }
+    },
+    {
+      "id": 37,
+      "type": "timeseries",
+      "title": "Queue length and work in progress, by stage (LINE)",
+      "description": "Slices per stage of the line; running is the work in progress. csf_dispatch_stage_slices: Slices in each stage of the line, from the dispatcher's snapshot: ready, blocked, contended, running, merged, failed, canceled.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 176
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (stage) (csf_dispatch_stage_slices)",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 38,
+      "type": "timeseries",
+      "title": "Time in stage, oldest slice (LINE)",
+      "description": "How long the oldest slice in each stage has waited there. csf_dispatch_stage_age_seconds: Seconds the oldest slice in each stage has stood there since its state last moved, from the dispatcher's snapshot.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 176
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "max by (stage) (csf_dispatch_stage_age_seconds)",
+          "legendFormat": "{{stage}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 39,
+      "type": "timeseries",
+      "title": "Lead time, enqueue to merge (LINE)",
+      "description": "Mean lead time of the slices merged in the last day. csf_dispatch_lead_time_seconds: Mean seconds from enqueue to merge of the slices merged in the last day, from the dispatcher's snapshot; absent when none merged.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 184
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_dispatch_lead_time_seconds",
+          "legendFormat": "lead time",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 40,
+      "type": "timeseries",
+      "title": "Throughput: merges per day (LINE)",
+      "description": "Pull requests merged into main in the 24 hours before each point, every slice together. csf_merges_total: Pull requests merged into main, from GitHub's list of merged pull requests; slice is the title's leading slice name.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 184
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum(increase(csf_merges_total[1d]))",
+          "legendFormat": "merged",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 108,
+      "type": "row",
+      "title": "Workbench",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 192
+      }
+    },
+    {
+      "id": 41,
+      "type": "timeseries",
+      "title": "Transcript settle time per event (TRANSCRIPT)",
+      "description": "Median and 95th percentile over five minutes of how long a session's event takes to reach the chat pages watching it. csf_chat_settle_seconds: Seconds from an event log record's timestamp to a connected chat page's live session accepting it, per record: how long a session's event takes to reach its transcript.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 193
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "histogram_quantile(0.5, sum by (le) (rate(csf_chat_settle_seconds_bucket[5m])))",
+          "legendFormat": "median",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(csf_chat_settle_seconds_bucket[5m])))",
+          "legendFormat": "p95",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 109,
+      "type": "row",
+      "title": "Evaluation suite",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 200
+      }
+    },
+    {
+      "id": 42,
+      "type": "timeseries",
+      "title": "Build score on the held-out suite (EVAL-SUITE)",
+      "description": "Each build csf eval score scored, on the suite version it was scored on; lower is better, and csf upgrade refuses a build with no score or one worse than live beyond the paired bound. csf_eval_struggle_rate_per_1k_tool_calls: A csf build's score on the held-out evaluation suite: struggle episodes per 1,000 tool calls over its replays at the suite's budget, with the 95% Garwood interval as bound low and high.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 201
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_eval_struggle_rate_per_1k_tool_calls{bound=\"value\"}",
+          "legendFormat": "{{build}} v{{suite}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_eval_struggle_rate_per_1k_tool_calls{bound=\"low\"}",
+          "legendFormat": "{{build}} low",
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_eval_struggle_rate_per_1k_tool_calls{bound=\"high\"}",
+          "legendFormat": "{{build}} high",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 43,
+      "type": "timeseries",
+      "title": "Wall-clock to score a build (EVAL-SUITE)",
+      "description": "How long one build's score took end to end, across every shard. csf_eval_score_wall_seconds: Wall-clock seconds to score a build: from the first replay launched to the last recorded.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 201
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_eval_score_wall_seconds",
+          "legendFormat": "{{build}} v{{suite}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 44,
+      "type": "timeseries",
+      "title": "Cost per build score (EVAL-SUITE)",
+      "description": "The model cost of one build's replays, summed over its shards. csf_eval_score_cost_usd: Dollars to score a build: the model cost of its replays.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 209
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_eval_score_cost_usd",
+          "legendFormat": "{{build}} v{{suite}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 45,
+      "type": "timeseries",
+      "title": "Shards per node (EVAL-SUITE)",
+      "description": "Where a build's replays ran: this host, or a cloud burst job (a dry run when the burst credentials are missing, its replays then run here). csf_eval_shards: Replays of a build's score run on each node kind: this host or a cloud burst job.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 209
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_eval_shards",
+          "legendFormat": "{{build}} {{node}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 110,
+      "type": "row",
+      "title": "GitHub",
+      "collapsed": false,
+      "panels": [],
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 218
+      }
+    },
+    {
+      "id": 111,
+      "type": "timeseries",
+      "title": "GitHub events per hour by kind (GITHUB-EVENTS)",
+      "description": "Typed events the webhook receiver recorded in each hour, one series per kind. csf_github_events_total: Typed GitHub events this host's receiver recorded on the GitHub event stream since it started, by kind.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 219
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (kind) (increase(csf_github_events_total[1h]))",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 112,
+      "type": "timeseries",
+      "title": "GitHub event latency by kind (GITHUB-EVENTS)",
+      "description": "How long after GitHub says each kind's latest event happened it landed on the stream; a merge should read seconds. csf_github_event_latency_seconds: Seconds from when GitHub says the latest event of each kind happened to when this host recorded it as a typed event.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 219
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "csf_github_event_latency_seconds",
+          "legendFormat": "{{kind}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 113,
+      "type": "timeseries",
+      "title": "GitHub deliveries refused or failed per hour (GITHUB-EVENTS)",
+      "description": "Deliveries the receiver did not accept in each hour: refused (with why: no secret, bad signature, bad delivery, too large) or failed to record. csf_github_deliveries_total: GitHub webhook deliveries this host's receiver answered since it started, by outcome (accepted, duplicate, ignored, refused, failed) and, for a refused one, why.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "csf-prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 227
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum by (outcome, refusal) (increase(csf_github_deliveries_total{outcome=~\"refused|failed\"}[1h]))",
+          "legendFormat": "{{outcome}} {{refusal}}",
+          "refId": "A"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "csf-prometheus"
+          },
+          "expr": "sum (increase(csf_github_deliveries_total{outcome=~\"accepted|duplicate|ignored\"}[1h]))",
+          "legendFormat": "answered",
+          "refId": "B"
+        }
+      ]
+    }
+  ]
+}

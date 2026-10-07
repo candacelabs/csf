@@ -16,8 +16,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"github.com/candacelabs/csf/services/deploy/component"
 	"github.com/candacelabs/csf/services/deploy/config"

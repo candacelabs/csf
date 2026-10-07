@@ -3,7 +3,7 @@
 | | |
 |---|---|
 | **Status** | Current v0.1 API ledger; Phase 0 review closed |
-| **Date** | 2026-08-04; last synced 2026-09-18 |
+| **Date** | 2026-08-04; last synced 2026-10-06 |
 | **Author** | DEV-1 (Server Core / Go) |
 | **Satisfies** | PRD FR-65, FR-66; Phase 0 exit ("draft exported API surface sketched in `docs/api-surface.md`") |
 | **Governed by** | [RFC-0001 §14.2](rfc/001-architecture.md) · [review checklist §1.7](review-checklist.md) |
@@ -30,8 +30,8 @@ measured surface.
 
 | | `live` (exact) | `live/livetest` (ceiling) |
 |---|---:|---:|
-| Exported identifiers (types, funcs, methods, consts, vars) | **63** | 37 |
-| Exported struct fields | **55** | 33 |
+| Exported identifiers (types, funcs, methods, consts, vars) | **64** | 50 |
+| Exported struct fields | **55** | 36 |
 
 *The `live` split was corrected from 41/48 to 40/49 when `tools/apisurface`
 first measured it: one struct field had been counted in the identifier column
@@ -54,8 +54,8 @@ names as in counts, so a ledgered symbol nobody has implemented is reported and
 does not fail. A rename therefore belongs in the same commit as its rows, with
 a §10 entry saying the counts did not move.
 
-*One thing that comparison surfaced and did not change: §6 lists **39** symbols
-while the `live/livetest` ceiling above says **37**. The two extra rows are
+*One thing that comparison surfaced and did not change: §6 lists **52** symbols
+while the `live/livetest` ceiling above says **50**. The two extra rows are
 `Audit` and `Report`, which §6's own closing note says are not implemented — so
 the ceiling is currently set at what is built rather than at what is ledgered,
 and implementing either one would exceed it. Reconciling that is a change to an
@@ -297,6 +297,7 @@ expected, and marking it now is cheaper than pretending otherwise.
 | `Bind` | struct | Options for `OnWith`: `Fields map[string]string`, `Debounce time.Duration`, `Throttle time.Duration`, `Keys []string`, **`NoModifiers bool`, `PreventDefault bool`**. Every one of them is scoped to the single binding it is given to and travels inside that binding's `data-gotth-on` spec. **`NoModifiers` restricts a key binding to presses with no modifier held; `PreventDefault` calls `preventDefault()` when that binding matches.** Both default to today's behaviour and both render as trailing components, so no binding in the tree changes a byte. Element-scoped until 2026-08-05, which is FR-54 failure 2. | experimental | FR-55, FR-62, **FR-54**, **F-CHT-3** |
 | `OnAll(bindings ...templ.Attributes) templ.Attributes` | func | Combines several bindings on one element, in order. The client has always matched several and nothing could emit them: two spreads of `On` render the same attribute twice and an HTML parser keeps the first. **A binding rendered here is byte-identical to that binding rendered alone**; there is nothing left to merge. | experimental | **FR-54** |
 | `Preserve() templ.Attributes` | func | Marks an element and its subtree as never morphed — the sanctioned way to host HTMX- or third-party-JS-owned DOM inside a live region. | experimental | FR-27, FR-32 |
+| `Transition() templ.Attributes` | func | Marks a fragment root whose morph patches the client applies inside a view transition, so reordered rows animate; reduced motion, a hidden tab or a browser without the API apply at once. | experimental | FR-25 |
 | `Script(mountPath string) templ.Component` | func | Renders the `<script>` tag for the embedded client runtime, addressing the prefix the handler is mounted at. `mountPath` is **path-only and same-origin**: one trailing `/` is trimmed, and anything a browser does not read as a path — empty, relative, or containing `//` anywhere, `\`, `?`, `#`, or a byte below `0x20` or `0x7F` — makes `Render` return an error and emit no tag. Attribute values are HTML-escaped. No CDN, no build step. **It also returns an error, and emits no tag, when rendered inside `Document`'s head content** — that component renders this tag itself, below the inspector's, and a second one from the head would land above the inspector and blind it (PS-1). Nowhere else is affected: a hand-written shell renders under a context `Document` never touched. | experimental | NFR-5, NFR-6, FR-33, **FR-44** |
 | `(*App[S]).InspectorScript(mountPath string) templ.Component` | method | Renders the `<script>` tag for the dev session inspector, **and renders nothing at all unless `Config.Dev` is set**. Validates `mountPath` through the same function `Script` uses, in both modes. Belongs above `Script`'s tag: both are deferred, and the inspector must wrap the WebSocket constructor before the runtime opens a socket. *(Since `Document`, that ordering is **enforced inside `Document`** — it emits both tags itself and refuses a runtime tag from its head content — and remains **documented only** for a hand-written shell, which is what the four still in this tree use. See the `Document` row below.)* | experimental | **FR-44, NFR-8**, FR-33 |
 | `(*App[S]).DevReloadScript(mountPath string) templ.Component` | method | Renders the `<script>` tag for the dev-reload client, **and renders nothing at all unless `Config.Dev` is set**. Stamps the running build's identity into the tag, which is the baseline the client compares against; validates `mountPath` through the same function `Script` uses, in both modes. Position on the page does not matter — it wraps nothing. | experimental | **FR-57**, FR-33 |
@@ -421,6 +422,19 @@ all. 50 → **51** identifiers, 50 → **51** fields.
 | `Update` | struct | One fragment update: `FragmentID string`, `HTML string`. | experimental | FR-63 |
 | `Error` | struct | A decoded Error frame: `Code int32`, `Message`, `EventID`, `ClientRef`, `Fatal bool`. | experimental | FR-49 |
 | `NewSession[I](testing.TB, live.ID, I) live.Session[I]` | func | Builds the `live.Session[I]` a spec needs to call an application's own `Init`, `Authorize`, `Teardown` or an `Effect.Run` directly. Both values are the caller's. The nil-identity guard is gone with the interface: an identity is the application's own type now. | stable | **FR-15**, FR-45–48 |
+| `LaunchBrowser(testing.TB, proc.ILauncher, BrowserOptions) *Browser` | func | Starts headless Chromium through the process capability and attaches to a fresh page. Everything it starts is released through `tb.Cleanup`: the page's connection, then the process, then the profile the caller owns. | experimental | FR-25, FR-26, FR-28, FR-74 |
+| `BrowserOptions` | struct | The launch: `Executable string`, `Profile string`, `Timeout time.Duration`. The caller owns `Profile`. | experimental | FR-25, FR-74 |
+| `Browser` | struct | One headless Chromium with one attached page, driven over the Chrome DevTools Protocol by the WebSocket library the module already depends on. It implements what a browser spec needs and is not a general automation library. | experimental | FR-25, FR-26, FR-28, FR-74 |
+| `(*Browser).Version() string` | method | The browser's product string, for a report entry. | experimental | FR-74 |
+| `(*Browser).Call(method string, params any, out any)` | method | Sends one protocol command to the attached page and decodes its result into `out`, failing the spec on any error. The escape hatch for what the typed methods do not cover, synthesised input most often. | experimental | FR-26, FR-28 |
+| `(*Browser).Navigate(url string)` | method | Loads `url` and returns once the document has finished loading. | experimental | FR-25 |
+| `(*Browser).OnNewDocument(source string)` | method | Installs a script that runs before any page script on every document the page loads, so a listener is in place before the runtime it watches. | experimental | FR-25, FR-26 |
+| `(*Browser).EvalJSON(expression string, out any)` | method | Evaluates `expression` in the page, awaiting a promise, and decodes the JSON value it produced into `out`, failing the spec on any error. | experimental | FR-25, FR-26, FR-28 |
+| `(*Browser).TryEvalJSON(expression string, out any) error` | method | `EvalJSON` handing the error back, for a spec polling a page across a reload, where an evaluate between two execution contexts is refused on the happy path. | experimental | FR-25, FR-26 |
+| `(*Browser).EvalString(expression string) string` | method | Evaluates an expression producing a string. | experimental | FR-25 |
+| `(*Browser).EvalBool(expression string) bool` | method | Evaluates an expression producing a boolean. | experimental | FR-25 |
+| `(*Browser).Screenshot() []byte` | method | Captures the page as PNG bytes, for evidence a report keeps. | experimental | FR-28 |
+| `JSString(value string) string` | func | Renders a Go string as a JavaScript string literal through the JSON encoder, so a selector containing double quotes stays one literal. | experimental | FR-25 |
 | `Audit(testing.TB, http.Handler, func(*Client)) Report` | func | Runs a scripted workload and cross-checks every self-reported metric against an independent, out-of-process measurement. | experimental | checklist §4.5, instrumentation.md §5.2 |
 | `Report` | struct | The audit result: per-signal reported value, externally observed value, and whether they agree. | experimental | checklist §4.5 |
 
@@ -590,6 +604,19 @@ patches from its own code rather than from telemetry, the hook lands in Phase 2
 ---
 
 ## 10. Changelog
+
+### The browser driver joins `live/livetest` - recorded 2026-10-06, 37 to 50 identifiers, 33 to 36 fields
+
+`livetest.Browser` shipped with the live session cards (view V1) without its
+rows: a headless Chromium driven over the Chrome DevTools Protocol, written
+rather than imported for FR-74's reason, and used by the gotth-live browser
+conformance specs, the Workbench specs in `services/opsview` and the chat page's
+mobile spec. Thirteen exported names (`Browser` and its nine methods,
+`BrowserOptions`, `JSString`, `LaunchBrowser`) now have their rows in section 6,
+and the `live/livetest` ceiling moves from 37 identifiers and 33 fields to the 50
+and 36 the package measures. `BrowserOptions` carries the three added fields.
+`live` is unmoved at 64 and 55. Section 6 now lists 52 symbols against the
+ceiling's 50, the same two unimplemented rows, `Audit` and `Report`, as before.
 
 ### The live UI service joins its goroutines — 2026-10-01, 60 → 63 identifiers
 

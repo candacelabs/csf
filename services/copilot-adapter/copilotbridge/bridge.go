@@ -338,11 +338,23 @@ func (bridge *CopilotBridge) classifyResumeFailure(ctx context.Context, sessionI
 }
 
 func sessionSystemMessage(instructions string) *copilot.SystemMessageConfig {
-	if instructions == "" {
-		return nil
+	content := workbenchPickerInstructions
+	if instructions != "" {
+		content += "\n\n" + instructions
 	}
-	return &copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: instructions}
+	return &copilot.SystemMessageConfig{Mode: systemMessageModeAppend, Content: content}
 }
+
+// workbenchPickerInstructions teaches every Workbench session the picker the
+// browser renders from a fenced csf-picker block (ui/src/picker.tsx owns the
+// parser; keep the two in step).
+const workbenchPickerInstructions = "When the user must choose among several items " +
+	"(for example which papers, tasks or files to pursue), offer a picker instead of asking them " +
+	"to type: reply with a fenced code block whose language is csf-picker and whose body is JSON " +
+	`{"title": "...", "options": [{"id": "short-id", "label": "...", "detail": "optional one line", ` +
+	`"url": "optional https link"}], "choices": ["Explore", "Skip"]}. ` +
+	"choices is optional (default Explore/Skip, 2-8 unique labels). The Workbench renders it as " +
+	"buttons and sends the user's decisions back to you as their next message."
 
 type sessionLifecycle struct {
 	events      chan copilotadapter.BridgeEvent

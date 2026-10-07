@@ -1,0 +1,296 @@
+{
+ "tiers": {
+  "in_process": "Tier in_process, the narrowest: anything two goroutines in one process touch, by message passing (a channel, the relay) or by shared memory behind a lock, the shared-memory model of communication. Its io home is io/inproc.",
+  "kernel": "io/kernel, the home of the kernel_io tier: fs and clock. Today fs is candace/ipc/fs and clock is candace/ipc/clock; slice X2 (#264) creates the directory.",
+  "host": "Tier host: information crossing to another process on the same machine, which is IPC: a unix socket, loopback, a child process through proc or the Docker Engine socket through docker. Its io home is io/ipc.",
+  "net": "io/net, the home of the network tier: information crossing to another machine through TCP and UDP dialers and listeners, http and grpc. Today the directory is candace/ipc/net, which grants IListener and IDialer over the host network stack, so a test can replace the kernel with an in-memory pipe; its loopback and unix-s"
+ },
+ "rows": [
+  {
+   "package": "io/inproc",
+   "pick": "in_process",
+   "p": 0.99,
+   "dist": {
+    "in_process": 0.99,
+    "kernel": 0.001,
+    "host": 0.007,
+    "net": 0.002
+   },
+   "key": null,
+   "latency": 0.318
+  },
+  {
+   "package": "ipc",
+   "pick": "host",
+   "p": 0.674,
+   "dist": {
+    "in_process": 0.164,
+    "kernel": 0.01,
+    "host": 0.674,
+    "net": 0.152
+   },
+   "key": null,
+   "latency": 0.268
+  },
+  {
+   "package": "ipc/clock",
+   "pick": "kernel",
+   "p": 0.955,
+   "dist": {
+    "in_process": 0.024,
+    "kernel": 0.955,
+    "host": 0.018,
+    "net": 0.003
+   },
+   "key": "kernel",
+   "latency": 0.286
+  },
+  {
+   "package": "ipc/db/csfpg",
+   "pick": "kernel",
+   "p": 0.43,
+   "dist": {
+    "in_process": 0.037,
+    "kernel": 0.43,
+    "host": 0.264,
+    "net": 0.269
+   },
+   "key": null,
+   "latency": 0.32
+  },
+  {
+   "package": "ipc/docker",
+   "pick": "host",
+   "p": 0.958,
+   "dist": {
+    "in_process": 0.02,
+    "kernel": 0.004,
+    "host": 0.958,
+    "net": 0.018
+   },
+   "key": "host",
+   "latency": 0.338
+  },
+  {
+   "package": "ipc/fs",
+   "pick": "host",
+   "p": 0.797,
+   "dist": {
+    "in_process": 0.076,
+    "kernel": 0.116,
+    "host": 0.797,
+    "net": 0.011
+   },
+   "key": "kernel",
+   "latency": 0.294
+  },
+  {
+   "package": "ipc/github",
+   "pick": "net",
+   "p": 0.752,
+   "dist": {
+    "in_process": 0.047,
+    "kernel": 0.006,
+    "host": 0.195,
+    "net": 0.752
+   },
+   "key": null,
+   "latency": 0.315
+  },
+  {
+   "package": "ipc/hfjobs",
+   "pick": "host",
+   "p": 0.54,
+   "dist": {
+    "in_process": 0.082,
+    "kernel": 0.025,
+    "host": 0.54,
+    "net": 0.354
+   },
+   "key": null,
+   "latency": 0.304
+  },
+  {
+   "package": "ipc/model",
+   "pick": "host",
+   "p": 0.923,
+   "dist": {
+    "in_process": 0.038,
+    "kernel": 0.004,
+    "host": 0.923,
+    "net": 0.036
+   },
+   "key": null,
+   "latency": 0.298
+  },
+  {
+   "package": "ipc/model/claudecode",
+   "pick": "host",
+   "p": 0.963,
+   "dist": {
+    "in_process": 0.028,
+    "kernel": 0.002,
+    "host": 0.963,
+    "net": 0.007
+   },
+   "key": null,
+   "latency": 4.607
+  },
+  {
+   "package": "ipc/model/copilot",
+   "pick": "host",
+   "p": 0.776,
+   "dist": {
+    "in_process": 0.181,
+    "kernel": 0.008,
+    "host": 0.776,
+    "net": 0.035
+   },
+   "key": null,
+   "latency": 0.424
+  },
+  {
+   "package": "ipc/model/copilotcli",
+   "pick": "host",
+   "p": 0.977,
+   "dist": {
+    "in_process": 0.017,
+    "kernel": 0.002,
+    "host": 0.977,
+    "net": 0.004
+   },
+   "key": null,
+   "latency": 0.47
+  },
+  {
+   "package": "ipc/model/jev",
+   "pick": "host",
+   "p": 0.687,
+   "dist": {
+    "in_process": 0.13,
+    "kernel": 0.039,
+    "host": 0.687,
+    "net": 0.143
+   },
+   "key": null,
+   "latency": 0.548
+  },
+  {
+   "package": "ipc/model/llamacpp",
+   "pick": "host",
+   "p": 0.695,
+   "dist": {
+    "in_process": 0.018,
+    "kernel": 0.002,
+    "host": 0.695,
+    "net": 0.284
+   },
+   "key": null,
+   "latency": 0.463
+  },
+  {
+   "package": "ipc/model/ollama",
+   "pick": "net",
+   "p": 0.509,
+   "dist": {
+    "in_process": 0.047,
+    "kernel": 0.004,
+    "host": 0.44,
+    "net": 0.509
+   },
+   "key": null,
+   "latency": 0.455
+  },
+  {
+   "package": "ipc/model/stub",
+   "pick": "in_process",
+   "p": 0.897,
+   "dist": {
+    "in_process": 0.897,
+    "kernel": 0.02,
+    "host": 0.068,
+    "net": 0.015
+   },
+   "key": null,
+   "latency": 0.427
+  },
+  {
+   "package": "ipc/net",
+   "pick": "net",
+   "p": 0.978,
+   "dist": {
+    "in_process": 0.009,
+    "kernel": 0.003,
+    "host": 0.01,
+    "net": 0.978
+   },
+   "key": "net",
+   "latency": 0.438
+  },
+  {
+   "package": "ipc/net/grpc",
+   "pick": "host",
+   "p": 0.535,
+   "dist": {
+    "in_process": 0.061,
+    "kernel": 0.005,
+    "host": 0.535,
+    "net": 0.399
+   },
+   "key": null,
+   "latency": 0.508
+  },
+  {
+   "package": "ipc/net/http",
+   "pick": "net",
+   "p": 0.785,
+   "dist": {
+    "in_process": 0.117,
+    "kernel": 0.021,
+    "host": 0.077,
+    "net": 0.785
+   },
+   "key": null,
+   "latency": 0.465
+  },
+  {
+   "package": "ipc/proc",
+   "pick": "host",
+   "p": 0.956,
+   "dist": {
+    "in_process": 0.027,
+    "kernel": 0.011,
+    "host": 0.956,
+    "net": 0.006
+   },
+   "key": "host",
+   "latency": 0.578
+  },
+  {
+   "package": "ipc/ros",
+   "pick": "host",
+   "p": 0.943,
+   "dist": {
+    "in_process": 0.01,
+    "kernel": 0.003,
+    "host": 0.943,
+    "net": 0.044
+   },
+   "key": null,
+   "latency": 0.457
+  },
+  {
+   "package": "ipc/sandbox",
+   "pick": "in_process",
+   "p": 0.509,
+   "dist": {
+    "in_process": 0.509,
+    "kernel": 0.048,
+    "host": 0.433,
+    "net": 0.011
+   },
+   "key": null,
+   "latency": 0.475
+  }
+ ]
+}

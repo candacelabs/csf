@@ -1,0 +1,6 @@
+package(default_visibility = ["//visibility:public"])
+
+exports_files([
+    "rest_client.architecture.csf",
+    "rest_client.csf",
+])

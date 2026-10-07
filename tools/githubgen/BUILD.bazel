@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "githubgen",
+    srcs = [
+        "filter.go",
+        "tools.go",
+    ],
+    importpath = "github.com/candacelabs/csf/tools/githubgen",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "githubgen_test",
+    srcs = [
+        "githubgen_suite_test.go",
+        "githubgen_test.go",
+    ],
+    deps = [
+        ":githubgen",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

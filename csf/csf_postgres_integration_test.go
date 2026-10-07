@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/runtime/config"
 	"github.com/google/uuid"

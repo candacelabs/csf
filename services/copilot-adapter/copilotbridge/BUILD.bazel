@@ -5,8 +5,8 @@ go_library(
     srcs = [
         "agent_messaging.go",
         "bridge.go",
+        "copilot_bridge_history.go",
         "events.go",
-        "history.go",
         "resolutions.go",
         "turns.go",
         "usage_views.go",
@@ -39,7 +39,7 @@ go_test(
     ],
     embed = [":copilotbridge"],
     deps = [
-        "//ipc/net",
+        "//io/net",
         "//services/copilot-adapter",
         "//services/copilot-adapter/gen/api",
         "@com_github_github_copilot_sdk_go//:go",

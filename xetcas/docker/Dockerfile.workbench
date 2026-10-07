@@ -78,16 +78,16 @@ RUN set -eux; \
 
 COPY --from=git-xet-source /out/bin/git-xet /usr/local/bin/git-xet
 
-# Non-root by default. /home/xet is a mount point for a named volume in the
+# Non-root by default. /var/lib/xet is a mount point for a named volume in the
 # demo compose file so `git config --global` and the xet cache survive across
 # `docker compose exec` invocations.
-RUN useradd --create-home --home-dir /home/xet --shell /bin/bash --uid 1000 xet \
-    && mkdir -p /home/xet/work \
-    && chown -R xet:xet /home/xet
+RUN useradd --create-home --home-dir /var/lib/xet --shell /bin/bash --uid 1000 xet \
+    && mkdir -p /var/lib/xet/work \
+    && chown -R xet:xet /var/lib/xet
 
 USER xet
-WORKDIR /home/xet/work
-ENV HOME=/home/xet \
+WORKDIR /var/lib/xet/work
+ENV HOME=/var/lib/xet \
     USER=xet \
     GIT_PAGER=cat \
     PAGER=cat

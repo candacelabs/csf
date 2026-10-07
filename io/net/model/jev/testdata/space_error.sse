@@ -1,0 +1,3 @@
+event: error
+data: {"error": "Add at least one question \u2014 give it some instructions text.", "duration": 10, "visible": true, "title": "Error"}
+

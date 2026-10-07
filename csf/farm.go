@@ -17,9 +17,11 @@ import (
 	"time"
 
 	"github.com/a-h/templ"
+	"github.com/gin-gonic/gin"
+
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/pkg/gotth/live"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
-	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -33,6 +35,7 @@ const (
 	farmStylePath        = "/farm.css"
 	farmStatePath        = "/api/work"
 	farmOrderFile        = "priority-order.json"
+	farmOrderMode        = 0o600
 	farmOrderReceiptFile = "priority-events.jsonl"
 	farmPageTemplate     = "page"
 	farmSampleInterval   = 2 * time.Second
@@ -359,23 +362,7 @@ func (dashboard *FarmDashboard) move(id, before string) error {
 		return err
 	}
 	directory := filepath.Dir(dashboard.path)
-	temporary, err := os.CreateTemp(directory, ".priority-*")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = os.Remove(temporary.Name()) }()
-	_, err = temporary.Write(content)
-	if err == nil {
-		err = temporary.Sync()
-	}
-	closeErr := temporary.Close()
-	if err != nil {
-		return err
-	}
-	if closeErr != nil {
-		return closeErr
-	}
-	if err := os.Rename(temporary.Name(), filepath.Join(directory, farmOrderFile)); err != nil {
+	if err := atomicfile.WriteFile(filepath.Join(directory, farmOrderFile), content, farmOrderMode); err != nil {
 		return err
 	}
 	// Receipts describe this operator ordering action, never permission to run it.

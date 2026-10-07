@@ -1,16 +1,16 @@
 # The widget language
 
-A small language for declaring **widgets**: self-contained vertical slices of
+A small language for declaring **[widgets](../../../csf/docs/generated/ontology_cgen.md#term-widget)**: self-contained vertical slices of
 UI that mount into one Go host binary, each with its own state, its own live
-region and its own motion. A widget is written once in this language and its
+region and its own motion. A [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) is written once in this language and its
 UI code is generated.
 
 The language is a **Mermaid dialect**, chosen for a measured reason rather than
-an aesthetic one: an invented DSL starts an agent below 20% accuracy on syntax
+an aesthetic one: an invented DSL starts an [agent](../../../csf/docs/generated/ontology_cgen.md#term-agent) below 20% accuracy on syntax
 unfamiliarity alone, and mermaid's training-data presence means a dialect pays
 tokens only for its custom vocabulary.
 
-**Design came first, deliberately**, because an agent that can see the
+**Design came first, deliberately**, because an [agent](../../../csf/docs/generated/ontology_cgen.md#term-agent) that can see the
 generator shapes the language to suit the generator and the dependency has to
 run the other way. The interpreter now exists — [`..`](..) — and it was built
 against these documents rather than the documents against it. Where building it
@@ -29,7 +29,7 @@ ruling the implementation reversed, with the reason.
 | 4 | [`errors.md`](errors.md) | 70 error classes, each with its anchoring rule, message template and named fix |
 | 5 | [`examples/`](examples/) | Four heavily commented documents, the last of which does not validate on purpose |
 
-An agent authoring a widget for the first time should read `dialect.md` and
+An [agent](../../../csf/docs/generated/ontology_cgen.md#term-agent) authoring a [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) for the first time should read `dialect.md` and
 [`examples/01-cluster-heartbeats.widget`](examples/01-cluster-heartbeats.widget),
 in that order, and reach for `errors.md` only when the validator names a class.
 
@@ -64,18 +64,18 @@ document is [`examples/02-node-status.widget`](examples/02-node-status.widget).
 
 ## The five decisions worth knowing before reading anything else
 
-1. **Flowchart flavour, not state-diagram.** A widget's scene is a topology, and
+1. **Flowchart flavour, not state-diagram.** A [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget)'s scene is a topology, and
    a pulse is traffic on an edge rather than a transition between
    configurations. The lifecycle *is* a state machine, and it is fixed by the
-   SDK, so no widget ever declares one.
+   SDK, so no [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) ever declares one.
 2. **The fence is `widget`, not `mermaid`.** A markdown renderer shows the
    source and never invokes mermaid. Forced to parse one, mermaid rejects the
    whole block — which is correct, because a renderer that drew the topology
    while silently dropping the roles, the motion gate and the bindings would
-   let a reviewer believe they had reviewed a widget they had reviewed a third
+   let a reviewer believe they had reviewed a [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) they had reviewed a third
    of.
 3. **Seven semantic tokens, closed.** `surface`, `ink`, `muted`, `rule`,
-   `accent`, `positive`, `warning`. A widget writes a token name, never a
+   `accent`, `positive`, `warning`. A [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) writes a token name, never a
    value, so the same document renders under any palette that maps the seven.
 4. **Bindings are total.** Every binding has an `otherwise`, so a generated
    render needs no fallback path.
@@ -90,7 +90,7 @@ document is [`examples/02-node-status.widget`](examples/02-node-status.widget).
   ruling the implementation reversed. [`dialect.md § 10.3`](dialect.md#103-who-owns-the-irs-definition)
   carries the argument on both sides and the path back.
 - The generator must compile the host's connection status into every motion
-  gate. It is a host fact a widget cannot declare, and it is not optional.
+  gate. It is a host fact a [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) cannot declare, and it is not optional.
   `Motion.HostStatusGate` carries the obligation into the IR so a generator
   reads it rather than remembering it. **Still open: no generator exists yet.**
 - Three IR records are **computed, never parsed**: edge geometry, the legend,

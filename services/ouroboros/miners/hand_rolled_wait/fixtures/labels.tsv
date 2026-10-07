@@ -1,0 +1,23 @@
+# instance	label	start	flagged	source
+# The eleven positives are the bare orchestrator's waits #371 labels, by class; the
+# workbench-ready one is the loop the operator flagged at ~02:10Z. The session
+# positive and the two shape negatives are from harness runs; the csf await
+# negatives are this slice's own calls, one through the executor's watch tool.
+# Edited for publication: the recording host's home directory in the recorded commands
+# was replaced with $HOME; no other byte of a fixture changed.
+toolu_01RaFPzPqM5cDdyCnbs69ewR	+	2026-10-03T19:05:57Z	-	session poll loop on a merge
+toolu_01VjPYeYyY5emwhiScifkmSK	-	2026-10-04T04:22:59Z	-	loop without a sleep
+toolu_01KKjaEt59dVYerKRHUW1MNV	+	2026-10-04T04:46:20Z	-	#371 gpu-idle
+toolu_0116J9yGkHb6TNA4ntNZRrdU	+	2026-10-04T05:16:28Z	-	#371 gpu-idle
+toolu_01Tz3RsoyM71wXghjXZQbETy	+	2026-10-04T05:42:17Z	-	#371 labeler-awake
+toolu_01Rx8Uvt6AtMTSLJLmokRfrM	+	2026-10-05T00:05:29Z	-	#371 long-watch
+toolu_01Y3qycaG7r1yTALN5Aqj7PM	+	2026-10-05T00:05:31Z	-	#371 long-watch
+toolu_01RJ72Kjrra29jyxCr3hEYEL	+	2026-10-05T01:18:12Z	-	#371 harness-stopped
+toolu_017LUfFXJygGamPZDCEn9wJS	+	2026-10-05T01:20:36Z	-	#371 harness-stopped
+toolu_01VNdxFmSpxcQrdWywrw8W9f	-	2026-10-05T01:21:24Z	-	sleep 0 without a loop
+toolu_017DuHBBL6DYo4QeT7WhT35F	+	2026-10-05T01:52:54Z	-	#371 url-status
+toolu_011RLFqSozPhqaqxua3by58D	+	2026-10-05T02:03:49Z	-	#371 harness-stopped
+toolu_01N6ucWty2V8skLA2HSmiJGq	+	2026-10-05T02:05:30Z	-	#371 harness-stopped
+toolu_01DnMSdHzvmW7aJBHNZiwvvv	+	2026-10-05T02:05:47Z	2026-10-05T02:10:00Z	#371 workbench-ready
+toolu_01RiEwxhRQSibBcVAdZvoQzC	-	2026-10-05T02:28:51Z	-	#371 csf await
+toolu_01XQ56jif6tye7ixtkZTwabX	-	2026-10-05T02:29:23Z	-	#371 csf await

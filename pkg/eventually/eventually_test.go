@@ -168,3 +168,26 @@ var _ = Describe("Budget", func() {
 			To(Equal(time.Minute))
 	})
 })
+
+var _ = Describe("Wait", func() {
+	It("returns the value the predicate accepted and no error", func() {
+		polls := 0
+		accepted, err := eventually.Wait("the counter to pass two", quick,
+			func() int {
+				polls++
+				return polls
+			},
+			func(value int) bool { return value > 2 })
+		Expect(err).NotTo(HaveOccurred())
+		Expect(accepted).To(Equal(3))
+	})
+
+	It("returns ErrNotMet naming the last value when the budget runs out, and keeps the caller running", func() {
+		_, err := eventually.Wait("a value that never comes", brief,
+			func() string { return "still-starting" },
+			func(value string) bool { return value == "ready" })
+		Expect(err).To(MatchError(eventually.ErrNotMet))
+		Expect(err.Error()).To(ContainSubstring("still-starting"))
+		Expect(err.Error()).To(ContainSubstring("a value that never comes"))
+	})
+})

@@ -1,0 +1,107 @@
+%% The mining loop's merge train and the findings waiting for labels, read
+%% from the loop's snapshot (ouroboros.json) through binding.json.
+
+widget MergeTrain
+dialect 0
+region "widget.merge-train"
+palette fieldStation
+
+
+state
+  field day type text
+  field merged type count
+  field refused type count
+  field waiting type count
+end
+
+
+predicates
+  predicate queueEmpty
+    requires waiting atMost 0
+  end
+end
+
+
+bindings
+  binding queueText
+    when queueEmpty then "no finding waits for labels"
+    otherwise "{waiting} findings wait for labels"
+  end
+
+  binding sceneText
+    when queueEmpty then "{merged} pull requests merged and {refused} refused; no finding waits for labels."
+    otherwise "{merged} pull requests merged and {refused} refused; {waiting} findings wait for labels."
+  end
+end
+
+
+labels
+  label titleLabel text "Merge train"
+  label sourceLabel text "ouroboros loop, day {day}"
+  label mergedLabel text "{merged} merged"
+  label refusedLabel text "{refused} refused"
+  label sceneLabel binds sceneText
+  label trainLabel text "train"
+  label queueLabel binds queueText
+end
+
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat mergedLabel
+  stat refusedLabel
+end
+
+
+roles
+  role trainRole
+    token accent
+    marker large
+    emphasis forbidden
+  end
+end
+
+
+placements
+  placement centre left 50 top 50
+end
+
+
+scene train
+  description sceneLabel
+
+  node trainNode
+    role trainRole
+    at centre
+    title trainLabel
+    caption queueLabel
+  end
+end
+
+
+indicators
+  indicator queueIndicator
+    label queueLabel
+    positiveWhen queueEmpty
+  end
+end
+
+
+events
+  event snapshot
+    wire "widget.merge-train.snapshot"
+    field day writes day
+    field merged writes merged
+    field refused writes refused
+    field waiting writes waiting
+  end
+end
+
+
+data
+  stream loopWatch
+    source "ouroboros.json"
+    delivers snapshot
+  end
+end

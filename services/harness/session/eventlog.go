@@ -27,25 +27,58 @@ const (
 	KeyEventType    = "event_type"
 	KeyElapsed      = "elapsed_ms"
 	KeyError        = "error"
+	// KeyExecutor is the turn executor a run started on, on its run started
+	// record.
+	KeyExecutor = "executor"
 
-	keyAssignmentID   = "assignment_id"
-	keyAgentID        = "agent_id"
-	keyRecipeSHA256   = "recipe_sha256"
-	keyWorktree       = "worktree"
-	keyBranch         = "branch"
-	keyResume         = "resume"
-	keyPullRequestURL = "pull_request_url"
+	keyAssignmentID     = "assignment_id"
+	keyAgentID          = "agent_id"
+	keyRecipeSHA256     = "recipe_sha256"
+	keyWorktree         = "worktree"
+	keyBranch           = "branch"
+	keyResume           = "resume"
+	keyPullRequestURL   = "pull_request_url"
+	keyBuildContainerID = "build_container_id"
 )
 
 // Event types the harness itself writes; the turn executor writes the
 // stream-json types of the events it forwards.
 const (
-	EventTypeRunStarted     = "harness_run_started"
-	EventTypeWorktreeReady  = "harness_worktree_ready"
-	EventTypeTurnRequested  = "harness_turn_requested"
-	EventTypeRunFinished    = "harness_run_finished"
-	EventTypeGateDecision   = "session_gate_decision"
-	EventTypeReceiptWritten = "harness_receipt"
+	EventTypeRunStarted          = "harness_run_started"
+	EventTypeWorktreeReady       = "harness_worktree_ready"
+	EventTypeBuildContainerReady = "harness_build_container_ready"
+	EventTypeTurnRequested       = "harness_turn_requested"
+	EventTypeRunFinished         = "harness_run_finished"
+	EventTypeGateDecision        = "session_gate_decision"
+	EventTypeReceiptWritten      = "harness_receipt"
+	// EventTypeControlAction records one control-plane operation on the
+	// session — submit, send, cancel, ready, merge_started or merge — whichever client called
+	// it: the CLI, an MCP client or the Workbench page.
+	EventTypeControlAction = "harness_control_action"
+	// EventTypeGitHubCall records one GitHub operation the session called
+	// through CSF's typed GitHub tools, with its outcome.
+	EventTypeGitHubCall = "github_call"
+)
+
+// The fields and values of a control action record.
+const (
+	KeyAction           = "action"
+	KeyOperatorAuthored = "operator_authored"
+	// KeyQuestionWanted marks a send by which the operator overrides the
+	// question gate: the operator wanted the question it last refused.
+	KeyQuestionWanted = "question_wanted"
+	KeyTurnID         = "turn_id"
+	KeyPullRequestURL = keyPullRequestURL
+
+	ActionSubmit = "submit"
+	ActionSend   = "send"
+	ActionCancel = "cancel"
+	ActionReady  = "ready"
+	ActionMerge  = "merge"
+	// ActionMergeStarted is written when a merge begins, before the merge
+	// path runs, so a reader of the log knows one is in flight until the
+	// merge record that ends it.
+	ActionMergeStarted = "merge_started"
 )
 
 // EventLog appends one run's records to its events.jsonl. The runner and
@@ -96,8 +129,8 @@ func (log *EventLog) write(ctx context.Context, level slog.Level, session string
 	log.sequence++
 	span := ""
 	if traced, err := telemetry.ContextWithTrace(ctx, log.trace); err == nil {
-		if _, child, err := telemetry.ContextWithChildSpan(traced); err == nil {
-			span = child.GetSpanId()
+		if childSpan, err := telemetry.ContextWithChildSpan(traced); err == nil {
+			span = childSpan.Trace.GetSpanId()
 		}
 	}
 	record := append([]slog.Attr{

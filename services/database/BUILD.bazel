@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "database",
+    srcs = ["database.go"],
+    importpath = "github.com/candacelabs/csf/services/database",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/ipc/db/csfpg",
+        "//io/ipc/docker",
+    ],
+)
+
+go_test(
+    name = "database_test",
+    srcs = [
+        "database_suite_test.go",
+        "database_test.go",
+        "mock_listener_test.go",
+        "record_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":database",
+        "//io/ipc/docker",
+        "//io/ipc/docker/mocks",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

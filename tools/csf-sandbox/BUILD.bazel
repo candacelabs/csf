@@ -1,0 +1,69 @@
+load("@csf_sandbox_crates//:defs.bzl", "aliases", "all_crate_deps", "crate_edition")
+load("@rules_rust//rust:defs.bzl", "rust_binary", "rust_library", "rust_test")
+
+exports_files([
+    "Cargo.lock",
+    "Cargo.toml",
+])
+
+rust_library(
+    name = "sandbox",
+    srcs = glob(
+        ["src/**/*.rs"],
+        exclude = ["src/bin/**"],
+    ),
+    aliases = aliases(),
+    crate_name = "csf_sandbox",
+    crate_root = "src/lib.rs",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro = True),
+    deps = all_crate_deps(normal = True),
+)
+
+rust_test(
+    name = "sandbox_test",
+    aliases = aliases(
+        normal_dev = True,
+        proc_macro_dev = True,
+    ),
+    crate = ":sandbox",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)
+
+# The per-session launcher: an argv prefix the harness puts in front of a
+# session's turn executor through ipc/proc.
+rust_binary(
+    name = "csf-session-launcher",
+    srcs = ["src/bin/launcher.rs"],
+    aliases = aliases(),
+    crate_root = "src/bin/launcher.rs",
+    edition = crate_edition(),
+    visibility = ["//visibility:public"],
+    deps = [":sandbox"] + all_crate_deps(normal = True),
+)
+
+# The per-session Docker proxy.
+rust_binary(
+    name = "csf-docker-proxy",
+    srcs = ["src/bin/docker_proxy.rs"],
+    aliases = aliases(),
+    crate_root = "src/bin/docker_proxy.rs",
+    edition = crate_edition(),
+    visibility = ["//visibility:public"],
+    deps = [":sandbox"] + all_crate_deps(normal = True),
+)
+
+# The proxy's in-crate tests (request-head parsing, response splitting).
+rust_test(
+    name = "csf-docker-proxy_test",
+    aliases = aliases(
+        normal_dev = True,
+        proc_macro_dev = True,
+    ),
+    crate = ":csf-docker-proxy",
+    edition = crate_edition(),
+    proc_macro_deps = all_crate_deps(proc_macro_dev = True),
+    deps = all_crate_deps(normal_dev = True),
+)

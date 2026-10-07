@@ -111,7 +111,7 @@ left `c1`'s step 06 uncopied. The data was recovered from the campaign scratch
 area in a later turn.
 
 **Its provenance was verified rather than asserted**, because data published by
-an agent that did not collect it is worth exactly what the checks on it are
+an [agent](../../../../../../../csf/docs/generated/ontology_cgen.md#term-agent) that did not collect it is worth exactly what the checks on it are
 worth:
 
 | Check | Result |
@@ -125,7 +125,7 @@ worth:
 
 What cannot be recovered is an independent witness to the host during those four
 runs. The `run.json` manifests carry host state before and after every window —
-uptime, load average, memory, and the count and names of the unrelated containers
+uptime, load average, [memory](../../../../../../../csf/docs/generated/ontology_cgen.md#term-memory), and the count and names of the unrelated containers
 — and that is the same evidence every other run in this directory rests on, but
 it is what each run says about itself. It is stated here rather than left for a
 reader to notice.
@@ -134,7 +134,7 @@ reader to notice.
 
 `git_sha` reads `unknown` and `git_dirty` reads `true` in every manifest here,
 because each arm was measured from a `git archive` export outside the worktree —
-so that neither another agent's commits nor the measuring agent's own edits
+so that neither another [agent](../../../../../../../csf/docs/generated/ontology_cgen.md#term-agent)'s commits nor the measuring [agent](../../../../../../../csf/docs/generated/ontology_cgen.md#term-agent)'s own edits
 could move a tree mid-campaign — and `measure.sh` asks git about a directory
 that is not a repository. The commit each arm is measured from is in §9.2's
 table and in `campaign.log`.

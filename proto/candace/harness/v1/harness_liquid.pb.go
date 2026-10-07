@@ -13,9 +13,19 @@ import (
 )
 
 var (
-	_liquidSendAgentSessionMessageRequestAssignmentIdRe0 = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-	_liquidGetAgentSessionRequestAssignmentIdRe0         = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
-	_liquidCancelAgentSessionRequestAssignmentIdRe0      = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidSendAgentSessionMessageRequestAssignmentIdRe0      = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidRulingRulingIdRe0                                  = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$")
+	_liquidRulingRuledOnRe0                                   = regexp.MustCompile("^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+	_liquidListInboxRequestAssignmentIdRe0                    = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidMoveInboxMessageRequestAssignmentIdRe0             = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidTopInboxMessageRequestAssignmentIdRe0              = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidDropInboxMessageRequestAssignmentIdRe0             = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidGetAgentSessionRequestAssignmentIdRe0              = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidCancelAgentSessionRequestAssignmentIdRe0           = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidReadyAgentSessionPullRequestRequestAssignmentIdRe0 = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidMergeAgentSessionPullRequestRequestAssignmentIdRe0 = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidProposalAssignmentIdRe0                            = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidAgentExecutorDefaultExecutorRe0                    = regexp.MustCompile("^(claude-code|copilot)$")
 )
 
 // ValidateSendAgentSessionMessageRequest checks this message's annotated fields; it does not recurse.
@@ -38,6 +48,169 @@ func ValidateSendAgentSessionMessageRequest(message *SendAgentSessionMessageRequ
 			Field:     "message",
 			Predicate: "len(this) > 0 && len(this) <= 32000",
 			Value:     message.Message,
+		}
+	}
+	return nil
+}
+
+// ValidateRuling checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateRuling(message *Ruling) error {
+	if message == nil {
+		return fmt.Errorf("ValidateRuling: nil *Ruling")
+	}
+	if !(_liquidRulingRulingIdRe0.MatchString(message.RulingId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "ruling_id",
+			Predicate: "matches(this, `^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$`)",
+			Value:     message.RulingId,
+		}
+	}
+	if !(len(message.Statement) > 0 && len(message.Statement) <= 4000) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "statement",
+			Predicate: "len(this) > 0 && len(this) <= 4000",
+			Value:     message.Statement,
+		}
+	}
+	if !(len(message.Supersedes) <= 80) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "supersedes",
+			Predicate: "len(this) <= 80",
+			Value:     message.Supersedes,
+		}
+	}
+	if !(len(message.Quote) > 0 && len(message.Quote) <= 4000) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "quote",
+			Predicate: "len(this) > 0 && len(this) <= 4000",
+			Value:     message.Quote,
+		}
+	}
+	if !(_liquidRulingRuledOnRe0.MatchString(message.RuledOn)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "ruled_on",
+			Predicate: "matches(this, `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)",
+			Value:     message.RuledOn,
+		}
+	}
+	if !(len(message.Scope) <= 400) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "scope",
+			Predicate: "len(this) <= 400",
+			Value:     message.Scope,
+		}
+	}
+	if !(len(message.Why) <= 4000) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "why",
+			Predicate: "len(this) <= 4000",
+			Value:     message.Why,
+		}
+	}
+	if !(len(message.EnforcedBy) <= 400) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "enforced_by",
+			Predicate: "len(this) <= 400",
+			Value:     message.EnforcedBy,
+		}
+	}
+	if !(len(message.PendingGate) <= 400) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Ruling",
+			Field:     "pending_gate",
+			Predicate: "len(this) <= 400",
+			Value:     message.PendingGate,
+		}
+	}
+	return nil
+}
+
+// ValidateRecordRulingRequest checks this message's annotated fields and opted-in nested messages.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateRecordRulingRequest(message *RecordRulingRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateRecordRulingRequest: nil *RecordRulingRequest")
+	}
+	if message.Ruling != nil {
+		if err := ValidateRuling(message.Ruling); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ValidateListInboxRequest checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateListInboxRequest(message *ListInboxRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateListInboxRequest: nil *ListInboxRequest")
+	}
+	if !(_liquidListInboxRequestAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.ListInboxRequest",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
+		}
+	}
+	return nil
+}
+
+// ValidateMoveInboxMessageRequest checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateMoveInboxMessageRequest(message *MoveInboxMessageRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateMoveInboxMessageRequest: nil *MoveInboxMessageRequest")
+	}
+	if !(_liquidMoveInboxMessageRequestAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.MoveInboxMessageRequest",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
+		}
+	}
+	return nil
+}
+
+// ValidateTopInboxMessageRequest checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateTopInboxMessageRequest(message *TopInboxMessageRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateTopInboxMessageRequest: nil *TopInboxMessageRequest")
+	}
+	if !(_liquidTopInboxMessageRequestAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.TopInboxMessageRequest",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
+		}
+	}
+	return nil
+}
+
+// ValidateDropInboxMessageRequest checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateDropInboxMessageRequest(message *DropInboxMessageRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateDropInboxMessageRequest: nil *DropInboxMessageRequest")
+	}
+	if !(_liquidDropInboxMessageRequestAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.DropInboxMessageRequest",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
 		}
 	}
 	return nil
@@ -72,6 +245,112 @@ func ValidateCancelAgentSessionRequest(message *CancelAgentSessionRequest) error
 			Field:     "assignment_id",
 			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
 			Value:     message.AssignmentId,
+		}
+	}
+	return nil
+}
+
+// ValidateReadyAgentSessionPullRequestRequest checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateReadyAgentSessionPullRequestRequest(message *ReadyAgentSessionPullRequestRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateReadyAgentSessionPullRequestRequest: nil *ReadyAgentSessionPullRequestRequest")
+	}
+	if !(_liquidReadyAgentSessionPullRequestRequestAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.ReadyAgentSessionPullRequestRequest",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
+		}
+	}
+	return nil
+}
+
+// ValidateMergeAgentSessionPullRequestRequest checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateMergeAgentSessionPullRequestRequest(message *MergeAgentSessionPullRequestRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateMergeAgentSessionPullRequestRequest: nil *MergeAgentSessionPullRequestRequest")
+	}
+	if !(_liquidMergeAgentSessionPullRequestRequestAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.MergeAgentSessionPullRequestRequest",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
+		}
+	}
+	return nil
+}
+
+// ValidateProposal checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateProposal(message *Proposal) error {
+	if message == nil {
+		return fmt.Errorf("ValidateProposal: nil *Proposal")
+	}
+	if !(_liquidProposalAssignmentIdRe0.MatchString(message.AssignmentId)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Proposal",
+			Field:     "assignment_id",
+			Predicate: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)",
+			Value:     message.AssignmentId,
+		}
+	}
+	if !(len(message.Diff) > 0 && len(message.Diff) <= 10000000) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Proposal",
+			Field:     "diff",
+			Predicate: "len(this) > 0 && len(this) <= 10000000",
+			Value:     message.Diff,
+		}
+	}
+	if !(len(message.Message) > 0 && len(message.Message) <= 8000) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.Proposal",
+			Field:     "message",
+			Predicate: "len(this) > 0 && len(this) <= 8000",
+			Value:     message.Message,
+		}
+	}
+	return nil
+}
+
+// ValidateAgentExecutorDefault checks this message's annotated fields; it does not recurse.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateAgentExecutorDefault(message *AgentExecutorDefault) error {
+	if message == nil {
+		return fmt.Errorf("ValidateAgentExecutorDefault: nil *AgentExecutorDefault")
+	}
+	if !(_liquidAgentExecutorDefaultExecutorRe0.MatchString(message.Executor)) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.AgentExecutorDefault",
+			Field:     "executor",
+			Predicate: "matches(this, `^(claude-code|copilot)$`)",
+			Value:     message.Executor,
+		}
+	}
+	if !(len(message.Model) <= 200) {
+		return &liquidproto.Error{
+			Message:   "candace.harness.v1.AgentExecutorDefault",
+			Field:     "model",
+			Predicate: "len(this) <= 200",
+			Value:     message.Model,
+		}
+	}
+	return nil
+}
+
+// ValidateSetAgentExecutorDefaultRequest checks this message's annotated fields and opted-in nested messages.
+// A failed predicate returns *liquidproto.Error. Nil input also returns an error.
+func ValidateSetAgentExecutorDefaultRequest(message *SetAgentExecutorDefaultRequest) error {
+	if message == nil {
+		return fmt.Errorf("ValidateSetAgentExecutorDefaultRequest: nil *SetAgentExecutorDefaultRequest")
+	}
+	if message.ExecutorDefault != nil {
+		if err := ValidateAgentExecutorDefault(message.ExecutorDefault); err != nil {
+			return err
 		}
 	}
 	return nil

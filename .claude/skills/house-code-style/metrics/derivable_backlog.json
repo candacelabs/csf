@@ -24,7 +24,7 @@
       "hand_maintained_at": [],
       "added": "2026-09-02",
       "status": "derived",
-      "status_note": "Derived. At be664ec90 on branch foundry/p2-raft-widget the shipped homepage card became the generated WardenHeartbeats widget, so the three sites this entry listed are gone: the hand-written .flow-key row in view.templ and the .heartbeat-key and .ack-key swatch colours in home.css were deleted with the rest of the hand-rolled card. The footer legend the page now serves is emitted by internal/uigen/view.go writeLegend from document.Legend, which pkg/widget/internal/validate/invariants.go appends one ir.LegendEntry to per declared channel — so the words 'heartbeat' and 'ack' and their two swatch tokens exist once, in the channels block of go/services/candace-cloud/internal/homepage/warden-heartbeats.widget. go/services/candace-cloud/internal/homepage/routes_test.go asserts both words still reach the served page."
+      "status_note": "Derived. At be664ec90 on branch foundry/p2-raft-widget the shipped homepage card became the generated WardenHeartbeats widget, so the three sites this entry listed are gone: the hand-written .flow-key row in view.templ and the .heartbeat-key and .ack-key swatch colours in home.css were deleted with the rest of the hand-rolled card. The footer legend the page now serves is emitted by internal/uigen/view.go writeLegend from document.Legend, which pkg/widget/internal/validate/validator_invariants.go appends one ir.LegendEntry to per declared channel — so the words 'heartbeat' and 'ack' and their two swatch tokens exist once, in the channels block of go/services/candace-cloud/internal/homepage/warden-heartbeats.widget. go/services/candace-cloud/internal/homepage/routes_test.go asserts both words still reach the served page."
     },
     {
       "id": "widget-edge-geometry",
@@ -33,7 +33,7 @@
       "hand_maintained_at": [],
       "added": "2026-09-02",
       "status": "derived",
-      "status_note": "Derived. At be664ec90 the homepage card's two hand-computed edges — `width: 36%; transform: rotate(-137deg)` and its sibling — were deleted with .map-line and the three .node-* placement rules they were measured against. The served card's edges are now the two `transform=\"translate(50,50) rotate(-131.31)\"` groups the generator emits from ir.EdgeGeometry, computed by pkg/widget/internal/validate/build.go geometryOf from the three placements the document declares (west 21/17, centre 50/50, east 81/20 — the same percentages the deleted CSS carried). No number describing the picture survives in go/services/candace-cloud/internal/homepage/home.css."
+      "status_note": "Derived. At be664ec90 the homepage card's two hand-computed edges — `width: 36%; transform: rotate(-137deg)` and its sibling — were deleted with .map-line and the three .node-* placement rules they were measured against. The served card's edges are now the two `transform=\"translate(50,50) rotate(-131.31)\"` groups the generator emits from ir.EdgeGeometry, computed by pkg/widget/internal/validate/validator_build.go geometryOf from the three placements the document declares (west 21/17, centre 50/50, east 81/20 — the same percentages the deleted CSS carried). No number describing the picture survives in go/services/candace-cloud/internal/homepage/home.css."
     },
     {
       "id": "widget-dirty-projection",

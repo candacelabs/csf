@@ -143,6 +143,9 @@ let test_ratchet () =
   (* cs-16 is blocking: one more crossing fails even though ten goroutines left. *)
   expect "a blocking rise regresses while the penalty falls"
     (regressed ~base ~head:(counts ["cs-15", Measured 0; "cs-16", Measured 3]));
+  (* unlinked-terms is blocking: one new unlinked mention fails even when the penalty falls. *)
+  expect "an unlinked mention regresses while the penalty falls"
+    (regressed ~base ~head:(counts ["cs-15", Measured 0; "cs-16", Measured 2; "unlinked-terms", Measured 1]));
   (* cs-15 is not blocking: a trade that lowers the penalty passes. *)
   expect "a non-blocking rise that lowers the penalty passes"
     (not (regressed ~base ~head:(counts ["cs-15", Measured 11; "cs-16", Measured 1])));

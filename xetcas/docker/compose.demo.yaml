@@ -51,15 +51,15 @@ services:
         condition: service_healthy
     environment:
       XETCAS_DEMO_REPO_URL: http://xetcasd:8080/git/models/demo.git
-      XETCAS_DEMO_WORK: /home/xet/work
+      XETCAS_DEMO_WORK: /var/lib/xet/work
       GIT_TERMINAL_PROMPT: "0"
     volumes:
       # The demo scripts, read-only: the container never mutates the repo.
       - ../demo:/demo:ro
       # HOME on a volume so `git config --global`, the git-xet registration and
       # the xet caches survive across `docker compose exec` invocations.
-      - workbench-home:/home/xet
-    working_dir: /home/xet/work
+      - workbench-home:/var/lib/xet
+    working_dir: /var/lib/xet/work
     tty: true
     stdin_open: true
     command: ["sleep", "infinity"]

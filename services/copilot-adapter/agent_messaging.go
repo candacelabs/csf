@@ -12,7 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/candacelabs/csf/ipc/model/copilot"
+	"github.com/candacelabs/csf/io/net/model/copilot"
 	agentv1 "github.com/candacelabs/csf/proto/candace/agent/v1"
 	"github.com/candacelabs/csf/runtime"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"

@@ -2,7 +2,7 @@
 
 One room that lives in Go, several browsers, and every message reaching every
 session over a server push. It is the example PRD **FR-61** asks for and, with
-its Ginkgo suite, **FR-63**; it is also the application Phase 2's exit criteria
+its Ginkgo suite, **FR-63**; it is also the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) Phase 2's exit criteria
 are gated against, so most of what is below is there because a criterion names
 it.
 
@@ -176,7 +176,7 @@ its session. Type each one into the composer:
 The third row is the asymmetry, and it is the requirement rather than an
 implementation detail. An effect panic leaves state consistent — the reducer
 never ran on a bad value — so the only party who can say whether the failure is
-user-visible is the application. It arrives at the reducer as
+user-visible is the [application](../../../csf/docs/generated/ontology_cgen.md#term-application). It arrives at the reducer as
 `gotth.effect_failed` with `retryable = "false"`, and the patch that reducer
 produces carries origin `effect:chat.panic` with the submission that scheduled
 it as a contributing edge. The spec for it asserts the **absence** of an `Error`
@@ -200,21 +200,21 @@ the panic value.
 under one lock — split in two, a message landing between them is either shown
 twice or missed entirely, and the window is exactly as wide as a page load.
 It then returns a `SubscribeEffect`, because `Config.Execute` is the only place
-an application is handed a `live.Emitter`.
+an [application](../../../csf/docs/generated/ontology_cgen.md#term-application) is handed a `live.Emitter`.
 
-`Config.Teardown` calls `room.Leave`, after the session's goroutine has exited.
+`Config.Teardown` calls `room.Leave`, after the session's [goroutine](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) has exited.
 
 FR-56's sufficiency test is that pair plus no leak, and the spec is exactly that:
 twenty connect/disconnect cycles, then `room.Occupants()` back to zero — the
-exact half — and the goroutine count back to its baseline within a tolerance —
+exact half — and the [goroutine](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) count back to its baseline within a tolerance —
 the approximate half, because the HTTP server and the WebSocket library keep
-goroutines on their own schedule and what would fail is twenty subscription
+[goroutines](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) on their own schedule and what would fail is twenty subscription
 pumps still running.
 
 ## Two things this example does deliberately differently from the counter
 
 **It is mounted at `/chat/live`, not `/live`.** `live.Script` used to default to
-`/live`, so an application mounted anywhere else served a page whose script
+`/live`, so an [application](../../../csf/docs/generated/ontology_cgen.md#term-application) mounted anywhere else served a page whose script
 404'd — the page loaded, nothing was live, and no error appeared anywhere on the
 server. The mount path is a parameter now (L9-1 condition C-23), and this
 example being somewhere else is what keeps that fix honest. A spec pulls the
@@ -258,7 +258,7 @@ friction, said what it cost and named the fix; the fix landed, and the item is
 closed. What is left in `wire_test.go` is the part that is about chat: the
 identity cookie, and the three verbs a member has.
 
-One spec, "The names this application puts on the wire", pins every fragment
+One spec, "The names this [application](../../../csf/docs/generated/ontology_cgen.md#term-application) puts on the wire", pins every fragment
 identifier, event name, effect source and `/panic` command to a string literal.
 Every other spec builds its input from the same constant the code under test
 matches on, which tests the branch and not the name; that one exists so a rename

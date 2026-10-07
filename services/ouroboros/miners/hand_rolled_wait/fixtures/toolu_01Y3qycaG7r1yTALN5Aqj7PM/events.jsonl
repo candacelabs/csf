@@ -1,0 +1,1 @@
+{"timestamp": "2026-10-05T00:05:31.945Z", "type": "assistant", "message": {"content": [{"type": "tool_use", "id": "toolu_01Y3qycaG7r1yTALN5Aqj7PM", "name": "Monitor", "input": {"command": "bash /tmp/claude-1000/-home-agent-example--claude-worktrees-continuous-miners-fixers-42f6a6/905c2604-683f-4dd9-9d03-0adefeecac85/scratchpad/machine_watch.sh 2>&1"}}]}}

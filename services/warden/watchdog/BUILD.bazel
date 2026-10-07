@@ -18,8 +18,8 @@ go_test(
     name = "watchdog_test",
     srcs = [
         "fakes_test.go",
+        "notify_recorder_watchdog_contract_test.go",
         "run_test.go",
-        "watchdog_contract_test.go",
         "watchdog_test.go",
     ],
     embed = [":watchdog"],

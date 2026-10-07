@@ -6,7 +6,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/housekeeping/mocks",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/docker",
+        "//io/ipc/docker",
         "@com_github_moby_moby_client//:client",
         "@org_uber_go_mock//gomock",
     ],

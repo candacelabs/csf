@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/candacelabs/csf/pkg/cron"
+	"github.com/candacelabs/csf/pkg/eventually"
 	cronservice "github.com/candacelabs/csf/services/cron"
 	"github.com/candacelabs/csf/services/cron/crontest"
 
@@ -42,7 +44,7 @@ type observedScheduleStore struct {
 }
 
 func newObservedScheduleStore() *observedScheduleStore {
-	return &observedScheduleStore{IStore: crontest.OpenStore(GinkgoT()), reconciled: make(chan struct{})}
+	return &observedScheduleStore{IStore: crontest.OpenStore(GinkgoT()).Store, reconciled: make(chan struct{})}
 }
 
 func (store *observedScheduleStore) Reconcile(
@@ -57,6 +59,25 @@ func (store *observedScheduleStore) Reconcile(
 	return states, err
 }
 
+// scheduleRuntimePhase is how far a schedule runtime has come at startup: it
+// reconciles its triggers before anything else, and a runtime that stops first
+// never will.
+type scheduleRuntimePhase string
+
+const (
+	scheduleRuntimeStarting   scheduleRuntimePhase = "starting"
+	scheduleRuntimeReconciled scheduleRuntimePhase = "reconciled"
+	scheduleRuntimeStopped    scheduleRuntimePhase = "stopped"
+)
+
+// scheduleStartBudget bounds the wait for a schedule runtime's first
+// reconcile; as generous as projectionBudget, which it shares.
+var scheduleStartBudget = eventually.Budget{Within: projectionBudget, Interval: projectionPoll}
+
+// startScheduleRuntime runs the adapter's schedule runtime until the spec ends
+// and waits for its first reconcile. A runtime that returns before then fails
+// the spec at once with the error it returned, not after the budget with a
+// channel that never closed; the spec's end stops the runtime and joins it.
 func startScheduleRuntime(
 	ctx context.Context,
 	service *copilotadapter.CopilotAdapter,
@@ -64,13 +85,34 @@ func startScheduleRuntime(
 ) {
 	GinkgoHelper()
 	runContext, stop := context.WithCancel(ctx)
-	finished := make(chan error, 1)
-	go func() { finished <- service.RunSchedules(runContext) }()
-	Eventually(store.reconciled).WithTimeout(projectionBudget).Should(BeClosed())
+	// runError is written once, before stopped closes, and read only after a
+	// receive from stopped has returned.
+	var runError error
+	stopped := make(chan struct{})
+	go func() {
+		defer close(stopped)
+		runError = service.RunSchedules(runContext)
+	}()
 	DeferCleanup(func() {
 		stop()
-		Eventually(finished).WithTimeout(projectionBudget).Should(Receive(Succeed()))
+		Eventually(stopped).WithTimeout(projectionBudget).Should(BeClosed())
+		Expect(runError).NotTo(HaveOccurred())
 	})
+	phase := eventually.Await(GinkgoT(), "the schedule runtime to reconcile its triggers", scheduleStartBudget,
+		func() scheduleRuntimePhase {
+			select {
+			case <-stopped:
+				return scheduleRuntimeStopped
+			case <-store.reconciled:
+				return scheduleRuntimeReconciled
+			default:
+				return scheduleRuntimeStarting
+			}
+		},
+		func(phase scheduleRuntimePhase) bool { return phase != scheduleRuntimeStarting })
+	if phase == scheduleRuntimeStopped {
+		Fail(fmt.Sprintf("the schedule runtime stopped before it reconciled its triggers: %v", runError))
+	}
 }
 
 var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
@@ -105,11 +147,11 @@ var _ = Describe("the adapter over pgmem and a mocked CLI", func() {
 			}).AnyTimes()
 		terminals = NewMockITerminalManager(controller)
 		terminals.EXPECT().Close().Return(nil).AnyTimes()
-		queries = postgresStore.Queries
+		queries = storedb.New(postgresStore.Database())
 		scheduleStore := newObservedScheduleStore()
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge),
-			copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees),
 			copilotadapter.WithTerminalManager(terminals),
 			copilotadapter.WithScheduleStore(scheduleStore),

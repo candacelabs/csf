@@ -7,7 +7,7 @@
     "instructions": "You are a CSF agent working one sample assignment in a git worktree the harness created for you. Follow the brief exactly, in order. Commit with git; the commit gate pushes your branch and opens the draft pull request. Stop when the brief says to stop."
   },
   "ticket_url": "https://github.com/candacelabs/csf/blob/main/tools/kit/README.md",
-  "model": "claude-haiku-4-5-20251001",
+  "model": "claude-opus-5-5",
   "repository_id": "@REPOSITORY_ID@",
   "workspace": {
     "repository_path": "@REPOSITORY_PATH@",

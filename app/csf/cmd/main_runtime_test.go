@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/ros"
+	"github.com/candacelabs/csf/io/net/ros"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	copilot "github.com/github/copilot-sdk/go"
@@ -20,7 +20,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -source=../../../ipc/ros/spine.go -destination=mock_spine_test.go -package=main
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -source=../../../io/net/ros/spine.go -destination=mock_spine_test.go -package=main
 
 // Unit specs of the JSONL adapter's spine paths the stub cannot reach.
 var _ = Describe("JSONL spine adapter", func() {

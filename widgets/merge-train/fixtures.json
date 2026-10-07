@@ -1,0 +1,12 @@
+[
+  {
+    "name": "labels waiting",
+    "source": {"day": "2026-10-03", "merges": {"merged": 5, "refused": 12}, "needs_labels": 85},
+    "expect": ["ouroboros loop, day 2026-10-03", "5 merged", "12 refused", "85 findings wait for labels"]
+  },
+  {
+    "name": "queue drained",
+    "source": {"day": "2026-10-05", "merges": {"merged": 9, "refused": 12}, "needs_labels": 0},
+    "expect": ["9 merged", "no finding waits for labels"]
+  }
+]

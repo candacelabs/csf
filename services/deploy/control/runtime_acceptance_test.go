@@ -20,7 +20,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"github.com/candacelabs/csf/services/deploy/fleet"
 	"github.com/candacelabs/csf/services/deploy/internal/storedb"

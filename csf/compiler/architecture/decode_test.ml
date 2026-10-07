@@ -27,6 +27,8 @@ let source = {|architecture example version 1 {
   connect worker -> worker via call state existing;
   scan "services";
   generated "generated";
+  dir "services" allowed ["go"];
+  dir "io/net" allowed ["go"] tier net;
 }|}
 
 let test_canonical root =
@@ -44,6 +46,9 @@ let test_canonical root =
   expect "declaration kinds lost"
     (List.length architecture.scopes = 1 && List.length architecture.dependencies = 1 &&
      List.length architecture.scan_roots = 1 && List.length architecture.generated_roots = 1);
+  expect "directory declaration lost"
+    (List.map (fun (value : Model.directory) -> value.path, value.allowed, value.tier) architecture.directories
+     = ["services", ["go"], None; "io/net", ["go"], Some Model.Net]);
   expect "source location changed" ((List.hd architecture.processes).process_at.line = 2)
 
 let test_grammar_drift () =

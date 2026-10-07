@@ -150,7 +150,7 @@ var _ = Describe("authoritative workspace task transitions", func() {
 		fixture := newWorkspaceFixture(copilotadapter.WithTaskContinuity(authority.continuity))
 		link, err := fixture.adapter.LinkWorkspaceTask(context.Background(), fixture.sessionID, workspaceTaskURL, 0)
 		Expect(err).NotTo(HaveOccurred())
-		_, err = fixture.adapter.LinkWorkspaceTask(context.Background(), fixture.sessionID, "https://github.com/example/project/issues/208", link.Generation)
+		_, err = fixture.adapter.LinkWorkspaceTask(context.Background(), fixture.sessionID, "https://github.com/candacelabs/project/issues/208", link.Generation)
 		Expect(err).NotTo(HaveOccurred())
 		_, err = fixture.adapter.MoveWorkspaceTask(context.Background(), link, initial.Checkpoint.Id, workv1.WorkStatus_WORK_STATUS_QUEUED, "Do not modify the old task", "")
 		Expect(err).To(MatchError(ContainSubstring(workcontinuity.ErrStale.Error())))

@@ -10,13 +10,13 @@ report**, and that a gap in the id sequence is an audit failure: the ids here ru
 |---|---|
 | `m0.csv`, `mn.csv` | the two §3.6 windows — 60 samples at 1 Hz, one row each: `unix_ms,memory_current,file,anon,sock,slab,kernel`, read from the host out of the measured container's cgroup v2 directory |
 | `floor-m0.csv`, `floor-mn.csv` | the labelled post-`debug.FreeOSMemory()` floor, 10 samples, taken **after** the headline window closed |
-| `run.json` | the run manifest: N, window order, git SHA, image digest, cpusets, memory limit, `GOGC`/`GOMEMLIMIT`, warm-up count, settle time, the limits in force, host state before and after each window, the contended flag, and the TLS-boundary assertions |
+| `run.json` | the run manifest: N, window order, git SHA, image digest, cpusets, [memory](../../../../../../csf/docs/generated/ontology_cgen.md#term-memory) limit, `GOGC`/`GOMEMLIMIT`, warm-up count, settle time, the limits in force, host state before and after each window, the contended flag, and the TLS-boundary assertions |
 | `window-m0.json`, `window-mn.json` | per-window manifests, embedded in `run.json` and kept separately for diffing |
-| `introspect-*.json` | `runtime/metrics` and goroutine count at the close of each window |
+| `introspect-*.json` | `runtime/metrics` and [goroutine](../../../../../../csf/docs/generated/ontology_cgen.md#term-goroutine) count at the close of each window |
 | `floor-*.json` | the same, after the forced GC, with `forced_gc: true` on the record itself so the label travels with the number |
 | `driver-mn.json` | the session driver's counters: target, dialed, mounted, live, closed, dial errors, read errors, acks, heartbeats |
-| `host-pre-*.json`, `host-post-*.json` | uptime, cores, load average, memory, and the count and names of the unrelated containers running on this shared host |
-| `campaign.log` | the harness's console output for the whole campaign, in order |
+| `host-pre-*.json`, `host-post-*.json` | uptime, [cores](../../../../../../csf/docs/generated/ontology_cgen.md#term-core), load average, [memory](../../../../../../csf/docs/generated/ontology_cgen.md#term-memory), and the count and names of the unrelated containers running on this shared host |
+| `campaign.log` | the harness's console output for the whole campaign, in order. **Edited for publication:** the host directory holding the worktree in the three recorded `docker run` commands was replaced with the neutral path `/srv/worktrees/`; no measurement line was changed |
 
 **One thing is deliberately not here.** Each M(N) window's `sut-mn.log` is
 327 KB of provenance JSON — one mount record per session, and nothing after

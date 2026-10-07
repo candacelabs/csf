@@ -8,7 +8,9 @@
 #   tools/close-ticket.sh 12 31 < merge.log
 #
 # Tickets and pull requests both live in the repository origin points at
-# (candacelabs/csf_staging), so both are numbers there. The ticket is closed (gh issue close --comment) only when the pull request
+# (candacelabs/csf_staging), so both are numbers there. Every GitHub call is
+# one of CSF's GitHub tools through csf github. The ticket is closed (the
+# comment, then IssuesUpdate to closed) only when the pull request
 # is merged, its `| Backtest FN |` row reads 0 and the merge run printed
 # `check-merge: passed`. Otherwise one comment names the failing row and the
 # ticket stays open (exit 1). Idempotent: a closed ticket, or one that already
@@ -25,17 +27,31 @@ if [[ "${1:-}" == --dry-run ]]; then dry_run=true; shift; fi
 ticket=$1
 number=$2
 checkout=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)
-# gh is told the repository origin points at, never one resolved from a clone's
-# upstream default.
+# The ticket and pull request live in the repository origin points at, never
+# one a clone's upstream default would name.
 repository=$(git -C "$checkout" remote get-url origin)
+slug=${repository#https://github.com/}
+slug=${slug#git@github.com:}
+slug=${slug%.git}
+[[ "$slug" == */* && "$slug" != */*/* ]] || die "origin $repository is not a github.com repository"
+owner=${slug%%/*}
+repo=${slug#*/}
 log=$(cat)
 
-pull=$(gh pr view "$number" --repo "$repository" --json url,state,body,headRefOid,mergeCommit)
-url=$(jq -r .url <<<"$pull")
-state=$(jq -r .state <<<"$pull")
-body=$(jq -r .body <<<"$pull")
-head=$(jq -r .headRefOid <<<"$pull")
-merge=$(jq -r '.mergeCommit.oid // "none"' <<<"$pull")
+# github TOOL FILTER [jq --arg/--argjson pairs...] calls one GitHub tool with
+# the input FILTER builds over owner and repo.
+github() {
+  local tool=$1 filter=$2
+  shift 2
+  jq -n --arg owner "$owner" --arg repo "$repo" "$@" "{owner: \$owner, repo: \$repo} + ($filter)" | csf github "$tool"
+}
+
+pull=$(github PullsGet '{pull_number: $number}' --argjson number "$number")
+url=$(jq -r .html_url <<<"$pull")
+state=$(jq -r 'if .merged then "MERGED" else (.state | ascii_upcase) end' <<<"$pull")
+body=$(jq -r '.body // ""' <<<"$pull")
+head=$(jq -r .head.sha <<<"$pull")
+merge=$(jq -r '.merge_commit_sha // "none"' <<<"$pull")
 
 verdict=$(grep -m1 '^\*\*Verdict:\*\*' <<<"$body" || true)
 backtest=$(grep '^| Backtest ' <<<"$body" || true)
@@ -66,15 +82,18 @@ comment=$(
   if [[ -n "$failing" ]]; then printf '\n**Not closed; failing row:** %s\n' "$failing"; fi
 )
 
-issue=$(gh issue view "$ticket" --repo "$repository" --json state,comments)
-if [[ $(jq -r .state <<<"$issue") == CLOSED ]]; then
+issue=$(github IssuesGet '{issue_number: $ticket}' --argjson ticket "$ticket")
+comments=$(github IssuesListComments '{issue_number: $ticket, params: {per_page: 100}}' --argjson ticket "$ticket")
+close_ticket() { github IssuesUpdate '{issue_number: $ticket, body: {state: "closed"}}' --argjson ticket "$ticket" >/dev/null; }
+comment_ticket() { github IssuesCreateComment '{issue_number: $ticket, body: {body: $comment}}' --argjson ticket "$ticket" --arg comment "$comment" >/dev/null; }
+if [[ $(jq -r .state <<<"$issue") == closed ]]; then
   printf 'close-ticket: #%s is already closed\n' "$ticket"
   exit 0
 fi
-if jq -e --arg body "$comment" 'any(.comments[]; .body == $body)' <<<"$issue" >/dev/null; then
+if jq -e --arg body "$comment" 'any(.items[]; .body == $body)' <<<"$comments" >/dev/null; then
   printf 'close-ticket: #%s already carries this comment\n' "$ticket"
   [[ -z "$failing" ]] || exit 1
-  [[ "$dry_run" == true ]] || gh issue close "$ticket" --repo "$repository"
+  [[ "$dry_run" == true ]] || close_ticket
   exit 0
 fi
 
@@ -84,9 +103,10 @@ if [[ "$dry_run" == true ]]; then
   exit 0
 fi
 if [[ -z "$failing" ]]; then
-  gh issue close "$ticket" --repo "$repository" --comment "$comment"
+  comment_ticket
+  close_ticket
   exit 0
 fi
-gh issue comment "$ticket" --repo "$repository" --body "$comment"
+comment_ticket
 printf 'close-ticket: not closed: %s\n' "$failing" >&2
 exit 1

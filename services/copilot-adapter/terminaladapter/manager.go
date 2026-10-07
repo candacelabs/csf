@@ -14,7 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 )

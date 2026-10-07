@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg/mocks"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg/mocks"
 	"github.com/candacelabs/csf/services/deploy/store"
 )
 

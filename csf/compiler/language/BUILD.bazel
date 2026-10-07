@@ -12,8 +12,27 @@ ocaml_module(
     name = "Compiler",
     struct = "compiler.ml",
     deps = [
+        ":Ebnf_codegen",
         ":Generated_block",
         "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Meta",
+    struct = "meta.ml",
+    deps = [
+        "//csf/compiler/architecture:Frontend",
+        "//csf/compiler/architecture:Model",
+    ],
+)
+
+ocaml_module(
+    name = "Ebnf_codegen",
+    struct = "ebnf_codegen.ml",
+    deps = [
+        ":Meta",
+        "//csf/compiler/architecture:Model",
     ],
 )
 
@@ -76,6 +95,7 @@ ocaml_module(
     struct = "compiler_test.ml",
     deps = [
         ":Compiler",
+        ":Ebnf_codegen",
         ":Generated_block",
         "@opam.ocamlsdk//unix/lib",
     ],
@@ -84,6 +104,14 @@ ocaml_module(
 ocaml_test(
     name = "compiler_test",
     size = "small",
+    args = [
+        "$(rootpath :meta.ebnf)",
+        "$(rootpath :meta.csf)",
+    ],
+    data = [
+        ":meta.csf",
+        ":meta.ebnf",
+    ],
     main = ":Compiler_test",
 )
 
@@ -120,6 +148,62 @@ ocaml_test(
     main = ":Generation_metrics_test",
 )
 
+ocaml_module(
+    name = "Meta_test",
+    struct = "meta_test.ml",
+    deps = [
+        ":Meta",
+        "//csf/compiler/architecture:Frontend",
+        "//csf/compiler/architecture:Model",
+    ],
+)
+
+ocaml_test(
+    name = "meta_test",
+    size = "small",
+    args = [
+        "$(rootpath :meta.ebnf)",
+        "$(rootpath :meta.csf)",
+        "$(rootpath :grammar.ebnf)",
+        "$(rootpath //csf/compiler/architecture:language.ebnf)",
+        "$(rootpath //csf/architecture:architecture.csf)",
+        "$(rootpath //csf/compiler/testdata/golden/rest_client:rest_client.architecture.csf)",
+    ],
+    data = [
+        ":grammar.ebnf",
+        ":meta.csf",
+        ":meta.ebnf",
+        "//csf/architecture:architecture.csf",
+        "//csf/compiler/architecture:language.ebnf",
+        "//csf/compiler/testdata/golden/rest_client:rest_client.architecture.csf",
+    ],
+    main = ":Meta_test",
+)
+
+ocaml_module(
+    name = "Ebnf_codegen_test",
+    struct = "ebnf_codegen_test.ml",
+    deps = [
+        ":Ebnf_codegen",
+        ":Meta",
+        "//csf/compiler/architecture:Model",
+    ],
+)
+
+ocaml_test(
+    name = "ebnf_codegen_test",
+    size = "small",
+    args = [
+        "$(rootpath :meta.ebnf)",
+        "$(rootpath :meta.csf)",
+    ],
+    data = [
+        ":meta.csf",
+        ":meta.ebnf",
+    ],
+    main = ":Ebnf_codegen_test",
+)
+
 py_test(
     name = "metric_parity_test",
     size = "small",
@@ -145,7 +229,9 @@ test_suite(
     name = "tests",
     tests = [
         ":compiler_test",
+        ":ebnf_codegen_test",
         ":generation_metrics_test",
+        ":meta_test",
         ":metric_parity_test",
         ":metric_text_test",
     ],

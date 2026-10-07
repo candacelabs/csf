@@ -1,0 +1,129 @@
+% PROGRAM describe_system — the rules a `service` declaration must satisfy,
+% for every instance the golden tree carries (issue #488). Step 1 of the
+% method: declare.
+%
+% Dialect: the pinned third-party engine csfc links
+% (csf/compiler/third_party/datalog) — stratified negation and counting, one
+% aggregate per body, and no safety or stratification check. Every head
+% variable and every negated variable is bound by an earlier positive literal.
+% The declarations in email/email.csf and blah/blah.csf supply the base
+% relations (extract.ml writes them once csfc parses the kind declaration);
+% these findings are what the generated tree must satisfy. Nothing runs them
+% yet — see the pull request body.
+
+/* facts
+   universe   S: service declarations; C: declared capabilities; O: declared operations; X: declared outcomes; T: declared tables; R: declared rest_client calls; D: declared directories; N: counts; Q: questions; P: preferred options
+   relation   service ⊆ S
+   relation   capability ⊆ S × C
+   relation   op ⊆ S × O
+   relation   outcome ⊆ S × O × X
+   relation   stores ⊆ S × T
+   relation   calls ⊆ S × R
+   relation   config ⊆ S × Record | {none}
+   relation   generated ⊆ S × File
+   relation   handwritten_lines ⊆ S × N
+   relation   handwritten_region ⊆ S × Region
+   relation   declared_region ⊆ S × Region
+   relation   question ⊆ S × Region × Text               % one typed ask per uncovered region
+   relation   option ⊆ S × Question × Preferred          % its branch: the kind the region needs
+   relation   declared ⊆ S × D                 % the directory each service declares
+   relation   tracked_dir ⊆ D                  % every tracked directory
+   relation   service_dir ⊆ S                  % every services/<name>
+   relation   tracked_count ⊆ N                % |tracked_dir|
+   relation   service_count ⊆ N                % |service_dir|
+   relation   new_service_one_sentence ⊆ ∅     % the program's one-sentence test
+   relation   metric ⊆ O × Kind                % the counter artifact an operation emits, named by its kind
+   relation   panel ⊆ O × Kind                 % the panel artifact an operation emits, named by its kind
+   relation   forall ⊆ Region × Condition       % the witness clauses' universal quantifier
+*/
+
+/* predicate emits
+   universe   S: service declarations; C: declared capabilities; O: declared operations; X: declared outcomes
+   clause     every declared shape emits the artifact the template owns
+   finding    emits = the artifact set one service projects to
+   note       a `fresh` service and a reverse-ported one emit the same set; a
+              reverse-ported one additionally accounts for its retained regions
+              as declared or a question, never as a seam
+*/
+emits(S, package_doc) :- service(S).
+emits(S, readme) :- service(S).
+emits(S, constructor) :- service(S).
+emits(S, options(C)) :- capability(S, C).
+emits(S, contract(C)) :- capability(S, C).
+emits(S, mock(C)) :- capability(S, C).
+emits(S, op(O)) :- op(S, O).
+emits(S, metric(O, total)) :- op(S, O).
+emits(S, metric(O, duration_seconds)) :- op(S, O).
+emits(S, panel(O, rate_by_outcome)) :- op(S, O).
+emits(S, panel(O, latency_p50_p95)) :- op(S, O).
+emits(S, test(O, outcome(X))) :- op(S, O), outcome(S, O, X).
+emits(S, test(misuse(C))) :- capability(S, C).
+emits(S, suite) :- service(S).
+emits(S, build_file) :- service(S).
+emits(S, migration) :- stores(S, T).
+emits(S, queries(T)) :- stores(S, T).
+emits(S, rest_client(R)) :- calls(S, R).
+emits(S, architecture(component)) :- service(S).
+emits(S, directory) :- service(S).
+
+/* predicate golden
+   universe   S: service declarations; R: retained regions; F: files; N: lines
+   clause     golden(blah) when every file is generated and no line is
+              hand-written; golden(email) when every retained region is declared
+              or asked as a typed question
+   finding    golden(S) is one instance's completion witness: the declaration
+              alone fixes the tree
+   note       a fresh service has no retained behaviour, so its witness is that
+              nothing is hand-written; a reverse-ported one names each retained
+              region and accounts for it
+*/
+handwritten_lines(blah, 0).
+generated(blah, every_file).
+golden(blah) :- generated(blah, every_file), handwritten_lines(blah, 0).
+
+% email reverse-ports services/email. Three regions are covered by its
+% declaration (the operation body, the outcome classifier, the config
+% validation); the four email.csf asks as typed questions are the rest. Every
+% retained region must be one of the two.
+handwritten_region(email, op_body(send)).
+handwritten_region(email, classify(send)).
+handwritten_region(email, validate_config(email)).
+handwritten_region(email, R) :- question(email, R, _).
+declared_region(email, op_body(send)).
+declared_region(email, classify(send)).
+declared_region(email, validate_config(email)).
+accounted(email, R) :- declared_region(email, R).
+accounted(email, R) :- question(email, R, _).
+golden(email) :- forall(R, handwritten_region(email, R) => accounted(email, R)).
+
+/* predicate instrumented
+   universe   S: service declarations; O: declared operations
+   clause     ∀s ∈ S. ∀o ∈ op(s). emits(s, metric(o,total)) ∧ emits(s, panel(o,rate_by_outcome))
+   finding    instrumented = {s | every operation of s has a total counter and a rate panel}
+*/
+instrumented(S) :- service(S), forall(O, op(S, O) => (emits(S, metric(O, total)), emits(S, panel(O, rate_by_outcome)))).
+
+/* predicate coverage
+   universe   D: declared directories; S: service declarations; N: counts
+   relation   declared ⊆ S × D                                   % the directory each service declares
+   relation   tracked_dir ⊆ D                                   % every tracked directory
+   relation   service_dir ⊆ S                                   % every services/<name>
+   relation   tracked_count ⊆ N                                 % |tracked_dir|
+   relation   service_count ⊆ N                                 % |service_dir|
+   clause     coverage(dirs) = |declared| / |tracked|; coverage(services) = |instrumented| / |service_dir|
+   finding    each coverage below 1 is the gap between declaration and tree
+   note       the aggregate ends the body, one per clause
+*/
+declared_count(N) :- N := count D : declared(_, D).
+coverage(dirs, R) :- declared_count(D), tracked_count(T), R := D / T.
+instrumented_count(N) :- N := count S : service(S), instrumented(S).
+coverage(services, R) :- instrumented_count(I), service_count(T), R := I / T.
+
+/* predicate done
+   universe   the describe_system program
+   relation   new_service_one_sentence ⊆ ∅                       % a new service is describable in one sentence
+   clause     both coverages are 1, both instances are golden, and a new
+              service is describable in one sentence
+   finding    done(describe_system) is the program's completion witness
+*/
+done(describe_system) :- coverage(dirs, 1), coverage(services, 1), golden(blah), golden(email), new_service_one_sentence.

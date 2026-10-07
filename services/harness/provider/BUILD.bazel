@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "provider",
+    srcs = [
+        "config.go",
+        "provider.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/provider",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/privatefile"],
+)
+
+go_test(
+    name = "provider_test",
+    srcs = ["provider_test.go"],
+    embed = [":provider"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

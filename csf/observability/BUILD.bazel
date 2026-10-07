@@ -1,0 +1,8 @@
+# The scoreboard is declared as a CSF artifact and consumed as data by
+# app/csf/cmd's tests, which read the declaration to verify one kind per
+# artifact shape and one meter row per program meter. The other dashboards in
+# this directory are host-side assets with no Bazel consumer.
+exports_files(
+    ["scoreboard.csf"],
+    visibility = ["//app/csf/cmd:__pkg__"],
+)

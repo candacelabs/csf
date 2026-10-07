@@ -35,7 +35,7 @@ runs:
         printf 'base-key=%s\n' "$base_key" >> "$GITHUB_OUTPUT"
         printf 'save-key=%s\n' "$save_key" >> "$GITHUB_OUTPUT"
         printf 'CANDACE_BAZEL_CACHE=%s/.git/csf-bazel-runtime\n' "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
-        printf 'CANDACE_BAZEL_DISK_CACHE=/bazel-home/sharedtaskcache\n' >> "$GITHUB_ENV"
+        printf 'CANDACE_BAZEL_DISK_CACHE=%s/.git/csf-bazel-runtime/sharedtaskcache\n' "$GITHUB_WORKSPACE" >> "$GITHUB_ENV"
 
     # Keep the literal paths identical in every job. Output bases, extracted
     # repositories, symlinks, and test verdicts are never transferred.
@@ -45,7 +45,7 @@ runs:
       with:
         path: |
           .git/csf-bazel-runtime/output/cache/repos/v1/
-          .git/csf-bazel-runtime/home/sharedtaskcache/
+          .git/csf-bazel-runtime/sharedtaskcache/
           .git/csf-bazel-runtime/completed.json
         key: ${{ steps.key.outputs.base-key }}
         # Preparation may restore the newest completed entry for this exact
@@ -73,7 +73,7 @@ runs:
       with:
         path: |
           .git/csf-bazel-runtime/output/cache/repos/v1/
-          .git/csf-bazel-runtime/home/sharedtaskcache/
+          .git/csf-bazel-runtime/sharedtaskcache/
           .git/csf-bazel-runtime/completed.json
         key: csf-bazel-runtime-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.previous }}-${{ steps.key.outputs.value }}
         restore-keys: csf-bazel-runtime-v2-${{ runner.os }}-${{ runner.arch }}-${{ steps.key.outputs.previous }}-${{ steps.key.outputs.value }}-
@@ -128,7 +128,7 @@ runs:
       with:
         path: |
           .git/csf-bazel-runtime/output/cache/repos/v1/
-          .git/csf-bazel-runtime/home/sharedtaskcache/
+          .git/csf-bazel-runtime/sharedtaskcache/
           .git/csf-bazel-runtime/completed.json
         key: ${{ steps.key.outputs.save-key }}
 
@@ -141,7 +141,7 @@ runs:
       with:
         path: |
           .git/csf-bazel-runtime/output/cache/repos/v1/
-          .git/csf-bazel-runtime/home/sharedtaskcache/
+          .git/csf-bazel-runtime/sharedtaskcache/
           .git/csf-bazel-runtime/completed.json
         key: ${{ steps.key.outputs.save-key }}
         lookup-only: true

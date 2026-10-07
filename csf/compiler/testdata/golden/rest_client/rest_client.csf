@@ -1,0 +1,32 @@
+// golden_first, example 1 — the rest_client kind, and the hfjobs instance
+// being migrated onto it (issue #475). This is step 1 of the method: declare.
+//
+// The kind/instance declaration is a proposed production for csf/compiler/language/grammar.ebnf; it is not yet parsed
+// by csfc; this file is the record the slice is authored from, not yet a
+// checked input. The kind and instance bodies are the ticket's own; the
+// declarative spelling is left exactly as the record uses it. What csfc checks
+// today, and what step 4 adds, is stated in the pull request body.
+//
+// Scope of this slice: example(1, rest_client, instances([hfjobs])). The
+// sglang instance and ipc/model/sglang are out of scope (\+ location(sglang,
+// 'ipc/model/sglang')). Steps 2 (handwrite) and 3 (review) follow; steps 4
+// (generate) and 5 (replace) do not start until the operator approves the
+// golden in io/net/rest and io/net/hfjobs beside this file.
+
+kind rest_client {
+  base_url  url;
+  auth      secret_ref | none;                      // a reference, never the value
+  spec      openapi | none;                         // typed client generated when a spec exists
+  rate      from_headers | fixed(per_second: int) | none;   // X-RateLimit-*, Retry-After
+  retry     backoff(max: int);
+  template  "io/net/rest";                          // NewRateLimitedRESTClient, IRESTClient
+}
+
+// the instance migrated in this slice
+rest_client hfjobs {
+  base_url "https://huggingface.co/api";
+  auth     secret("hf_token");
+  spec     none;
+  rate     from_headers;
+  retry    backoff(5);
+}

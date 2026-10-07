@@ -51,6 +51,15 @@ message AgentSessionState {
   google.protobuf.Timestamp updated_at = 12;
   // The failure that ended the session, when the phase is FAILED.
   string error = 13;
+  // The session is suspended: its turn executor is closed, the session stays
+  // OPEN with its recorded conversation, and the next message resumes it.
+  bool suspended = 14;
+  // Activity counters tracked as events are written.
+  google.protobuf.Timestamp last_event_at = 15;
+  uint32 events_last_10m = 16;
+  string last_command = 17;
+  string last_tool = 18;
+  uint32 inbox_depth = 19;
 }
 
 // The check made before a session is launched, with its measurements. Both
@@ -68,6 +77,16 @@ message LaunchCheck {
   bool admitted = 7;
   bool report_only = 8;
   repeated string findings = 9;
+  // The io bound: the percent of the last 10 s in which every non-idle task
+  // stalled on io, and the derived bound above which launches are held.
+  double io_pressure_full_avg10 = 10;
+  double io_pressure_bound = 11;
+  // The memory bound: the memory available on the host and the memory a
+  // session may use, its memory.max. A launch that does not fit is refused
+  // even while the check is report-only.
+  uint64 memory_available_bytes = 12;
+  uint64 session_memory_bytes = 13;
+  bool memory_fits = 14;
 }
 
 message SubmitAgentSessionRequest { candace.brainspine.v1.AgentAssignmentRecipe recipe = 1; }
@@ -77,15 +96,124 @@ message SubmitAgentSessionResponse {
   LaunchCheck check = 3;
 }
 
+enum MessageState {
+  MESSAGE_STATE_UNSPECIFIED = 0;
+  MESSAGE_STATE_QUEUED = 1;
+  MESSAGE_STATE_DELIVERED = 2;
+  MESSAGE_STATE_READ = 3;
+  MESSAGE_STATE_ANSWERED = 4;
+}
+
+enum MessagePriorityClass {
+  MESSAGE_PRIORITY_CLASS_UNSPECIFIED = 0;
+  MESSAGE_PRIORITY_CLASS_QUEUE = 1;
+  MESSAGE_PRIORITY_CLASS_INTERRUPT = 2;
+  MESSAGE_PRIORITY_CLASS_PREEMPT = 3;
+}
+
+message InboxMessage {
+  string receipt_id = 1;
+  string text = 2;
+  MessageState state = 3;
+  google.protobuf.Timestamp sent_at = 4;
+  google.protobuf.Timestamp delivered_at = 5;
+  google.protobuf.Timestamp read_at = 6;
+  google.protobuf.Timestamp answered_at = 7;
+  // priority_class determines interrupt behavior.
+  MessagePriorityClass priority_class = 8;
+  // sequence: stable order key combined with priority_class.
+  uint64 sequence = 9;
+}
+
 message SendAgentSessionMessageRequest {
   string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
   string message = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 32000"}];
+  // The message is the operator's own words: a chat turn the operator sent,
+  // or a relayed message that quotes the operator verbatim. The harness
+  // computes the message's unvetted terms, records them as an event and puts
+  // them into the turn, and the reply gate holds the reply to them.
+  bool operator_authored = 3;
+  // The operator wanted the question the question gate last refused in this
+  // session: the send is recorded as an override, the false-positive
+  // evidence for the gate's classifier.
+  bool question_wanted = 4;
+  // priority_class determines if message interrupts running turn or queues normally.
+  MessagePriorityClass priority_class = 5;
 }
+
+// One operator ruling: what it decides, the operator's own words, whom it
+// binds, why, and the gate that enforces it. A ruling no gate enforces is
+// UNENFORCED, and the Workbench and the rulings view flag it. An agent
+// question, or an alternative it offers, that names an excluded alternative
+// re-litigates the ruling, and the question gate refuses it.
+message Ruling {
+  string ruling_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$`)"}];
+  string statement = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 4000"}];
+  // Phrases naming the alternatives the ruling rules out, matched word by
+  // word after stemming; none blank (the service checks). A ruling with none
+  // is never matched by the question gate.
+  repeated string excludes = 3;
+  // The ruling this one replaces; it stops being in force.
+  string supersedes = 4 [(candace.liquid.v1.field) = {expr: "len(this) <= 80"}];
+  // The operator's words, copied verbatim and never paraphrased.
+  string quote = 5 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 4000"}];
+  // The day the operator ruled, as YYYY-MM-DD.
+  string ruled_on = 6 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9]{4}-[0-9]{2}-[0-9]{2}$`)"}];
+  // Whom the ruling binds: every actor, the sessions, the orchestrator.
+  string scope = 7 [(candace.liquid.v1.field) = {expr: "len(this) <= 400"}];
+  // Why the operator ruled: what happened that the ruling answers.
+  string why = 8 [(candace.liquid.v1.field) = {expr: "len(this) <= 4000"}];
+  // The gate that enforces the ruling; empty is UNENFORCED.
+  string enforced_by = 9 [(candace.liquid.v1.field) = {expr: "len(this) <= 400"}];
+  // The gate that will enforce the ruling once it merges. The ruling stays
+  // UNENFORCED until enforced_by names a gate.
+  string pending_gate = 10 [(candace.liquid.v1.field) = {expr: "len(this) <= 400"}];
+}
+
+message RecordRulingRequest { Ruling ruling = 1 [(candace.liquid.v1.field) = {recurse: true}]; }
+// The rulings in force after the record, in the order first recorded.
+message RecordRulingResponse { repeated Ruling in_force = 1; }
 // A turn identifier acknowledges that the message was queued for the
 // session's next safepoint; it does not prove the turn ran or succeeded.
 message SendAgentSessionMessageResponse {
   AgentSessionState session = 1;
+  // turn_id acknowledges the message's turn; receipt carries its queued inbox message.
   string turn_id = 2;
+  InboxMessage receipt = 3;
+}
+
+message ListInboxRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+}
+message ListInboxResponse {
+  repeated InboxMessage messages = 1;
+}
+
+// Queue operations: move reorders a message in the queue, top promotes it.
+message MoveInboxMessageRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  string receipt_id = 2;
+  // index: 0 moves to the front of the queue.
+  uint32 index = 3;
+}
+message MoveInboxMessageResponse {
+  repeated InboxMessage messages = 1;
+}
+
+message TopInboxMessageRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  string receipt_id = 2;
+}
+message TopInboxMessageResponse {
+  repeated InboxMessage messages = 1;
+}
+
+message DropInboxMessageRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  string receipt_id = 2;
+}
+message DropInboxMessageResponse {
+  repeated InboxMessage messages = 1;
 }
 
 message ListAgentSessionsRequest {}
@@ -107,9 +235,91 @@ message CancelAgentSessionRequest {
 // is still running, CANCELED once the owner has stopped at its safepoint.
 message CancelAgentSessionResponse { AgentSessionState session = 1; }
 
+// The launch check a recipe would meet now, without admitting it: the same
+// measurements Submit reports, and why admission is held when it is.
+message CheckAgentSessionAdmissionRequest { candace.brainspine.v1.AgentAssignmentRecipe recipe = 1; }
+message CheckAgentSessionAdmissionResponse {
+  LaunchCheck check = 1;
+  // Why every Submit is refused right now; empty while sessions are admitted.
+  string held = 2;
+}
+
+message ReadyAgentSessionPullRequestRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+}
+message ReadyAgentSessionPullRequestResponse { AgentSessionState session = 1; }
+
+message MergeAgentSessionPullRequestRequest {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+}
+// The merge path's report: what the repository's merge script or gh printed.
+message MergeAgentSessionPullRequestResponse {
+  AgentSessionState session = 1;
+  string report = 2;
+}
+
 message StopHarnessRequest {}
 message StopHarnessResponse {
   // Sessions still running when the stop was requested; each is closed in
   // the harness's ordered shutdown.
   uint32 sessions_running = 1;
+}
+
+// A proposed patch to be applied, with the diff and metadata.
+message Proposal {
+  string assignment_id = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)"}];
+  // Unified diff of the changes.
+  string diff = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 10000000"}];
+  // Commit message for the proposed changes.
+  string message = 3 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 8000"}];
+  google.protobuf.Timestamp proposed_at = 4;
+}
+
+// A typed rejection of a proposed patch.
+message Rejection {
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    // Patch could not be parsed or applied.
+    CODE_APPLY_FAILED = 1;
+    // Commit message or diff validation failed.
+    CODE_VALIDATION_FAILED = 2;
+    // User declined the proposal.
+    CODE_DECLINED = 3;
+    // Workspace mode does not allow patches.
+    CODE_MODE_UNSUPPORTED = 4;
+  }
+  Code code = 1;
+  string details = 2;
+}
+
+message ProposeProposalRequest { Proposal proposal = 1; }
+message ProposeProposalResponse {
+  // The session state after the proposal, or absent if rejected.
+  AgentSessionState session = 1;
+  // The rejection reason if the proposal was not accepted.
+  Rejection rejection = 2;
+}
+
+// The turn executor and model a recipe that names no executor runs on: the
+// host's default, set when csf serve starts and switchable while it runs. A
+// recipe that names its executor runs as written.
+message AgentExecutorDefault {
+  string executor = 1 [(candace.liquid.v1.field) = {expr: "matches(this, `^(claude-code|copilot)$`)"}];
+  // The model such a recipe runs on, spelled as the executor spells it.
+  // Empty keeps each recipe's own model, which is only meaningful for the
+  // executor recipes are written for, Claude Code.
+  string model = 2 [(candace.liquid.v1.field) = {expr: "len(this) <= 200"}];
+}
+
+message GetAgentExecutorDefaultRequest {}
+message GetAgentExecutorDefaultResponse { AgentExecutorDefault executor_default = 1; }
+
+// Switch the default for every session submitted from now on; running
+// sessions keep the executor they opened on.
+message SetAgentExecutorDefaultRequest {
+  AgentExecutorDefault executor_default = 1 [(candace.liquid.v1.field) = {recurse: true}];
+}
+message SetAgentExecutorDefaultResponse {
+  AgentExecutorDefault executor_default = 1;
+  AgentExecutorDefault previous = 2;
 }

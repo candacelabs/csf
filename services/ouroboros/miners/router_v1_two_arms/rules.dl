@@ -1,0 +1,15 @@
+/* router v1: exactly two arms (attach existing or create fresh) */
+/* facts
+   universe   V: virtual sessions; R: real sessions; Arm: arm name; Score: match score
+   relation   routing_decision is subset of V x R x Arm x Score
+*/
+
+/* valid arms: attach_warm (named-key match), attach_topic (summary match), fresh (new conversation) */
+valid_arm(attach_warm).
+valid_arm(attach_topic).
+valid_arm(fresh).
+
+/* predicate invalid_arm
+   finding    invalid_arm = {(v, r, arm) in routing_decision where not valid_arm(arm)}
+*/
+invalid_arm(V, R, Arm) :- routing_decision(V, R, Arm, S), ~valid_arm(Arm).

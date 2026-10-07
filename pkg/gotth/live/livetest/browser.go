@@ -18,7 +18,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 )
 
 // BrowserOptions configures a launch.

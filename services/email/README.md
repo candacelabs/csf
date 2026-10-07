@@ -1,7 +1,7 @@
 # Shared email capability
 
 `email.NewMailer(options...)` is a composable library. The host supplies the
-SMTP transport, sender and operator recipients, runtime provenance, receipt
+SMTP transport, sender and operator recipients, [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) provenance, receipt
 retention, clock, and optional Prometheus registry. Callers supply only an
 `email.v1.EmailMessage`; the Mailer adds a small text and HTML footer labelled
 `Spine provenance`.

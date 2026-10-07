@@ -220,7 +220,7 @@ both times for the reasons they were rejected for CS-5.
 **CS-8 is the exception, and writing the prediction down is what made that
 visible.** Its exemptions are structural rather than judgmental — a method's
 result is fixed by the interface it satisfies, a sealed sum type is closed by an
-unexported method, a hook implementation's signature is fixed by the func type
+unexported method, a [hook](../../../../csf/docs/generated/ontology_cgen.md#term-hook) implementation's signature is fixed by the func type
 it fits — and a lexer can see all three. So `026-return-concrete`'s clean
 fixture does the thing the three fixtures before it could not: it **contains the
 permitted shapes**, an `Authenticator` implementation and a sealed-sum

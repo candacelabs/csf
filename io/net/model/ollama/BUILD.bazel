@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "ollama",
+    srcs = ["ollama.go"],
+    importpath = "github.com/candacelabs/csf/io/net/model/ollama",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/net/http",
+        "//io/net/model",
+    ],
+)
+
+go_test(
+    name = "ollama_test",
+    srcs = [
+        "mock_client_test.go",
+        "mock_generate_test.go",
+        "ollama_internal_test.go",
+        "ollama_suite_test.go",
+        "ollama_test.go",
+    ],
+    embed = [":ollama"],
+    deps = [
+        "//io/net/model",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

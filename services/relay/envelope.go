@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model"
 )
 
 var (
@@ -57,7 +57,7 @@ type Registration struct {
 }
 
 // Kind is the registration's tier, which its address type decides.
-func (registration Registration) Kind() ipc.Tier {
+func (registration Registration) Kind() io.Tier {
 	if registration.Address == nil {
 		return 0
 	}
@@ -87,7 +87,7 @@ type Envelope[Body any] struct {
 	To        model.IAgentAddress
 	// Tier is the widest tier the two addresses reach: the boundary this
 	// envelope crosses between sender and recipient.
-	Tier   ipc.Tier
+	Tier   io.Tier
 	Body   Body
 	SentAt time.Time
 }

@@ -3,6 +3,8 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "harness",
     srcs = [
+        "costs.pb.go",
+        "costs_liquid.pb.go",
         "harness.pb.go",
         "harness_liquid.pb.go",
     ],

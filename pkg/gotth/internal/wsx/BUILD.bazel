@@ -3,9 +3,9 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "wsx",
     srcs = [
-        "conn.go",
         "doc.go",
         "handler.go",
+        "handler_conn.go",
         "hijack.go",
     ],
     importpath = "github.com/candacelabs/csf/pkg/gotth/internal/wsx",

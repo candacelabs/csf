@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "knowledge",
+    srcs = [
+        "embed.go",
+        "eval.go",
+        "feeder_sources.go",
+        "knowledge.go",
+        "stack.go",
+    ],
+    embedsrcs = ["lookups.json"],
+    importpath = "github.com/candacelabs/csf/services/knowledge",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//io/ipc/docker",
+        "//io/ipc/proc",
+        "//io/kernel/fs",
+        "//io/net/model/ollama",
+        "//pkg/cron",
+        "//pkg/textbound",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//services/cron",
+        "//services/harness/session",
+    ],
+)

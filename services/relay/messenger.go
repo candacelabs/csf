@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/candacelabs/csf/ipc/model"
+	"github.com/candacelabs/csf/io/net/model"
 )
 
 // IMessenger is the agent messaging contract: send a typed envelope to an

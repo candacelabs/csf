@@ -1,0 +1,18 @@
+# Layout: sqlc emits one role-named file per concern (models.go, queries.sql.go)
+# because a table's row and its queries belong together beside the schema.
+version: "2"
+sql:
+  - engine: "postgresql"
+    schema:
+      - "schema/001_init.sql"
+      - "schema/002_eval_suite.sql"
+      - "schema/003_scoreboard.sql"
+    queries: ["agent_configurations.sql", "cron.sql", "dispatch.sql", "eval.sql", "jobs.sql", "ouroboros.sql", "queries.sql", "scoreboard.sql"]
+    gen:
+      go:
+        package: "csfpg"
+        out: "."
+        sql_package: "pgx/v5"
+        emit_json_tags: false
+        emit_empty_slices: true
+        emit_pointers_for_null_types: true

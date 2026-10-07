@@ -375,7 +375,7 @@ Go and Python plus three pinned specialists (`dupl`, the typed
 interface-return analyzer, golangci `funlen`). Its registry,
 [`tools/house_lint/policy.ml`](tools/house_lint/policy.ml), decides what blocks
 (CS-1, CS-2, CS-3, CS-8, CS-11, CS-16-DB, HANDLER-DB-IO, ELSE-AFTER-RETURN,
-TEST-BOOTSTRAP, DEPENDENCIES) and what is advisory. Exit 1 is a mandatory
+TEST-BOOTSTRAP, DEPENDENCIES, ATOMIC-WRITE) and what is advisory. Exit 1 is a mandatory
 finding, exit 2 a failed or incomplete scan, and a failed scan is never a
 pass. An advisory finding is answered at its site, never silenced with a
 narrowed detector, an exclusion or a marker comment.

@@ -52,7 +52,7 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 )
 
 func main() {

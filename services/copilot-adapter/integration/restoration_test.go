@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega/gstruct"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/cron"
 	cronservice "github.com/candacelabs/csf/services/cron"
 	"github.com/candacelabs/csf/services/cron/crontest"
@@ -59,7 +59,7 @@ var _ = Describe("process restart restoration", func() {
 		func(precreateResidue bool) {
 			ctx := context.Background()
 			postgresStore := adaptertest.OpenStore(GinkgoT())
-			queries := postgresStore.Queries
+			queries := storedb.New(postgresStore.Database())
 
 			root := GinkgoT().TempDir()
 			repositoryRoot := filepath.Join(root, "repository")
@@ -104,9 +104,9 @@ var _ = Describe("process restart restoration", func() {
 				},
 			).Times(1)
 			service, err := copilotadapter.NewCopilotAdapter(
-				copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+				copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 				copilotadapter.WithWorktreeManager(manager), copilotadapter.WithTerminalManager(terminals),
-				copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+				copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 			)
 			Expect(err).NotTo(HaveOccurred())
 			DeferCleanup(service.Close)
@@ -139,7 +139,7 @@ var _ = Describe("process restart restoration", func() {
 	It("resumes a starting receipt with a durable SDK attempt without creating again", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		sessionID, idempotencyKey, attemptID := uuid.New(), uuid.New(), uuid.New()
 		receipt, err := queries.ClaimSessionCreation(ctx, storedb.ClaimSessionCreationParams{
@@ -198,9 +198,9 @@ var _ = Describe("process restart restoration", func() {
 			},
 		).Times(1)
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -220,7 +220,7 @@ var _ = Describe("process restart restoration", func() {
 	It("replays one completed failed creation unchanged across process restart", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		controller := gomock.NewController(GinkgoT())
 		bridge := NewMockICopilotBridge(controller)
 		bridge.EXPECT().ListModels(gomock.Any()).Return([]copilotadapter.BridgeModel{{ID: "gpt-5"}}, nil).Times(1)
@@ -241,9 +241,9 @@ var _ = Describe("process restart restoration", func() {
 		).Times(1)
 		newService := func() *copilotadapter.CopilotAdapter {
 			service, serviceErr := copilotadapter.NewCopilotAdapter(
-				copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+				copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 				copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-				copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+				copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 			)
 			Expect(serviceErr).NotTo(HaveOccurred())
 			return service
@@ -290,7 +290,7 @@ var _ = Describe("process restart restoration", func() {
 	It("quarantines a starting session with an invalid worktree without deadlocking", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		sessionID, idempotencyKey := uuid.New(), uuid.New()
 		_, err := queries.ClaimSessionCreation(ctx, storedb.ClaimSessionCreationParams{
@@ -319,9 +319,9 @@ var _ = Describe("process restart restoration", func() {
 			copilotadapter.PreparedWorktree{}, copilotadapter.ErrInvalidWorktree,
 		).Times(2)
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -343,7 +343,7 @@ var _ = Describe("process restart restoration", func() {
 	It("reattaches a validated persisted session before accepting new work", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		worktreeID, sessionID := uuid.New(), uuid.New()
 		activeTurnID, queuedTurnID := uuid.New(), uuid.New()
@@ -461,9 +461,9 @@ var _ = Describe("process restart restoration", func() {
 				}, nil
 			})
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -497,7 +497,7 @@ var _ = Describe("process restart restoration", func() {
 	It("abandons a request with no turn before resume and keeps the idle session usable", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		worktreeID, sessionID, requestID := uuid.New(), uuid.New(), uuid.New()
 		_, err := queries.CreateWorktree(ctx, storedb.CreateWorktreeParams{
@@ -562,9 +562,9 @@ var _ = Describe("process restart restoration", func() {
 				}, nil
 			})
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -586,7 +586,7 @@ var _ = Describe("process restart restoration", func() {
 	It("terminalizes a missing SDK session once and continues restoring later sessions", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		missingWorktreeID, validWorktreeID := uuid.New(), uuid.New()
 		missingSessionID, validSessionID := uuid.New(), uuid.New()
@@ -649,7 +649,7 @@ var _ = Describe("process restart restoration", func() {
 				Repository: copilotadapter.Repository{ID: "repo", Root: "/tmp/valid", DefaultRef: "HEAD"}, Path: "/tmp/valid", BaseRef: "HEAD",
 			}, nil),
 		)
-		storeWithAmbiguousCommit := &ambiguousCommitStore{IStore: postgresStore}
+		storeWithAmbiguousCommit := &ambiguousCommitStore{IStore: postgresStore.Store}
 		sent := make(chan copilotadapter.BridgePrompt, 1)
 		gomock.InOrder(
 			bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -675,7 +675,7 @@ var _ = Describe("process restart restoration", func() {
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(storeWithAmbiguousCommit),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -767,7 +767,7 @@ var _ = Describe("process restart restoration", func() {
 	It("aborts restoration without terminalizing an unclassified resume failure", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		worktreeID, sessionID := uuid.New(), uuid.New()
 		_, err := queries.CreateWorktree(ctx, storedb.CreateWorktreeParams{
@@ -796,9 +796,9 @@ var _ = Describe("process restart restoration", func() {
 			bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).Return(copilotadapter.BridgeSession{Close: func(_ context.Context) error { return nil }}, nil),
 		)
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -815,7 +815,7 @@ var _ = Describe("process restart restoration", func() {
 	It("quarantines an invalid legacy path without blocking valid restored sessions or the worktree list", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		validWorktreeID, invalidWorktreeID := uuid.New(), uuid.New()
 		validSessionID, invalidSessionID := uuid.New(), uuid.New()
@@ -851,7 +851,7 @@ var _ = Describe("process restart restoration", func() {
 		}, nil)
 		bridge.EXPECT().ResumeSession(gomock.Any(), gomock.Any()).Return(copilotadapter.BridgeSession{Close: func(_ context.Context) error { return nil }}, nil)
 		scheduleStore := &shutdownReconcileStore{
-			IStore:         crontest.OpenStore(GinkgoT()),
+			IStore:         crontest.OpenStore(GinkgoT()).Store,
 			zeroReconciled: make(chan struct{}, 1),
 		}
 		_, err := queries.CreateChatSchedule(ctx, storedb.CreateChatScheduleParams{
@@ -861,7 +861,7 @@ var _ = Describe("process restart restoration", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
 			copilotadapter.WithScheduleStore(scheduleStore),
 		)
@@ -912,7 +912,7 @@ var _ = Describe("process restart restoration", func() {
 	It("leaves sessions untouched when worktree validation cannot complete", func() {
 		ctx := context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries := postgresStore.Queries
+		queries := storedb.New(postgresStore.Database())
 		now := time.Now().UTC()
 		worktreeID, sessionID := uuid.New(), uuid.New()
 		_, err := queries.CreateWorktree(ctx, storedb.CreateWorktreeParams{
@@ -936,9 +936,9 @@ var _ = Describe("process restart restoration", func() {
 			copilotadapter.PreparedWorktree{}, errors.New("git validation temporarily unavailable"),
 		).Times(2)
 		service, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(postgresStore.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)

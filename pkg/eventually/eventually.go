@@ -51,6 +51,9 @@
 package eventually
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	// gomega is imported qualified on purpose, and it is the CS-11 exemption:
@@ -210,6 +213,31 @@ func Await[Value any](
 ) Value {
 	reporter.Helper()
 	return settle(reporter, what, budget, poll, match, eventually[Value], awaitFailure)
+}
+
+// ErrNotMet reports a [Wait] whose budget ran out before match accepted a
+// value; the wrapped message names the last value polled.
+var ErrNotMet = errors.New("eventually: not met within the budget")
+
+// Wait is [Until] on the host's clock with no context, for a caller that
+// has neither: it returns the value match accepted, or [ErrNotMet] with the
+// last value polled when the budget runs out.
+func Wait[Value any](
+	what string,
+	budget Budget,
+	poll func() Value,
+	match func(value Value) bool,
+) (Value, error) {
+	outcome, err := Until(context.Background(), systemClock{}, budget,
+		func(_ context.Context) Value { return poll() }, match, nil)
+	if err != nil {
+		return outcome.Last, err
+	}
+	if !outcome.Met {
+		return outcome.Last, fmt.Errorf("%w: %s did not happen within %s, polled every %s; the last value polled was %v",
+			ErrNotMet, what, budget.Within, budget.interval(), outcome.Last)
+	}
+	return outcome.Last, nil
 }
 
 // Consistently polls for the whole budget and fails the first time match

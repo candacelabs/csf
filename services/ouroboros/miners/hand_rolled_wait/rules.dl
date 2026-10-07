@@ -1,0 +1,21 @@
+% HAND-ROLLED-WAIT (#371): a wait an actor wrote by hand instead of CSF's
+% await. extract.ml writes the base relations from every command an actor
+% ran through the executor's shell or watch tool.
+
+/* facts
+   universe   C: tool calls (their identifiers)
+   relation   call ⊆ C: an actor ran a command
+   relation   loops ⊆ C: the command is a while, until or for loop
+   relation   sleeps ⊆ C: the command sleeps in its foreground
+   relation   watches ⊆ C: the command ran in the executor's watch tool
+   relation   awaits ⊆ C: the command is csf await
+*/
+
+/* predicate hand_rolled_wait
+   universe   C: tool calls
+   clause     ∀c ∈ C. ¬(loops(c) ∧ sleeps(c))
+   clause     ∀c ∈ C. watches(c) → awaits(c)
+   finding    hand_rolled_wait = {c ∈ C | loops(c) ∧ sleeps(c)} ∪ {c ∈ C | watches(c) ∧ ¬awaits(c)}
+*/
+hand_rolled_wait(C) :- loops(C), sleeps(C).
+hand_rolled_wait(C) :- watches(C), ~awaits(C).

@@ -236,6 +236,11 @@ let optional_values = [
   "uuid.NullUUID", ["uuid.UUID"], "*uuid.UUID";
 ]
 
+(* CS-20: the five fields of a null-twin conversion travel as one named
+   record, never as a bare tuple. *)
+type null_conversion = {
+  direction : string; typ : string; relation : string; plain : Node.t; replacement : string }
+
 let null_twins (file : Source.file) =
   if is_test file then [] else
   let aliases = imports file in
@@ -247,13 +252,14 @@ let null_twins (file : Source.file) =
     | Some parameter, Some result ->
         let conversion = match optional parameter, optional result with
           | Some (typ, values, replacement), None when Option.fold ~none:false ~some:(fun typ -> List.mem typ values) (bare_text file aliases result) ->
-              Some ("reads", typ, "as", result, replacement)
+              Some { direction = "reads"; typ; relation = "as"; plain = result; replacement }
           | None, Some (typ, values, replacement) when Option.fold ~none:false ~some:(fun typ -> List.mem typ values) (bare_text file aliases parameter) ->
-              Some ("builds", typ, "from", parameter, replacement)
+              Some { direction = "builds"; typ; relation = "from"; plain = parameter; replacement }
           | _ -> None in
-        Option.map (fun (direction, typ, relation, plain, replacement) -> issue file node "CS-14"
+        Option.map (fun conversion -> issue file node "CS-14"
           (Printf.sprintf "function %s %s %s %s %s by hand: emit %s with sqlc go_type overrides and use the library's constructors and accessors"
-            (named file node) direction typ relation (text file plain) replacement)) conversion
+            (named file node) conversion.direction conversion.typ conversion.relation
+            (text file conversion.plain) conversion.replacement)) conversion
     | _ -> None)
 
 (* CS-14, second shape (operator, 2026-10-01, reading runtime/host.go:

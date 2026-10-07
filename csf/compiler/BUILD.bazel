@@ -1,6 +1,14 @@
 package(default_visibility = ["//visibility:public"])
 
-exports_files(["opam.lock.json"])
+exports_files([
+    "opam.lock.json",
+    "verification/question_tree.csf",
+    "verification/CSFCVerifier.lean",
+    "verification/question_cli_layer.txt",
+    "verification/question_directory.txt",
+    "verification/question_jev_prompt.txt",
+    "verification/question_kind_enum.txt",
+])
 
 # Stable command path for public compiler consumers.
 genrule(

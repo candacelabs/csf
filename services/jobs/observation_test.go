@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )

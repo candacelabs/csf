@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	dispatchv1 "github.com/candacelabs/csf/proto/candace/dispatch/v1"
 )
@@ -28,6 +28,8 @@ type IDispatchQueries interface {
 	ListSliceEdges(ctx context.Context) ([]csfpg.CsfSliceEdge, error)
 	InsertIntent(ctx context.Context, arg csfpg.InsertIntentParams) (csfpg.CsfIntent, error)
 	ListIntents(ctx context.Context) ([]csfpg.CsfIntent, error)
+	InsertDispatchControl(ctx context.Context, arg csfpg.InsertDispatchControlParams) (csfpg.CsfDispatchControl, error)
+	ListDispatchControls(ctx context.Context) ([]csfpg.CsfDispatchControl, error)
 }
 
 // IDispatchDatabase is the service's database: the queries outside a

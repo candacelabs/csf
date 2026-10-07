@@ -1,0 +1,60 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "csfpg",
+    srcs = [
+        "agent_configurations.sql.go",
+        "cron.sql.go",
+        "database.go",
+        "db.go",
+        "dispatch.sql.go",
+        "eval.sql.go",
+        "jobs.sql.go",
+        "models.go",
+        "ouroboros.sql.go",
+        "queries.sql.go",
+        "schema.go",
+        "scoreboard.sql.go",
+        "values.go",
+    ],
+    embedsrcs = [
+        "schema/001_init.sql",
+        "schema/002_eval_suite.sql",
+        "schema/003_scoreboard.sql",
+    ],
+    importpath = "github.com/candacelabs/csf/io/ipc/db/csfpg",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/sqlmigrate",
+        "//runtime/config",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgconn",
+        "@com_github_jackc_pgx_v5//pgtype",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_jackc_pgx_v5//stdlib",
+    ],
+)
+
+go_test(
+    name = "csfpg_test",
+    srcs = [
+        "csfpg_suite_test.go",
+        "database_test.go",
+        "queries_test.go",
+        "schema_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":csfpg",
+        "//examples/csfpg-consumer",
+        "//io/net",
+        "//pkg/pgmem",
+        "//pkg/sqlmigrate",
+        "//runtime/config",
+        "@com_github_jackc_pgx_v5//:pgx",
+        "@com_github_jackc_pgx_v5//pgtype",
+        "@com_github_jackc_pgx_v5//pgxpool",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

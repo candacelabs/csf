@@ -12,6 +12,7 @@ go_test(
     # in the golang container is its authority.
     tags = ["manual"],  # keep
     deps = [
+        "//pkg/atomicfile",
         "//pkg/eventually",
         "//services/warden/proto/warden/v1:warden",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

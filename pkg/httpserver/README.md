@@ -1,7 +1,7 @@
 # Shared HTTP server
 
 This package owns the repository's Gin engine and HTTP server lifecycle.
-Services register routes on a caller-owned engine; the composing binary owns
+[Services](../../csf/docs/generated/ontology_cgen.md#term-service) register routes on a caller-owned engine; the composing binary owns
 the listener, shutdown and deployment.
 
 ## OpenAPI request validation

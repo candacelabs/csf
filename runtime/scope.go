@@ -142,7 +142,12 @@ func (scope *Scope) start(name string, task func(ctx context.Context) error, unt
 	scope.pool.Go(func(ctx context.Context) error {
 		defer scope.live.Add(-1)
 		err := task(ctx)
-		canceled := ctx.Err() != nil
+		// Ask the scope's own context, not ctx. ctx is the child the pool
+		// made of it, and cancellation reaches the children of a context one
+		// at a time: a task released by a callback on the scope's context
+		// (context.AfterFunc) can return before ctx has been told, though the
+		// scope was canceled first.
+		canceled := scope.ctx.Err() != nil
 		switch {
 		case err == nil && untilCanceled && !canceled:
 			err = fmt.Errorf("runtime: %s: %s stopped before its scope was canceled", scope.owner, name)

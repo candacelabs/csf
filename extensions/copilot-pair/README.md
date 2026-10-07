@@ -127,7 +127,7 @@ storage and offers it back to the owner when it reconnects.
 
 Streaming token deltas and connected-peer counts are transient. They use
 Server-Sent Events because they do not need conflict resolution. Browser
-actions use ordinary HTTP requests; the owner process serializes them in
+[actions](../../csf/docs/generated/ontology_cgen.md#term-action) use ordinary HTTP requests; the owner process serializes them in
 arrival order before calling the Copilot SDK.
 
 The Copilot runtime and working directory remain on the owner's machine. This
@@ -139,7 +139,7 @@ for code changes.
 This is a shared Copilot session UI, not a raw terminal multiplexer. It exposes
 the SDK's session controls listed above, but it does not mirror the owner's
 unsent terminal input or forward arbitrary Copilot CLI slash-command
-keystrokes. The actual conversation, agent work, permissions, questions, and
+keystrokes. The actual conversation, [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) work, permissions, questions, and
 plans are shared. Copilot CLI 1.0.34 emits question and plan events but does not
 expose an SDK response method for them, so those two dialogs must be resolved in
 the owner CLI.

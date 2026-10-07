@@ -21,7 +21,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/sqlmigrate"
 	"github.com/candacelabs/csf/services/cron/crontest"
@@ -91,7 +91,7 @@ var _ = Describe("PostgreSQL telemetry", func() {
 			Close: func(_ context.Context) error { return nil },
 		}, nil)
 		adapter, err := copilotadapter.NewCopilotAdapter(copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence),
-			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())))
+			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store))
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(adapter.Close)
 		engine := httpserver.NewEngine("telemetry-postgres-fixture")

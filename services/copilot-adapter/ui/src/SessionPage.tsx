@@ -8,6 +8,7 @@ import type { DockPosition, DockTab } from "./components/Dock";
 import { RequestsPanel, requestElementId } from "./components/RequestsPanel";
 import { TranscriptView } from "./components/TranscriptView";
 import { ModelPicker } from "./components/ModelPicker";
+import { PickerHostContext } from "./picker";
 import { applySessionEvent, coalesceCallback, decodeSessionEvent, newSessionLiveState } from "./sessionEvents";
 import { applyTranscriptItem, emptyTranscript } from "./transcript";
 
@@ -200,18 +201,20 @@ export function SessionPage({ sessionId, initialSession, worktree, models, model
     };
   }, [onResourceChanged, ready, sessionId]);
 
-  async function send() {
-    if (sendingRef.current) return;
-    const submittedDraft = draft;
-    const text = draft.trim();
-    if (text === "") return;
+  // `override` sends picker choices without touching the composer's draft;
+  // an uncertain delivery still lands in the composer so Retry reuses its key.
+  async function send(override?: string): Promise<boolean> {
+    if (sendingRef.current) return false;
+    const submittedDraft = override ?? draft;
+    const text = submittedDraft.trim();
+    if (text === "") return false;
     let attempt: PromptAttempt;
     try {
-      const previous = promptAttempt.current;
+      const previous = override === undefined ? promptAttempt.current : null;
       attempt = previous ?? { draft: submittedDraft, text, mode, idempotencyKey: newClientUUID() };
     } catch (cause) {
       setFailure(`The prompt could not be prepared. ${describeError(cause)}`);
-      return;
+      return false;
     }
     promptAttempt.current = attempt;
     sendingRef.current = true;
@@ -233,16 +236,18 @@ export function SessionPage({ sessionId, initialSession, worktree, models, model
           setPromptUncertain(false);
           setFailure(describeError(response.error));
         }
-        return;
+        return false;
       }
       promptAttempt.current = null;
       setPromptUncertain(false);
       setDraft((current) => current === submittedDraft ? "" : current);
+      return true;
     } catch (cause) {
       setDraft(attempt.draft);
       setMode(attempt.mode);
       setPromptUncertain(true);
       setFailure(`Sending the prompt did not receive a response and may have succeeded. Retry will reuse the same idempotency key. ${describeError(cause)}`);
+      return false;
     } finally {
       sendingRef.current = false;
       setSending(false);
@@ -349,6 +354,7 @@ export function SessionPage({ sessionId, initialSession, worktree, models, model
         <Stack className="chat-column" gap={0} style={{ flex: "1 1 auto", minWidth: 0, minHeight: 0 }}>
           <Box className="chat-scroll" px={{ base: "sm", md: "xl" }} py="lg" style={{ flex: "1 1 auto", minHeight: 0, overflowY: "auto" }}>
             {!ready && <Center className="chat-loading" mih={160}><Group gap="sm"><Loader size="sm" color="teal" /><Text c="dimmed">Opening session…</Text></Group></Center>}
+            <PickerHostContext.Provider value={{ submit: (text) => send(text), disabled: sending || promptUncertain }}>
             <TranscriptView
               entries={live.transcript.items}
               streamingActive={session?.status === "running"}
@@ -360,6 +366,7 @@ export function SessionPage({ sessionId, initialSession, worktree, models, model
                 request?.focus({ preventScroll: true });
               }}
             />
+            </PickerHostContext.Provider>
           </Box>
           <RequestsPanel sessionId={sessionId} requests={live.requests} onResolved={() => void reloadRequests()} />
           <Paper component="form" className="composer" withBorder shadow="sm" radius="lg" p="sm" w="calc(100% - 1rem)" maw={760} mx="auto" mb="sm" onSubmit={(event) => { event.preventDefault(); void send(); }}>

@@ -1,7 +1,6 @@
 package pgmem
 
 import (
-	"context"
 	"crypto/rand"
 	"database/sql/driver"
 	"encoding/hex"
@@ -59,107 +58,12 @@ func init() {
 	})
 }
 
-// RegisterFunction registers or atomically replaces one public-schema scalar
-// function overload. Registering functions on separate DB values is isolated.
-func (db *DB) RegisterFunction(function Function) error {
-	if db == nil {
-		return ErrClosed
-	}
-	return db.Public().RegisterFunction(function)
-}
-
-// RegisterFunction registers or atomically replaces one scalar function
-// overload in this schema. Fixed overloads are selected before a matching
-// variadic overload.
-func (s *Schema) RegisterFunction(function Function) error {
-	if s == nil || s.database == nil {
-		return ErrClosed
-	}
-	if !schemaNamePattern.MatchString(function.Name) || strings.EqualFold(function.Name, dispatchFunctionName) {
-		return fmt.Errorf("pgmem: invalid function name %q", function.Name)
-	}
-	if function.Arity < 0 {
-		return fmt.Errorf("pgmem: function %q arity must not be negative", function.Name)
-	}
-	if function.Implementation == nil {
-		return fmt.Errorf("pgmem: function %q implementation must not be nil", function.Name)
-	}
-
-	database := s.database
-	database.mu.RLock()
-	defer database.mu.RUnlock()
-	if database.closed {
-		return ErrClosed
-	}
-
-	name := strings.ToLower(function.Name)
-	database.functions.mu.Lock()
-	defer database.functions.mu.Unlock()
-	functions := database.functions.bySchema[s.name]
-	if functions == nil {
-		functions = make(map[string]*functionOverloads)
-		database.functions.bySchema[s.name] = functions
-	}
-	overloads := functions[name]
-	if overloads == nil {
-		overloads = &functionOverloads{fixed: make(map[int]ScalarFunction)}
-		functions[name] = overloads
-	}
-	if function.Variadic {
-		overloads.variadic = &variadicFunction{
-			minimum:        function.Arity,
-			implementation: function.Implementation,
-		}
-		return nil
-	}
-	overloads.fixed[function.Arity] = function.Implementation
-	return nil
-}
-
 func newDispatchID() (string, error) {
 	capability := make([]byte, 32)
 	if _, err := rand.Read(capability); err != nil {
 		return "", fmt.Errorf("generate function-dispatch capability: %w", err)
 	}
 	return hex.EncodeToString(capability), nil
-}
-
-func (db *DB) rewriteRegisteredFunctions(ctx context.Context, defaultSchema, source, statement string) (string, error) {
-	if err := ctx.Err(); err != nil {
-		return "", err
-	}
-	// The substring check is only a fast prefilter. Any possible dispatcher use
-	// is still classified structurally below before it can reach the executor.
-	if !db.functions.hasAny() && !strings.Contains(strings.ToLower(statement), dispatchFunctionName) {
-		return statement, nil
-	}
-	parsed, err := pgquery.Parse(statement)
-	if err != nil {
-		return "", fmt.Errorf("pgmem: parse translated statement for registered functions: %w", err)
-	}
-	changed := false
-	for _, rawStatement := range parsed.Stmts {
-		if rawStatement == nil || rawStatement.Stmt == nil {
-			continue
-		}
-		if err := rewriteFunctionTree(rawStatement.Stmt.ProtoReflect(), db, defaultSchema, &changed); err != nil {
-			return "", &Error{
-				Code:      "0A000",
-				Message:   "pgmem: internal function dispatcher cannot be called directly",
-				Statement: source,
-				Cause:     ErrUnsupported,
-			}
-		}
-	}
-	if !changed {
-		return statement, nil
-	}
-
-	rewritten, err := pgquery.Deparse(parsed)
-	if err != nil {
-		return "", fmt.Errorf("pgmem: deparse registered function call: %w", err)
-	}
-	return strings.TrimSpace(rewritten), nil
 }
 
 func rewriteFunctionTree(message protoreflect.Message, database *DB, defaultSchema string, changed *bool) error {

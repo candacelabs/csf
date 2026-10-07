@@ -7,6 +7,7 @@
 # Regeneration owner: //tools/devcontainer:dockerfile
 # Regenerate: bash tools/devcontainer/generate.sh write
 # ////////////////////////////////////////////////////////////
+ARG TARGETARCH=amd64
 FROM gcr.io/bazel-public/bazel:9.2.0@sha256:e59bd66f8daf69f02dbfc18dbd72f0ecfe7926bbda95a5c9eb62433d83b8bd02
 USER root
 ENTRYPOINT []

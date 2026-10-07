@@ -3,6 +3,7 @@ package pgmem
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"strings"
@@ -340,4 +341,70 @@ func statementCommand(statement string) string {
 		return ""
 	}
 	return strings.ToUpper(fields[0])
+}
+
+// Connector returns a database/sql connector whose unqualified statements use
+// this schema. The returned connector does not own the schema's DB.
+func (s *Schema) Connector() driver.Connector {
+	return &sqlConnector{database: s.database, schema: s}
+}
+
+// Open returns a database/sql pool whose unqualified statements use this
+// schema. Close the pool before closing its DB.
+func (s *Schema) Open() *sql.DB {
+	pool := sql.OpenDB(s.Connector())
+	// The embedded engine intentionally owns one physical connection. Keeping
+	// the adapter pool to one logical connection avoids building up connector
+	// calls that can only wait for that same engine connection.
+	pool.SetMaxOpenConns(1)
+	pool.SetMaxIdleConns(1)
+	return pool
+}
+
+// RegisterFunction registers or atomically replaces one scalar function
+// overload in this schema. Fixed overloads are selected before a matching
+// variadic overload.
+func (s *Schema) RegisterFunction(function Function) error {
+	if s == nil || s.database == nil {
+		return ErrClosed
+	}
+	if !schemaNamePattern.MatchString(function.Name) || strings.EqualFold(function.Name, dispatchFunctionName) {
+		return fmt.Errorf("pgmem: invalid function name %q", function.Name)
+	}
+	if function.Arity < 0 {
+		return fmt.Errorf("pgmem: function %q arity must not be negative", function.Name)
+	}
+	if function.Implementation == nil {
+		return fmt.Errorf("pgmem: function %q implementation must not be nil", function.Name)
+	}
+
+	database := s.database
+	database.mu.RLock()
+	defer database.mu.RUnlock()
+	if database.closed {
+		return ErrClosed
+	}
+
+	name := strings.ToLower(function.Name)
+	database.functions.mu.Lock()
+	defer database.functions.mu.Unlock()
+	functions := database.functions.bySchema[s.name]
+	if functions == nil {
+		functions = make(map[string]*functionOverloads)
+		database.functions.bySchema[s.name] = functions
+	}
+	overloads := functions[name]
+	if overloads == nil {
+		overloads = &functionOverloads{fixed: make(map[int]ScalarFunction)}
+		functions[name] = overloads
+	}
+	if function.Variadic {
+		overloads.variadic = &variadicFunction{
+			minimum:        function.Arity,
+			implementation: function.Implementation,
+		}
+		return nil
+	}
+	overloads.fixed[function.Arity] = function.Implementation
+	return nil
 }

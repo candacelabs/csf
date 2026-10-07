@@ -140,3 +140,22 @@ let check ~root (resolved : resolved) =
       go_sources context resolved.architecture selected;
       generated_sources context resolved.architecture);
   List.rev !(context.errors)
+
+(* The tracked-file inventory comes from git, the same primitive the rest of the
+   tree uses to decide what is tracked. This is the one place this module runs a
+   child process. A missing or failing git yields an empty inventory: an
+   unreadable checkout produces no census facts, hence no offense, never a false
+   one. [git ls-files -z] separates paths with NUL, so a path may hold spaces. *)
+let tracked ~root =
+  let temporary = Filename.temp_file "csfc-tracked" ".txt" in
+  Fun.protect ~finally:(fun () -> if Sys.file_exists temporary then Sys.remove temporary) (fun () ->
+    try
+      let output = Unix.openfile temporary [Unix.O_WRONLY; Unix.O_TRUNC] 0o600 in
+      Fun.protect ~finally:(fun () -> Unix.close output) (fun () ->
+        let argv = [|"git"; "-C"; root; "ls-files"; "-z"; "--cached"|] in
+        match snd (Unix.waitpid [] (Unix.create_process "git" argv Unix.stdin output Unix.stderr)) with
+        | Unix.WEXITED 0 -> ()
+        | _ -> raise Exit);
+      In_channel.with_open_bin temporary In_channel.input_all
+      |> String.split_on_char '\000' |> List.filter (fun path -> path <> "")
+    with _ -> [])

@@ -82,7 +82,7 @@ What it runs, in order, with nothing elided:
 
 ```bash
 # 1. a real clone, over the pack protocol, at the source's HEAD
-git clone --depth 1 "file:///home/dev/worktrees/gotth-live-orchestrator-c3efc4" \
+git clone --depth 1 "file:///srv/worktrees/gotth-live-orchestrator-c3efc4" \
     /tmp/g11-clean-clone-XXXXXX/clone
 
 # 2. a stock upstream Go image, as the invoking uid, no published ports
@@ -100,6 +100,9 @@ cd /g11/clone/gotth-live/examples/dashboard && go run .
 curl http://127.0.0.1:8080/                        # and 8081, 8082
 curl http://127.0.0.1:8080/live/gotth-live.min.js  # the URL the page itself names
 ```
+
+> Edited for publication: the host directory holding the worktree was replaced with the neutral
+> path `/srv/worktrees/`. The commands are otherwise as recorded.
 
 ---
 

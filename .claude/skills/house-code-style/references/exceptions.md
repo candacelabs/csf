@@ -152,7 +152,7 @@ same reason a ledger row is never edited.)*
 ## CS-6: `build()` in the widget interpreter is a sequence, not a family
 
 **Ruling (orchestrator, 2026-09-02, at the P2 merge).** The gate's one repo
-finding — `pkg/widget/internal/validate/build.go:24`, `build()`
+finding — `pkg/widget/internal/validate/validator_build.go:24`, `build()`
 dispatching the fourteen block readers plus `computeProjections` — is exempt
 under CS-6's own counterweight. The dispatch order IS the dialect's canonical
 block order: later blocks resolve against earlier declarations, and

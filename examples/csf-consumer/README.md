@@ -18,8 +18,8 @@ an existing CSF event artifact. `-listen` defaults to `127.0.0.1:8089`.
 
 The host reads `workbench-theme.css` from `-theme-dir`. The filename is fixed by
 `csf.WorkbenchThemeFileName`. Edit that file, then call `ReloadWorkbenchTheme`
-through HTTP or MCP. This example serves the theme capability; it does not serve
-the browser Workbench bundle or start a model provider, simulator or database.
+through HTTP or [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp). This example serves the theme capability; it does not serve
+the browser [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) bundle or start a model provider, simulator or database.
 
 ## Copy into your own Go repository
 
@@ -58,7 +58,7 @@ repository, vendored dependencies, binary, logs and archive digest. After
 vendoring, it runs race tests and builds in a container with networking disabled
 and only the consumer repository mounted. It also starts the built binary,
 requests its custom endpoint and theme, then verifies clean signal shutdown.
-The tests exercise real HTTP and MCP,
+The tests exercise real HTTP and [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp),
 read the generated snapshot, invoke the custom endpoint, reload CSS, reject an
 invalid path argument, and verify listener cleanup.
 
@@ -95,10 +95,10 @@ bash tools/test_candace_external_consumer.sh HEAD csf-consumer
 ```
 
 Set `CANDACE_EXPECT_ENV_CONFIGURATION=true` for release acceptance. The mode
-requests the snapshot and Workbench theme operations, checks that a
-raw agent MCP signing key is rejected, sends `SIGTERM`, and verifies that the
+requests the snapshot and [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) theme operations, checks that a
+raw [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp) signing key is rejected, sends `SIGTERM`, and verifies that the
 listener closes. It uses synthetic theme and key files only; it does not claim
-provider delivery or deploy a service. Without that setting it also accepts an
+provider delivery or deploy a [service](../../csf/docs/generated/ontology_cgen.md#term-service). Without that setting it also accepts an
 older CSF revision, recording whether the same consumer's environment was
 adopted so that an upgrade can be compared without changing consumer code.
 The `all` mode continues to run the

@@ -15,6 +15,7 @@ import (
 	telemetryv1 "github.com/candacelabs/csf/proto/candace/telemetry/v1"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -93,8 +94,9 @@ var _ = Describe("trace contexts", func() {
 		Expect(ok).To(BeTrue())
 		Expect(stored.GetTraceId()).To(Equal("0123456789abcdef0123456789abcdef"))
 
-		childContext, child, err := telemetry.ContextWithChildSpan(ctx)
+		childSpan, err := telemetry.ContextWithChildSpan(ctx)
 		Expect(err).NotTo(HaveOccurred())
+		childContext, child := childSpan.Context, childSpan.Trace
 		Expect(child.GetTraceId()).To(Equal(stored.GetTraceId()))
 		Expect(child.GetSpanId()).NotTo(Equal(stored.GetSpanId()))
 		Expect(child.GetTraceFlags()).To(Equal(stored.GetTraceFlags()))
@@ -215,5 +217,62 @@ var _ = Describe("JSONL logging", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(errors.Is(logger.WriteRecord(nil), telemetry.ErrInvalidLogRecord)).To(BeTrue())
 		Expect(errors.Is(logger.Log(nil, telemetryv1.Severity_SEVERITY_INFO, "event", "", nil), telemetry.ErrNilContext)).To(BeTrue())
+	})
+})
+
+// stubRegisterer returns a fixed result from Register, so a spec can exercise
+// the already-registered and failure branches without a live registry.
+type stubRegisterer struct {
+	err error
+}
+
+func (stub stubRegisterer) Register(collector prometheus.Collector) error { return stub.err }
+
+func (stubRegisterer) MustRegister(collectors ...prometheus.Collector) {}
+
+func (stubRegisterer) Unregister(collector prometheus.Collector) bool { return false }
+
+var _ = Describe("metric registration", func() {
+	newCounter := func() *prometheus.CounterVec {
+		return prometheus.NewCounterVec(prometheus.CounterOpts{Name: "csf_test_total", Help: "h"}, []string{"outcome"})
+	}
+	newHistogram := func() *prometheus.HistogramVec {
+		return prometheus.NewHistogramVec(prometheus.HistogramOpts{Name: "csf_test_total", Help: "h"}, []string{"outcome"})
+	}
+
+	It("returns the collector it registered", func() {
+		counter := newCounter()
+		registered, err := telemetry.RegisterOnce(stubRegisterer{}, counter)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(registered).To(BeIdenticalTo(counter))
+	})
+
+	It("returns the existing collector of the same type", func() {
+		existing := newCounter()
+		registered, err := telemetry.RegisterOnce(
+			stubRegisterer{err: prometheus.AlreadyRegisteredError{ExistingCollector: existing}}, newCounter())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(registered).To(BeIdenticalTo(existing))
+	})
+
+	It("refuses a name held by a different type", func() {
+		_, err := telemetry.RegisterOnce(
+			stubRegisterer{err: prometheus.AlreadyRegisteredError{ExistingCollector: newHistogram()}}, newCounter())
+		Expect(err).To(HaveOccurred())
+	})
+
+	It("returns a wrapped failure from the registerer", func() {
+		boom := errors.New("registry closed")
+		_, err := telemetry.RegisterOnce(stubRegisterer{err: boom}, newCounter())
+		Expect(errors.Is(err, boom)).To(BeTrue())
+	})
+
+	It("shares one instance across two live registrations", func() {
+		registry := prometheus.NewRegistry()
+		first, err := telemetry.RegisterOnce(registry, newCounter())
+		Expect(err).NotTo(HaveOccurred())
+		second, err := telemetry.RegisterOnce(registry, newCounter())
+		Expect(err).NotTo(HaveOccurred())
+		Expect(second).To(BeIdenticalTo(first))
 	})
 })

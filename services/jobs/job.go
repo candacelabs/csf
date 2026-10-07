@@ -10,7 +10,7 @@ import (
 	"regexp"
 	"time"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 )
 
 // Kind names what a job does, such as "simulation.carla". The consumer

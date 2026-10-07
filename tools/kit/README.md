@@ -1,19 +1,19 @@
 # The CSF kit: install CSF into another repository and use it there
 
-This guide takes you from a fresh clone of this repository to an agent
+This guide takes you from a fresh clone of this repository to an [agent](../../csf/docs/generated/ontology_cgen.md#term-agent)
 session running on a repository of your own, with nothing but Docker on your
 machine. Every step says which machine you are on, the exact command to type,
 what it does, what success looks like, when to stop, and how to undo it.
 
 Three words you will see throughout, in CSF's vocabulary:
 
-- The **harness** is one process that runs every agent session on a machine.
+- The **harness** is one process that runs every [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) session on a machine.
   The `csf` program is both the harness and its client; `csf init` starts the
   harness when none is running, and it keeps running.
-- An **assignment** is one unit of work for an agent, described by a
+- An **[assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment)** is one unit of work for an [agent](../../csf/docs/generated/ontology_cgen.md#term-agent), described by a
   **recipe** (a small JSON file) and a **brief** (a Markdown file with the
   task). Submitting a recipe starts a **session**.
-- A **miner** is a program that reads what sessions did and reports on it.
+- A **[miner](../../csf/docs/generated/ontology_cgen.md#term-miner)** is a program that reads what sessions did and reports on it.
 
 Everything below runs on one Linux machine, in a terminal, from the directory
 where you cloned this repository. Commands you type are in boxes. Replace the
@@ -29,7 +29,7 @@ is a version line or an account name, not an error.
 | Docker | `docker run --rm hello-world` | The kit builds its two programs inside pinned containers. No Go or Rust is installed on your machine. |
 | git, with your name set | `git config --global user.name` | Sessions commit to a git branch. If this prints nothing, set it: `git config --global user.name "Your Name"` and `git config --global user.email "you@example.com"`. |
 | gh, logged in | `gh auth status` | The commit gate opens a draft pull request for every session with `gh`. |
-| The `claude` program | `claude --version` | Sessions are run by Claude Code, which the harness starts for each assignment. |
+| The `claude` program | `claude --version` | Sessions are run by Claude Code, which the harness starts for each [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment). |
 | python3 | `python3 --version` | Only `tools/kit/test-install.sh` uses it, to read the sample recipe back. |
 
 You also need a repository of your own to work in: a git clone with a GitHub
@@ -55,7 +55,7 @@ What it does, in order:
    container, running as you (not root), with its Go module cache under
    `<prefix>/.csf-kit/go`. Installs it as `<prefix>/csf`.
 2. Clones the public repository `candacelabs/rrsi` at the pinned revision
-   `e741cf3` under `<prefix>/.csf-kit/src` and builds its `rrsi-mine` miner
+   `e741cf3` under `<prefix>/.csf-kit/src` and builds its `rrsi-mine` [miner](../../csf/docs/generated/ontology_cgen.md#term-miner)
    inside the `rust:1.91-bookworm` container, with its Cargo home under
    `<prefix>/.csf-kit/cargo`. Installs it as `<prefix>/rrsi-mine`.
 
@@ -83,11 +83,11 @@ csf init
 
 What it does, in order:
 
-1. Writes a sample assignment into your repository:
+1. Writes a sample [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment) into your repository:
    `<repo>/.csf/assignments/sample/agent.json` (the recipe, filled in for
    your repository and its current branch) and `brief.md` (the task).
    Section 8 explains every field. Running it again writes a fresh sample with
-   a new assignment id.
+   a new [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment) id.
 2. Finds the harness for this machine. If `$HOME/.local/state/csf/harness/harness.json`
    records one that answers, `csf init` registers the repository with it;
    otherwise it starts one in the background on 127.0.0.1:14120 and waits
@@ -125,8 +125,8 @@ Stop and read the message if the reply is an error: `no harness is recorded
 as running` means section 3 was skipped or the harness has stopped; `invalid recipe` names the field to
 fix in `agent.json`.
 
-The sample brief asks the agent to do three things: run `sleep 3` (which the
-session gate rejects, on purpose, so you can see a rejection), add one file
+The sample brief asks the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) to do three things: run `sleep 3` (which the
+[session gate](../../csf/docs/generated/ontology_cgen.md#term-session_gate) rejects, on purpose, so you can see a rejection), add one file
 named `CSF_SAMPLE.md`, and commit it. The commit gate then pushes the branch
 and opens a draft pull request. The whole session takes about a minute.
 
@@ -158,22 +158,16 @@ To see the session's state at any time:
 csf get -assignment <assignment id>
 ```
 
-Success: JSON with `"phase"` (`RUNNING` while the agent works, `OPEN` when it
+Success: JSON with `"phase"` (`RUNNING` while the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) works, `OPEN` when it
 has finished its turn and waits for a message), `"branch"`,
 `"pull_request_url"` once the commit gate opened one, and `"turns"`.
 
 `csf list` shows every session the harness knows.
 
-To watch every session as a live card instead, start the
-[ops view](../../csf/docs/generated/ontology_cgen.md#term-ops_view) beside the
-harness and open `http://127.0.0.1:14121/`:
-
-```bash
-csf view -detach -state $HOME/.local/state/csf/harness -listen 127.0.0.1:14121
-```
-
-It reads the same state directory and needs no running harness; stop it with
-`csf view -stop`.
+To watch and drive every session as a live card instead, open the
+[Workbench control plane](../../csf/docs/generated/ontology_cgen.md#term-workbench) the harness serves on its own address,
+`http://127.0.0.1:14120/`: send a session a message, cancel it, mark its pull
+request ready, merge it, or launch a new one from a ticket.
 
 ## 6. Chat with the session
 
@@ -186,7 +180,7 @@ csf chat -assignment <assignment id>
 It prints `http://127.0.0.1:14120/chat/<assignment id>`.
 
 What it does: shows the session's events live and lets you type a message to
-the agent. A message starts its next turn in the same worktree, on the same
+the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent). A message starts its next turn in the same worktree, on the same
 branch. From the terminal the same thing is:
 
 ```bash
@@ -198,13 +192,13 @@ Success: the page shows the session; after a message, new events appear and
 
 ## 7. What the session gates do
 
-The harness installs two checks, called session gates, into every session it
+The harness installs these checks, called [session gates](../../csf/docs/generated/ontology_cgen.md#term-session_gate), into every session it
 runs. You do not configure them; the event log shows each decision.
 
 - **The wait gate** looks at every shell command before it runs. It rejects
   three ways of waiting that never end on their own: a loop that sleeps while
   polling (`while ...; do sleep ...`), `pgrep -f` (its pattern matches the
-  shell running it), and a foreground `sleep`. The agent is told what to do
+  shell running it), and a foreground `sleep`. The [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) is told what to do
   instead: start the command in the background and act when it finishes. In
   the log: `"gate": "wait"`, `"decision": "deny"` with the rule
   (`poll_loop`, `pgrep_full` or `foreground_sleep`). Ordinary commands are
@@ -217,26 +211,55 @@ runs. You do not configure them; the event log shows each decision.
   with `"decision": "opened"` (and the URL), `"exists"` (a pull request was
   already open), `"skip"` (the command made no commit) or `"failed"` (with
   the reason, for example `gh` not logged in).
+- **The [reply gate](../../csf/docs/generated/ontology_cgen.md#term-reply_gate)**
+  reads the reply at the end of every turn. A message sent as the
+  operator's own words (the chat, or `csf send -operator`) has its
+  [unvetted terms](../../csf/docs/generated/ontology_cgen.md#term-unvetted_term)
+  computed first: words the operator never used in an earlier message, after
+  code, identifiers and common English are set aside. They are recorded
+  (`"event_type": "unvetted_terms"`) and named in the turn, and the reply must
+  carry one [research check](../../csf/docs/generated/ontology_cgen.md#term-research_check)
+  per term, a fenced block tagged
+  `research-check` holding `{"term", "what_it_is", "what_it_does_not_do",
+  "fits_goal": yes|no|partly, "why", "likely_source": agent output|paper|
+  person|unknown}`. A reply that promises future behaviour ("I'll", "from now
+  on", "going forward", "until then I will", "every time") without a commit, a
+  gate or [hook](../../csf/docs/generated/ontology_cgen.md#term-hook) change, or a ticket item with an owner in the same turn is
+  refused too. In the log: `"gate": "reply"` with `"decision": "deny"`, the
+  rules that fired and the reason the turn continues from. After two refusals
+  in one turn the reply passes as `"decision": "limit"`.
+- **The endpoint gate** keeps every address in the
+  [endpoint registry](../../csf/docs/generated/ontology_cgen.md#term-endpoint_registry)
+  served. It rejects a shell command that would stop serving one with no
+  retirement record: `csf stop` or `csf view -stop` without a `csf serve` in
+  the same command, a `kill` of the recorded `csf serve` process, `pkill` or
+  `killall` naming `csf`, and `docker stop`, `rm` or `kill` of a container an
+  endpoint names. The reason names each endpoint, its addresses and its users.
+  It also rejects `csf endpoint retire`, which records the operator's own
+  acknowledgement and so is theirs to run. In the log: `"gate": "endpoint"`,
+  `"decision": "deny"`; a command it lets through is not logged. Run as
+  `csf gate PreToolUse <state directory>` from a session the harness does not
+  run, such as the orchestrator's, it applies this gate alone.
 
-The agent's first commit therefore always appears on GitHub as a draft pull
-request without the agent asking.
+The [agent](../../csf/docs/generated/ontology_cgen.md#term-agent)'s first commit therefore always appears on GitHub as a draft pull
+request without the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) asking.
 
 ## 8. The recipe, field by field
 
 `<repo>/.csf/assignments/sample/agent.json` is an `AgentAssignmentRecipe`, the
 message defined in `proto/candace/brainspine/v1/brainspine.proto`. The
 `csf init` fills the templates in `app/harness/cmd/recipe/`, which are built into `csf`; edit the copy in your
-repository to make your own assignment. One rule throughout: `branch` must
+repository to make your own [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment). One rule throughout: `branch` must
 differ from `base_branch`, and `allowed_tools` must not be empty.
 
 | Field | What it is | The sample's value |
 |---|---|---|
-| `assignment_id` | A fresh UUID naming this assignment; the harness keeps the run under `<state>/<assignment_id>/` | generated by `csf init` |
-| `agent.id` | Short name of the agent, lowercase letters, digits, `_` or `-` | `sample` |
-| `agent.revision` | A positive number you raise when you change the agent's instructions | `1` |
-| `agent.display_name` | The agent's name as people see it | `Sample` |
-| `agent.instructions` | Standing instructions the agent reads before the brief | how to behave in the worktree |
-| `ticket_url` | The issue or page this assignment comes from; shown to the agent | this guide |
+| `assignment_id` | A fresh UUID naming this [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment); the harness keeps the run under `<state>/<assignment_id>/` | generated by `csf init` |
+| `agent.id` | Short name of the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent), lowercase letters, digits, `_` or `-` | `sample` |
+| `agent.revision` | A positive number you raise when you change the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent)'s instructions | `1` |
+| `agent.display_name` | The [agent](../../csf/docs/generated/ontology_cgen.md#term-agent)'s name as people see it | `Sample` |
+| `agent.instructions` | Standing instructions the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) reads before the brief | how to behave in the worktree |
+| `ticket_url` | The issue or page this [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment) comes from; shown to the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) | this guide |
 | `model` | The Claude model that runs the session | `claude-haiku-4-5-20251001` |
 | `repository_id` | A short name for the repository, used in records | the directory name of `<repo>` |
 | `workspace.repository_path` | Absolute path of the repository the worktree is created from | `<repo>` |
@@ -246,7 +269,7 @@ differ from `base_branch`, and `allowed_tools` must not be empty.
 | `workspace.allowed_tools` | The Claude Code tools the session may use without asking; everything else is denied | `Bash`, `Read`, `Write`, `Edit` |
 | `workspace.pull_request_title` | Title of the draft pull request the commit gate opens | `CSF sample assignment: add CSF_SAMPLE.md` |
 
-To make a second assignment, copy the `sample` directory to a new name under
+To make a second [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment), copy the `sample` directory to a new name under
 `.csf/assignments/`, give it a new `assignment_id` (`cat /proc/sys/kernel/random/uuid`
 prints one), a new `branch`, and your own `brief.md`.
 
@@ -260,7 +283,7 @@ error line.
 <prefix>/rrsi-mine miners
 ```
 
-Lists every registered miner with its name, inputs and the records it
+Lists every registered [miner](../../csf/docs/generated/ontology_cgen.md#term-miner) with its name, inputs and the records it
 writes: `git-history`, `traces`, `handoffs`, `slices` and `pr-gap`.
 
 ```bash
@@ -281,7 +304,7 @@ which is the expected answer. Add `--json` for the full detection.
 <prefix>/rrsi-mine pr-gap --out <dir outside any git work tree>
 ```
 
-Measures the "active agent without a pull request" gap over the Claude Code
+Measures the "active [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) without a pull request" gap over the Claude Code
 transcripts on this machine (under `$HOME/.claude/projects` unless you pass
 `--root`): per run it counts commits, pushes and pull requests and fires the
 signals `never_pushed`, `slow_push`, `pushed_no_pr`, `slow_pr`,

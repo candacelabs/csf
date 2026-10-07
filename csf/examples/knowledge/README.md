@@ -91,7 +91,7 @@ Ingestion validates every retained parent/chunk hash and raw-parent reference
 before its first write. It registers original UTF-8 sources first, through the
 generated `SourceDocument`/`IngestDocumentRequest` and existing Go client; only
 then does it submit chunks whose foreign keys reference those durable originals.
-Both original and chunk bytes are retained in the runtime CAS. Parent requests
+Both original and chunk bytes are retained in the [runtime](../../docs/generated/ontology_cgen.md#term-runtime) CAS. Parent requests
 must fit the CLI's 256-KiB serialized input bound; unsupported originals fail
 preflight without partial writes. Binary original import is not supplied by
 this UTF-8 API.
@@ -100,11 +100,11 @@ Every response is retained with `kind: parent` or `kind: chunk`. Parent search
 projection failures remain visible but do not prevent indexing chunks once the
 original is durably registered. Chunk projection failure fails the run. The
 token bound describes chunks only: full originals also pass through the existing
-OpenSearch projection and may be truncated by its embedding model. Source-byte
+[OpenSearch](../../docs/generated/ontology_cgen.md#term-opensearch) projection and may be truncated by its embedding model. Source-byte
 integrity and full-model-token coverage are separate claims. Repeating ingestion
 uses the same immutable source ID/revision; it does not launch a daemon.
 
-Live acceptance must query the existing shared-host MCP `Search`, confirm
+Live acceptance must query the existing shared-host [MCP](../../docs/generated/ontology_cgen.md#term-mcp) `Search`, confirm
 `mode=semantic`, and inspect each hit's source ID, revision, content hash and
 excerpt against the corpus. Retain queries/results and invocation duration.
 This selected slice is neither a whole-repository index nor a changed-file

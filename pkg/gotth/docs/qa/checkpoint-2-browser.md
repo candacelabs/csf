@@ -161,11 +161,14 @@ re-run:
 
 ```bash
 docker run --rm \
-    -v /home/dev/worktrees/gotth-live-orchestrator-c3efc4:/repo \
+    -v /srv/worktrees/gotth-live-orchestrator-c3efc4:/repo \
     -w /repo/gotth-live dis-gotth-live-bench:latest \
     bash -c 'go test ./test/internal/conformance/ -count=1 -v -timeout 15m \
              -args -ginkgo.label-filter=browser -ginkgo.v'
 ```
+
+> Edited for publication: the host directory holding the worktree was replaced with the neutral
+> path `/srv/worktrees/`. The command is otherwise as recorded.
 
 ```
 Ran 19 of 154 Specs in 9.624 seconds

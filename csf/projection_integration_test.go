@@ -12,7 +12,7 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"

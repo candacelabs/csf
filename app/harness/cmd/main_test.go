@@ -5,16 +5,18 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/services/harness/session"
 )
 
@@ -111,28 +113,11 @@ var _ = Describe("the harness command", func() {
 		Expect(run(context.Background(), launcher, verbSubmit, []string{"-endpoint", "http://127.0.0.1:1"}, nil, &output, &diagnostics)).To(MatchError(errUsage))
 	})
 
-	Describe("the view verb", func() {
-		It("refuses -detach with -stop, a positional argument and a state directory that is not one", func() {
-			launcher, err := proc.NewHostLauncher()
-			Expect(err).NotTo(HaveOccurred())
-			var output, diagnostics bytes.Buffer
-			Expect(run(context.Background(), launcher, verbView, []string{"-detach", "-stop", "-state", directory}, nil, &output, &diagnostics)).To(MatchError(errViewConflict))
-			Expect(run(context.Background(), launcher, verbView, []string{"extra"}, nil, &output, &diagnostics)).To(MatchError(errUsage))
-			Expect(run(context.Background(), launcher, verbView, []string{"-state", filepath.Join(directory, "absent")}, nil, &output, &diagnostics)).To(MatchError(os.ErrNotExist))
-		})
-
-		It("reports that no view is running when asked to stop one", func() {
-			var output bytes.Buffer
-			Expect(stopView(directory, &output)).To(MatchError(errNoView))
-			Expect(output.Len()).To(BeZero())
-		})
-
-		It("records a view host under its own file name", func() {
-			Expect(writeHostRecord(directory, ViewRecordFile, hostRecord{PID: 7, Endpoint: "http://127.0.0.1:14121", Listen: []string{"127.0.0.1:14121"}})).To(Succeed())
-			Expect(filepath.Join(directory, ViewRecordFile)).To(BeAnExistingFile())
-			_, err := resolveEndpoint("", directory)
-			Expect(err).To(MatchError(errNoHost), "the view's record is not the harness's")
-		})
+	It("says the view verb is retired into serve", func() {
+		launcher, err := proc.NewHostLauncher()
+		Expect(err).NotTo(HaveOccurred())
+		var output, diagnostics bytes.Buffer
+		Expect(run(context.Background(), launcher, verbView, nil, nil, &output, &diagnostics)).To(MatchError(errViewRetired))
 	})
 
 	Describe("the init verb's sample", func() {
@@ -215,7 +200,100 @@ var _ = Describe("the harness command", func() {
 		Expect(err).NotTo(HaveOccurred())
 		var output, diagnostics bytes.Buffer
 		Expect(gate(context.Background(), launcher, []string{session.HookPreToolUse}, strings.NewReader("{}"), &output, &diagnostics)).To(Equal(exitBlocked))
-		Expect(gate(context.Background(), launcher, []string{session.HookPreToolUse, directory}, strings.NewReader("{}"), &output, &diagnostics)).To(Equal(exitBlocked))
+		Expect(gate(context.Background(), launcher, []string{session.HookPreToolUse, directory}, strings.NewReader("{"), &output, &diagnostics)).To(Equal(exitBlocked))
 		Expect(output.Len()).To(BeZero())
+	})
+
+	It("answers in operator mode for a directory with no recorded run", func() {
+		launcher, err := proc.NewHostLauncher()
+		Expect(err).NotTo(HaveOccurred())
+		var output, diagnostics bytes.Buffer
+		Expect(gate(context.Background(), launcher, []string{session.HookPreToolUse, directory}, strings.NewReader(`{"tool_name":"Bash","tool_input":{"command":"ls"}}`), &output, &diagnostics)).To(BeZero())
+		Expect(output.Len()).To(BeZero())
+	})
+})
+
+// writeSession seeds one session in a state root as the harness writes it: the
+// run record beside the event log, one JSON record a line.
+func writeSession(state, assignment string, run session.RunState, records ...session.Record) {
+	Expect(os.MkdirAll(filepath.Join(state, assignment), 0o700)).To(Succeed())
+	content, err := json.Marshal(run)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(os.WriteFile(filepath.Join(state, assignment, session.RunStateFile), content, 0o600)).To(Succeed())
+	if len(records) == 0 {
+		return
+	}
+	log := &strings.Builder{}
+	for _, record := range records {
+		line, err := json.Marshal(record)
+		Expect(err).NotTo(HaveOccurred())
+		fmt.Fprintln(log, string(line))
+	}
+	Expect(os.WriteFile(filepath.Join(state, assignment, session.EventsFile), []byte(log.String()), 0o600)).To(Succeed())
+}
+
+var _ = Describe("the observe verbs", func() {
+	var (
+		state    string
+		launcher proc.ILauncher
+		output   bytes.Buffer
+		at       time.Time
+	)
+
+	BeforeEach(func() {
+		state = GinkgoT().TempDir()
+		var err error
+		launcher, err = proc.NewHostLauncher()
+		Expect(err).NotTo(HaveOccurred())
+		output.Reset()
+		at = time.Date(2026, time.October, 6, 0, 27, 31, 0, time.UTC)
+		writeSession(state, "a1", session.RunState{AssignmentID: "a1", AgentID: "alpha"},
+			session.Record{Time: at, EventType: session.EventTypeRunStarted},
+			session.Record{Time: at, EventType: session.EventTypeControlAction, Action: session.ActionMerge},
+		)
+		writeSession(state, "b2", session.RunState{AssignmentID: "b2", AgentID: "beta"},
+			session.Record{Time: at.Add(time.Minute), EventType: session.EventTypeRunStarted},
+			session.Record{Time: at.Add(time.Minute), EventType: session.EventTypeTurnRequested, Turn: 2},
+		)
+	})
+
+	It("shows every session in one table, labelled and never as JSON", func() {
+		Expect(statusVerb(context.Background(), launcher, []string{"-state", state}, &output)).To(Succeed())
+		Expect(output.String()).To(ContainSubstring("AGENT"))
+		Expect(output.String()).To(ContainSubstring("alpha"))
+		Expect(output.String()).To(ContainSubstring("beta"))
+		Expect(output.String()).NotTo(ContainSubstring("{"))
+	})
+
+	It("shows only the agents it is asked for", func() {
+		Expect(statusVerb(context.Background(), launcher, []string{"-state", state, "beta"}, &output)).To(Succeed())
+		Expect(output.String()).To(ContainSubstring("beta"))
+		Expect(output.String()).NotTo(ContainSubstring("alpha"))
+	})
+
+	It("tails every session as readable lines labelled by agent", func() {
+		Expect(tailVerb([]string{"-state", state}, &output)).To(Succeed())
+		Expect(output.String()).To(Equal(strings.Join([]string{
+			"00:27:31 alpha turn session started",
+			"00:27:31 alpha merge pull request merged",
+			"00:28:31 beta turn session started",
+			"00:28:31 beta turn turn 2",
+		}, "\n") + "\n"))
+		Expect(output.String()).NotTo(ContainSubstring("{"))
+	})
+
+	It("tails one agent, and only the kinds it is asked for", func() {
+		Expect(tailVerb([]string{"-state", state, "-kinds", "merge", "-n", "3", "alpha"}, &output)).To(Succeed())
+		Expect(output.String()).To(Equal("00:27:31 alpha merge pull request merged\n"))
+	})
+
+	It("keeps only the last n lines", func() {
+		Expect(tailVerb([]string{"-state", state, "-n", "1"}, &output)).To(Succeed())
+		Expect(output.String()).To(Equal("00:28:31 beta turn turn 2\n"))
+	})
+
+	It("refuses an unknown kind and a negative count", func() {
+		Expect(tailVerb([]string{"-state", state, "-kinds", "bogus"}, &output)).To(MatchError(ContainSubstring("unknown kind")))
+		Expect(tailVerb([]string{"-state", state, "-n", "-1"}, &output)).To(MatchError(ContainSubstring("negative")))
 	})
 })

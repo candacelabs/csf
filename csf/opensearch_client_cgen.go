@@ -6,10 +6,12 @@ import (
 	"github.com/opensearch-project/opensearch-go/v5/opensearchapi"
 )
 
-// IOpenSearchClient is the shared generated Index/Search contract.
+// IOpenSearchClient is the shared generated index, search, index-creation and delete-by-query contract.
 type IOpenSearchClient interface {
 	Index(ctx context.Context, req opensearchapi.IndexReq) (*opensearchapi.IndexResp, error)
 	Search(ctx context.Context, req *opensearchapi.SearchReq) (*opensearchapi.SearchResp, error)
+	Create(ctx context.Context, req opensearchapi.IndicesCreateReq) (*opensearchapi.IndicesCreateResp, error)
+	DeleteByQuery(ctx context.Context, req *opensearchapi.DeleteByQueryReq) (*opensearchapi.DeleteByQueryResp, error)
 }
 
 type openSearchSDKClient struct{ client *opensearchapi.Client }
@@ -19,4 +21,10 @@ func (sdk openSearchSDKClient) Index(ctx context.Context, req opensearchapi.Inde
 }
 func (sdk openSearchSDKClient) Search(ctx context.Context, req *opensearchapi.SearchReq) (*opensearchapi.SearchResp, error) {
 	return sdk.client.Search(ctx, req)
+}
+func (sdk openSearchSDKClient) Create(ctx context.Context, req opensearchapi.IndicesCreateReq) (*opensearchapi.IndicesCreateResp, error) {
+	return sdk.client.Indices.Create(ctx, req)
+}
+func (sdk openSearchSDKClient) DeleteByQuery(ctx context.Context, req *opensearchapi.DeleteByQueryReq) (*opensearchapi.DeleteByQueryResp, error) {
+	return sdk.client.DeleteByQuery(ctx, req)
 }

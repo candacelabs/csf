@@ -92,6 +92,18 @@ PUBLIC_IDENTIFIER_PATTERNS: tuple[tuple[str, str], ...] = (
   # container accounts this project creates in its own images, and a pattern
   # that fired on them would be a pattern people learn to route around.
   ("macOS home-directory path naming an account", r"(?i)/Users/[a-z0-9._-]+/"),
+  # A Linux home directory path names the account that owns the machine.
+  # This pattern catches a path under the home-directory root whose next
+  # segment identifies a specific user on a development machine or server.
+  ("Linux home-directory path naming an account", r"(?i)/home/[a-z0-9._-]+/"),
+  # A reference to an issue or pull request in a repository whose owner is not
+  # the publishing organization (candacelabs). Matches both shorthand owner/repo#N
+  # format and full github.com/owner/repo/(issues|pull)/N URL forms. The negative
+  # lookahead excludes references to candacelabs repositories.
+  (
+    "non-candacelabs issue or pull-request reference",
+    r"(?:\b(?!candacelabs/)[A-Za-z0-9-]+/[A-Za-z0-9._-]+#\d+\b|github\.com/(?!candacelabs/)[A-Za-z0-9-]+/[A-Za-z0-9._-]+/(?:issues|pull)/\d+)"
+  ),
 )
 
 

@@ -1,8 +1,0 @@
-load("@rules_go//go:def.bzl", "go_library")
-
-go_library(
-    name = "ipc",
-    srcs = ["tier.go"],
-    importpath = "github.com/candacelabs/csf/ipc",
-    visibility = ["//visibility:public"],
-)

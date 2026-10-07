@@ -84,7 +84,8 @@
         { "type": "SYMBOL", "name": "dependency" },
         { "type": "SYMBOL", "name": "connection" },
         { "type": "SYMBOL", "name": "scan" },
-        { "type": "SYMBOL", "name": "generated" }
+        { "type": "SYMBOL", "name": "generated" },
+        { "type": "SYMBOL", "name": "directory" }
       ]
     },
     "dependency": {
@@ -94,6 +95,52 @@
         { "type": "SYMBOL", "name": "identifier" },
         { "type": "STRING", "value": "->" },
         { "type": "SYMBOL", "name": "identifier" },
+        { "type": "STRING", "value": ";" }
+      ]
+    },
+    "directory": {
+      "type": "SEQ",
+      "members": [
+        { "type": "STRING", "value": "dir" },
+        { "type": "SYMBOL", "name": "string" },
+        { "type": "STRING", "value": "allowed" },
+        { "type": "STRING", "value": "[" },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                { "type": "SYMBOL", "name": "string" },
+                {
+                  "type": "REPEAT",
+                  "content": {
+                    "type": "SEQ",
+                    "members": [
+                      { "type": "STRING", "value": "," },
+                      { "type": "SYMBOL", "name": "string" }
+                    ]
+                  }
+                }
+              ]
+            },
+            { "type": "BLANK" }
+          ]
+        },
+        { "type": "STRING", "value": "]" },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "SEQ",
+              "members": [
+                { "type": "STRING", "value": "tier" },
+                { "type": "SYMBOL", "name": "tier" }
+              ]
+            },
+            { "type": "BLANK" }
+          ]
+        },
         { "type": "STRING", "value": ";" }
       ]
     },
@@ -177,6 +224,15 @@
       "members": [
         { "type": "STRING", "value": "existing" },
         { "type": "STRING", "value": "planned" }
+      ]
+    },
+    "tier": {
+      "type": "CHOICE",
+      "members": [
+        { "type": "STRING", "value": "in_process" },
+        { "type": "STRING", "value": "kernel" },
+        { "type": "STRING", "value": "ipc" },
+        { "type": "STRING", "value": "net" }
       ]
     },
     "transport": {

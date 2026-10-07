@@ -98,24 +98,32 @@ let marked stripped content =
 let comment_prefixes = ["///"; "//!"; "//"; "#"; "--"]
 let block_comments = ["/*", "*/"; "<!--", "-->"; "(*", "*)"; "/-", "-/"]
 
+(* A comment line's body: its trimmed content, any trailing text after a block
+   closer, and the closer while still inside a block comment. Named so a
+   comment is not a bare triple. *)
+type comment = { content : string; trailing : string; closing : string option }
+
 let begin_comment stripped =
   match List.find_opt (fun prefix -> String.starts_with ~prefix stripped) comment_prefixes with
-  | Some prefix -> Some (trim_left (drop (String.length prefix) stripped), "", None)
+  | Some prefix ->
+      Some { content = trim_left (drop (String.length prefix) stripped); trailing = ""; closing = None }
   | None ->
       match List.find_opt (fun (prefix, _) -> String.starts_with ~prefix stripped) block_comments with
       | None -> None
       | Some (prefix, closer) ->
           let content = trim_left (drop (String.length prefix) stripped) in
           match split_once closer content with
-          | None -> Some (content, "", Some closer)
-          | Some (content, trailing) -> Some (trim_right content, trim trailing, None)
+          | None -> Some { content; trailing = ""; closing = Some closer }
+          | Some (content, trailing) ->
+              Some { content = trim_right content; trailing = trim trailing; closing = None }
 
 let continue_comment closer stripped =
-  let content, trailing, ending = match split_once closer stripped with
-    | Some (content, trailing) -> trim content, trim trailing, None
-    | None -> stripped, "", Some closer in
-  let content = if String.starts_with ~prefix:"*" content then trim_left (drop 1 content) else content in
-  Some (content, trailing, ending)
+  let comment = match split_once closer stripped with
+    | Some (content, trailing) -> { content = trim content; trailing = trim trailing; closing = None }
+    | None -> { content = stripped; trailing = ""; closing = Some closer } in
+  let content = if String.starts_with ~prefix:"*" comment.content then trim_left (drop 1 comment.content)
+    else comment.content in
+  Some { comment with content }
 
 let is_generated source =
   let rec inspect index ending = function
@@ -130,10 +138,10 @@ let is_generated source =
             | Some closer -> continue_comment closer stripped in
           match comment with
           | None -> false
-          | Some (content, trailing, ending) ->
-              if marked stripped content then true
-              else if ending = None && trailing <> "" then false
-              else inspect (index + 1) ending rest in
+          | Some comment ->
+              if marked stripped comment.content then true
+              else if comment.closing = None && comment.trailing <> "" then false
+              else inspect (index + 1) comment.closing rest in
   inspect 0 None (physical_lines source)
 
 let markdown_header = Str.regexp
@@ -151,6 +159,10 @@ let malformed_marker stripped =
   let kind = Str.matched_group 2 stripped and finish = Str.match_end () in
   if finish = String.length stripped || not (word_character stripped.[finish]) then Some kind else None
 
+(* A fence run's mark: its character, its width, and any info string. Named so
+   a fence is not a bare triple. *)
+type fence = { character : char; count : int; info : string }
+
 let fence_run line =
   let length = String.length line in
   let rec spaces offset = if offset < length && line.[offset] = ' ' then spaces (offset + 1) else offset in
@@ -160,15 +172,16 @@ let fence_run line =
     let character = line.[start] in
     let rec finish offset = if offset < length && line.[offset] = character then finish (offset + 1) else offset in
     let stop = finish start in
-    if stop - start < 3 then None else Some (character, stop - start, drop stop line)
+    if stop - start < 3 then None
+    else Some { character; count = stop - start; info = drop stop line }
 
 let opening_fence line = match fence_run line with
-  | Some ('`', _, info) when String.contains info '`' -> None
-  | Some (character, width, _) -> Some (character, width)
+  | Some mark when String.contains mark.info '`' -> None
+  | Some mark -> Some (mark.character, mark.count)
   | None -> None
 
 let closing_fence (character, width) line = match fence_run line with
-  | Some (ending, count, trailing) -> ending = character && count >= width && trim trailing = ""
+  | Some mark -> mark.character = character && mark.count >= width && trim mark.info = ""
   | None -> false
 
 let generated_block_lines ~name lines =

@@ -4,11 +4,11 @@ go_library(
     name = "raftdemo",
     srcs = [
         "cluster.go",
+        "cluster_observer.go",
         "config.go",
         "doc.go",
         "message.go",
         "node.go",
-        "observer.go",
         "state.go",
         "transitions.go",
     ],

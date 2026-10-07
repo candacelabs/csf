@@ -12,8 +12,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model"
 	"github.com/candacelabs/csf/pkg/mailbox"
 	"github.com/candacelabs/csf/runtime"
 )
@@ -254,7 +254,7 @@ func (relay *Relay[Body]) send(ctx context.Context, from model.IAgentAddress, to
 		From:      sender.Address,
 		ToAgent:   recipient.Agent,
 		To:        recipient.Address,
-		Tier:      ipc.Widest(sender.Address.Tier(), recipient.Address.Tier()),
+		Tier:      io.Widest(sender.Address.Tier(), recipient.Address.Tier()),
 		Body:      body,
 		SentAt:    relay.now(),
 	}

@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "costs",
+    srcs = [
+        "area.go",
+        "derive.go",
+        "interval.go",
+        "measure.go",
+        "price.go",
+        "report.go",
+        "simulate.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/costs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//proto/candace/harness/v1:harness",
+        "//services/harness/routing",
+        "//services/harness/session",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "costs_test",
+    srcs = [
+        "area_test.go",
+        "costs_suite_test.go",
+        "derive_test.go",
+        "price_test.go",
+        "simulate_test.go",
+    ],
+    deps = [
+        ":costs",
+        "//proto/candace/harness/v1:harness",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

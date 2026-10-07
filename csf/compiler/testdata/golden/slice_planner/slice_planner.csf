@@ -1,0 +1,22 @@
+// SLICE-PLANNER. One decision set, declared once in the ontology language.
+// csfc reads this block and emits its Go projection (slice_planner.go): the
+// ordered decisions a dispatch pass makes about one queued slice. A golden
+// test pins the emitted Go against the checked-in file, and that comparison is
+// the harness's first self-hosting stage: the emitter's output equals the
+// hand-written golden, so stage 1 and stage 2 are the same bytes for the
+// planner.
+//
+// The kind is slice_planner; the instance is dispatch_waiting. Its decisions are
+// the closed set a dispatch pass checks, in order, when a queued slice does not
+// run. The order is the switch in services/dispatch/graph.go's waiting:
+// depends_on, held, contends, paused, rate, capacity, next_pass.
+
+slice_planner dispatch_waiting {
+  decision depends_on;
+  decision held;
+  decision contends;
+  decision paused;
+  decision rate;
+  decision capacity;
+  decision next_pass;
+}

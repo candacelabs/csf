@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/candacelabs/csf/app/nodeexec/internal/config"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/telemetry"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	telemetryv1 "github.com/candacelabs/csf/proto/candace/telemetry/v1"

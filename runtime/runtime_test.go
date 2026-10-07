@@ -95,6 +95,29 @@ var _ = Describe("Scope", func() {
 		Expect(scope.Wait()).To(MatchError(ContainSubstring("watcher stopped before its scope was canceled")))
 	})
 
+	It("does not fail an owner that returns once a callback on its scope's context releases it", func() {
+		// context.AfterFunc callbacks and the goroutines' own context are
+		// siblings under the scope's context, and cancellation reaches them in
+		// no fixed order. Many callbacks keep that notification running long
+		// enough for an owner released by one of them to return before its own
+		// context is told. The scope was canceled before any callback ran, so
+		// that return is after the cancellation and not a failure.
+		const rounds, bystanders = 50, 2000
+		for range rounds {
+			scope := runtime.NewScope(context.Background(), "watched")
+			released := make(chan struct{})
+			for range bystanders {
+				context.AfterFunc(scope.Context(), func() {})
+			}
+			context.AfterFunc(scope.Context(), func() { close(released) })
+			Expect(scope.GoOwner("owner", func(_ context.Context) error {
+				<-released
+				return nil
+			})).To(Succeed())
+			Expect(scope.Close()).To(Succeed())
+		}
+	})
+
 	It("relays a child's failure to its parent", func() {
 		scope := runtime.NewScope(context.Background(), "parent")
 		child, err := scope.Child("child")

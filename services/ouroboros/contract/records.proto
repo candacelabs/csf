@@ -21,6 +21,17 @@ enum Severity {
   SEVERITY_S3 = 4;
 }
 
+// What a miner's findings encode, decided when the miner is accepted (#120
+// amendment C). A generic finding holds for any harness user and may enter
+// a shared miner set from an opted-in tenant, carrying facts and spans only
+// with its instances re-keyed; a tenant finding encodes one operator's
+// intents, rulings or vocabulary and never leaves the tenant.
+enum Scope {
+  SCOPE_UNSPECIFIED = 0;
+  SCOPE_GENERIC = 1;
+  SCOPE_TENANT = 2;
+}
+
 message Value {
   oneof kind {
     string text = 1;
@@ -50,6 +61,7 @@ message Finding {
   repeated Value subject = 3;
   Severity severity = 4;
   repeated Fact proof = 5;
+  Scope scope = 6;
 }
 
 // One labeled instance of the backtest set.
@@ -62,6 +74,39 @@ message Label {
   optional int64 flagged = 4;
   // The ticket or ruling that labels it.
   string source = 5 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+}
+
+// The labeler's queue entry (#120, #318): one mining proposal the loop's
+// pre-check could not launch because none of its labeled instances exists
+// in the corpus. The loop writes one row per (ticket, proposal) into
+// csf_ouroboros_proposals with the verdict needs_labels; the labeler reads
+// them, finds real instances and posts a new proposal comment on the
+// ticket, which the loop pre-checks as a new proposal. The row is never
+// edited by the labeler.
+message LabelRequest {
+  // The ticket the proposal is on.
+  int64 ticket = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  // The proposal comment's identifier, as the ticket API spells it.
+  string proposal = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 128"}];
+  // The miner the proposal names.
+  string miner = 3 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 80"}];
+  // The corpus kinds the proposed extractor reads: jsonl, issue,
+  // pull_request, file_at.
+  repeated string corpus = 4;
+  // The labeled instances the proposal named, none of which exists.
+  repeated string instances = 5;
+  // Why the pre-check refused, in one line.
+  string reason = 6 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096"}];
+  // When the pre-check ran, Unix seconds.
+  int64 checked_at = 7;
+  // Fields 8 to 10 are the labeler's own reading of the ticket (#318); a row
+  // that leaves them empty is completed by the labeler, which reads the
+  // ticket itself. owner/name of the repository the ticket is in.
+  string repository = 8 [(candace.liquid.v1.field) = {expr: "len(this) <= 256"}];
+  // The ticket's title and the paragraph that states its predicate.
+  string predicate = 9;
+  // The proposal's fact lines, each `relation(args) from <where in the corpus>`.
+  repeated string facts = 10;
 }
 
 // eval(G, Lambda), walk-forward (source monorepo issue #391): the knee is fitted on
@@ -79,4 +124,110 @@ message Backtest {
   // The smallest margin, in seconds, by which the gate precedes the
   // operator's flag over the flagged true positives.
   optional int64 lead = 8;
+}
+
+// One mutant of a miner's rules or labels that its test did not kill.
+message Mutant {
+  // drop atom, swap comparison, write knee, negate atom, drop rule, swap
+  // head, flip label or move split.
+  string kind = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 32"}];
+  string description = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 1024"}];
+  // The mutant's rules, or its labels as TSV.
+  string source = 3;
+  // The instances whose verdict the mutant changes under some knee.
+  repeated string changed = 4;
+}
+
+// The mutation score (candace-server#317) of one miner's test at one time:
+// killed over killed plus survived, with the equivalent and refused mutants
+// excluded. One record per line of the ops view's mutation.jsonl.
+message Mutation {
+  string miner = 1 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 80"}];
+  // When the analysis ran, Unix seconds.
+  int64 at = 2;
+  int32 killed = 3 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  int32 survived = 4 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  int32 excluded = 5 [(candace.liquid.v1.field) = {expr: "this >= 0"}];
+  // In [0, 1]; a double carries no liquid refinement, so the OCaml encoder
+  // holds the bound.
+  double score = 6;
+  // The floor the gate holds the score to, derived from the template miner.
+  // In [0, 1].
+  double floor = 7;
+  // Whether the gate accepted the miner: no rejection.
+  bool accepted = 8;
+  repeated Mutant surviving = 9;
+  // The analysis's wall time, never negative.
+  double seconds = 10;
+}
+
+// The labeler's queue entry (#120, #318): one mining proposal the loop's
+// pre-check could not launch because none of its labeled instances exists
+// in the corpus. The loop writes one row per (ticket, proposal) into
+// csf_ouroboros_proposals with the verdict needs_labels; the labeler reads
+// them, finds real instances and posts a new proposal comment on the
+// ticket, which the loop pre-checks as a new proposal. The row is never
+// How the acceptance rule judged a proposed label. It runs with no human in
+// the loop: a positive stands only when it reproduces.
+enum Acceptance {
+  ACCEPTANCE_UNSPECIFIED = 0;
+  // A positive whose quoted text is verbatim at its span.
+  ACCEPTANCE_REPRODUCED_SPAN = 1;
+  // A positive whose instance the ticket's miner extracts as a fact.
+  ACCEPTANCE_REPRODUCED_FACT = 2;
+  // A positive that reproduced neither way; rejection says why.
+  ACCEPTANCE_REJECTED = 3;
+  // A negative: the rule makes no demand of it.
+  ACCEPTANCE_UNCHECKED = 4;
+}
+
+// One label the labeler proposes for a ticket: the instance, its sign, the
+// span it rests on, the text quoted from that span, and the acceptance rule's
+// verdict.
+message ProposedLabel {
+  int64 ticket = 1 [(candace.liquid.v1.field) = {expr: "this > 0"}];
+  string instance = 2 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  bool positive = 3;
+  Span span = 4;
+  // The exact substring of the span's line the label rests on.
+  string quote = 5;
+  string reason = 6;
+  Acceptance acceptance = 7;
+  // Why a rejected positive was rejected.
+  string rejection = 8;
+  // The model that proposed it, as provider/model.
+  string model = 9;
+}
+
+// What the labeler is doing and has done, replaced whole after every ticket:
+// the ops view's labeler panel reads it.
+message LabelerRun {
+  string model = 1;
+  // labeling, yielding or finished.
+  string phase = 2;
+  int64 current = 3;
+  int64 tickets = 4;
+  // Tickets for which at least one positive reproduced.
+  int64 tickets_with_instance = 5;
+  int64 proposed = 6;
+  int64 accepted = 7;
+  int64 rejected = 8;
+  int64 batches = 9;
+  double labels_per_hour = 10;
+  // Accepted positives over proposed positives, on the held-out sample.
+  double precision = 11;
+  int64 held_out = 12;
+  // Mean GPU utilization sampled after every batch, in percent; -1 unmeasured.
+  double gpu_utilization = 13;
+  int64 gpu_memory_bytes = 14;
+  // The keep-alive sent with the last request and the two measurements it is
+  // derived from: the median gap between batch starts and the model's load.
+  int64 keep_alive_seconds = 15;
+  int64 batch_gap_seconds = 16;
+  int64 load_seconds = 17;
+  // Batches postponed because another GPU consumer was running.
+  int64 yields = 18;
+  // Unix seconds.
+  int64 started = 19;
+  int64 updated = 20;
 }

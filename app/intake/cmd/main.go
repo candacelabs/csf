@@ -16,7 +16,7 @@
 // needs no ingress of any kind.
 //
 //	CSF_INTAKE_GITHUB_TOKEN=… go run ./app/intake/cmd \
-//	    --routes 'owner/name#12=reviewer,owner/name=triage'
+//	    --routes 'candacelabs/example#12=reviewer,candacelabs/example=triage'
 package main
 
 import (
@@ -30,10 +30,10 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model"
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model"
+	ionet "github.com/candacelabs/csf/io/net"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	intakev1 "github.com/candacelabs/csf/proto/candace/intake/v1"
 	"github.com/candacelabs/csf/runtime"
 	"github.com/candacelabs/csf/runtime/config"
@@ -65,7 +65,7 @@ type journalAddress struct {
 func (address journalAddress) Provider() string { return journalProvider }
 
 func (address journalAddress) Key() string {
-	return model.AddressKey(journalProvider, ipc.TierInProcess, string(address.agent))
+	return model.AddressKey(journalProvider, io.TierInProcess, string(address.agent))
 }
 
 // journal registers each agent and logs every event delivered to it until its
@@ -125,7 +125,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	client, err := ipchttp.NewHTTPClient(ipcnet.NewHostNetwork())
+	client, err := iohttp.NewHTTPClient(ionet.NewHostNetwork())
 	if err != nil {
 		return err
 	}

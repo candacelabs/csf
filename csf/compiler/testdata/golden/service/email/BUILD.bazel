@@ -1,0 +1,9 @@
+package(default_visibility = ["//visibility:public"])
+
+# The email declaration and its observability projection, read by the csfc shell
+# golden test that pins the generator's output byte for byte. The generated Go
+# files live in services/email, whose own BUILD exports them.
+exports_files([
+    "email.csf",
+    "observability/email-dashboard.json",
+])

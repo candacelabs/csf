@@ -71,9 +71,38 @@ var _ = Describe("FindShellWaits", func() {
 		Expect(findings).To(ConsistOf(sessiongate.ShellFinding{Rule: sessiongate.RuleForegroundSleep, Snippet: "sleep 30"}))
 	})
 
-	It("names Monitor and run_in_background as the replacements for a wait", func() {
-		finding := sessiongate.ShellFinding{Rule: sessiongate.RulePollLoop}
-		Expect(finding.Replacement()).To(And(ContainSubstring("run_in_background"), ContainSubstring("Monitor")))
+	It("rejects the loop the operator flagged on 2026-10-05 and names csf await url-status", func() {
+		findings, err := sessiongate.FindShellWaits(`for i in $(seq 1 40); do c=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:14120/); if [ "$c" = "200" ]; then echo up; exit 0; fi; sleep 3; done`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(findings).To(HaveLen(1))
+		Expect(findings[0].Rule).To(Equal(sessiongate.RulePollLoop))
+		Expect(findings[0].Message()).To(HaveSuffix("wait with `csf await url-status -url URL -status 200 -deadline DURATION`, " +
+			"which returns once the condition holds or fails at the deadline"))
+	})
+
+	DescribeTable("names the csf await condition matching what a poll loop polls",
+		func(command string, condition string) {
+			findings, err := sessiongate.FindShellWaits(command)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(findings).NotTo(BeEmpty())
+			Expect(findings[0].Rule).To(Equal(sessiongate.RulePollLoop))
+			Expect(findings[0].Replacement()).To(ContainSubstring("`csf await " + condition + " -deadline DURATION`"))
+		},
+		Entry("a process exit", `for i in $(seq 1 120); do if ! kill -0 4242 2>/dev/null; then exit 0; fi; sleep 5; done`, "harness-stopped -pid PID"),
+		Entry("a pull request", `until gh pr view 7 --json state | grep -q MERGED; do sleep 30; done`, "pull-request-merged -pull-request URL"),
+		Entry("a session", `while csf get -assignment x | grep -q RUNNING; do sleep 15; done`, "turn-finished -assignment ID"),
+		Entry("the load", `while uptime | grep -q 'load average: 6'; do sleep 60; done`, "load-below -load LEVEL"),
+		Entry("anything else", `until test -f done.txt; do sleep 1; done`, "CONDITION"),
+	)
+
+	It("names csf await and every condition for a foreground sleep, and no executor tool", func() {
+		findings, err := sessiongate.FindShellWaits(`go test ./... && sleep 3 && cat out.txt`)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(findings).To(HaveLen(1))
+		Expect(findings[0].Replacement()).To(Equal("wait with `csf await CONDITION -deadline DURATION`, which returns once the condition " +
+			"holds or fails at the deadline; the conditions are harness-ready, harness-stopped, load-below, " +
+			"pull-request-merged, session-phase, turn-finished, url-status"))
+		Expect(findings[0].Replacement()).NotTo(Or(ContainSubstring("run_in_background"), ContainSubstring("Monitor")))
 	})
 
 	It("reports a command it cannot parse with the defined error", func() {

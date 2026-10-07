@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "certificate",
+    srcs = ["certificate.go"],
+    importpath = "github.com/candacelabs/csf/csf/prod/certificate",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/atomicfile",
+        "//pkg/knee",
+    ],
+)
+
+go_test(
+    name = "certificate_test",
+    srcs = ["certificate_test.go"],
+    deps = [
+        ":certificate",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -1010,6 +1010,18 @@
                   },
                   "message": {
                     "type": "string"
+                  },
+                  "operatorAuthored": {
+                    "type": "boolean",
+                    "description": "The message is the operator's own words: a chat turn the operator sent,\nor a relayed message that quotes the operator verbatim. The harness\ncomputes the message's unvetted terms, records them as an event and puts\nthem into the turn, and the reply gate holds the reply to them."
+                  },
+                  "priorityClass": {
+                    "$ref": "#/components/schemas/candace.harness.v1.MessagePriorityClass",
+                    "description": "priority_class determines if message interrupts running turn or queues normally."
+                  },
+                  "questionWanted": {
+                    "type": "boolean",
+                    "description": "The operator wanted the question the question gate last refused in this\nsession: the send is recorded as an override, the false-positive\nevidence for the gate's classifier."
                   }
                 }
               }
@@ -1034,6 +1046,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/candace.harness.v1.SendAgentSessionMessageResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/propose": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Apply a proposed patch to a session's worktree in patch mode, returning a typed rejection when it is not accepted.",
+        "operationId": "Research_ProposeProposal",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "proposal": {
+                    "$ref": "#/components/schemas/candace.harness.v1.Proposal"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.ProposeProposalResponse"
                 }
               }
             }
@@ -1075,6 +1133,52 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/candace.harness.v1.ListAgentSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/inbox": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Report every message in a session's inbox with its state and priority class.",
+        "operationId": "Research_ListInbox",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignmentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.ListInboxResponse"
                 }
               }
             }
@@ -1174,6 +1278,190 @@
         }
       }
     },
+    "/api/harness/sessions/check": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Report the launch check a recipe would meet now, without admitting it: the host's measured load, free disk and worker cap, the findings, and why admission is held when it is.",
+        "operationId": "Research_CheckAgentSessionAdmission",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "recipe": {
+                    "$ref": "#/components/schemas/candace.brainspine.v1.AgentAssignmentRecipe"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.CheckAgentSessionAdmissionResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/ready": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Mark a session's draft pull request ready for review. The action is recorded in the session's event log.",
+        "operationId": "Research_ReadyAgentSessionPullRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignmentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.ReadyAgentSessionPullRequestResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/sessions/merge": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Merge a session's pull request through the repository's merge path (tools/merge-pr.sh when the worktree has one, else gh's squash merge). It waits for the merge path's checks; the report is the path's output. The action is recorded in the session's event log.",
+        "operationId": "Research_MergeAgentSessionPullRequest",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "assignmentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The merge path's report: what the repository's merge script or gh printed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.MergeAgentSessionPullRequestResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/rulings/record": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Record one operator ruling and the alternatives it rules out. From the next turn of every session, the question gate refuses a question, or an offered alternative, that names an excluded alternative. Returns the rulings in force.",
+        "operationId": "Research_RecordRuling",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ruling": {
+                    "$ref": "#/components/schemas/candace.harness.v1.Ruling"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "The rulings in force after the record, in the order first recorded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.RecordRulingResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/harness/stop": {
       "post": {
         "tags": [
@@ -1208,6 +1496,93 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/candace.harness.v1.StopHarnessResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/executor/get": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Read the turn executor and model a recipe that names no executor runs on.",
+        "operationId": "Research_GetAgentExecutorDefault",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.GetAgentExecutorDefaultResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/harness/executor/set": {
+      "post": {
+        "tags": [
+          "Research"
+        ],
+        "summary": "Switch the turn executor and model every session submitted from now on runs on when its recipe names no executor: the way to move the whole harness to another model provider at once, as when one provider's usage quota runs out. Running sessions keep theirs.",
+        "operationId": "Research_SetAgentExecutorDefault",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "executorDefault": {
+                    "$ref": "#/components/schemas/candace.harness.v1.AgentExecutorDefault"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "default": {
+            "description": "An unexpected error response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/google.rpc.Status"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "A successful response.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/candace.harness.v1.SetAgentExecutorDefaultResponse"
                 }
               }
             }
@@ -1293,11 +1668,19 @@
             "type": "string",
             "description": "For a harness run: the work branch, the draft pull request the commit\ngate opened (empty when none exists yet) and the run's trace."
           },
+          "executor": {
+            "type": "string",
+            "description": "The turn executor the session ran on, as the recipe names it; never empty\nfor a harness run."
+          },
           "plan": {
             "$ref": "#/components/schemas/candace.brainspine.v1.AgentAssignmentPlan"
           },
           "pullRequestUrl": {
             "type": "string"
+          },
+          "resumed": {
+            "$ref": "#/components/schemas/candace.brainspine.v1.ResumedTurn",
+            "description": "Set on the first turn after the session hypervisor resumed a suspended\nsession, so the cost of resuming is on the receipt."
           },
           "sessionId": {
             "type": "string"
@@ -1325,6 +1708,10 @@
           },
           "assignmentId": {
             "type": "string"
+          },
+          "executor": {
+            "type": "string",
+            "description": "The turn executor a harness session runs on: \"claude-code\" (also when\nempty) runs Claude Code and \"copilot\" runs the GitHub Copilot CLI. The\nmodel is passed to the chosen executor unchanged, so it is spelled as that\nexecutor spells it."
           },
           "model": {
             "type": "string"
@@ -1436,7 +1823,7 @@
         "properties": {
           "allowedTools": {
             "type": "array",
-            "description": "Claude Code tool rules the session may use without asking, such as\n\"Bash\", \"Edit\" or \"Bash(git *)\". Everything else is denied.",
+            "description": "Claude Code tool rules the session may use without asking, such as\n\"Bash\", \"Edit\" or \"Bash(git *)\". Everything else is denied. A Copilot\nsession runs the same rules translated to Copilot's tools; a rule with\nno Copilot equivalent refuses the recipe.",
             "items": {
               "type": "string"
             }
@@ -1452,6 +1839,10 @@
           "briefPath": {
             "type": "string",
             "description": "A file holding the task, read by the launcher in place of an inline\ntask; relative paths resolve against the recipe file."
+          },
+          "mode": {
+            "type": "string",
+            "description": "Workspace mode: \"normal\" (default) or \"patch\" for submit-then-verify flow."
           },
           "pullRequestTitle": {
             "type": "string",
@@ -2108,6 +2499,20 @@
           }
         ]
       },
+      "candace.brainspine.v1.ResumedTurn": {
+        "type": "object",
+        "description": "The cost of the first turn on a resumed session, whose turn executor the\nhypervisor had closed on suspend and opened again on the recorded\nconversation for this turn: the time from the turn's request to the\nexecutor's first assistant event, and how long the session was suspended.",
+        "properties": {
+          "suspendedSeconds": {
+            "type": "number",
+            "format": "double"
+          },
+          "timeToFirstTokenMs": {
+            "type": "number",
+            "format": "double"
+          }
+        }
+      },
       "candace.brainspine.v1.RunStatus": {
         "type": "object",
         "properties": {
@@ -2127,6 +2532,7 @@
       },
       "candace.brainspine.v1.SearchHit": {
         "type": "object",
+        "description": "A hit is one chunk of a document: the lines it spans, its score in the\nresult's order, and why it ranked there.",
         "properties": {
           "document": {
             "$ref": "#/components/schemas/candace.brainspine.v1.SourceDocument"
@@ -2134,9 +2540,26 @@
           "excerpt": {
             "type": "string"
           },
+          "lineEnd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lineStart": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The 1-based lines of the document the excerpt spans."
+          },
+          "path": {
+            "type": "string",
+            "description": "The document's title: a repository-relative path, a ticket or a run."
+          },
           "score": {
             "type": "number",
             "format": "double"
+          },
+          "why": {
+            "type": "string",
+            "description": "Which retrievers found the chunk, at what rank, and the reranker's score."
           }
         }
       },
@@ -2162,6 +2585,10 @@
           },
           "mode": {
             "type": "string"
+          },
+          "reranker": {
+            "type": "string",
+            "description": "The cross-encoder that ordered the hits; empty when none did."
           }
         }
       },
@@ -2460,6 +2887,19 @@
           }
         }
       },
+      "candace.harness.v1.AgentExecutorDefault": {
+        "type": "object",
+        "description": "The turn executor and model a recipe that names no executor runs on: the\nhost's default, set when csf serve starts and switchable while it runs. A\nrecipe that names its executor runs as written.",
+        "properties": {
+          "executor": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string",
+            "description": "The model such a recipe runs on, spelled as the executor spells it.\nEmpty keeps each recipe's own model, which is only meaningful for the\nexecutor recipes are written for, Claude Code."
+          }
+        }
+      },
       "candace.harness.v1.AgentSessionPhase": {
         "type": "string",
         "description": "Where a session is in its life. The harness service owns the transitions:\na session is OPEN between turns, RUNNING while its turn executor carries\nout a turn, and ends CANCELED, FAILED or CLOSED.",
@@ -2491,6 +2931,25 @@
             "type": "string",
             "description": "The failure that ended the session, when the phase is FAILED."
           },
+          "eventsLast10m": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "inboxDepth": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "lastCommand": {
+            "type": "string"
+          },
+          "lastEventAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Activity counters tracked as events are written."
+          },
+          "lastTool": {
+            "type": "string"
+          },
           "phase": {
             "$ref": "#/components/schemas/candace.harness.v1.AgentSessionPhase"
           },
@@ -2508,6 +2967,10 @@
           "startedAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "suspended": {
+            "type": "boolean",
+            "description": "The session is suspended: its turn executor is closed, the session stays\nOPEN with its recorded conversation, and the next message resumes it."
           },
           "traceId": {
             "type": "string"
@@ -2535,11 +2998,70 @@
           }
         }
       },
+      "candace.harness.v1.CheckAgentSessionAdmissionResponse": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "$ref": "#/components/schemas/candace.harness.v1.LaunchCheck"
+          },
+          "held": {
+            "type": "string",
+            "description": "Why every Submit is refused right now; empty while sessions are admitted."
+          }
+        }
+      },
+      "candace.harness.v1.GetAgentExecutorDefaultResponse": {
+        "type": "object",
+        "properties": {
+          "executorDefault": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentExecutorDefault"
+          }
+        }
+      },
       "candace.harness.v1.GetAgentSessionResponse": {
         "type": "object",
         "properties": {
           "session": {
             "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+          }
+        }
+      },
+      "candace.harness.v1.InboxMessage": {
+        "type": "object",
+        "properties": {
+          "answeredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "deliveredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "priorityClass": {
+            "$ref": "#/components/schemas/candace.harness.v1.MessagePriorityClass",
+            "description": "priority_class determines interrupt behavior."
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "receiptId": {
+            "type": "string"
+          },
+          "sentAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "sequence": {
+            "type": "string",
+            "format": "uint64",
+            "description": "sequence: stable order key combined with priority_class."
+          },
+          "state": {
+            "$ref": "#/components/schemas/candace.harness.v1.MessageState"
+          },
+          "text": {
+            "type": "string"
           }
         }
       },
@@ -2569,9 +3091,26 @@
             "type": "string",
             "format": "uint64"
           },
+          "ioPressureBound": {
+            "type": "number",
+            "format": "double"
+          },
+          "ioPressureFullAvg10": {
+            "type": "number",
+            "format": "double",
+            "description": "The io bound: the percent of the last 10 s in which every non-idle task\nstalled on io, and the derived bound above which launches are held."
+          },
           "loadOneMinute": {
             "type": "number",
             "format": "double"
+          },
+          "memoryAvailableBytes": {
+            "type": "string",
+            "format": "uint64",
+            "description": "The memory bound: the memory available on the host and the memory a\nsession may use, its memory.max. A launch that does not fit is refused\neven while the check is report-only."
+          },
+          "memoryFits": {
+            "type": "boolean"
           },
           "reportOnly": {
             "type": "boolean"
@@ -2579,6 +3118,10 @@
           "runningSessions": {
             "type": "integer",
             "format": "int64"
+          },
+          "sessionMemoryBytes": {
+            "type": "string",
+            "format": "uint64"
           },
           "workerCap": {
             "type": "integer",
@@ -2603,15 +3146,195 @@
           }
         }
       },
+      "candace.harness.v1.ListInboxResponse": {
+        "type": "object",
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/candace.harness.v1.InboxMessage"
+            }
+          }
+        }
+      },
+      "candace.harness.v1.MergeAgentSessionPullRequestResponse": {
+        "type": "object",
+        "description": "The merge path's report: what the repository's merge script or gh printed.",
+        "properties": {
+          "report": {
+            "type": "string"
+          },
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+          }
+        }
+      },
+      "candace.harness.v1.MessagePriorityClass": {
+        "type": "string",
+        "enum": [
+          "MESSAGE_PRIORITY_CLASS_UNSPECIFIED",
+          "MESSAGE_PRIORITY_CLASS_QUEUE",
+          "MESSAGE_PRIORITY_CLASS_INTERRUPT",
+          "MESSAGE_PRIORITY_CLASS_PREEMPT"
+        ]
+      },
+      "candace.harness.v1.MessageState": {
+        "type": "string",
+        "enum": [
+          "MESSAGE_STATE_UNSPECIFIED",
+          "MESSAGE_STATE_QUEUED",
+          "MESSAGE_STATE_DELIVERED",
+          "MESSAGE_STATE_READ",
+          "MESSAGE_STATE_ANSWERED"
+        ]
+      },
+      "candace.harness.v1.Proposal": {
+        "type": "object",
+        "description": "A proposed patch to be applied, with the diff and metadata.",
+        "properties": {
+          "assignmentId": {
+            "type": "string"
+          },
+          "diff": {
+            "type": "string",
+            "description": "Unified diff of the changes."
+          },
+          "message": {
+            "type": "string",
+            "description": "Commit message for the proposed changes."
+          },
+          "proposedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "candace.harness.v1.ProposeProposalResponse": {
+        "type": "object",
+        "properties": {
+          "rejection": {
+            "$ref": "#/components/schemas/candace.harness.v1.Rejection",
+            "description": "The rejection reason if the proposal was not accepted."
+          },
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState",
+            "description": "The session state after the proposal, or absent if rejected."
+          }
+        }
+      },
+      "candace.harness.v1.ReadyAgentSessionPullRequestResponse": {
+        "type": "object",
+        "properties": {
+          "session": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
+          }
+        }
+      },
+      "candace.harness.v1.RecordRulingResponse": {
+        "type": "object",
+        "description": "The rulings in force after the record, in the order first recorded.",
+        "properties": {
+          "inForce": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/candace.harness.v1.Ruling"
+            }
+          }
+        }
+      },
+      "candace.harness.v1.Rejection": {
+        "type": "object",
+        "description": "A typed rejection of a proposed patch.",
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/candace.harness.v1.Rejection.Code"
+          },
+          "details": {
+            "type": "string"
+          }
+        }
+      },
+      "candace.harness.v1.Rejection.Code": {
+        "type": "string",
+        "enum": [
+          "CODE_UNSPECIFIED",
+          "CODE_APPLY_FAILED",
+          "CODE_VALIDATION_FAILED",
+          "CODE_DECLINED",
+          "CODE_MODE_UNSUPPORTED"
+        ]
+      },
+      "candace.harness.v1.Ruling": {
+        "type": "object",
+        "description": "One operator ruling: what it decides, the operator's own words, whom it\nbinds, why, and the gate that enforces it. A ruling no gate enforces is\nUNENFORCED, and the Workbench and the rulings view flag it. An agent\nquestion, or an alternative it offers, that names an excluded alternative\nre-litigates the ruling, and the question gate refuses it.",
+        "properties": {
+          "enforcedBy": {
+            "type": "string",
+            "description": "The gate that enforces the ruling; empty is UNENFORCED."
+          },
+          "excludes": {
+            "type": "array",
+            "description": "Phrases naming the alternatives the ruling rules out, matched word by\nword after stemming; none blank (the service checks). A ruling with none\nis never matched by the question gate.",
+            "items": {
+              "type": "string"
+            }
+          },
+          "pendingGate": {
+            "type": "string",
+            "description": "The gate that will enforce the ruling once it merges. The ruling stays\nUNENFORCED until enforced_by names a gate."
+          },
+          "quote": {
+            "type": "string",
+            "description": "The operator's words, copied verbatim and never paraphrased."
+          },
+          "ruledOn": {
+            "type": "string",
+            "description": "The day the operator ruled, as YYYY-MM-DD."
+          },
+          "rulingId": {
+            "type": "string"
+          },
+          "scope": {
+            "type": "string",
+            "description": "Whom the ruling binds: every actor, the sessions, the orchestrator."
+          },
+          "statement": {
+            "type": "string"
+          },
+          "supersedes": {
+            "type": "string",
+            "description": "The ruling this one replaces; it stops being in force."
+          },
+          "why": {
+            "type": "string",
+            "description": "Why the operator ruled: what happened that the ruling answers."
+          }
+        }
+      },
       "candace.harness.v1.SendAgentSessionMessageResponse": {
         "type": "object",
         "description": "A turn identifier acknowledges that the message was queued for the\nsession's next safepoint; it does not prove the turn ran or succeeded.",
         "properties": {
+          "receipt": {
+            "$ref": "#/components/schemas/candace.harness.v1.InboxMessage"
+          },
           "session": {
             "$ref": "#/components/schemas/candace.harness.v1.AgentSessionState"
           },
           "turnId": {
-            "type": "string"
+            "type": "string",
+            "description": "turn_id acknowledges the message's turn; receipt carries its queued inbox message."
+          }
+        }
+      },
+      "candace.harness.v1.SetAgentExecutorDefaultResponse": {
+        "type": "object",
+        "properties": {
+          "executorDefault": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentExecutorDefault"
+          },
+          "previous": {
+            "$ref": "#/components/schemas/candace.harness.v1.AgentExecutorDefault"
           }
         }
       },

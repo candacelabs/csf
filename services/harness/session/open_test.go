@@ -13,7 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/services/harness/session"
 	"github.com/candacelabs/csf/services/harness/session/mocks"
 )

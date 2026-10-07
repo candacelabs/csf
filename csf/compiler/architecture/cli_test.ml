@@ -9,7 +9,10 @@ let capture arguments =
   let calls = ref [] in
   let run mode config =
     calls := (mode, config) :: !calls;
-    Ok { Compiler.architecture_name = "example"; mode; obligations = 3 } in
+    Ok {
+      Compiler.architecture_name = "example"; mode; obligations = 3;
+      directories_declared = 2; directories_tracked = 5;
+    } in
   let result = evaluate run arguments in
   expect "successful command did not return zero" (result = Ok (`Ok 0));
   match !calls with [call] -> call | _ -> failwith "compiler must execute exactly once"
@@ -88,8 +91,9 @@ let test_reporting () =
   expect "failure did not return one"
     (evaluate (fun _ _ -> Error [error]) ["check"] = Ok (`Ok 1));
   expect "summary format changed"
-    (Cli.summary { Compiler.architecture_name = "example"; mode = Compiler.Emit; obligations = 3 }
-     = "architecture=example mode=emit declarations=checked source=checked obligations=3")
+    (Cli.summary { Compiler.architecture_name = "example"; mode = Compiler.Emit; obligations = 3;
+       directories_declared = 2; directories_tracked = 5 }
+     = "architecture=example mode=emit declarations=checked source=checked directories=2/5 obligations=3")
 
 let () =
   test_defaults ();

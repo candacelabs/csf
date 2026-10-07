@@ -21,8 +21,8 @@ import (
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/proto"
 
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	ionet "github.com/candacelabs/csf/io/net"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	api "github.com/candacelabs/csf/services/copilot-adapter/gen/api"
 	copilotv1 "github.com/candacelabs/csf/services/copilot-adapter/proto/candace/copilot/v1"
 	"github.com/candacelabs/csf/services/copilot-adapter/storedb"
@@ -77,7 +77,7 @@ type TraceExporter struct {
 	queries storedb.Querier
 	config  *copilotv1.TraceExportConfig
 	client  otlptrace.Client
-	network ipcnet.IDialer
+	network ionet.IDialer
 	started atomic.Bool
 	cancel  context.CancelFunc
 	done    chan struct{}
@@ -92,7 +92,7 @@ func WithTraceClient(client otlptrace.Client) TraceOption {
 // WithTraceNetwork grants the socket capability the official OTLP client
 // dials the collector through. The binary grants it; without it, or a
 // WithTraceClient transport, the exporter is not constructed.
-func WithTraceNetwork(network ipcnet.IDialer) TraceOption {
+func WithTraceNetwork(network ionet.IDialer) TraceOption {
 	return func(exporter *TraceExporter) { exporter.network = network }
 }
 
@@ -118,7 +118,7 @@ func NewTraceExporter(queries storedb.Querier, config *copilotv1.TraceExportConf
 			return nil, fmt.Errorf("trace exporter requires a network capability or a trace client")
 		}
 		timeout := time.Duration(config.GetRequestTimeoutMillis()) * time.Millisecond
-		transport, err := ipchttp.NewHTTPClient(exporter.network, ipchttp.WithClientTimeout(timeout))
+		transport, err := iohttp.NewHTTPClient(exporter.network, iohttp.WithClientTimeout(timeout))
 		if err != nil {
 			return nil, err
 		}

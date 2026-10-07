@@ -7,10 +7,23 @@ type config = {
   output_path : string;
   require_closed : bool;
 }
-type report = { architecture_name : string; mode : mode; obligations : int }
+type report = {
+  architecture_name : string;
+  mode : mode;
+  obligations : int;
+  directories_declared : int;
+  directories_tracked : int;
+}
 
 val mode_name : mode -> string
 val compile : config -> (Model.resolved, Model.diagnostic list) result
+
+(** The resolved graph and its tree census, before obligation closure. The
+    census reads the tracked inventory, so this is where the checkout is read. *)
+val analyze : config -> (Model.resolved * Validate.tree_report, Model.diagnostic list) result
+
+(** Declared directories over tracked directories, for the panel. *)
+val census : root:string -> Model.architecture -> int * int
 
 (** Pure projections, as artifact basenames paired with their complete contents.
     Consumers can inspect the exact files [Emit] would write without accessing files. *)

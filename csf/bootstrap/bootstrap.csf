@@ -1,0 +1,26 @@
+# BOOTSTRAP VERBS. The two commands this slice adds to the csf binary, declared
+# once in CSF and read two ways: the binary dispatches them in app/csf/cmd, and
+# a golden test in that package pins the dispatch against this file. Together
+# they are the operator's bootstrap loop — run the loop over a directory in this
+# process, or run an archive any earlier release emitted.
+#
+# The kind below is the table's shape. It is not an ontology term, and this file
+# is not the language source: the terms live in
+# csf/compiler/language/architecture.csf alone.
+
+kind verb
+  "One command the csf binary answers: the words a caller types, what the command does, and what it needs."
+{
+  field command "text" "The command line, from the binary name through its fixed words and placeholders.";
+  field does    "text" "What the command does, one clause.";
+  field needs   "text" "What the command requires of the caller and the machine.";
+}
+
+# The local verb: the loop runs in this process, over one directory, with no job
+# and no network, and emits the archive beside it.
+verb bootstrap_local { command "csf bootstrap -repo <dir> -local"; does "runs the bootstrap loop over <dir> in this process and emits its archive"; needs "a repository directory"; }
+
+# The archive verb: positional, so any binary from this release on runs a later
+# release's archive by naming it, with the caller's remaining words as its
+# arguments.
+verb run_archive { command "csf <archive.tar.gz> [args...]"; does "verifies the archive against its manifest, extracts it into a digest-keyed cache and runs its bin/csf entrypoint with [args...]"; needs "an archive this or any earlier release emitted"; }

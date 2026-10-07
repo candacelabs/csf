@@ -3,6 +3,7 @@ package pgmem
 import (
 	"context"
 	"database/sql"
+	"database/sql/driver"
 	"errors"
 	"fmt"
 	"regexp"
@@ -12,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	pgquery "github.com/pganalyze/pg_query_go/v6"
 	sqlite "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
@@ -232,4 +234,65 @@ func sqlState(cause error) string {
 	default:
 		return "XX000"
 	}
+}
+
+// Connector returns a database/sql connector for the public schema.
+//
+// The returned connector does not own DB. Close the database/sql pool before
+// closing DB.
+func (db *DB) Connector() driver.Connector {
+	return db.Public().Connector()
+}
+
+// Open returns a database/sql pool backed by the public schema. The returned
+// pool and DB have independent lifetimes and both must be closed.
+func (db *DB) Open() *sql.DB {
+	return db.Public().Open()
+}
+
+// RegisterFunction registers or atomically replaces one public-schema scalar
+// function overload. Registering functions on separate DB values is isolated.
+func (db *DB) RegisterFunction(function Function) error {
+	if db == nil {
+		return ErrClosed
+	}
+	return db.Public().RegisterFunction(function)
+}
+
+func (db *DB) rewriteRegisteredFunctions(ctx context.Context, defaultSchema, source, statement string) (string, error) {
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
+	// The substring check is only a fast prefilter. Any possible dispatcher use
+	// is still classified structurally below before it can reach the executor.
+	if !db.functions.hasAny() && !strings.Contains(strings.ToLower(statement), dispatchFunctionName) {
+		return statement, nil
+	}
+	parsed, err := pgquery.Parse(statement)
+	if err != nil {
+		return "", fmt.Errorf("pgmem: parse translated statement for registered functions: %w", err)
+	}
+	changed := false
+	for _, rawStatement := range parsed.Stmts {
+		if rawStatement == nil || rawStatement.Stmt == nil {
+			continue
+		}
+		if err := rewriteFunctionTree(rawStatement.Stmt.ProtoReflect(), db, defaultSchema, &changed); err != nil {
+			return "", &Error{
+				Code:      "0A000",
+				Message:   "pgmem: internal function dispatcher cannot be called directly",
+				Statement: source,
+				Cause:     ErrUnsupported,
+			}
+		}
+	}
+	if !changed {
+		return statement, nil
+	}
+
+	rewritten, err := pgquery.Deparse(parsed)
+	if err != nil {
+		return "", fmt.Errorf("pgmem: deparse registered function call: %w", err)
+	}
+	return strings.TrimSpace(rewritten), nil
 }

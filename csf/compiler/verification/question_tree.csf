@@ -1,0 +1,115 @@
+// The CSF decision tree: the questions the compiler asks and the options each
+// offers, declared once here. csfc reads this block and projects it into the
+// five artifacts beside it -- CSFCVerifier.lean and the four generated files
+// question_kind_enum.txt, question_directory.txt, question_cli_layer.txt and
+// question_jev_prompt.txt -- so the CSF language, the decision tree, the
+// directory tree and the CLI are one declaration. Every projection is
+// drift-gated: a change here changes the emitted bytes and the commit and CI
+// gate (tools/check-generated.sh) fails until the files are regenerated.
+//
+// The root is the question no other refines; a leaf option names the template
+// it instantiates, and a refines option opens exactly one sub-question. The
+// invariants are built in, not reported: no question may offer more than
+// sixteen options, every leaf names exactly one template, and a question with
+// no option cannot project and is refused.
+
+question grammar {
+  text "What are you declaring?";
+  option ontology     leaf "ontology";
+  option architecture refines structure;
+  option meta         leaf "meta";
+  option gate         leaf "gate";
+  option service      leaf "service";
+  option rest_client  leaf "rest_client";
+  option placement    refines axis;
+}
+
+question structure {
+  text "How is the declaration laid out?";
+  option flat    leaf "flat";
+  option layered leaf "layered";
+}
+
+// The six decisions a placement answers. One question per axis, so a
+// directory, a CLI area and a grammar kind all name the same choice.
+question axis {
+  text "Which decision does the placement answer?";
+  option tier           refines tier;
+  option role           refines role;
+  option lifecycle      refines lifecycle;
+  option transport      refines transport;
+  option top_level_dirs refines top_level_dirs;
+  option cli_areas      refines cli_areas;
+}
+
+question tier {
+  text "Which tier does the component live in?";
+  option in_process leaf "in_process";
+  option kernel     leaf "kernel";
+  option ipc        leaf "ipc";
+  option net        leaf "net";
+}
+
+question role {
+  text "Which role does the component play?";
+  option service  leaf "service";
+  option manager  leaf "manager";
+  option library  leaf "library";
+  option adapter  leaf "adapter";
+  option gateway  leaf "gateway";
+  option resource leaf "resource";
+}
+
+question lifecycle {
+  text "Which lifecycle binds the component?";
+  option scoped   leaf "scoped";
+  option lazy     leaf "lazy";
+  option borrowed leaf "borrowed";
+}
+
+question transport {
+  text "Which transport carries the connection?";
+  option call       leaf "call";
+  option channel    leaf "channel";
+  option subprocess leaf "subprocess";
+  option remote     leaf "remote";
+  option device     leaf "device";
+}
+
+// The top-level directories a file may belong to. The bound is sixteen, so the
+// declaration names the source trees; a directory outside it is declared in
+// csf/architecture/architecture.csf instead.
+question top_level_dirs {
+  text "Which top-level directory owns the file?";
+  option app        leaf "app";
+  option bazel      leaf "bazel";
+  option csf        leaf "csf";
+  option docs       leaf "docs";
+  option examples   leaf "examples";
+  option extensions leaf "extensions";
+  option infra      leaf "infra";
+  option io         leaf "io";
+  option pkg        leaf "pkg";
+  option proto      leaf "proto";
+  option runtime    leaf "runtime";
+  option services   leaf "services";
+  option tools      leaf "tools";
+  option web        leaf "web";
+  option widgets    leaf "widgets";
+  option xetcas     leaf "xetcas";
+}
+
+// The CLI areas, each the first word after `csf`. Every command has a declared
+// area, so the CLI is a projection of this question.
+question cli_areas {
+  text "Which CLI area owns the command?";
+  option links      leaf "links";
+  option decide     leaf "decide";
+  option eval       leaf "eval";
+  option scoreboard leaf "scoreboard";
+  option link       leaf "link";
+  option call       leaf "call";
+  option serve      leaf "serve";
+  option mcp        leaf "mcp";
+  option initialize leaf "initialize";
+}

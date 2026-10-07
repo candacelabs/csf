@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "graph",
+    srcs = [
+        "graph.go",
+        "graph_topological.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/graph",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "graph_test",
+    srcs = [
+        "backtest_test.go",
+        "graph_test.go",
+    ],
+    embed = [":graph"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

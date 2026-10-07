@@ -1,6 +1,6 @@
 # csfc - the CSF compiler
 
-`csfc` checks declared process and scope relationships and selected Go source
+`csfc` checks declared process and [scope](../docs/generated/ontology_cgen.md#term-scope) relationships and selected Go source
 boundaries. The [architecture compiler](architecture/README.md) owns this
 implementation; the [documentation compiler](language/README.md) owns the
 shared vocabulary and diagrams. These sources, build definitions, policies and
@@ -39,4 +39,4 @@ The monorepo also stages the executable at `bazel-bin/bin/csfc`. Start with the
 Consumers can modify their own checkout and rebuild the compiler; no private
 monorepo source or synchronization step is required. The compiling
 [Lean verifier stub](verification/README.md) returns `notImplemented` for every
-input; it proves no compiler, runtime, or physical-safety property.
+input; it proves no compiler, [runtime](../docs/generated/ontology_cgen.md#term-runtime), or physical-safety property.

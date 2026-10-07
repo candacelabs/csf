@@ -707,7 +707,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 	BeforeEach(func() {
 		ctx = context.Background()
 		postgresStore := adaptertest.OpenStore(GinkgoT())
-		queries = postgresStore.Queries
+		queries = storedb.New(postgresStore.Database())
 
 		events = make(chan copilotadapter.BridgeEvent, 16)
 		closeSession = func() error { return nil }
@@ -811,7 +811,7 @@ var _ = Describe("the projection of one session's lifecycle events", func() {
 				return resumeBridgeSession(spec)
 			}).AnyTimes()
 
-		storeWithEventFailure = &sessionEventFailureStore{IStore: postgresStore}
+		storeWithEventFailure = &sessionEventFailureStore{IStore: postgresStore.Store}
 		storeWithAmbiguousCommit = &ambiguousCommitStore{IStore: storeWithEventFailure}
 		storeWithLockFailure = &failBeforeLockStore{IStore: storeWithAmbiguousCommit}
 		storeWithSessionViewFail = &sessionViewFailureStore{IStore: storeWithLockFailure}

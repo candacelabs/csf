@@ -1,0 +1,52 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# The generator that owns pkg/collections/collections.go: it emits the two
+# exported primitives the typed ask names, so a site calls the export instead of
+# reimplementing the shape locally.
+ocaml_module(
+    name = "Collections_codegen",
+    struct = "collections_codegen.ml",
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [":Collections_codegen"],
+)
+
+ocaml_binary(
+    name = "generate_native",
+    main = ":Main",
+)
+
+genrule(
+    name = "generate",
+    srcs = [":generate_native"],
+    outs = ["generate.exe"],
+    cmd = "cp $(location :generate_native) $@",
+    executable = True,
+)
+
+# golden_first step 4: the emitted bytes equal the hand-written golden byte for
+# byte. The golden is the step 2 handwrite; the test fails the moment the
+# generator or the pinned file moves without the other.
+ocaml_module(
+    name = "Collections_codegen_test",
+    struct = "collections_codegen_test.ml",
+    deps = [":Collections_codegen"],
+)
+
+ocaml_test(
+    name = "collections_codegen_test",
+    size = "small",
+    args = ["$(rootpath //pkg/collections:testdata/golden/collections.go)"],
+    data = ["//pkg/collections:testdata/golden/collections.go"],
+    main = ":Collections_codegen_test",
+)
+
+test_suite(
+    name = "tests",
+    tests = [":collections_codegen_test"],
+)

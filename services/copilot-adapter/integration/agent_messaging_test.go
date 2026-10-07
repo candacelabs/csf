@@ -16,7 +16,7 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc"
+	"github.com/candacelabs/csf/io"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	agentv1 "github.com/candacelabs/csf/proto/candace/agent/v1"
@@ -81,9 +81,9 @@ var _ = Describe("Resident agent messaging between Workbench sessions", func() {
 		terminals.EXPECT().Close().Return(nil).AnyTimes()
 		persistence := adaptertest.OpenStore(GinkgoT())
 		adapter, err := copilotadapter.NewCopilotAdapter(
-			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence),
+			copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence.Store),
 			copilotadapter.WithWorktreeManager(worktrees), copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(adapter.Close)
@@ -153,15 +153,15 @@ var _ = Describe("Resident agent messaging between Workbench sessions", func() {
 		Expect(prompt.Mode).To(Equal(string(api.Queue)))
 		Expect(prompts[sessions[0]]).To(BeEmpty(), "the sender's session receives nothing")
 
-		sentInProcess := counterValue(registry, relay.MetricEnvelopesSent, ipc.TierInProcess)
+		sentInProcess := counterValue(registry, relay.MetricEnvelopesSent, io.TierInProcess)
 		Expect(sentInProcess).To(Equal(1.0))
-		Expect(counterValue(registry, relay.MetricEnvelopesDelivered, ipc.TierInProcess)).To(Equal(1.0))
-		Expect(counterValue(registry, relay.MetricEnvelopesSent, ipc.TierHost)).To(BeZero())
-		Expect(counterValue(registry, relay.MetricEnvelopesSent, ipc.TierNetwork)).To(BeZero())
+		Expect(counterValue(registry, relay.MetricEnvelopesDelivered, io.TierInProcess)).To(Equal(1.0))
+		Expect(counterValue(registry, relay.MetricEnvelopesSent, io.TierIpc)).To(BeZero())
+		Expect(counterValue(registry, relay.MetricEnvelopesSent, io.TierNet)).To(BeZero())
 	})
 })
 
-func counterValue(registry *prometheus.Registry, name string, tier ipc.Tier) float64 {
+func counterValue(registry *prometheus.Registry, name string, tier io.Tier) float64 {
 	GinkgoHelper()
 	families, err := registry.Gather()
 	Expect(err).NotTo(HaveOccurred())

@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	model "github.com/candacelabs/csf/ipc/model"
+	model "github.com/candacelabs/csf/io/net/model"
 	relay "github.com/candacelabs/csf/services/relay"
 	gomock "go.uber.org/mock/gomock"
 )

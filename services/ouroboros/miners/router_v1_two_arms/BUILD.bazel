@@ -1,0 +1,65 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+# The rules are a Datalog program, compiled into the miner as a string.
+genrule(
+    name = "rules_source",
+    srcs = ["rules.dl"],
+    outs = ["rules_cgen.ml"],
+    cmd = "{ printf 'let source = {rules|'; cat $<; printf '|rules}\\n'; } > $@",
+)
+
+ocaml_module(
+    name = "Rules_cgen",
+    struct = ":rules_cgen.ml",
+)
+
+ocaml_module(
+    name = "Extract",
+    struct = "extract.ml",
+    deps = [
+        ":Rules_cgen",
+        "//services/ouroboros/contract:Contract",
+        "//services/ouroboros/contract:Corpus",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [
+        ":Extract",
+        "//services/ouroboros/contract:Contract",
+    ],
+)
+
+ocaml_binary(
+    name = "miner_native",
+    main = ":Main",
+)
+
+# OCaml transitions select a configuration-specific output directory; publish
+# the executable at one stable path, as csfc does.
+genrule(
+    name = "miner",
+    srcs = [":miner_native"],
+    outs = ["miner.exe"],
+    cmd = "cp $(location :miner_native) $@",
+    executable = True,
+)
+
+ocaml_module(
+    name = "Miner_test",
+    struct = "miner_test.ml",
+    deps = [
+        ":Extract",
+        "//services/ouroboros/contract:Contract",
+    ],
+)
+
+ocaml_test(
+    name = "miner_test",
+    size = "small",
+    data = glob(["fixtures/**"]) + ["backtest.md"],
+    main = ":Miner_test",
+)

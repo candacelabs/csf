@@ -3,24 +3,31 @@
 package harness_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
 	"sync/atomic"
 	"time"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/docker"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/kernel/sandbox"
 	"github.com/candacelabs/csf/pkg/eventually"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
@@ -35,13 +42,19 @@ import (
 // generous because the costs are not symmetric (CS-9).
 var settleBudget = eventually.Budget{Within: 5 * time.Second}
 
+// heldOpenBudget is how long a reopened run is watched for staying open.
+var heldOpenBudget = eventually.Budget{Within: 500 * time.Millisecond}
+
 const (
 	firstAssignment   = "0caf2d51-1ee7-468a-882f-ac478a437640"
 	secondAssignment  = "1d2e3f40-5161-4728-9a0b-c1d2e3f40516"
+	thirdAssignment   = "2e3f4051-6172-4839-8a1b-d2e3f4051627"
 	unknownAssignment = "ffffffff-ffff-4fff-8fff-ffffffffffff"
 	hostPID           = 4242
 	cores             = 8
 	freeBytes         = 64 << 30
+	// pullRequestURL is what gh pr list answers for every session's branch.
+	pullRequestURL = "https://github.com/candacelabs/scratch/pull/7"
 )
 
 var frozen = time.Date(2026, 10, 2, 1, 0, 0, 0, time.UTC)
@@ -75,7 +88,11 @@ func (clock *fakeClock) AfterFunc(after time.Duration, fire func()) func() bool 
 }
 
 // executors hands one mock turn executor per opened session to the runner and
-// records what each was opened with.
+// records what each was opened with. The executor's script is installed
+// before the owner can call it: an owner reopening a run with a queued turn
+// proposes within microseconds of the open, before a spec polling for the
+// executor could script it, and gomock would fail the unexpected call on the
+// owner's goroutine.
 type executors struct {
 	controller *gomock.Controller
 	opened     chan openedExecutor
@@ -85,6 +102,7 @@ type executors struct {
 type openedExecutor struct {
 	spec     session.TurnExecutorSpec
 	executor *sessionmocks.MockIOpenTurnExecutor
+	script   *turnScript
 }
 
 func (factory *executors) open(_ context.Context, spec session.TurnExecutorSpec) (session.IOpenTurnExecutor, error) {
@@ -92,7 +110,9 @@ func (factory *executors) open(_ context.Context, spec session.TurnExecutorSpec)
 		return nil, factory.fail
 	}
 	executor := sessionmocks.NewMockIOpenTurnExecutor(factory.controller)
-	factory.opened <- openedExecutor{spec: spec, executor: executor}
+	script := newTurnScript()
+	script.install(executor)
+	factory.opened <- openedExecutor{spec: spec, executor: executor, script: script}
 	return executor, nil
 }
 
@@ -144,6 +164,17 @@ func (script *turnScript) install(executor *sessionmocks.MockIOpenTurnExecutor) 
 	}).AnyTimes()
 }
 
+// allowModels records a model policy allowing models in the state
+// directory, as the operator would edit it, before the service starts.
+func allowModels(state string, models ...string) {
+	GinkgoHelper()
+	policy := harness.ModelPolicy{}
+	for _, model := range models {
+		policy.Allowed = append(policy.Allowed, harness.AllowedModel{Model: model, Ruling: "spec", RuledBy: "spec", RuledOn: "2026-10-05"})
+	}
+	Expect(harness.RecordModelPolicy(state, policy)).To(Succeed())
+}
+
 func newRecipe(assignment string, branch string, repository string) *pb.AgentAssignmentRecipe {
 	return &pb.AgentAssignmentRecipe{
 		AssignmentId: assignment,
@@ -181,6 +212,8 @@ var _ = Describe("AgentSessionService", func() {
 		stopped    chan struct{}
 		baseline   goleak.Option
 		ctx        context.Context
+		// ghCalls receives every gh argument vector the launcher ran.
+		ghCalls chan []string
 	)
 
 	phaseOf := func(assignment string) harnessv1.AgentSessionPhase {
@@ -197,13 +230,12 @@ var _ = Describe("AgentSessionService", func() {
 			func(phase harnessv1.AgentSessionPhase) bool { return phase == want })
 	}
 
-	// opened waits for the owner to open the next executor and scripts it.
+	// opened waits for the owner to open the next executor and returns it with
+	// the script the factory installed on it.
 	opened := func() (openedExecutor, *turnScript) {
 		var next openedExecutor
 		Eventually(factory.opened, settleBudget.Within).Should(Receive(&next), "an executor is opened for the session")
-		script := newTurnScript()
-		script.install(next.executor)
-		return next, script
+		return next, next.script
 	}
 
 	BeforeEach(func() {
@@ -215,13 +247,26 @@ var _ = Describe("AgentSessionService", func() {
 		clock = newFakeClock()
 		factory = &executors{controller: controller, opened: make(chan openedExecutor, 8)}
 		state = GinkgoT().TempDir()
+		allowModels(state, "sonnet", "claude-haiku-4.5")
 		repository = GinkgoT().TempDir()
 		launcher.EXPECT().Run(gomock.Any(), launched("git")).Return(proc.Result{}, nil).AnyTimes()
-		launcher.EXPECT().Run(gomock.Any(), launched("gh")).Return(proc.Result{}, nil).AnyTimes()
+		ghCalls = make(chan []string, 256)
+		launcher.EXPECT().Run(gomock.Any(), launched("gh")).DoAndReturn(func(_ context.Context, command proc.Command) (proc.Result, error) {
+			select {
+			case ghCalls <- command.Arguments:
+			default:
+			}
+			if slices.Contains(command.Arguments, "list") {
+				return proc.Result{Stdout: []byte(pullRequestURL + "\n")}, nil
+			}
+			return proc.Result{}, nil
+		}).AnyTimes()
 		measures.EXPECT().Cores().Return(cores).AnyTimes()
 		measures.EXPECT().LoadAverage().Return(1.5, nil).AnyTimes()
 		measures.EXPECT().FreeBytes(gomock.Any()).Return(uint64(freeBytes), nil).AnyTimes()
 		measures.EXPECT().DirectoryBytes(gomock.Any()).Return(uint64(1<<20), nil).AnyTimes()
+		measures.EXPECT().Pressure(gomock.Any()).Return(proc.Pressure{}, nil).AnyTimes()
+		measures.EXPECT().MemoryAvailable().Return(uint64(freeBytes), nil).AnyTimes()
 		runner, err := session.NewAgentSessionRunner(
 			session.WithLauncher(launcher),
 			session.WithStateDirectory(state),
@@ -236,6 +281,7 @@ var _ = Describe("AgentSessionService", func() {
 			harness.WithClock(clock),
 			harness.WithHostPID(hostPID),
 			harness.WithStopRequest(func() { close(stopped) }),
+			harness.WithLauncher(launcher),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		scope = runtime.NewScope(ctx, "spec")
@@ -282,6 +328,7 @@ var _ = Describe("AgentSessionService", func() {
 
 			Expect(first.GetReceipt().GetBranch()).To(Equal("h2/first"))
 			Expect(first.GetReceipt().GetTraceId()).To(MatchRegexp("^[0-9a-f]{32}$"))
+			Expect(first.GetReceipt().GetExecutor()).To(Equal("claude-code"), "the receipt names the executor the recipe chose")
 			Expect(first.GetReceipt().GetWorktreeId()).To(Equal(filepath.Join(state, firstAssignment, session.WorktreeDirectory)))
 			Expect(first.GetCheck().GetReportOnly()).To(BeTrue())
 			Expect(first.GetCheck().GetAdmitted()).To(BeTrue())
@@ -312,6 +359,38 @@ var _ = Describe("AgentSessionService", func() {
 			}
 		})
 
+		It("counts a turn a background completion started between turns, and numbers the next message after it", func() {
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "h2/first", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			executor, script := opened()
+			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(script.prompts, settleBudget.Within).Should(Receive())
+			script.release <- struct{}{}
+			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
+
+			executor.spec.TaskNotifications(claudecode.TaskNotification{TaskID: "b1", ToolUseID: "toolu_1", Status: "completed", Summary: "Run the suite"})
+			eventually.Await(GinkgoT(), "the woken turn to be counted", settleBudget,
+				func() uint32 {
+					response, err := service.Get(ctx, &harnessv1.GetAgentSessionRequest{AssignmentId: firstAssignment})
+					Expect(err).NotTo(HaveOccurred())
+					return response.GetSession().GetTurns()
+				},
+				func(turns uint32) bool { return turns == 2 })
+			results, err := session.ReadRecords(filepath.Join(state, firstAssignment), func(record *session.Record) bool {
+				return record.EventType == session.EventTypeBackgroundResult
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Turn).To(Equal(2))
+
+			sent, err := service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: firstAssignment, Message: "Merge it."})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(sent.GetTurnId()).To(Equal("3"))
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(Equal("Merge it.")))
+			script.release <- struct{}{}
+			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
+		})
+
 		It("refuses a second session for the same assignment", func() {
 			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "h2/first", repository)})
 			Expect(err).NotTo(HaveOccurred())
@@ -331,8 +410,15 @@ var _ = Describe("AgentSessionService", func() {
 			listed, err := service.List(ctx, &harnessv1.ListAgentSessionsRequest{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listed.GetSessions()).To(BeEmpty())
+			_, err = service.Check(ctx)
+			Expect(err).To(MatchError(harness.ErrAdmissionHeld), "the check a dispatcher reads reports the hold too")
+			Expect(err).To(MatchError(ContainSubstring("below the housekeeping floor")))
 
 			service.ReleaseAdmission()
+			check, err := service.Check(ctx)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(check.GetWorkerCap()).To(Equal(harness.WorkerCap(uint32(cores), 1.5)), "the cores under the measured load")
+			Expect(check.GetRunningSessions()).To(BeZero())
 			_, err = service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "h2/first", repository)})
 			Expect(err).NotTo(HaveOccurred())
 			executor, _ := opened()
@@ -408,6 +494,94 @@ var _ = Describe("AgentSessionService", func() {
 			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_CANCELED)
 			_, err = service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: firstAssignment, Message: "too late"})
 			Expect(err).To(MatchError(harness.ErrSessionFinished))
+		})
+	})
+
+	Describe("the inbox", func() {
+		// holdFirstTurn submits one session and leaves its first turn running,
+		// so every message sent next queues behind it and stays listed. The
+		// held turn ignores interrupts: an interrupt-class message is ordered
+		// ahead of the queued ones instead of ending the turn.
+		holdFirstTurn := func() {
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "h2/first", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			executor, script := opened()
+			script.ignoreInterrupts.Store(true)
+			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(script.prompts, settleBudget.Within).Should(Receive(ContainSubstring("Add one line")))
+		}
+		send := func(message string, class harnessv1.MessagePriorityClass) *harnessv1.InboxMessage {
+			sent, err := service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: firstAssignment, Message: message, PriorityClass: class})
+			Expect(err).NotTo(HaveOccurred())
+			return sent.GetReceipt()
+		}
+		receiptsOf := func(messages []*harnessv1.InboxMessage) []string {
+			receipts := []string{}
+			for _, message := range messages {
+				receipts = append(receipts, message.GetReceiptId())
+			}
+			return receipts
+		}
+		queue := harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_QUEUE
+		interrupt := harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_INTERRUPT
+
+		It("gives every message its own receipt and a rising sequence, and lists an interrupt ahead of the queued messages", func() {
+			holdFirstTurn()
+			first := send("message 1", queue)
+			second := send("message 2", interrupt)
+			third := send("message 3", queue)
+			Expect([]string{first.GetReceiptId(), second.GetReceiptId(), third.GetReceiptId()}).To(HaveEach(Not(BeEmpty())))
+			Expect(map[string]bool{first.GetReceiptId(): true, second.GetReceiptId(): true, third.GetReceiptId(): true}).To(HaveLen(3), "receipt identifiers are unique")
+			Expect(second.GetSequence()).To(BeNumerically(">", first.GetSequence()))
+			Expect(third.GetSequence()).To(BeNumerically(">", second.GetSequence()))
+
+			listed, err := service.ListInbox(ctx, &harnessv1.ListInboxRequest{AssignmentId: firstAssignment})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receiptsOf(listed.GetMessages())).To(Equal([]string{second.GetReceiptId(), first.GetReceiptId(), third.GetReceiptId()}))
+			Expect(listed.GetMessages()).To(HaveEach(HaveField("State", harnessv1.MessageState_MESSAGE_STATE_QUEUED)))
+		})
+
+		It("moves a message to an index and to the top without changing its receipt", func() {
+			holdFirstTurn()
+			receipts := []string{send("message 1", queue).GetReceiptId(), send("message 2", queue).GetReceiptId(), send("message 3", queue).GetReceiptId()}
+
+			moved, err := service.MoveInboxMessage(ctx, &harnessv1.MoveInboxMessageRequest{AssignmentId: firstAssignment, ReceiptId: receipts[1], Index: 0})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receiptsOf(moved.GetMessages())).To(Equal([]string{receipts[1], receipts[0], receipts[2]}))
+
+			topped, err := service.TopInboxMessage(ctx, &harnessv1.TopInboxMessageRequest{AssignmentId: firstAssignment, ReceiptId: receipts[2]})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(receiptsOf(topped.GetMessages())).To(Equal([]string{receipts[2], receipts[1], receipts[0]}))
+		})
+
+		It("stamps a receipt with the service clock's instant and the queued state", func() {
+			holdFirstTurn()
+			receipt := send("priority message", interrupt)
+			Expect(receipt.GetSentAt().AsTime()).To(BeTemporally("==", clock.Now()))
+			Expect(receipt.GetState()).To(Equal(harnessv1.MessageState_MESSAGE_STATE_QUEUED))
+		})
+
+		It("gives concurrent senders distinct receipts", func() {
+			holdFirstTurn()
+			const senders = 10
+			receipts := make(chan string, senders)
+			for index := 0; index < senders; index++ {
+				go func(index int) {
+					defer GinkgoRecover()
+					class := queue
+					if index%2 == 1 {
+						class = interrupt
+					}
+					receipts <- send("concurrent message", class).GetReceiptId()
+				}(index)
+			}
+			seen := map[string]bool{}
+			for index := 0; index < senders; index++ {
+				var receipt string
+				Eventually(receipts, settleBudget.Within).Should(Receive(&receipt))
+				seen[receipt] = true
+			}
+			Expect(seen).To(HaveLen(senders))
 		})
 	})
 
@@ -492,6 +666,8 @@ var _ = Describe("AgentSessionService", func() {
 			saturated.EXPECT().LoadAverage().Return(float64(cores)+3, nil).AnyTimes()
 			saturated.EXPECT().FreeBytes(gomock.Any()).Return(uint64(1<<20), nil).AnyTimes()
 			saturated.EXPECT().DirectoryBytes(gomock.Any()).Return(uint64(1<<30), nil).AnyTimes()
+			saturated.EXPECT().Pressure(gomock.Any()).Return(proc.Pressure{}, nil).AnyTimes()
+			saturated.EXPECT().MemoryAvailable().Return(uint64(freeBytes), nil).AnyTimes()
 			runner, err := session.NewAgentSessionRunner(session.WithLauncher(launcher), session.WithStateDirectory(state),
 				session.WithGateCommand("/opt/csf/harness", "gate"), session.WithOpenTurnExecutors(factory.open))
 			Expect(err).NotTo(HaveOccurred())
@@ -594,6 +770,7 @@ var _ = Describe("AgentSessionService", func() {
 			restarted, restartedScope := restart()
 			reopenedFirst, reopenedFirstScript := opened()
 			reopenedSecond, _ := opened()
+			Eventually(restarted.Resumed(), settleBudget.Within).Should(BeClosed(), "the host is ready only once every open run is resubmitted")
 			Expect(reopenedFirst.spec.Session).To(Equal(first.spec.Session))
 			Expect(reopenedFirst.spec.Resume).To(BeTrue())
 			Expect(reopenedFirst.spec.Directory).To(Equal(first.spec.Directory))
@@ -611,6 +788,129 @@ var _ = Describe("AgentSessionService", func() {
 			Expect([]string{listed.GetSessions()[0].GetAssignmentId(), listed.GetSessions()[1].GetAssignmentId()}).To(ConsistOf(firstAssignment, secondAssignment))
 			reopenedFirst.executor.EXPECT().Close(gomock.Any()).Return(nil)
 			reopenedSecond.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Expect(restartedScope.Close()).To(Succeed())
+		})
+
+		It("holds the resumes the launch check does not admit, records them, and resumes them in order as admission frees", func() {
+			assignments := []string{firstAssignment, secondAssignment, thirdAssignment}
+			var originals []openedExecutor
+			for index, assignment := range assignments {
+				_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(assignment, fmt.Sprintf("h2/run-%d", index), repository)})
+				Expect(err).NotTo(HaveOccurred())
+				original, script := opened()
+				Expect(<-script.prompts).NotTo(BeEmpty())
+				script.release <- struct{}{}
+				awaitPhase(assignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
+				original.executor.EXPECT().Close(gomock.Any()).Return(nil)
+				originals = append(originals, original)
+			}
+			Expect(originals).To(HaveLen(len(assignments)))
+			Expect(scope.Close()).To(Succeed())
+
+			// 8 cores under a load of 5.5 leave room for two sessions.
+			var load atomic.Pointer[float64]
+			saturated := 5.5
+			load.Store(&saturated)
+			loaded := mocks.NewMockIHostMeasures(controller)
+			loaded.EXPECT().Cores().Return(cores).AnyTimes()
+			loaded.EXPECT().LoadAverage().DoAndReturn(func() (float64, error) { return *load.Load(), nil }).AnyTimes()
+			loaded.EXPECT().FreeBytes(gomock.Any()).Return(uint64(freeBytes), nil).AnyTimes()
+			loaded.EXPECT().DirectoryBytes(gomock.Any()).Return(uint64(1<<20), nil).AnyTimes()
+			loaded.EXPECT().Pressure(gomock.Any()).Return(proc.Pressure{}, nil).AnyTimes()
+			loaded.EXPECT().MemoryAvailable().Return(uint64(freeBytes), nil).AnyTimes()
+			runner, err := session.NewAgentSessionRunner(session.WithLauncher(launcher), session.WithStateDirectory(state),
+				session.WithGateCommand("/opt/csf/harness", "gate"), session.WithOpenTurnExecutors(factory.open))
+			Expect(err).NotTo(HaveOccurred())
+			restarted, err := harness.NewAgentSessionService(harness.WithSessionRunner(runner), harness.WithHostMeasures(loaded), harness.WithClock(clock))
+			Expect(err).NotTo(HaveOccurred())
+			restartedScope := runtime.NewScope(ctx, "restarted")
+			Expect(restarted.Start(restartedScope)).To(Succeed())
+
+			reopened := map[string]openedExecutor{}
+			for range 2 {
+				next, _ := opened()
+				reopened[filepath.Base(filepath.Dir(next.spec.Directory))] = next
+			}
+			readQueue := func() harness.ResumeQueue {
+				var queue harness.ResumeQueue
+				content, err := os.ReadFile(filepath.Join(state, harness.ResumeQueueFile))
+				if err == nil {
+					_ = json.Unmarshal(content, &queue)
+				}
+				return queue
+			}
+			held := eventually.Await(GinkgoT(), "the held resume to be recorded", settleBudget, readQueue,
+				func(queue harness.ResumeQueue) bool { return queue.Resumed == 2 && len(queue.Held) == 1 })
+			Expect(held.Held[0].Position).To(Equal(1))
+			Expect(reopened).To(HaveLen(2))
+			Expect(reopened).NotTo(HaveKey(held.Held[0].AssignmentID), "the held run is the one not reopened")
+			Expect(assignments).To(ContainElement(held.Held[0].AssignmentID))
+			Expect(held.Held[0].Reason).To(ContainSubstring("leaves room for 2 sessions"))
+			Consistently(factory.opened, 200*time.Millisecond).ShouldNot(Receive(), "admitted=false means not launched")
+
+			idle := 1.0
+			load.Store(&idle)
+			clock.ticks <- frozen
+			last, _ := opened()
+			Expect(filepath.Base(filepath.Dir(last.spec.Directory))).To(Equal(held.Held[0].AssignmentID))
+			reopened[held.Held[0].AssignmentID] = last
+			eventually.Await(GinkgoT(), "the resume queue to drain", settleBudget, readQueue,
+				func(queue harness.ResumeQueue) bool { return queue.Resumed == 3 && len(queue.Held) == 0 })
+
+			for _, executor := range reopened {
+				executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			}
+			Expect(restartedScope.Close()).To(Succeed())
+		})
+
+		It("reopens a run whose worktree pins no session image in the fallback image, and keeps it open", func() {
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "h2/first", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			first, firstScript := opened()
+			Expect(<-firstScript.prompts).NotTo(BeEmpty())
+			firstScript.release <- struct{}{}
+			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
+			first.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Expect(scope.Close()).To(Succeed())
+			Expect(filepath.Join(state, firstAssignment, session.WorktreeDirectory, session.SessionImageFile)).NotTo(BeAnExistingFile(),
+				"the worktree was created before the session image was pinned")
+
+			containers := sessionmocks.NewMockISessionContainers(controller)
+			started := make(chan docker.SandboxSpec, 1)
+			containers.EXPECT().StartDetached(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, spec docker.SandboxSpec) (docker.StartedContainer, error) {
+					started <- spec
+					return docker.StartedContainer{ID: "c0ffee"}, nil
+				})
+			runner, err := session.NewAgentSessionRunner(session.WithLauncher(launcher), session.WithStateDirectory(state),
+				session.WithGateCommand("csf", "gate"), session.WithOpenTurnExecutors(factory.open),
+				session.WithContainerSessions(containers, session.ContainerSettings{}))
+			Expect(err).NotTo(HaveOccurred())
+			restarted, err := harness.NewAgentSessionService(harness.WithSessionRunner(runner), harness.WithHostMeasures(measures), harness.WithClock(clock))
+			Expect(err).NotTo(HaveOccurred())
+			restartedScope := runtime.NewScope(ctx, "restarted")
+			Expect(restarted.Start(restartedScope)).To(Succeed())
+
+			reopened, reopenedScript := opened()
+			Expect(reopened.spec.Resume).To(BeTrue())
+			Expect((<-started).Image).To(Equal(session.DefaultSessionImage))
+			Expect(reopenedScript.prompts).NotTo(Receive(), "the finished turn is not delivered again")
+			phase := func() harnessv1.AgentSessionPhase {
+				got, err := restarted.Get(ctx, &harnessv1.GetAgentSessionRequest{AssignmentId: firstAssignment})
+				if err != nil {
+					return harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_UNSPECIFIED
+				}
+				return got.GetSession().GetPhase()
+			}
+			isOpen := func(phase harnessv1.AgentSessionPhase) bool {
+				return phase == harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN
+			}
+			eventually.Await(GinkgoT(), "the reopened run to be open", settleBudget, phase, isOpen)
+			eventually.Consistently(GinkgoT(), "the reopened run to stay open", heldOpenBudget, phase, isOpen)
+
+			reopened.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			containers.EXPECT().ContainerUsage(gomock.Any()).Return(sandbox.Usage{}, nil)
+			containers.EXPECT().RemoveContainer(gomock.Any(), "c0ffee").Return(nil)
 			Expect(restartedScope.Close()).To(Succeed())
 		})
 
@@ -655,7 +955,7 @@ var _ = Describe("AgentSessionService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			defer func() { Expect(tail.Close()).To(Succeed()) }()
 			var types []string
-			for range 3 {
+			for range 4 {
 				line, err := tail.Next(ctx)
 				Expect(err).NotTo(HaveOccurred())
 				var record struct {
@@ -664,8 +964,8 @@ var _ = Describe("AgentSessionService", func() {
 				Expect(jsonUnmarshal(line, &record)).To(Succeed())
 				types = append(types, record.EventType)
 			}
-			Expect(types).To(Equal([]string{session.EventTypeRunStarted, session.EventTypeWorktreeReady, session.EventTypeTurnRequested}))
-			Expect(tail.Sequence()).To(Equal(3))
+			Expect(types).To(Equal([]string{session.EventTypeRunStarted, session.EventTypeWorktreeReady, session.EventTypeControlAction, session.EventTypeTurnRequested}))
+			Expect(tail.Sequence()).To(Equal(4))
 
 			script.release <- struct{}{}
 			awaitPhase(firstAssignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
@@ -685,12 +985,429 @@ var _ = Describe("AgentSessionService", func() {
 				Expect(jsonUnmarshal(line, &record)).To(Succeed())
 				rest = append(rest, record.EventType)
 			}
-			Expect(rest).To(ContainElements(session.EventTypeRunFinished, session.EventTypeSessionClosed))
+			Expect(rest).To(ContainElements(session.EventTypeControlAction, session.EventTypeRunFinished, session.EventTypeSessionClosed))
 
 			_, err = service.OpenTail(ctx, unknownAssignment, 0)
 			Expect(err).To(MatchError(harness.ErrUnknownSession))
 			_, err = service.OpenTail(ctx, "nope", 0)
 			Expect(err).To(MatchError(harness.ErrUnknownSession))
+		})
+	})
+
+	Describe("the control plane", func() {
+		// controlRecord is the part of a control action record the specs read.
+		type controlRecord struct {
+			Level       string `json:"level"`
+			EventType   string `json:"event_type"`
+			Action      string `json:"action"`
+			Operator    bool   `json:"operator_authored"`
+			Wanted      bool   `json:"question_wanted"`
+			TurnID      string `json:"turn_id"`
+			PullRequest string `json:"pull_request_url"`
+			Error       string `json:"error"`
+		}
+		controlRecords := func(assignment string) []controlRecord {
+			content, err := os.ReadFile(filepath.Join(state, assignment, session.EventsFile))
+			Expect(err).NotTo(HaveOccurred())
+			var records []controlRecord
+			for _, line := range bytes.Split(content, []byte("\n")) {
+				var record controlRecord
+				if jsonUnmarshal(line, &record) == nil && record.EventType == session.EventTypeControlAction {
+					records = append(records, record)
+				}
+			}
+			return records
+		}
+		// openWithPullRequest submits a session and finishes its first turn,
+		// whose receipt carries the pull request gh lists for its branch.
+		openWithPullRequest := func(assignment string) openedExecutor {
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(assignment, "wb/"+assignment[:8], repository)})
+			Expect(err).NotTo(HaveOccurred())
+			executor, script := opened()
+			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(script.prompts, settleBudget.Within).Should(Receive())
+			script.release <- struct{}{}
+			awaitPhase(assignment, harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN)
+			return executor
+		}
+
+		It("checks a recipe's admission without admitting it, and says why admission is held", func() {
+			checked, err := service.CheckAdmission(ctx, &harnessv1.CheckAgentSessionAdmissionRequest{Recipe: newRecipe(firstAssignment, "wb/first", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checked.GetCheck().GetWorkerCap()).To(BeNumerically("==", cores-2))
+			Expect(checked.GetCheck().GetReportOnly()).To(BeTrue())
+			Expect(checked.GetHeld()).To(BeEmpty())
+			listed, err := service.List(ctx, &harnessv1.ListAgentSessionsRequest{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listed.GetSessions()).To(BeEmpty(), "a check admits nothing")
+
+			service.HoldAdmission("free disk is below the housekeeping floor")
+			checked, err = service.CheckAdmission(ctx, &harnessv1.CheckAgentSessionAdmissionRequest{Recipe: newRecipe(firstAssignment, "wb/first", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(checked.GetHeld()).To(Equal("free disk is below the housekeeping floor"))
+
+			_, err = service.CheckAdmission(ctx, &harnessv1.CheckAgentSessionAdmissionRequest{})
+			Expect(err).To(MatchError(csf.ErrInvalidRequest))
+			_, err = service.CheckAdmission(ctx, &harnessv1.CheckAgentSessionAdmissionRequest{Recipe: &pb.AgentAssignmentRecipe{AssignmentId: "nope"}})
+			Expect(err).To(MatchError(csf.ErrInvalidRequest))
+		})
+
+		It("records a ruling for every session's later turns and returns the rulings in force", func() {
+			recorded, err := service.RecordRuling(ctx, &harnessv1.RecordRulingRequest{Ruling: &harnessv1.Ruling{
+				RulingId: "csf-home", Statement: "CSF is its one home.", Excludes: []string{"foundation Postgres"},
+				Quote: "CSF is everything", RuledOn: "2026-10-05",
+			}})
+			Expect(err).NotTo(HaveOccurred())
+			replaced, err := service.RecordRuling(ctx, &harnessv1.RecordRulingRequest{Ruling: &harnessv1.Ruling{
+				RulingId: "csf-independent", Statement: "CSF is independent of the platform.", Excludes: []string{"foundation Postgres", "platform data plane"}, Supersedes: "csf-home",
+				Quote: "CSF is independent", RuledOn: "2026-10-05",
+			}})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(recorded.GetInForce()).To(HaveLen(1))
+			Expect(replaced.GetInForce()).To(HaveExactElements(And(
+				HaveField("RulingId", "csf-independent"), HaveField("Supersedes", "csf-home"),
+				HaveField("Excludes", ConsistOf("foundation Postgres", "platform data plane")))))
+			inForce, err := session.RulingsInForce(state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(inForce).To(HaveExactElements(HaveField("RecordedAt", BeTemporally("==", clock.Now()))))
+		})
+
+		It("refuses a ruling that is missing, excludes nothing, excludes a blank or carries a malformed identifier", func() {
+			for _, request := range []*harnessv1.RecordRulingRequest{
+				{},
+				{Ruling: &harnessv1.Ruling{RulingId: "r1", Statement: "One home."}},
+				{Ruling: &harnessv1.Ruling{RulingId: "r1", Statement: "One home.", Excludes: []string{" "}}},
+				{Ruling: &harnessv1.Ruling{RulingId: "../r1", Statement: "One home.", Excludes: []string{"elsewhere"}}},
+			} {
+				_, err := service.RecordRuling(ctx, request)
+				Expect(err).To(MatchError(csf.ErrInvalidRequest))
+			}
+			Expect(session.RulingsInForce(state)).To(BeEmpty())
+		})
+
+		It("records every control action in the session's event log as a typed record", func() {
+			openWithPullRequest(firstAssignment)
+			sent, err := service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: firstAssignment, Message: "Rebase on main.", OperatorAuthored: true, QuestionWanted: true})
+			Expect(err).NotTo(HaveOccurred())
+			_, err = service.Ready(ctx, &harnessv1.ReadyAgentSessionPullRequestRequest{AssignmentId: firstAssignment})
+			Expect(err).NotTo(HaveOccurred())
+			merged, err := service.Merge(ctx, &harnessv1.MergeAgentSessionPullRequestRequest{AssignmentId: firstAssignment})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(merged.GetSession().GetPullRequestUrl()).To(Equal(pullRequestURL))
+			_, err = service.Cancel(ctx, &harnessv1.CancelAgentSessionRequest{AssignmentId: firstAssignment})
+			Expect(err).NotTo(HaveOccurred())
+
+			records := controlRecords(firstAssignment)
+			actions := make([]string, 0, len(records))
+			for _, record := range records {
+				actions = append(actions, record.Action)
+				Expect(record.Level).To(Equal("INFO"))
+			}
+			Expect(actions).To(Equal([]string{session.ActionSubmit, session.ActionSend, session.ActionReady, session.ActionMergeStarted, session.ActionMerge, session.ActionCancel}))
+			Expect(records[1].Operator).To(BeTrue())
+			Expect(records[1].Wanted).To(BeTrue(), "the operator overrode the question gate")
+			Expect(records[1].TurnID).To(Equal(sent.GetTurnId()))
+			Expect(records[2].PullRequest).To(Equal(pullRequestURL))
+			Expect(records[3].PullRequest).To(Equal(pullRequestURL))
+			Expect(records[4].PullRequest).To(Equal(pullRequestURL))
+
+			var calls [][]string
+			for len(ghCalls) > 0 {
+				calls = append(calls, <-ghCalls)
+			}
+			Expect(calls).To(ContainElement([]string{"pr", "ready", pullRequestURL}))
+			Expect(calls).To(ContainElement([]string{"pr", "merge", pullRequestURL, "--squash"}), "a worktree without the merge script is merged by gh")
+		})
+
+		It("merges through the worktree's merge path, and records its refusal with the report", func() {
+			openWithPullRequest(firstAssignment)
+			worktree := filepath.Join(state, firstAssignment, session.WorktreeDirectory)
+			Expect(os.MkdirAll(filepath.Join(worktree, "tools"), 0o700)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(worktree, harness.MergeScript), []byte("#!/bin/sh\n"), 0o700)).To(Succeed())
+			launcher.EXPECT().Run(gomock.Any(), launched("bash", harness.MergeScript, "7")).DoAndReturn(func(_ context.Context, command proc.Command) (proc.Result, error) {
+				Expect(command.Directory).To(Equal(worktree))
+				Expect(command.ExtraEnvironment).To(ContainElement("CANDACE_BAZEL_CACHE=" + filepath.Join(state, harness.MergeBazelDirectory)))
+				return proc.Result{Stdout: []byte("merge-pr: REFUSED: the ontology penalty rose\n"), ExitCode: 1}, errors.New("exit status 1")
+			})
+
+			_, err := service.Merge(ctx, &harnessv1.MergeAgentSessionPullRequestRequest{AssignmentId: firstAssignment})
+			Expect(err).To(MatchError(ContainSubstring("REFUSED: the ontology penalty rose")))
+			records := controlRecords(firstAssignment)
+			Expect(records).To(HaveLen(3))
+			Expect(records[1].Action).To(Equal(session.ActionMergeStarted))
+			Expect(records[2].Action).To(Equal(session.ActionMerge))
+			Expect(records[2].Level).To(Equal("ERROR"))
+			Expect(records[2].Error).To(Equal("exit status 1"))
+		})
+
+		It("keeps merging when the caller stops waiting, and records the outcome for whoever reads the log next", func() {
+			openWithPullRequest(firstAssignment)
+			worktree := filepath.Join(state, firstAssignment, session.WorktreeDirectory)
+			Expect(os.MkdirAll(filepath.Join(worktree, "tools"), 0o700)).To(Succeed())
+			Expect(os.WriteFile(filepath.Join(worktree, harness.MergeScript), []byte("#!/bin/sh\n"), 0o700)).To(Succeed())
+			started, release := make(chan struct{}), make(chan struct{})
+			launcher.EXPECT().Run(gomock.Any(), launched("bash", harness.MergeScript, "7")).DoAndReturn(func(runCtx context.Context, _ proc.Command) (proc.Result, error) {
+				close(started)
+				<-release
+				Expect(runCtx.Err()).NotTo(HaveOccurred(), "the merge runs on the service's scope, not the caller's")
+				return proc.Result{}, nil
+			})
+			caller, stop := context.WithCancel(ctx)
+			returned := make(chan error, 1)
+			go func() {
+				_, err := service.Merge(caller, &harnessv1.MergeAgentSessionPullRequestRequest{AssignmentId: firstAssignment})
+				returned <- err
+			}()
+			Eventually(started).Should(BeClosed())
+			stop()
+			Eventually(returned).Should(Receive(MatchError(ContainSubstring("continues on the host"))))
+			close(release)
+			Eventually(func() []string {
+				var actions []string
+				for _, record := range controlRecords(firstAssignment) {
+					actions = append(actions, record.Action)
+				}
+				return actions
+			}).Should(Equal([]string{session.ActionSubmit, session.ActionMergeStarted, session.ActionMerge}))
+		})
+
+		It("serves list, send and cancel to an MCP client, and the same typed records land as from the page", func() {
+			openWithPullRequest(firstAssignment)
+			api, err := csf.New(csf.WithAgentSessions(service))
+			Expect(err).NotTo(HaveOccurred())
+			client := mcp.NewClient(&mcp.Implementation{Name: "workbench-spec", Version: "0"}, nil)
+			connection, err := client.Connect(ctx, &mcp.StreamableClientTransport{
+				Endpoint:   "http://csf.invalid/mcp",
+				HTTPClient: &http.Client{Transport: handlerTransport{handler: api.MCPHandler()}},
+			}, nil)
+			Expect(err).NotTo(HaveOccurred())
+			defer func() { Expect(connection.Close()).To(Succeed()) }()
+
+			tools, err := connection.ListTools(ctx, nil)
+			Expect(err).NotTo(HaveOccurred())
+			var names []string
+			for _, tool := range tools.Tools {
+				names = append(names, tool.Name)
+			}
+			Expect(names).To(ContainElements("ListAgentSessions", "GetAgentSession", "SubmitAgentSession", "SendAgentSessionMessage", "CancelAgentSession",
+				"CheckAgentSessionAdmission", "ReadyAgentSessionPullRequest", "MergeAgentSessionPullRequest"))
+
+			call := func(name string, arguments map[string]any) string {
+				result, err := connection.CallTool(ctx, &mcp.CallToolParams{Name: name, Arguments: arguments})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(result.Content).To(HaveLen(1))
+				text := result.Content[0].(*mcp.TextContent).Text
+				Expect(result.IsError).To(BeFalse(), text)
+				return text
+			}
+			Expect(call("ListAgentSessions", map[string]any{})).To(ContainSubstring(firstAssignment))
+			Expect(call("SendAgentSessionMessage", map[string]any{"assignmentId": firstAssignment, "message": "Rebase on main.", "operatorAuthored": true})).To(ContainSubstring(`"turnId":"2"`))
+			Expect(call("CancelAgentSession", map[string]any{"assignmentId": firstAssignment})).To(ContainSubstring("AGENT_SESSION_PHASE_CANCEL"))
+			refused, err := connection.CallTool(ctx, &mcp.CallToolParams{Name: "CancelAgentSession", Arguments: map[string]any{"assignmentId": "nope"}})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(refused.IsError).To(BeTrue(), "a malformed assignment is the operation's refusal, not a transport failure")
+
+			records := controlRecords(firstAssignment)
+			Expect(records).To(HaveLen(3))
+			Expect(records[1].Action).To(Equal(session.ActionSend))
+			Expect(records[1].Operator).To(BeTrue())
+			Expect(records[1].TurnID).To(Equal("2"))
+			Expect(records[2].Action).To(Equal(session.ActionCancel))
+		})
+
+		It("refuses ready and merge with no pull request, for an unknown session, and on a host that granted no launcher", func() {
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "wb/first", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			executor, script := opened()
+			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(script.prompts, settleBudget.Within).Should(Receive())
+			_, err = service.Ready(ctx, &harnessv1.ReadyAgentSessionPullRequestRequest{AssignmentId: firstAssignment})
+			Expect(err).To(MatchError(harness.ErrNoPullRequest), "the first turn has not opened one yet")
+			Expect(err).To(MatchError(csf.ErrConflict))
+			_, err = service.Merge(ctx, &harnessv1.MergeAgentSessionPullRequestRequest{AssignmentId: unknownAssignment})
+			Expect(err).To(MatchError(harness.ErrUnknownSession))
+			_, err = service.Merge(ctx, &harnessv1.MergeAgentSessionPullRequestRequest{AssignmentId: "nope"})
+			Expect(err).To(MatchError(csf.ErrInvalidRequest))
+			script.release <- struct{}{}
+
+			runner, err := session.NewAgentSessionRunner(session.WithLauncher(launcher), session.WithStateDirectory(state), session.WithGateCommand("/opt/csf/harness", "gate"))
+			Expect(err).NotTo(HaveOccurred())
+			bare, err := harness.NewAgentSessionService(harness.WithSessionRunner(runner))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = bare.Ready(ctx, &harnessv1.ReadyAgentSessionPullRequestRequest{AssignmentId: firstAssignment})
+			Expect(err).To(MatchError(harness.ErrNoLauncher))
+			_, err = harness.NewAgentSessionService(harness.WithSessionRunner(runner), harness.WithLauncher(nil))
+			Expect(err).To(MatchError(harness.ErrInvalidServiceOption))
+		})
+	})
+
+	Describe("the default executor", func() {
+		It("runs a recipe naming no executor on the default the operator switched to, and records the switch", func() {
+			current, err := service.GetExecutorDefault(ctx, &harnessv1.GetAgentExecutorDefaultRequest{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(current.GetExecutorDefault().GetExecutor()).To(Equal("claude-code"))
+			Expect(current.GetExecutorDefault().GetModel()).To(BeEmpty(), "each recipe keeps its own model")
+
+			switched, err := service.SetExecutorDefault(ctx, &harnessv1.SetAgentExecutorDefaultRequest{
+				ExecutorDefault: &harnessv1.AgentExecutorDefault{Executor: "copilot", Model: "claude-haiku-4.5"}})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(switched.GetPrevious().GetExecutor()).To(Equal("claude-code"))
+			Expect(filepath.Join(state, harness.ExecutorDefaultFile)).To(BeARegularFile(), "a restarted host keeps the switch")
+
+			submitted, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "x/default", repository)})
+			Expect(err).NotTo(HaveOccurred())
+			executor, script := opened()
+			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(script.prompts, settleBudget.Within).Should(Receive())
+			Expect(executor.spec.Executor).To(Equal(session.ExecutorCopilot))
+			Expect(submitted.GetReceipt().GetExecutor()).To(Equal("copilot"))
+			Expect(submitted.GetReceipt().GetPlan().GetRecipe().GetModel()).To(Equal("claude-haiku-4.5"))
+
+			explicit := newRecipe(secondAssignment, "x/explicit", repository)
+			explicit.Executor = "claude-code"
+			_, err = service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: explicit})
+			Expect(err).NotTo(HaveOccurred())
+			second, secondScript := opened()
+			second.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(secondScript.prompts, settleBudget.Within).Should(Receive())
+			Expect(second.spec.Executor).To(Equal(session.ExecutorClaudeCode), "a recipe naming its executor runs as written")
+			script.release <- struct{}{}
+			secondScript.release <- struct{}{}
+		})
+
+		It("refuses a default that moves recipes off Claude Code without naming the model, and keeps the old one", func() {
+			_, err := service.SetExecutorDefault(ctx, &harnessv1.SetAgentExecutorDefaultRequest{
+				ExecutorDefault: &harnessv1.AgentExecutorDefault{Executor: "copilot"}})
+			Expect(err).To(MatchError(harness.ErrNoDefaultModel))
+			current, err := service.GetExecutorDefault(ctx, &harnessv1.GetAgentExecutorDefaultRequest{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(current.GetExecutorDefault().GetExecutor()).To(Equal("claude-code"))
+			_, err = service.SetExecutorDefault(ctx, &harnessv1.SetAgentExecutorDefaultRequest{
+				ExecutorDefault: &harnessv1.AgentExecutorDefault{Executor: "opencode", Model: "x"}})
+			Expect(err).To(MatchError(csf.ErrInvalidRequest))
+		})
+	})
+
+	Describe("the model policy", func() {
+		fable := func(assignment string) *pb.AgentAssignmentRecipe {
+			recipe := newRecipe(assignment, "x/fable", repository)
+			recipe.Model = "claude-fable-5-1"
+			return recipe
+		}
+		refusal := `the model is not allowed on this host: "claude-fable-5-1"; allowed: claude-opus-5-5 (operator, 2026-10-05: "every real session runs claude-opus-5-5. Never Fable.")`
+
+		It("refuses a recipe on a model the ruling does not allow, naming the allowed model and the ruling, and admits the allowed one", func() {
+			Expect(harness.RecordModelPolicy(state, harness.DefaultModelPolicy)).To(Succeed())
+
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: fable(firstAssignment)})
+			Expect(err).To(MatchError(harness.ErrModelNotAllowed))
+			Expect(err).To(MatchError(csf.ErrInvalidRequest))
+			Expect(err.Error()).To(ContainSubstring(refusal))
+			Expect(filepath.Join(state, firstAssignment)).NotTo(BeADirectory(), "nothing is created for a refused recipe")
+			_, err = service.CheckAdmission(ctx, &harnessv1.CheckAgentSessionAdmissionRequest{Recipe: fable(firstAssignment)})
+			Expect(err).To(MatchError(harness.ErrModelNotAllowed))
+
+			opus := newRecipe(secondAssignment, "x/opus", repository)
+			opus.Model = "claude-opus-5-5"
+			_, err = service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: opus})
+			Expect(err).NotTo(HaveOccurred())
+			executor, script := opened()
+			executor.executor.EXPECT().Close(gomock.Any()).Return(nil)
+			Eventually(script.prompts, settleBudget.Within).Should(Receive())
+			script.release <- struct{}{}
+		})
+
+		It("never resumes a recorded run on a model the policy no longer allows", func() {
+			Expect(harness.RecordModelPolicy(state, harness.DefaultModelPolicy)).To(Succeed())
+			directory := filepath.Join(state, firstAssignment)
+			Expect(os.MkdirAll(directory, 0o700)).To(Succeed())
+			Expect(session.WriteRunState(directory, &session.RunState{AssignmentID: firstAssignment, Model: "claude-fable-5-1"})).To(Succeed())
+
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: fable(firstAssignment)})
+
+			Expect(err).To(MatchError(harness.ErrModelNotAllowed))
+			Expect(err.Error()).To(ContainSubstring(refusal))
+		})
+
+		It("refuses switching the default to a model the policy does not allow", func() {
+			Expect(harness.RecordModelPolicy(state, harness.DefaultModelPolicy)).To(Succeed())
+
+			_, err := service.SetExecutorDefault(ctx, &harnessv1.SetAgentExecutorDefaultRequest{
+				ExecutorDefault: &harnessv1.AgentExecutorDefault{Executor: "claude-code", Model: "claude-fable-5-1"}})
+
+			Expect(err).To(MatchError(harness.ErrModelNotAllowed))
+			current, err := service.GetExecutorDefault(ctx, &harnessv1.GetAgentExecutorDefaultRequest{})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(current.GetExecutorDefault().GetModel()).To(BeEmpty(), "the default is unchanged")
+		})
+
+		It("refuses everything, with a typed reason, under a policy that allows nothing or cannot be read", func() {
+			Expect(harness.RecordModelPolicy(state, harness.ModelPolicy{})).To(Succeed())
+			_, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "x/none", repository)})
+			Expect(err).To(MatchError(harness.ErrNoAllowedModels))
+
+			Expect(os.WriteFile(filepath.Join(state, harness.AllowedModelsFile), []byte("not json"), 0o600)).To(Succeed())
+			_, err = service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: newRecipe(firstAssignment, "x/none", repository)})
+			Expect(err).To(MatchError(harness.ErrModelPolicy), "an unreadable policy refuses rather than fails open")
+		})
+
+		It("seeds the operator's ruling into a state directory that records no policy", func() {
+			fresh := GinkgoT().TempDir()
+			runner, err := session.NewAgentSessionRunner(session.WithLauncher(launcher), session.WithStateDirectory(fresh), session.WithGateCommand("/opt/csf/harness", "gate"))
+			Expect(err).NotTo(HaveOccurred())
+			seeded, err := harness.NewAgentSessionService(harness.WithSessionRunner(runner), harness.WithHostMeasures(measures))
+			Expect(err).NotTo(HaveOccurred())
+			seededScope := runtime.NewScope(ctx, "seeded")
+			Expect(seeded.Start(seededScope)).To(Succeed())
+
+			content, err := os.ReadFile(filepath.Join(fresh, harness.AllowedModelsFile))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(content)).To(And(ContainSubstring(`"model": "claude-opus-5-5"`), ContainSubstring("Never Fable.")))
+			Expect(seededScope.Close()).To(Succeed())
+		})
+	})
+
+	Describe("RecordRuling", func() {
+		opusOnly := func() *harnessv1.Ruling {
+			return &harnessv1.Ruling{
+				RulingId: "opus-only", Statement: "Every real session runs claude-opus-5-5. Never Fable.", Excludes: []string{"fable"},
+				Quote: "DON'T USE FABLE JUST USE OPUS", RuledOn: "2026-10-05", Scope: "every real session",
+				Why: "two recipes resumed on Fable", EnforcedBy: "allowed-models refusal at submit (COPILOT-PARITY #343)",
+			}
+		}
+
+		It("records the operator's words, the day, the scope, the reason and the gate, and returns them in force", func() {
+			pending := &harnessv1.Ruling{RulingId: "no-native-tools", Statement: "No executor-native tools.", Quote: "dont ever use your native tools again",
+				RuledOn: "2026-10-05", PendingGate: "PreToolUse native-tool refusal (YOU-DO #424)"}
+			_, err := service.RecordRuling(ctx, &harnessv1.RecordRulingRequest{Ruling: opusOnly()})
+			Expect(err).NotTo(HaveOccurred())
+			response, err := service.RecordRuling(ctx, &harnessv1.RecordRulingRequest{Ruling: pending})
+			Expect(err).NotTo(HaveOccurred())
+
+			Expect(response.GetInForce()).To(HaveLen(2))
+			Expect(response.GetInForce()[0].GetQuote()).To(Equal("DON'T USE FABLE JUST USE OPUS"))
+			Expect(response.GetInForce()[0].GetEnforcedBy()).To(Equal("allowed-models refusal at submit (COPILOT-PARITY #343)"))
+			Expect(response.GetInForce()[1].GetPendingGate()).To(Equal("PreToolUse native-tool refusal (YOU-DO #424)"))
+			Expect(response.GetInForce()[1].GetExcludes()).To(BeEmpty(), "a ruling need not exclude an alternative")
+			inForce, err := session.RulingsInForce(state)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(inForce[0].RecordedAt).To(Equal(frozen))
+			Expect(session.CoverageOf(inForce)).To(Equal(session.RulingCoverage{Enforced: 1, Total: 2}))
+		})
+
+		It("refuses a ruling without the operator's words, without a day, with a malformed day or with a blank excluded alternative", func() {
+			for _, mutate := range []func(ruling *harnessv1.Ruling){
+				func(ruling *harnessv1.Ruling) { ruling.Quote = "" },
+				func(ruling *harnessv1.Ruling) { ruling.RuledOn = "" },
+				func(ruling *harnessv1.Ruling) { ruling.RuledOn = "Oct 5" },
+				func(ruling *harnessv1.Ruling) { ruling.Excludes = []string{"fable", " "} },
+			} {
+				ruling := opusOnly()
+				mutate(ruling)
+				_, err := service.RecordRuling(ctx, &harnessv1.RecordRulingRequest{Ruling: ruling})
+				Expect(err).To(MatchError(csf.ErrInvalidRequest))
+			}
+			Expect(filepath.Join(state, session.RulingsFile)).NotTo(BeAnExistingFile(), "nothing is recorded for a refused ruling")
 		})
 	})
 })

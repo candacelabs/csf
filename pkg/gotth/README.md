@@ -31,10 +31,10 @@ is compiled into your binary and served by the same handler that serves the
 connection, so there is no CDN and no npm. The only generator on your path is
 templ, compiling your own views.
 
-gotth-live belongs to [CSF](../../csf/README.md)'s web layer and runs inside
-the process of the application that mounts it; it is a library, not an
-application of its own. Widgets from [`pkg/widget`](../widget) exist only
-within gotth-live, as typed components of a gotth-live host.
+[gotth-live](../../csf/docs/generated/ontology_cgen.md#term-gotth_live) belongs to [CSF](../../csf/README.md)'s [web layer](../../csf/docs/generated/ontology_cgen.md#term-web) and runs inside
+the process of the [application](../../csf/docs/generated/ontology_cgen.md#term-application) that mounts it; it is a library, not an
+[application](../../csf/docs/generated/ontology_cgen.md#term-application) of its own. [Widgets](../../csf/docs/generated/ontology_cgen.md#term-widget) from [`pkg/widget`](../widget) exist only
+within [gotth-live](../../csf/docs/generated/ontology_cgen.md#term-gotth_live), as typed components of a [gotth-live](../../csf/docs/generated/ontology_cgen.md#term-gotth_live) host.
 
 <p align="center">
   <img src="../../docs/assets/gotth-live-at-a-glance.svg" width="900" alt="A browser tab with one delegated listener and the embedded client runtime exchanges event and patch frames over one WebSocket with a session goroutine inside the application's Go process. That goroutine checks the events allowlist, calls Authorize and the pure Reduce, performs effects at the actor boundary, and renders only dirty templ fragments.">
@@ -86,8 +86,8 @@ the page on the catch-all — and `app.PageHandler` renders that page from
 have silent failure modes: a missing subtree registration serves the runtime's
 URL as HTML with no error anywhere, and `templ.Handler(Page(State{}))` freezes
 the zero state into every first paint the moment `Init` starts loading
-something. There is no `Config.Init` above because this application's sessions
-start at the zero value, which is what a nil mount hook means.
+something. There is no `Config.Init` above because this [application](../../csf/docs/generated/ontology_cgen.md#term-application)'s sessions
+start at the zero value, which is what a nil [mount](../../csf/docs/generated/ontology_cgen.md#term-mount) [hook](../../csf/docs/generated/ontology_cgen.md#term-hook) means.
 
 <!-- sample: quickstart/view.templ -->
 ```templ
@@ -112,7 +112,7 @@ whatever is between its braces. In dev it also emits the session inspector and
 dev-reload tags — **above** the runtime, which is the ordering the inspector
 needs and which no argument to this component can get wrong. `lang` is yours,
 the title is required and has no default, a variadic fourth argument carries
-extra head content, and `live.NoRuntime` is how a page in a live application
+extra head content, and `live.NoRuntime` is how a page in a live [application](../../csf/docs/generated/ontology_cgen.md#term-application)
 says it is deliberately not live.
 
 The four security fields are required on purpose: there is no nil that means
@@ -121,10 +121,10 @@ values above is a named symbol one `grep` finds. The quickstart explains what
 replaces each of them in production.
 
 **How big that is, by this project's own rule.** PRD FR-53 asks for a working
-counter in ≤15 minutes and ≤31 lines of application code, counting every line
+counter in ≤15 minutes and ≤31 lines of [application](../../csf/docs/generated/ontology_cgen.md#term-application) code, counting every line
 of Go **and** templ that is not blank, not a comment and not a `package` or
 `import` line. This one is **31 — 20 Go, 11 templ**. It was 46 until the library
-took four pieces of the ceremony off the application (`MustNew`, `App.Mux`,
+took four pieces of the ceremony off the [application](../../csf/docs/generated/ontology_cgen.md#term-application) (`MustNew`, `App.Mux`,
 `App.PageHandler`, and an optional `Config.Init`), and 39 until `App.Document`
 took the document shell; twelve of the remaining 20 Go lines are the seven
 `Config` fields `live.New` requires, and eleven are a view. **Nothing here
@@ -174,7 +174,7 @@ and its class of desync bugs.** The bound on that trade is stated, not implied:
 | Client runtime, on the wire | **10,387 bytes** minified, **4,459 bytes** `gzip -9`, against a 12,288-byte budget (NFR-2) — 63.7 % headroom. Measured by `tools/minify`; the per-subsystem breakdown and the method are in [`client/SIZE.md`](client/SIZE.md). |
 | npm on the consumer path | **None.** The runtime and the protobuf codec are generated, minified and committed, so `go build` on a clean clone needs no node, no bundler and no protoc. node appears only in this repository's own client tests and benchmarks, which a consumer never runs. |
 | Per interaction | One event frame up, one patch frame down, one round trip. There is no client-side reducer and no optimistic update. |
-| Per tab | One WebSocket and one session goroutine, which owns that session's state and is its only writer. A session lives exactly as long as its connection: no resume, no grace window. |
+| Per tab | One WebSocket and one session [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine), which owns that session's state and is its only writer. A session lives exactly as long as its connection: no resume, no grace window. |
 | Delivery | Events are at-most-once; patches are exactly-once and in order. An effect may have executed even though the user never saw its result. |
 
 **When not to use it** is a page, not a disclaimer:
@@ -209,7 +209,7 @@ Then:
 | [`docs/quickstart.md`](docs/quickstart.md) | A live page you built yourself, and a verification checklist that fails distinguishably at each step. |
 | [`docs/README.md`](docs/README.md) | The documentation index: eleven guide pages, one per concern, phrased by what you can do at the end of each. |
 | [`docs/api-surface.md`](docs/api-surface.md) | Every exported symbol, its stability, and a changelog of surface changes. |
-| [`examples/gotth/`](../../examples/gotth) | Three complete applications — [counter](../../examples/gotth/counter/README.md), [chat](../../examples/gotth/chat), [dashboard](../../examples/gotth/dashboard) — packages of this same module, each `go run .` with no generator installed. |
+| [`examples/gotth/`](../../examples/gotth) | Three complete [applications](../../csf/docs/generated/ontology_cgen.md#term-application) — [counter](../../examples/gotth/counter/README.md), [chat](../../examples/gotth/chat), [dashboard](../../examples/gotth/dashboard) — packages of this same module, each `go run .` with no generator installed. |
 
 ## 6. What is in this tree
 
@@ -218,7 +218,7 @@ Then:
 | [`live/`](live) | The library. Two exported packages and no more: `live`, and `live/livetest` for holding your reducer to its contract. |
 | [`client/`](client) | The client runtime's source, its generated codec, the dev-only inspector and dev-reload clients, the node tests, and the size ledger. The shipped bytes are emitted into `live/clientjs/` and embedded there. |
 | [`docs/`](docs) | Everything a reader needs, plus the design record that argues rather than instructs. |
-| [`test/`](test), [`bench/`](bench) | The suites that keep their own trees — three routers, memory, sampling, conformance and chaos; and the benchmark harness that measures this stack against an equivalent Next.js one. The three example applications are no longer in this tree: they sit beside it, at [`examples/gotth/`](../../examples/gotth). |
+| [`test/`](test), [`bench/`](bench) | The suites that keep their own trees — three routers, [memory](../../csf/docs/generated/ontology_cgen.md#term-memory), sampling, conformance and chaos; and the benchmark harness that measures this stack against an equivalent Next.js one. The three example [applications](../../csf/docs/generated/ontology_cgen.md#term-application) are no longer in this tree: they sit beside it, at [`examples/gotth/`](../../examples/gotth). |
 | [`ci.sh`](ci.sh), [`gen.sh`](gen.sh) | The gates, and the generator whose output is committed and checked for staleness. |
 
 Dependencies, what each buys and what writing it in-house would cost:

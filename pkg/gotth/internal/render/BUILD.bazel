@@ -3,10 +3,10 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "render",
     srcs = [
-        "collection.go",
         "doc.go",
         "registry.go",
-        "renderer.go",
+        "registry_renderer.go",
+        "renderer_collection.go",
     ],
     importpath = "github.com/candacelabs/csf/pkg/gotth/internal/render",
     visibility = ["//pkg/gotth:__subpackages__"],

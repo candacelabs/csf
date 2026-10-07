@@ -14,6 +14,11 @@
    relation   declaration ⊆ Id × I; process ⊆ Id × {go, external} × I; scope ⊆ Sc × Id × I; component ⊆ Co × Id × Id × I
    relation   role ⊆ Co × Role; state ⊆ Co × {existing, planned}; lifecycle ⊆ Co × {scoped, lazy, borrowed}; sourced ⊆ Co
    relation   requires ⊆ Rq × Id × Id; connects ⊆ Cn × Id × Id × Transport × {existing, planned}; boundary ⊆ Cn × Id
+   relation   tracked ⊆ Path; kind_of ⊆ Path × Kind; directory ⊆ Path; allowed ⊆ Path × Kind; covers ⊆ Path × Path; deeper ⊆ Path × Path
+   relation   directory_role ⊆ Path × {testdata}; child ⊆ Path × Path
+   relation   under_io ⊆ Path × Tier; crosses ⊆ Path × Tier
+   relation   use_site ⊆ Site; bounded_use_site ⊆ Site
+   note       Path is a tracked file or a declared directory. String prefixes are not relations here, so covers, deeper and child carry the ancestry and sibling relations Facts computed. under_io and crosses are Facts-derived: under_io from a declared directory's io segment, crosses from its declared tier. tier is a rules.dl fact. Site is one production of a CSF EBNF grammar; bounded_use_site marks a site one JEV pick can write.
 */
 
 is_process(P) :- process(P, Kind, I).
@@ -301,3 +306,108 @@ boundary_role(K) :- crossing_owner(K, A, G, T), role(G, R), ~boundary_role_admit
 current_gateway(G) :- connects_resolved(K, A, B, subprocess, existing), boundary(K, G), is_component(G).
 current_gateway_count(N) :- N := count G : current_gateway(G).
 gateway_consolidation(N) :- current_gateway_count(N), gt(N, 1).
+
+% ---- Tree census: every tracked file in a directory that allows its kind ----
+
+/* relation shadowed
+   definition shadowed = {(f,p) | covers(p,f) ∧ ∃q. covers(q,f) ∧ deeper(q,p)}; a deeper declaration overrides an ancestor's
+*/
+shadowed(F, P) :- covers(P, F), covers(Q, F), deeper(Q, P).
+
+/* relation declared
+   definition declared = {(f,p) | tracked(f) ∧ directory(p) ∧ covers(p,f) ∧ (f,p) ∉ shadowed}; p is the deepest declared directory governing f
+*/
+declared(F, P) :- tracked(F), directory(P), covers(P, F), ~shadowed(F, P).
+
+/* relation declared_any
+   definition declared_any = {f | ∃p. (f,p) ∈ declared}
+*/
+declared_any(F) :- declared(F, P).
+
+/* relation under_csf
+   definition under_csf = {f | covers(csf, f)}
+*/
+under_csf(F) :- covers(csf, F).
+
+/* predicate offense
+   universe   F: tracked files; P: declared directories; K: file kinds; U: grammar use-sites
+   relation   tracked ⊆ F; directory ⊆ P; covers ⊆ P × F; kind_of ⊆ F × K; declared ⊆ F × P; allowed ⊆ P × K; under_csf ⊆ F; use_site ⊆ U; bounded_use_site ⊆ U
+   clause     ∀f ∈ F. ∃p. (f,p) ∈ declared; ∀(f,p) ∈ declared. (p, kind_of(f)) ∈ allowed; ∀f ∈ F. kind_of(f) = csf ⇒ f ∈ under_csf; ∀u ∈ U. u ∈ bounded_use_site
+   finding    offense = undeclared ∪ kind_not_allowed ∪ csf_outside_csf ∪ unbounded, tagged by cause
+*/
+offense(tree, F, undeclared) :- tracked(F), ~declared_any(F).
+offense(tree, F, kind_not_allowed) :- declared(F, P), kind_of(F, K), ~allowed(P, K).
+offense(tree, F, csf_outside_csf) :- tracked(F), kind_of(F, csf), ~under_csf(F).
+offense(grammar, U, unbounded) :- use_site(U), ~bounded_use_site(U).
+
+/* relation offense_kind
+   definition offense_kind = {(f,k) | (tree,f,kind_not_allowed) ∈ offense ∧ (f,k) ∈ kind_of}
+*/
+offense_kind(F, K) :- offense(tree, F, kind_not_allowed), kind_of(F, K).
+
+% A directory is a multiple-choice question whose options are its immediate
+% subdirectories; a testdata directory holds fixtures, not choices. Fanout over
+% sixteen options is reported, not blocked — the split itself is #505.
+
+/* relation question
+   definition question = {d ∈ directory | (d, testdata) ∉ directory_role}
+*/
+question(D) :- directory(D), ~directory_role(D, testdata).
+
+/* relation options
+   definition options = {(d,c) | question(d) ∧ child(d,c)}; a question's options are its immediate subdirectories
+*/
+options(D, C) :- question(D), child(D, C).
+
+/* relation fanout_count
+   definition fanout_count(d) = |{c | options(d,c)}|
+*/
+fanout_count(D, N) :- N := count C : options(D, C).
+
+/* predicate fanout
+   universe   D: directories; N: option counts
+   relation   question ⊆ D; options ⊆ D × D; fanout_count ⊆ D × N
+   clause     ∀d. question(d) ∧ fanout_count(d,n) ⇒ n ≤ 16
+   finding    fanout = {(d,n) | question(d) ∧ fanout_count(d,n) ∧ n > 16}, reported rather than blocked
+*/
+fanout(D, N) :- fanout_count(D, N), gt(N, 16).
+
+% ---- IO tier: the boundary a directory's call crosses ----
+
+% tier is the static io-tier enumeration: the four boundaries a directory under
+% io can carry, narrowest first. Facts derive under_io from a declared
+% directory's io segment and crosses from its declared tier.
+tier(io, in_process).
+tier(io, kernel).
+tier(io, ipc).
+tier(io, net).
+
+% The io directory is true to the hardware when its children are exactly the
+% four tier directories: no stray child, and no tier left without one.
+
+/* predicate io_children_stray
+   universe   D: declared children of the io directory
+   relation   child ⊆ Path × Path; under_io ⊆ D × Tier
+   clause     ∀d. child(io,d) ⇒ ∃t. under_io(d,t)
+   finding    io_children_stray = {d | child(io,d) ∧ ¬∃t. under_io(d,t)}
+*/
+io_child(D) :- child(io, D).
+io_child_known(D) :- io_child(D), under_io(D, T).
+io_children_stray(D) :- io_child(D), ~io_child_known(D).
+
+/* predicate io_children_missing
+   universe   Tier = {in_process, kernel, ipc, net}; a declared io directory
+   relation   tier ⊆ {io} × Tier; under_io ⊆ D × Tier
+   clause     directory(io) ⇒ ∀t. tier(io,t) ⇒ ∃d. under_io(d,t)
+   finding    io_children_missing = {t | directory(io) ∧ tier(io,t) ∧ ¬∃d. under_io(d,t)}
+*/
+io_tier_present(T) :- under_io(D, T).
+io_children_missing(T) :- directory(io), tier(io, T), ~io_tier_present(T).
+
+/* predicate tier_mismatch
+   universe   D: directories; Tier = {in_process, kernel, ipc, net}
+   relation   under_io ⊆ D × Tier; crosses ⊆ D × Tier
+   clause     ∀d. under_io(d,t) ∧ crosses(d,x) ⇒ x = t
+   finding    tier_mismatch = {(d,t,x) | under_io(d,t) ∧ crosses(d,x) ∧ x ≠ t}
+*/
+tier_mismatch(D, T, X) :- under_io(D, T), crosses(D, X), neq(X, T).

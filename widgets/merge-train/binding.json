@@ -1,0 +1,9 @@
+{
+  "stream": "loopWatch",
+  "fields": [
+    {"wire": "day", "path": "day"},
+    {"wire": "merged", "path": "merges.merged"},
+    {"wire": "refused", "path": "merges.refused"},
+    {"wire": "waiting", "path": "needs_labels"}
+  ]
+}
