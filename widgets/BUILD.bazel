@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+# Every definition's files: the definitions spec checks them, and the ops
+# view's specs install them.
+filegroup(
+    name = "definitions",
+    srcs = glob([
+        "*/*.widget",
+        "*/*.json",
+    ]),
+    visibility = ["//services/opsview:__pkg__"],
+)
+
+go_test(
+    name = "widgets_test",
+    srcs = [
+        "widgets_suite_test.go",
+        "widgets_test.go",
+    ],
+    data = [":definitions"],
+    deps = [
+        "//io/kernel/fs",
+        "//pkg/gotth/live",
+        "//pkg/widget",
+        "//pkg/widget/widgettest",
+        "//services/opsview",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

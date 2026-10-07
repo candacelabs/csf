@@ -1,0 +1,54 @@
+% golden_first, example 1 — the rest_client kind's rules (issue #475). Step 1
+% of the method: declare.
+%
+% Dialect: the pinned third-party engine csfc links
+% (csf/compiler/third_party/datalog) — stratified negation and counting,
+% one aggregate per body, and no safety or stratification check. Every head
+% variable and every negated variable is bound by an earlier positive literal.
+% The declaration in rest_client.csf supplies the base relations (extract.ml
+% writes them once csfc parses the kind declaration); these findings are what the generated
+% code must satisfy. Nothing runs them yet — see the pull request body.
+
+/* facts
+   universe   C: rest_client declarations (the kind and its instances); O: declared operations; R: declared response records
+   relation   rest_client ⊆ C
+   relation   template ⊆ C × Path                        % the one template each instance names
+   relation   operation ⊆ C × O × Method × Path
+   relation   record ⊆ C × R                             % declared response records
+   relation   decoder ⊆ C × R                            % records the generator emits a decoder for
+*/
+
+/* predicate one_template
+   universe   C: rest_client declarations
+   relation   template ⊆ C × Path
+   clause     ∀c ∈ C. template(c) = "ipc/net/rest"
+   finding    one_template = {c | (c,p) ∈ template ∧ p ≠ "ipc/net/rest"}
+*/
+is_the_template("ipc/net/rest").
+one_template(C) :- rest_client(C), template(C, P), ~is_the_template(P).
+
+/* predicate untyped_record
+   universe   C: rest_client declarations; R: declared response records
+   relation   record ⊆ C × R; decoder ⊆ C × R
+   clause     ∀(c,r) ∈ record. (c,r) ∈ decoder
+   finding    untyped_record = {(c,r) | (c,r) ∈ record ∧ (c,r) ∉ decoder}
+*/
+untyped_record(C, R) :- rest_client(C), record(C, R), ~decoder(C, R).
+
+/* predicate off_boundary
+   universe   C: rest_client declarations
+   relation   template ⊆ C × Path
+   clause     ∀c ∈ C. template(c) = "ipc/net/rest"
+   finding    off_boundary = {c | c ∉ is_the_template}
+*/
+on_template(C) :- rest_client(C), template(C, "ipc/net/rest").
+off_boundary(C) :- rest_client(C), ~on_template(C).
+
+/* predicate no_operation
+   universe   C: rest_client declarations; O: declared operations
+   relation   operation ⊆ C × O × Method × Path
+   clause     ∀c ∈ C. |{o | operation(c,o,·,·)}| ≥ 1
+   finding    no_operation = {c | no operation is declared for c}
+*/
+operation_count(C, N) :- N := count O : operation(C, O, M, P).
+no_operation(C) :- rest_client(C), operation_count(C, 0).

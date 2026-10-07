@@ -14,7 +14,7 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	mocks "github.com/candacelabs/csf/csf/internal/mocks"
-	"github.com/candacelabs/csf/ipc/ros"
+	"github.com/candacelabs/csf/io/net/ros"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	"github.com/candacelabs/csf/pkg/liquidproto"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"

@@ -132,9 +132,12 @@ let command context resolved ~name ~mode ~source ?(closed = false) ?code ?count 
     let diagnostics_match = match code with
       | None -> lines = []
       | Some code -> lines <> [] && List.for_all (fun line -> contains line (": " ^ code ^ ": ")) lines in
-    let expected_output = if expected_exit <> 0 then "" else Cli.summary {
-      Compiler.architecture_name = resolved.Model.architecture.name; mode;
-      obligations = List.length resolved.obligations } in
+    let expected_output = if expected_exit <> 0 then "" else
+      let declared, tracked = Compiler.census ~root:context.root resolved.Model.architecture in
+      Cli.summary {
+        Compiler.architecture_name = resolved.Model.architecture.name; mode;
+        obligations = List.length resolved.obligations;
+        directories_declared = declared; directories_tracked = tracked } in
     { name; argv; expected; observed = status result; diagnostics = errors;
       stdout = Some stdout; stderr = Some stderr;
       passed = result = Unix.WEXITED expected_exit && output = expected_output && diagnostics_match &&

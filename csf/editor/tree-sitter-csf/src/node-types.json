@@ -102,6 +102,10 @@
           "named": true
         },
         {
+          "type": "directory",
+          "named": true
+        },
+        {
           "type": "generated",
           "named": true
         },
@@ -130,6 +134,25 @@
       "types": [
         {
           "type": "identifier",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "directory",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "string",
+          "named": true
+        },
+        {
+          "type": "tier",
           "named": true
         }
       ]
@@ -224,6 +247,11 @@
     "fields": {}
   },
   {
+    "type": "tier",
+    "named": true,
+    "fields": {}
+  },
+  {
     "type": "transport",
     "named": true,
     "fields": {}
@@ -244,6 +272,10 @@
     }
   },
   {
+    "type": ",",
+    "named": false
+  },
+  {
     "type": "->",
     "named": false
   },
@@ -252,7 +284,19 @@
     "named": false
   },
   {
+    "type": "[",
+    "named": false
+  },
+  {
+    "type": "]",
+    "named": false
+  },
+  {
     "type": "adapter",
+    "named": false
+  },
+  {
+    "type": "allowed",
     "named": false
   },
   {
@@ -289,6 +333,10 @@
     "named": false
   },
   {
+    "type": "dir",
+    "named": false
+  },
+  {
     "type": "entrypoint",
     "named": false
   },
@@ -321,8 +369,20 @@
     "named": false
   },
   {
+    "type": "in_process",
+    "named": false
+  },
+  {
     "type": "integer",
     "named": true
+  },
+  {
+    "type": "ipc",
+    "named": false
+  },
+  {
+    "type": "kernel",
+    "named": false
   },
   {
     "type": "kind",
@@ -342,6 +402,10 @@
   },
   {
     "type": "manager",
+    "named": false
+  },
+  {
+    "type": "net",
     "named": false
   },
   {
@@ -402,6 +466,10 @@
   },
   {
     "type": "test",
+    "named": false
+  },
+  {
+    "type": "tier",
     "named": false
   },
   {

@@ -1,0 +1,56 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "labeler",
+    srcs = [
+        "labeler.go",
+        "labeler_accept.go",
+        "labeler_corpus.go",
+        "labeler_gpu.go",
+        "labeler_ticket.go",
+        "prompt.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/ouroboros/labeler",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/ipc/docker",
+        "//io/ipc/proc",
+        "//io/kernel/clock",
+        "//io/kernel/fs",
+        "//io/net/model",
+        "//io/net/model/ollama",
+        "//proto/candace/ouroboros/v1:ouroboros",
+        "//services/harness/session",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_client//:client",
+    ],
+)
+
+go_test(
+    name = "labeler_test",
+    srcs = [
+        "labeler_internal_test.go",
+        "labeler_suite_test.go",
+        "labeler_test.go",
+        "mock_containers_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+    ],
+    embed = [":labeler"],
+    deps = [
+        "//io/ipc/docker",
+        "//io/ipc/proc",
+        "//io/kernel/clock",
+        "//io/kernel/fs",
+        "//io/net/model/ollama",
+        "//io/net/model/stub",
+        "//pkg/eventually",
+        "//proto/candace/ouroboros/v1:ouroboros",
+        "//services/harness/session",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_client//:client",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

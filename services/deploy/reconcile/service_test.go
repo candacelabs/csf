@@ -14,7 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"github.com/candacelabs/csf/services/deploy"
 )

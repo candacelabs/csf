@@ -3,13 +3,13 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "validate",
     srcs = [
-        "build.go",
-        "clause.go",
-        "invariants.go",
         "spec.go",
-        "symbols.go",
-        "text.go",
         "validate.go",
+        "validator_build.go",
+        "validator_clause.go",
+        "validator_invariants.go",
+        "validator_symbols.go",
+        "validator_text.go",
     ],
     importpath = "github.com/candacelabs/csf/pkg/widget/internal/validate",
     visibility = ["//pkg/widget:__subpackages__"],

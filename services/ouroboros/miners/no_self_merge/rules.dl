@@ -1,0 +1,7 @@
+/* predicate self-authored PR merged without independent verdict
+   universe   P: PRs; S: sessions
+   relation   pr_author ⊆ P × S; pr_merged_by ⊆ P × S; has_independent_verdict ⊆ P
+   clause     ∀p, s. pr_author(p, s) ∧ pr_merged_by(p, s) ∧ ¬has_independent_verdict(p) ⇒ refused(p)
+   finding    refused = {p | pr_author(p, s), pr_merged_by(p, s), ¬has_independent_verdict(p)}
+*/
+refused(P) :- pr_author(P, S), pr_merged_by(P, S), ~ has_independent_verdict(P).

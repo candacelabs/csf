@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "doc.go",
         "logger.go",
+        "register.go",
         "trace.go",
         "validate.go",
     ],
@@ -12,6 +13,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//proto/candace/telemetry/v1:telemetry",
+        "@com_github_prometheus_client_golang//prometheus",
         "@io_opentelemetry_go_otel_sdk//trace",
         "@io_opentelemetry_go_otel_trace//:trace",
         "@org_golang_google_protobuf//encoding/protojson",
@@ -28,6 +30,7 @@ go_test(
         "//proto/candace/telemetry/v1:telemetry",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",
+        "@com_github_prometheus_client_golang//prometheus",
         "@org_golang_google_protobuf//encoding/protojson",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//types/known/timestamppb",

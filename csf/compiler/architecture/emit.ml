@@ -57,6 +57,12 @@ let source_root (value : Model.source_root) = record [
   "Model.path", quoted value.path; "path_at", location value.path_at;
 ]
 
+let directory (value : Model.directory) = record [
+  "Model.path", quoted value.path; "allowed", sequence quoted value.allowed;
+  "tier", optional (constructor Syntax_cgen.tier_terminal) value.tier;
+  "directory_at", location value.directory_at;
+]
+
 (** Emit a reconstructible [Model.architecture] value, preserving declarations
     and their locations. Resolution caches, observations and executed lifecycle
     hooks are not serialized. A consumer resolves this value again before use. *)
@@ -70,6 +76,7 @@ let ocaml (resolved : Model.resolved) =
     "connections", sequence connection value.connections;
     "scan_roots", sequence source_root value.scan_roots;
     "generated_roots", sequence source_root value.generated_roots;
+    "directories", sequence directory value.directories;
   ] in
   Codegen_header.render Codegen_header.Ocaml ^
   "(* Declared architecture; this value does not attest to execution behavior. *)\n" ^
@@ -240,6 +247,10 @@ let json (resolved : Model.resolved) =
       "at", at value.connection_at]) architecture.connections);
     "scan_roots", paths architecture.scan_roots;
     "generated_roots", paths architecture.generated_roots;
+    "directories", `List (List.map (fun (value : Model.directory) -> `Assoc [
+      "path", str value.path; "allowed", `List (List.map str value.allowed);
+      "tier", opt (word Syntax_cgen.tier_terminal) value.tier;
+      "at", at value.directory_at]) architecture.directories);
     "obligations", `List (List.map (fun (value : Model.obligation) -> `Assoc [
       "subject", str value.subject; "requirement", str value.requirement;
       "evidence", opt str value.evidence]) resolved.obligations);

@@ -93,7 +93,7 @@ go: downloading golang.org/x/sys v0.47.0
 
 [1m==> cell n1000-obs-on complete: /tmp/g2/n1000-obs-on[0m
 compute the figure with:
-  docker run --rm -v "/home/dev/worktrees/gotth-live-orchestrator-c3efc4/gotth-live:/w" -v "/tmp/g2/n1000-obs-on:/cell" -w /w/test/memory dis-gotth-live:latest \
+  docker run --rm -v "/srv/worktrees/gotth-live-orchestrator-c3efc4/gotth-live:/w" -v "/tmp/g2/n1000-obs-on:/cell" -w /w/test/memory dis-gotth-live:latest \
       bash -c 'go run ./cmd/memstat -cell /cell'
 + bash test/memory/measure.sh --n 1000 --runs 3 --observability off --out /tmp/g2/n1000-obs-off
 
@@ -161,7 +161,7 @@ go: downloading golang.org/x/sys v0.47.0
 
 [1m==> cell n1000-obs-off complete: /tmp/g2/n1000-obs-off[0m
 compute the figure with:
-  docker run --rm -v "/home/dev/worktrees/gotth-live-orchestrator-c3efc4/gotth-live:/w" -v "/tmp/g2/n1000-obs-off:/cell" -w /w/test/memory dis-gotth-live:latest \
+  docker run --rm -v "/srv/worktrees/gotth-live-orchestrator-c3efc4/gotth-live:/w" -v "/tmp/g2/n1000-obs-off:/cell" -w /w/test/memory dis-gotth-live:latest \
       bash -c 'go run ./cmd/memstat -cell /cell'
 + bash test/memory/measure.sh --n 100 --runs 3 --observability on --out /tmp/g2/n100-obs-on
 
@@ -229,7 +229,7 @@ go: downloading golang.org/x/sys v0.47.0
 
 [1m==> cell n100-obs-on complete: /tmp/g2/n100-obs-on[0m
 compute the figure with:
-  docker run --rm -v "/home/dev/worktrees/gotth-live-orchestrator-c3efc4/gotth-live:/w" -v "/tmp/g2/n100-obs-on:/cell" -w /w/test/memory dis-gotth-live:latest \
+  docker run --rm -v "/srv/worktrees/gotth-live-orchestrator-c3efc4/gotth-live:/w" -v "/tmp/g2/n100-obs-on:/cell" -w /w/test/memory dis-gotth-live:latest \
       bash -c 'go run ./cmd/memstat -cell /cell'
 + echo CAMPAIGN_DONE
 CAMPAIGN_DONE

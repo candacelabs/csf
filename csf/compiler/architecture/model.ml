@@ -87,6 +87,25 @@ type connection = {
     Filesystem existence and containment belong to the separate source check. *)
 type source_root = { path : string; path_at : location }
 
+(** How far a boundary's call travels: within one runtime, to the kernel on this
+    machine, to another process on this machine, or to another machine. These
+    constructors mirror the grammar's [tier] terminals one to one. *)
+type tier = In_process | Kernel | Ipc | Net
+
+(** A directory declares which file kinds may live directly in it. [path] uses
+    "." for the repository root; a deeper directory declaration overrides an
+    ancestor's. [allowed] spells kinds as the tree census spells them (for
+    example "go" or "csf"), never as grammar identifiers, because several kinds
+    collide with reserved terminals. [tier] records the true boundary a
+    directory under [io] crosses; it is absent outside [io], where the tier is
+    not a property the directory carries. *)
+type directory = {
+  path : string;
+  allowed : string list;
+  tier : tier option;
+  directory_at : location;
+}
+
 (** Lists preserve declaration order. This order supplies deterministic
     tie breaking and output order; it is not an observation of execution. *)
 type architecture = {
@@ -100,6 +119,7 @@ type architecture = {
   connections : connection list;
   scan_roots : source_root list;
   generated_roots : source_root list;
+  directories : directory list;
 }
 
 (* A test reference is evidence to inspect, never a proof that a test passed. *)

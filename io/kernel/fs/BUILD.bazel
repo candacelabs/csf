@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "fs",
+    srcs = [
+        "files.go",
+        "watch.go",
+    ],
+    importpath = "github.com/candacelabs/csf/io/kernel/fs",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_fsnotify_fsnotify//:fsnotify"],
+)
+
+go_test(
+    name = "fs_test",
+    srcs = [
+        "files_internal_test.go",
+        "files_test.go",
+        "fs_suite_test.go",
+        "watch_test.go",
+    ],
+    embed = [":fs"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -1,0 +1,33 @@
+% OBSERVE-SESSIONS: the Datalog acceptance program csfc emits from the
+% observe_sessions view declaration (csf/compiler/testdata/golden/view/observe_sessions.csf).
+% The brief is done when one command shows the sessions as a table and one
+% command tails them all, with no polling and no JSON on screen. The offense
+% rule mines the proxy: a question a verb answered, and a session that wrote a
+% script to answer it anyway.
+
+/* facts
+   universe   A: agents a verb is asked for; K: tail line kinds; Q: the questions the brief asks
+   relation   verb ⊆ {status, tail}
+   relation   question ⊆ Q
+   relation   answerable_by ⊆ verb × question
+   relation   agents ⊆ A: the number of agents a question asks for
+   relation   lines ⊆ K: the line count a script wrote
+   relation   polling ⊆ ∅
+   relation   json_on_screen ⊆ ∅
+*/
+
+/* predicate done
+   universe   Q: the questions the brief asks; C: the commands run to answer them
+   relation   one_command : Q ⇀ {status, tail}
+   clause     one_command(status, agents(3)) ∧ one_command(tail, all) ∧
+              ¬polling ∧ ¬json_on_screen ⇒ done(observe_sessions)
+   finding    done = { observe_sessions | ... }
+*/
+done(observe_sessions) :- one_command(status, agents(3)), one_command(tail, all), ~polling, ~json_on_screen.
+
+/* predicate offense
+   universe   S: sessions; Q: questions; N: a script's line count
+   relation   wrote : S ⇀ {script, lines(N)}
+   finding    offense = {(proxy, ad_hoc_script) | answerable_by(verb(V), Q), wrote(script, lines(N)), N > 1}
+*/
+offense(proxy, ad_hoc_script) :- question(Q), answerable_by(verb(V), Q), wrote(script, lines(N)), N > 1.

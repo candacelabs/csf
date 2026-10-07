@@ -59,20 +59,31 @@ let read_sources root paths =
 let native root tracked inventory =
   let files, errors = read_sources root tracked in
   let corpus = List.filter selected files in
-  let python_count, python_findings, python_errors = Python_magic.check root tracked in
-  let count = List.length corpus + python_count in
-  let errors = errors @ python_errors in
+  let python = Python_magic.check root tracked in
+  let count = List.length corpus + python.count in
+  let errors = errors @ python.errors in
   let errors = if count = 0 then
     {path="inventory"; line=1; rule="SCAN"; message="empty handwritten source corpus; refusing a vacuous pass"} :: errors else errors in
   let dependency = Checker.check root inventory in
   let convert rule (finding : Checker.issue) =
     {path=finding.path; line=finding.line; rule; message=finding.message} in
-  let findings = Mandatory.collect files @ Advisory.collect files @ Structure.collect files @ Shared_state.collect files @
-    Placement.collect files @ Placement.check_directories root tracked @
+  let findings = Mandatory.collect files @ Advisory.collect files @ CS19.collect files @
+    CS20.collect files @ CS20.check_ocaml root tracked @
+    CS20.check_csf root tracked @ CS20.check_datalog root tracked @
+    CS21.collect ~declared:(CS21.declared_layout_dirs root tracked) files @ Structure.collect files @
+    Shared_state.collect files @
+    Placement.collect files @ Placement.consistency_rows files @ Placement.check_directories root tracked @
     Test_layout.collect ~modules:(Test_layout.modules root tracked) files @
-    python_findings @ Structure.artifacts files tracked @ List.map (convert "DEPENDENCIES") dependency.findings in
+    python.findings @ Structure.artifacts files tracked @ List.map (convert "DEPENDENCIES") dependency.findings in
   let errors = errors @ List.map (convert "SCAN") dependency.errors in
-  let findings = List.sort_uniq (fun a b -> compare (a.path,a.line,a.rule,a.message) (b.path,b.line,b.rule,b.message)) findings in
+  let compare_finding (a : finding) (b : finding) =
+    let order = String.compare a.path b.path in
+    if order <> 0 then order else
+    let order = Int.compare a.line b.line in
+    if order <> 0 then order else
+    let order = String.compare a.rule b.rule in
+    if order <> 0 then order else String.compare a.message b.message in
+  let findings = List.sort_uniq compare_finding findings in
   count, findings, errors
 
 type lane = { rule : string; name : string; argv : string array }
@@ -96,6 +107,8 @@ let lanes root cache = [
    argv=[|"docker"; "run"; "--rm"; "-v"; root ^ ":/workspace:ro"; "-w"; "/workspace";
      funlen_image; "golangci-lint"; "run"; "--config"; "/workspace/.golangci-funlen.yml";
      "--issues-exit-code=1"; "./..."|]};
+  {rule="DOC-MATH"; name="doc";
+   argv=[|"bash"; Filename.concat root "tools/check-doc-lint.sh"; root|]};
 ]
 
 let ci_lanes root = "native" :: List.map (fun lane -> lane.name) (lanes root "/unused")
@@ -124,7 +137,8 @@ let summary ?selected_lane channel ~files ~findings ~errors ~external_results ~n
   List.iter (fun (rule : Policy.rule) ->
     let native_count = List.length (List.filter (fun (finding : finding) -> finding.rule = rule.id) findings) in
     let external_codes = List.filter (fun (id, _, _) -> id = rule.id) external_results in
-    let result = if List.mem rule.id ["CS-3"; "INTERFACE-RETURNS"; "FUNCTION-LENGTH"] then
+    let specialist_rules = ["CS-3"; "INTERFACE-RETURNS"; "FUNCTION-LENGTH"; "DOC-MATH"; "DOC-CONTRAST"; "DOC-EXAMPLE"; "DOC-EVIDENCE"; "DOC-PROVENANCE"; "DOC-GAP"; "DOC-CONTRADICTION"] in
+    let result = if List.mem rule.id specialist_rules then
       if native_only then "not run (--native-only)" else
       if external_codes = [] then "not run (different lane)" else
       String.concat "; " (List.map (fun (_, name, code) -> name ^ ": " ^

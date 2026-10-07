@@ -27,11 +27,27 @@ ocaml_module(
 )
 
 ocaml_module(
+    name = "Mutate",
+    sig = "mutate.mli",
+    struct = "mutate.ml",
+    deps = [
+        ":Contract",
+        "//csf/compiler/third_party/datalog:AST",
+        "//csf/compiler/third_party/datalog:Datalog_top_down",
+        "//csf/compiler/third_party/datalog:Lexer",
+        "//csf/compiler/third_party/datalog:Parser",
+        "@opam.ocamlsdk//unix/lib",
+        "@opam.yojson//lib",
+    ],
+)
+
+ocaml_module(
     name = "Contract_test",
     struct = "contract_test.ml",
     deps = [
         ":Contract",
         ":Corpus",
+        ":Mutate",
         "@opam.yojson//lib",
     ],
 )

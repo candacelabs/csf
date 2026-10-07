@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "scip",
+    srcs = [
+        "doc.go",
+        "facts.go",
+        "schema.go",
+        "symbol.go",
+        "wire.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/scip",
+    visibility = ["//visibility:public"],
+    deps = ["@org_golang_google_protobuf//encoding/protowire"],
+)
+
+go_test(
+    name = "scip_test",
+    srcs = [
+        "facts_test.go",
+        "scip_suite_test.go",
+        "scip_test.go",
+        "symbol_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":scip",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

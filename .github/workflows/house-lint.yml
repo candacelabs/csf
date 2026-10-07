@@ -11,6 +11,7 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
   workflow_dispatch:
 
 concurrency:
@@ -23,7 +24,7 @@ permissions:
 jobs:
   ocaml_repository:
     name: Prepare pinned tooling and opam metadata
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -37,7 +38,7 @@ jobs:
   ocaml_bytecode:
     needs: ocaml_repository
     name: Prepare the OCaml bytecode bootstrap
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -51,7 +52,7 @@ jobs:
   ocaml_compiler:
     needs: ocaml_bytecode
     name: Prepare the pinned OCaml compiler
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -65,7 +66,7 @@ jobs:
   ocaml_toolchain:
     name: Prepare the locked OCaml libraries
     needs: ocaml_compiler
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -79,7 +80,7 @@ jobs:
   native:
     name: Build and test the native house checker
     needs: ocaml_toolchain
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
@@ -119,7 +120,7 @@ jobs:
   scan:
     name: House lint (${{ matrix.lane }})
     needs: native
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     strategy:
@@ -174,7 +175,7 @@ jobs:
   house_lint:
     name: House lint (mandatory and advisory)
     needs: [native, scan]
-    if: ${{ always() && github.event.repository.private == false }}
+    if: ${{ always() && (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     env:

@@ -41,6 +41,9 @@ let terminal_constructor = function
   | ";" -> "Semicolon"
   | "{" -> "LeftBrace"
   | "}" -> "RightBrace"
+  | "[" -> "LeftBracket"
+  | "]" -> "RightBracket"
+  | "," -> "Comma"
   | text when Frontend_lexer.is_word text -> String.capitalize_ascii text
   | "" -> "Symbol_Empty"
   | text ->

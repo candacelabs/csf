@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "graph.go",
         "queue.go",
+        "recent.go",
     ],
     importpath = "github.com/candacelabs/csf/io/inproc",
     visibility = ["//visibility:public"],
@@ -16,6 +17,7 @@ go_test(
         "graph_test.go",
         "inproc_suite_test.go",
         "queue_test.go",
+        "recent_test.go",
     ],
     deps = [
         ":inproc",

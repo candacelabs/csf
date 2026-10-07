@@ -41,6 +41,36 @@ func (m *MockIOpenSearchClient) EXPECT() *MockIOpenSearchClientMockRecorder {
 	return m.recorder
 }
 
+// Create mocks base method.
+func (m *MockIOpenSearchClient) Create(ctx context.Context, req opensearchapi.IndicesCreateReq) (*opensearchapi.IndicesCreateResp, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Create", ctx, req)
+	ret0, _ := ret[0].(*opensearchapi.IndicesCreateResp)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Create indicates an expected call of Create.
+func (mr *MockIOpenSearchClientMockRecorder) Create(ctx, req any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockIOpenSearchClient)(nil).Create), ctx, req)
+}
+
+// DeleteByQuery mocks base method.
+func (m *MockIOpenSearchClient) DeleteByQuery(ctx context.Context, req *opensearchapi.DeleteByQueryReq) (*opensearchapi.DeleteByQueryResp, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeleteByQuery", ctx, req)
+	ret0, _ := ret[0].(*opensearchapi.DeleteByQueryResp)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DeleteByQuery indicates an expected call of DeleteByQuery.
+func (mr *MockIOpenSearchClientMockRecorder) DeleteByQuery(ctx, req any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteByQuery", reflect.TypeOf((*MockIOpenSearchClient)(nil).DeleteByQuery), ctx, req)
+}
+
 // Index mocks base method.
 func (m *MockIOpenSearchClient) Index(ctx context.Context, req opensearchapi.IndexReq) (*opensearchapi.IndexResp, error) {
 	m.ctrl.T.Helper()

@@ -28,7 +28,7 @@ function CardTemplate() {
       <Box component="details"><Text component="summary" size="sm" fw={600}>Link a task</Text>
         <Stack component="form" mt="sm" gap="xs" data-gotth-on="submit:kanban.link">
           <input type="hidden" name="expected_generation" value={token("LinkGeneration")} />
-          <TextInput id={`${region}-task`} name="task_url" label="Task issue URL" type="url" required defaultValue={token("TaskURL")} placeholder="https://github.com/owner/repository/issues/123" />
+          <TextInput id={`${region}-task`} name="task_url" label="Task issue URL" type="url" required defaultValue={token("TaskURL")} placeholder="https://github.com/candacelabs/repository/issues/123" />
           <Button type="submit" variant="light" size="xs">Save task link</Button>
         </Stack>
       </Box>

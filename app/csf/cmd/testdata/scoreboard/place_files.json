@@ -1,0 +1,2030 @@
+{
+ "model": "hf.co/mindchain/jevk5-9b-v0.3.3-GGUF:Q4_K_M",
+ "temperature": 1.316,
+ "level1": [
+  {
+   "file": "app/harness/cmd/recipe/agent.json",
+   "truth": "app",
+   "pick": "tools",
+   "p_pick": 0.4404977549275126,
+   "p_truth": 0.03581540473188639,
+   "top3": false,
+   "latency": 0.41320630797417834,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/csf/cmd/main.go",
+   "truth": "app",
+   "pick": "app",
+   "p_pick": 0.8163687853719255,
+   "p_truth": 0.8163687853719255,
+   "top3": true,
+   "latency": 0.5946210169931874,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/warden/e2e/BUILD.bazel",
+   "truth": "app",
+   "pick": "app",
+   "p_pick": 0.45269265490664995,
+   "p_truth": 0.45269265490664995,
+   "top3": true,
+   "latency": 0.38079570297850296,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/deploy/bootstrap/bootstrap_test/bootstrap_acceptance_test.go",
+   "truth": "app",
+   "pick": "ipc",
+   "p_pick": 0.6847383637309437,
+   "p_truth": 0.03187438785347992,
+   "top3": false,
+   "latency": 0.5449100770056248,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/harness/cmd/relay.go",
+   "truth": "app",
+   "pick": "services",
+   "p_pick": 0.7170272588496767,
+   "p_truth": 0.14376060578472727,
+   "top3": true,
+   "latency": 0.529959861014504,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/csf/native/object_storage/src/main.rs",
+   "truth": "app",
+   "pick": "app",
+   "p_pick": 0.43589665182736026,
+   "p_truth": 0.43589665182736026,
+   "top3": true,
+   "latency": 0.45298810297390446,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/intake/cmd/BUILD.bazel",
+   "truth": "app",
+   "pick": "app",
+   "p_pick": 0.8608508378726871,
+   "p_truth": 0.8608508378726871,
+   "top3": true,
+   "latency": 0.36439053097274154,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/csf/native/test_units.py",
+   "truth": "app",
+   "pick": "infra",
+   "p_pick": 0.7685955204528564,
+   "p_truth": 0.016243875713025033,
+   "top3": false,
+   "latency": 0.49448944500181824,
+   "letters_seen": 15
+  },
+  {
+   "file": "app/harness/cmd/slice.go",
+   "truth": "app",
+   "pick": "app",
+   "p_pick": 0.4805249265764543,
+   "p_truth": 0.4805249265764543,
+   "top3": true,
+   "latency": 0.5108883070060983,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/warden/README.md",
+   "truth": "app",
+   "pick": "app",
+   "p_pick": 0.7990523842827881,
+   "p_truth": 0.7990523842827881,
+   "top3": true,
+   "latency": 0.5747430150513537,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/warden/warden.example.yaml",
+   "truth": "app",
+   "pick": "infra",
+   "p_pick": 0.7835839429717203,
+   "p_truth": 0.010849823757509957,
+   "top3": false,
+   "latency": 0.5076934049720876,
+   "letters_seen": 16
+  },
+  {
+   "file": "app/harness/cmd/view.go",
+   "truth": "app",
+   "pick": "services",
+   "p_pick": 0.6542409254664764,
+   "p_truth": 0.2814770012925362,
+   "top3": true,
+   "latency": 0.4228927139774896,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/BUILD.bazel",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.965813118893091,
+   "p_truth": 0.965813118893091,
+   "top3": true,
+   "latency": 0.35028836299898103,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/README.md",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.9227503322199577,
+   "p_truth": 0.9227503322199577,
+   "top3": true,
+   "latency": 0.5233219460351393,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/versions.bzl",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.9858976463657916,
+   "p_truth": 0.9858976463657916,
+   "top3": true,
+   "latency": 0.3784623190294951,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/session_image/resume-acceptance.sh",
+   "truth": "bazel",
+   "pick": "tools",
+   "p_pick": 0.44096094002631886,
+   "p_truth": 0.18719366893714517,
+   "top3": true,
+   "latency": 0.49772916699294,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/session_image/build_burst.sh",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.7563696601044981,
+   "p_truth": 0.7563696601044981,
+   "top3": true,
+   "latency": 0.40162345801945776,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/session_image/acceptance.sh",
+   "truth": "bazel",
+   "pick": "services",
+   "p_pick": 0.7803336153004627,
+   "p_truth": 0.03368936324044526,
+   "top3": false,
+   "latency": 0.5218844030168839,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/deps.bzl",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.9913361791090045,
+   "p_truth": 0.9913361791090045,
+   "top3": true,
+   "latency": 0.4742063989979215,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/session_image/build.sh",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.9541344044288903,
+   "p_truth": 0.9541344044288903,
+   "top3": true,
+   "latency": 0.5297547630034387,
+   "letters_seen": 16
+  },
+  {
+   "file": "bazel/pins_test.go",
+   "truth": "bazel",
+   "pick": "bazel",
+   "p_pick": 0.9831109493177534,
+   "p_truth": 0.9831109493177534,
+   "top3": true,
+   "latency": 0.48737023799913004,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/examples/knowledge/curated.json",
+   "truth": "csf",
+   "pick": "docs",
+   "p_pick": 0.6495628604297519,
+   "p_truth": 0.011197923947027101,
+   "top3": false,
+   "latency": 0.4162271349923685,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/third_party/tree_sitter/runtime.BUILD.bazel",
+   "truth": "csf",
+   "pick": "runtime",
+   "p_pick": 0.9235777133570982,
+   "p_truth": 0.003137697449176093,
+   "top3": false,
+   "latency": 0.36326341499807313,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/metric_compat/test_codegen.py",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.3775918668568047,
+   "p_truth": 0.3775918668568047,
+   "top3": true,
+   "latency": 0.4697346890461631,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/proofs/proof-cgroup.sh",
+   "truth": "csf",
+   "pick": "runtime",
+   "p_pick": 0.37527693573262827,
+   "p_truth": 0.1461314323216622,
+   "top3": true,
+   "latency": 0.5644959560013376,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/architecture/go_syntax_test.ml",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.5334479626905008,
+   "p_truth": 0.5334479626905008,
+   "top3": true,
+   "latency": 0.47269957698881626,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/AGENTS.md",
+   "truth": "csf",
+   "pick": "pkg",
+   "p_pick": 0.6542854163073591,
+   "p_truth": 0.08369237683271356,
+   "top3": true,
+   "latency": 0.4579914729692973,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/README.md",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.990259878036842,
+   "p_truth": 0.990259878036842,
+   "top3": true,
+   "latency": 0.4695854520541616,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/architecture/emit.mli",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.7157864142477538,
+   "p_truth": 0.7157864142477538,
+   "top3": true,
+   "latency": 0.4101340799825266,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/editor/build-neovim.sh",
+   "truth": "csf",
+   "pick": "tools",
+   "p_pick": 0.862945705784391,
+   "p_truth": 0.06890793515923191,
+   "top3": true,
+   "latency": 0.38296678999904543,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/architecture/codegen_header.mli",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.9170885093736943,
+   "p_truth": 0.9170885093736943,
+   "top3": true,
+   "latency": 0.5048380540101789,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/architecture/go_syntax.ml",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.80350813215499,
+   "p_truth": 0.80350813215499,
+   "top3": true,
+   "latency": 0.4805531310266815,
+   "letters_seen": 16
+  },
+  {
+   "file": "csf/compiler/architecture/cli_test.ml",
+   "truth": "csf",
+   "pick": "csf",
+   "p_pick": 0.9856533812192256,
+   "p_truth": 0.9856533812192256,
+   "top3": true,
+   "latency": 0.5671158549957909,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/checks/architecture_lines.sh",
+   "truth": "docs",
+   "pick": "csf",
+   "p_pick": 0.9151913834383631,
+   "p_truth": 0.005148243031001073,
+   "top3": false,
+   "latency": 0.399815209035296,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/checks/widget_imports.sh",
+   "truth": "docs",
+   "pick": "pkg",
+   "p_pick": 0.6943910287710363,
+   "p_truth": 0.004748666315268325,
+   "top3": false,
+   "latency": 0.4060717719839886,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/TOUR.md",
+   "truth": "docs",
+   "pick": "docs",
+   "p_pick": 0.9275615458969181,
+   "p_truth": 0.9275615458969181,
+   "top3": true,
+   "latency": 0.5532644970226102,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/GLOSSARY.md",
+   "truth": "docs",
+   "pick": "csf",
+   "p_pick": 0.8947587479019559,
+   "p_truth": 0.09856279415520305,
+   "top3": true,
+   "latency": 0.5953547339886427,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/checks/ghost-terms.py",
+   "truth": "docs",
+   "pick": "csf",
+   "p_pick": 0.9804281391292858,
+   "p_truth": 0.0012027611729558882,
+   "top3": false,
+   "latency": 0.46590383001603186,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/draft.md",
+   "truth": "docs",
+   "pick": "docs",
+   "p_pick": 0.9686067460351366,
+   "p_truth": 0.9686067460351366,
+   "top3": true,
+   "latency": 0.4806595869595185,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/checks/prose-lint.py",
+   "truth": "docs",
+   "pick": "tools",
+   "p_pick": 0.9868145306458805,
+   "p_truth": 0.006231703079342712,
+   "top3": true,
+   "latency": 0.6918444319744594,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/checks/bib.py",
+   "truth": "docs",
+   "pick": "tools",
+   "p_pick": 0.9490992952470012,
+   "p_truth": 0.008851401006285885,
+   "top3": true,
+   "latency": 0.6145623960183002,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/paper/checks/provenance.py",
+   "truth": "docs",
+   "pick": "tools",
+   "p_pick": 0.7358138393875725,
+   "p_truth": 0.19880440477410966,
+   "top3": true,
+   "latency": 0.5177366600255482,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/audit/2026-10-02.md",
+   "truth": "docs",
+   "pick": "docs",
+   "p_pick": 0.8724816142586329,
+   "p_truth": 0.8724816142586329,
+   "top3": true,
+   "latency": 0.6532917900476605,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/lab/2026-10-05-bazel-ram.md",
+   "truth": "docs",
+   "pick": "bazel",
+   "p_pick": 0.8269432850469735,
+   "p_truth": 0.010854494649913822,
+   "top3": true,
+   "latency": 0.5324629379902035,
+   "letters_seen": 16
+  },
+  {
+   "file": "docs/relay-hook-measurement.md",
+   "truth": "docs",
+   "pick": "services",
+   "p_pick": 0.3005151368775737,
+   "p_truth": 0.21751088843541252,
+   "top3": true,
+   "latency": 0.5323152189957909,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/candaws/blobfish/replica.go",
+   "truth": "examples",
+   "pick": "pkg",
+   "p_pick": 0.6682660765650812,
+   "p_truth": 0.004198805694178411,
+   "top3": false,
+   "latency": 0.576332235999871,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/candaws/dashbored/collector.go",
+   "truth": "examples",
+   "pick": "pkg",
+   "p_pick": 0.6183872439361092,
+   "p_truth": 0.011451355680415566,
+   "top3": false,
+   "latency": 0.5741707249544561,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/gotth/chat/chat.go",
+   "truth": "examples",
+   "pick": "widgets",
+   "p_pick": 0.26300289679684974,
+   "p_truth": 0.1651412167922599,
+   "top3": true,
+   "latency": 0.5484711439930834,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/external-consumer/_workspace/customharness/harness.go",
+   "truth": "examples",
+   "pick": "services",
+   "p_pick": 0.5035791215853228,
+   "p_truth": 0.061940359247429924,
+   "top3": true,
+   "latency": 0.5281279410119168,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/BUILD.bazel",
+   "truth": "examples",
+   "pick": "examples",
+   "p_pick": 0.602259400208962,
+   "p_truth": 0.602259400208962,
+   "top3": true,
+   "latency": 0.46518175600795075,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/csf-consumer/fixture/runtime.sh",
+   "truth": "examples",
+   "pick": "runtime",
+   "p_pick": 0.7184675042177038,
+   "p_truth": 0.040415231131296664,
+   "top3": false,
+   "latency": 0.5407065760227852,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/candaws/dashbored/view.go",
+   "truth": "examples",
+   "pick": "pkg",
+   "p_pick": 0.7617562767990241,
+   "p_truth": 0.005072556697130607,
+   "top3": false,
+   "latency": 0.5615937249967828,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/candaws/dashbored/dashbored_suite_test.go",
+   "truth": "examples",
+   "pick": "examples",
+   "p_pick": 0.8727021064263154,
+   "p_truth": 0.8727021064263154,
+   "top3": true,
+   "latency": 0.3737515660468489,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/claudecode/BUILD.bazel",
+   "truth": "examples",
+   "pick": "examples",
+   "p_pick": 0.9267916030473704,
+   "p_truth": 0.9267916030473704,
+   "top3": true,
+   "latency": 0.36083633196540177,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/candaws/queuecumber/view_templ.go",
+   "truth": "examples",
+   "pick": "widgets",
+   "p_pick": 0.9008614407810474,
+   "p_truth": 0.0021447103815740035,
+   "top3": false,
+   "latency": 0.6264382519875653,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/widget/candaws/yakshave/view_test.go",
+   "truth": "examples",
+   "pick": "pkg",
+   "p_pick": 0.7614414102984997,
+   "p_truth": 0.009434242054025217,
+   "top3": false,
+   "latency": 0.5271848420379683,
+   "letters_seen": 16
+  },
+  {
+   "file": "examples/gotth/chat/room.go",
+   "truth": "examples",
+   "pick": "pkg",
+   "p_pick": 0.6699134142719212,
+   "p_truth": 0.02106553459551376,
+   "top3": false,
+   "latency": 0.5110542589682154,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/fleet/node.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9613829124359295,
+   "p_truth": 0.9613829124359295,
+   "top3": true,
+   "latency": 0.5655569020309485,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/compose-files.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9789262005991791,
+   "p_truth": 0.9789262005991791,
+   "top3": true,
+   "latency": 0.4027625020244159,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/compose.acceptance.yaml",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9414636864609538,
+   "p_truth": 0.9414636864609538,
+   "top3": true,
+   "latency": 0.3691646480001509,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/README.md",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9870092517315158,
+   "p_truth": 0.9870092517315158,
+   "top3": true,
+   "latency": 0.504055725003127,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/test-install-validation.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.5277193563148808,
+   "p_truth": 0.5277193563148808,
+   "top3": true,
+   "latency": 0.6115506729693152,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/updater-status.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9244172781345767,
+   "p_truth": 0.9244172781345767,
+   "top3": true,
+   "latency": 0.4925208679633215,
+   "letters_seen": 15
+  },
+  {
+   "file": "infra/deploy-kit/fleet/control.compose.yaml",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9719440706694681,
+   "p_truth": 0.9719440706694681,
+   "top3": true,
+   "latency": 0.5583417500020005,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/AGENTS.md",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9899936741974542,
+   "p_truth": 0.9899936741974542,
+   "top3": true,
+   "latency": 0.563141335034743,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/postgres-init.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.7197968475592921,
+   "p_truth": 0.7197968475592921,
+   "top3": true,
+   "latency": 0.38031696900725365,
+   "letters_seen": 16
+  },
+  {
+   "file": "infra/deploy-kit/status.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9633035287320444,
+   "p_truth": 0.9633035287320444,
+   "top3": true,
+   "latency": 0.4329263209947385,
+   "letters_seen": 15
+  },
+  {
+   "file": "infra/deploy-kit/test-fleet.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.8264196868645901,
+   "p_truth": 0.8264196868645901,
+   "top3": true,
+   "latency": 0.5727200169931166,
+   "letters_seen": 15
+  },
+  {
+   "file": "infra/deploy-kit/install.sh",
+   "truth": "infra",
+   "pick": "infra",
+   "p_pick": 0.9599043314668934,
+   "p_truth": 0.9599043314668934,
+   "top3": true,
+   "latency": 0.5368142510415055,
+   "letters_seen": 15
+  },
+  {
+   "file": "io/inproc/queue_test.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.6739098907482144,
+   "p_truth": 0.6739098907482144,
+   "top3": true,
+   "latency": 0.5615754020400345,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/recent_test.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.8089355026348772,
+   "p_truth": 0.8089355026348772,
+   "top3": true,
+   "latency": 0.5795613460359164,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/BUILD.bazel",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.9023172768302308,
+   "p_truth": 0.9023172768302308,
+   "top3": true,
+   "latency": 0.38446889497572556,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/queue.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.6947723089501451,
+   "p_truth": 0.6947723089501451,
+   "top3": true,
+   "latency": 0.5425542260054499,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/graph_test.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.7423596936178058,
+   "p_truth": 0.7423596936178058,
+   "top3": true,
+   "latency": 0.5756057769758627,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/inproc_suite_test.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.8955703456768115,
+   "p_truth": 0.8955703456768115,
+   "top3": true,
+   "latency": 0.35679973202059045,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/recent.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.5638543556256135,
+   "p_truth": 0.5638543556256135,
+   "top3": true,
+   "latency": 0.5487805309821852,
+   "letters_seen": 16
+  },
+  {
+   "file": "io/inproc/graph.go",
+   "truth": "io",
+   "pick": "io",
+   "p_pick": 0.5837968249709515,
+   "p_truth": 0.5837968249709515,
+   "top3": true,
+   "latency": 0.6620732799638063,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/github/mock_generate_test.go",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.7757132092294597,
+   "p_truth": 0.7757132092294597,
+   "top3": true,
+   "latency": 0.3234189209761098,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/model/llamacpp/BUILD.bazel",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.9256667336630127,
+   "p_truth": 0.9256667336630127,
+   "top3": true,
+   "latency": 0.37412452400894836,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/docker/mock_generate_test.go",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.9531712162578954,
+   "p_truth": 0.9531712162578954,
+   "top3": true,
+   "latency": 0.3291809830116108,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/net/grpc/connector_test.go",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.8655202233289022,
+   "p_truth": 0.8655202233289022,
+   "top3": true,
+   "latency": 0.5007693350198679,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/model/llamacpp/mock_client_test.go",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.8984254228019068,
+   "p_truth": 0.8984254228019068,
+   "top3": true,
+   "latency": 0.45157213998027146,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/db/csfpg/sqlc.yaml",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.4902359038478933,
+   "p_truth": 0.4902359038478933,
+   "top3": true,
+   "latency": 0.3904250910272822,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/model/turnreport.go",
+   "truth": "ipc",
+   "pick": "pkg",
+   "p_pick": 0.9270221103318982,
+   "p_truth": 0.016912665855920075,
+   "top3": true,
+   "latency": 0.5406925840070471,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/db/csfpg/agent_configurations.sql",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.8070058987576306,
+   "p_truth": 0.8070058987576306,
+   "top3": true,
+   "latency": 0.5057487239828333,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/db/csfpg/queries.sql.go",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.5021075645302446,
+   "p_truth": 0.5021075645302446,
+   "top3": true,
+   "latency": 0.46574884495930746,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/db/csfpg/mocks/mock_pgx.go",
+   "truth": "ipc",
+   "pick": "pkg",
+   "p_pick": 0.8813524601265086,
+   "p_truth": 0.06678424083161752,
+   "top3": true,
+   "latency": 0.5064625379745848,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/model/jev/jev_suite_test.go",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.9315720196975648,
+   "p_truth": 0.9315720196975648,
+   "top3": true,
+   "latency": 0.3077108329744078,
+   "letters_seen": 16
+  },
+  {
+   "file": "ipc/db/csfpg/BUILD.bazel",
+   "truth": "ipc",
+   "pick": "ipc",
+   "p_pick": 0.9019080890762347,
+   "p_truth": 0.9019080890762347,
+   "top3": true,
+   "latency": 0.4341470029903576,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/terms/stem.go",
+   "truth": "pkg",
+   "pick": "pkg",
+   "p_pick": 0.9630791456636206,
+   "p_truth": 0.9630791456636206,
+   "top3": true,
+   "latency": 0.5527187919942662,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/bench/harness/interactions/DSH-7.mjs",
+   "truth": "pkg",
+   "pick": "web",
+   "p_pick": 0.4663502612332956,
+   "p_truth": 0.014679491582658138,
+   "top3": false,
+   "latency": 0.394147546030581,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/mailbox/mailbox_suite_test.go",
+   "truth": "pkg",
+   "pick": "pkg",
+   "p_pick": 0.8957609506518729,
+   "p_truth": 0.8957609506518729,
+   "top3": true,
+   "latency": 0.5234861699864268,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/docs/bench/data/g2-baseline/remeasure-2026-08-05/c1-old-obson/step06/run.json",
+   "truth": "pkg",
+   "pick": "runtime",
+   "p_pick": 0.3979261151636175,
+   "p_truth": 0.20699810025265303,
+   "top3": true,
+   "latency": 0.6238114060251974,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/liquidproto/cmd/protoc-gen-liquidproto/internal/expr/BUILD.bazel",
+   "truth": "pkg",
+   "pick": "pkg",
+   "p_pick": 0.8805375291460523,
+   "p_truth": 0.8805375291460523,
+   "top3": true,
+   "latency": 0.3819820719654672,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/docs/bench/data/g2-baseline/remeasure-2026-08-05/c3-head-obson/step04/driver-mn.json",
+   "truth": "pkg",
+   "pick": "ipc",
+   "p_pick": 0.4132767663429578,
+   "p_truth": 0.08349186835506325,
+   "top3": true,
+   "latency": 0.3621537620201707,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/docs/bench/data/g2-baseline/n100-obs-on/n100-obs-on-r02/window-m0.json",
+   "truth": "pkg",
+   "pick": "runtime",
+   "p_pick": 0.4069622161358231,
+   "p_truth": 0.09237383294068197,
+   "top3": false,
+   "latency": 0.6676014149561524,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/widget/internal/cmd/widgetc/main_suite_test.go",
+   "truth": "pkg",
+   "pick": "widgets",
+   "p_pick": 0.5034566339978326,
+   "p_truth": 0.2710775509667045,
+   "top3": true,
+   "latency": 0.3380595459602773,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/bench/apps/dashboard/gotth/env_test.go",
+   "truth": "pkg",
+   "pick": "app",
+   "p_pick": 0.48627276946842196,
+   "p_truth": 0.09582427259833944,
+   "top3": true,
+   "latency": 0.583719699003268,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/bench/apps/dashboard/gotth/view.templ",
+   "truth": "pkg",
+   "pick": "pkg",
+   "p_pick": 0.6853613525364368,
+   "p_truth": 0.6853613525364368,
+   "top3": true,
+   "latency": 0.5573625029646792,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/bench/apps/counter/next/tsconfig.json",
+   "truth": "pkg",
+   "pick": "web",
+   "p_pick": 0.5003493129149573,
+   "p_truth": 0.01481911484273733,
+   "top3": false,
+   "latency": 0.35492682503536344,
+   "letters_seen": 16
+  },
+  {
+   "file": "pkg/gotth/test/internal/conformance/cdp_test.go",
+   "truth": "pkg",
+   "pick": "pkg",
+   "p_pick": 0.5257201054478697,
+   "p_truth": 0.5257201054478697,
+   "top3": true,
+   "latency": 0.42373732599662617,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/work/v1/work.proto",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.9848735975343809,
+   "p_truth": 0.9848735975343809,
+   "top3": true,
+   "latency": 0.5319441230385564,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/harness/v1/harness.proto",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.9679683744023908,
+   "p_truth": 0.9679683744023908,
+   "top3": true,
+   "latency": 0.5048815099871717,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/generate-in-container.sh",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.943426313127358,
+   "p_truth": 0.943426313127358,
+   "top3": true,
+   "latency": 0.5336207519867457,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/telemetry/v1/doc.go",
+   "truth": "proto",
+   "pick": "pkg",
+   "p_pick": 0.6124510903588266,
+   "p_truth": 0.37041312608969507,
+   "top3": true,
+   "latency": 0.30131421698024496,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/brainspine/v1/brainspine.proto",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.9518288255278823,
+   "p_truth": 0.9518288255278823,
+   "top3": true,
+   "latency": 0.5403541199630126,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/email/v1/BUILD.bazel",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.7907117446491054,
+   "p_truth": 0.7907117446491054,
+   "top3": true,
+   "latency": 0.34815226297359914,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/deploy/v1/BUILD.bazel",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.6226443603878427,
+   "p_truth": 0.6226443603878427,
+   "top3": true,
+   "latency": 0.36485478200484067,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/deploy/v1/app_source.proto",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.9828633156213887,
+   "p_truth": 0.9828633156213887,
+   "top3": true,
+   "latency": 0.4492883540224284,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/intake/v1/BUILD.bazel",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.63873752826113,
+   "p_truth": 0.63873752826113,
+   "top3": true,
+   "latency": 0.3424578540143557,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/deploy/v1/doc.go",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.4971815468665201,
+   "p_truth": 0.4971815468665201,
+   "top3": true,
+   "latency": 0.28179224801715463,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/telemetry/v1/telemetry.proto",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.9790807140460445,
+   "p_truth": 0.9790807140460445,
+   "top3": true,
+   "latency": 0.5039832729962654,
+   "letters_seen": 16
+  },
+  {
+   "file": "proto/candace/provenance/v1/BUILD.bazel",
+   "truth": "proto",
+   "pick": "proto",
+   "p_pick": 0.6106079828039075,
+   "p_truth": 0.6106079828039075,
+   "top3": true,
+   "latency": 0.333119036979042,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/mock_host_test.go",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.7390175562060637,
+   "p_truth": 0.7390175562060637,
+   "top3": true,
+   "latency": 0.39480198197998106,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/mock_lazy_test.go",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.6273748778086979,
+   "p_truth": 0.6273748778086979,
+   "top3": true,
+   "latency": 0.509981046023313,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/config/BUILD.bazel",
+   "truth": "runtime",
+   "pick": "pkg",
+   "p_pick": 0.5812695164568319,
+   "p_truth": 0.3847539374799327,
+   "top3": true,
+   "latency": 0.34642609901493415,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/lazy.go",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.963189976126281,
+   "p_truth": 0.963189976126281,
+   "top3": true,
+   "latency": 0.48516586696496233,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/config/config_suite_test.go",
+   "truth": "runtime",
+   "pick": "pkg",
+   "p_pick": 0.733651320849776,
+   "p_truth": 0.03445463962250415,
+   "top3": false,
+   "latency": 0.35230021900497377,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/BUILD.bazel",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.816508713165073,
+   "p_truth": 0.816508713165073,
+   "top3": true,
+   "latency": 0.37183178204577416,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/runtime_test.go",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.6476933164651165,
+   "p_truth": 0.6476933164651165,
+   "top3": true,
+   "latency": 0.50583135697525,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/config/environment.go",
+   "truth": "runtime",
+   "pick": "pkg",
+   "p_pick": 0.7617620749663219,
+   "p_truth": 0.0007327210650721342,
+   "top3": false,
+   "latency": 0.4823340640286915,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/lazy_test.go",
+   "truth": "runtime",
+   "pick": "pkg",
+   "p_pick": 0.47939527328622844,
+   "p_truth": 0.4784956408093642,
+   "top3": true,
+   "latency": 0.4998218570253812,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/host.go",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.9562707843081611,
+   "p_truth": 0.9562707843081611,
+   "top3": true,
+   "latency": 0.5058777190279216,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/config/environment_test.go",
+   "truth": "runtime",
+   "pick": "pkg",
+   "p_pick": 0.5042323936198697,
+   "p_truth": 0.473021613074236,
+   "top3": true,
+   "latency": 0.5076950599905103,
+   "letters_seen": 16
+  },
+  {
+   "file": "runtime/runtime_suite_test.go",
+   "truth": "runtime",
+   "pick": "runtime",
+   "p_pick": 0.9352797577639069,
+   "p_truth": 0.9352797577639069,
+   "top3": true,
+   "latency": 0.3294751939829439,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/copilot-adapter/workspace_tasks.go",
+   "truth": "services",
+   "pick": "services",
+   "p_pick": 0.6799957972282773,
+   "p_truth": 0.6799957972282773,
+   "top3": true,
+   "latency": 0.3460807600058615,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/warden/internal/transportidentity/BUILD.bazel",
+   "truth": "services",
+   "pick": "services",
+   "p_pick": 0.9117526544193578,
+   "p_truth": 0.9117526544193578,
+   "top3": true,
+   "latency": 0.328001166053582,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/copilot-adapter/terminaladapter/manager.go",
+   "truth": "services",
+   "pick": "services",
+   "p_pick": 0.7043433900602099,
+   "p_truth": 0.7043433900602099,
+   "top3": true,
+   "latency": 0.5195386150153354,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/views/mock_launcher_test.go",
+   "truth": "services",
+   "pick": "ipc",
+   "p_pick": 0.7732749858610479,
+   "p_truth": 0.003711932880709269,
+   "top3": false,
+   "latency": 0.5212246529990807,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/dispatch/dispatch_suite_test.go",
+   "truth": "services",
+   "pick": "services",
+   "p_pick": 0.8973025596897519,
+   "p_truth": 0.8973025596897519,
+   "top3": true,
+   "latency": 0.3134505909984,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/nodeexec/launcher_support_test.go",
+   "truth": "services",
+   "pick": "ipc",
+   "p_pick": 0.9167416751867801,
+   "p_truth": 0.0008345710119878167,
+   "top3": false,
+   "latency": 0.3276127660064958,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/warden/watchdog/run_test.go",
+   "truth": "services",
+   "pick": "pkg",
+   "p_pick": 0.5924382308270522,
+   "p_truth": 0.3823410428176751,
+   "top3": true,
+   "latency": 0.5031048909877427,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/harness/opencode/sdk_adapter.go",
+   "truth": "services",
+   "pick": "pkg",
+   "p_pick": 0.8891112477318368,
+   "p_truth": 0.026470120972845377,
+   "top3": true,
+   "latency": 0.4769334919983521,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/copilot-adapter/ui/src/SessionBoard.test.tsx",
+   "truth": "services",
+   "pick": "widgets",
+   "p_pick": 0.693347430642244,
+   "p_truth": 0.06019861781587813,
+   "top3": true,
+   "latency": 0.5166636029607616,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/ouroboros/structure.go",
+   "truth": "services",
+   "pick": "services",
+   "p_pick": 0.7435999926340096,
+   "p_truth": 0.7435999926340096,
+   "top3": true,
+   "latency": 0.4990429619792849,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/warden/testclock/clock.go",
+   "truth": "services",
+   "pick": "pkg",
+   "p_pick": 0.5524747844823723,
+   "p_truth": 0.23365129641826693,
+   "top3": true,
+   "latency": 0.4935728730051778,
+   "letters_seen": 16
+  },
+  {
+   "file": "services/warden/election/config.go",
+   "truth": "services",
+   "pick": "pkg",
+   "p_pick": 0.6799300831606568,
+   "p_truth": 0.2912167249446683,
+   "top3": true,
+   "latency": 0.5098403079900891,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/house_lint/mandatory_test.ml",
+   "truth": "tools",
+   "pick": "csf",
+   "p_pick": 0.623349122497768,
+   "p_truth": 0.18718742639690966,
+   "top3": true,
+   "latency": 0.54173954797443,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/house_lint/placement_test.ml",
+   "truth": "tools",
+   "pick": "services",
+   "p_pick": 0.6427774811982346,
+   "p_truth": 0.03593688580518782,
+   "top3": false,
+   "latency": 0.5374443879700266,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/docaudit/docaudit_test.go",
+   "truth": "tools",
+   "pick": "docs",
+   "p_pick": 0.7586215424069346,
+   "p_truth": 0.07511822382192081,
+   "top3": true,
+   "latency": 0.6051200369838625,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/check-ifacereturn.sh",
+   "truth": "tools",
+   "pick": "tools",
+   "p_pick": 0.9958628424290541,
+   "p_truth": 0.9958628424290541,
+   "top3": true,
+   "latency": 0.5730578359798528,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/test-patches.sh",
+   "truth": "tools",
+   "pick": "tools",
+   "p_pick": 0.6855841049817495,
+   "p_truth": 0.6855841049817495,
+   "top3": true,
+   "latency": 0.42220080201514065,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/house_lint/test_layout_test.ml",
+   "truth": "tools",
+   "pick": "pkg",
+   "p_pick": 0.7752426259196193,
+   "p_truth": 0.002492309022391587,
+   "top3": false,
+   "latency": 0.5355405100272037,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/devcontainer/BUILD.bazel",
+   "truth": "tools",
+   "pick": "infra",
+   "p_pick": 0.46398738688425273,
+   "p_truth": 0.03008582636313335,
+   "top3": false,
+   "latency": 0.4396604950306937,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/house_lint/test_layout.ml",
+   "truth": "tools",
+   "pick": "ipc",
+   "p_pick": 0.6908508551286618,
+   "p_truth": 0.0009186513155022613,
+   "top3": false,
+   "latency": 0.5428575900150463,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/generateopensearch/BUILD.bazel",
+   "truth": "tools",
+   "pick": "tools",
+   "p_pick": 0.71858147559335,
+   "p_truth": 0.71858147559335,
+   "top3": true,
+   "latency": 0.423130598035641,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/check_operator_identifiers.py",
+   "truth": "tools",
+   "pick": "tools",
+   "p_pick": 0.9868980666848974,
+   "p_truth": 0.9868980666848974,
+   "top3": true,
+   "latency": 0.4931541479891166,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/csf-sandbox/BUILD.bazel",
+   "truth": "tools",
+   "pick": "ipc",
+   "p_pick": 0.19929432403734504,
+   "p_truth": 0.003400189802635727,
+   "top3": false,
+   "latency": 0.49741350300610065,
+   "letters_seen": 16
+  },
+  {
+   "file": "tools/githubgen/cmd/BUILD.bazel",
+   "truth": "tools",
+   "pick": "tools",
+   "p_pick": 0.8715090838324459,
+   "p_truth": 0.8715090838324459,
+   "top3": true,
+   "latency": 0.36974422802450135,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/httpapi/BUILD.bazel",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.5583068403007766,
+   "p_truth": 0.5583068403007766,
+   "top3": true,
+   "latency": 0.41420172300422564,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/overlay_test.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.903155232419083,
+   "p_truth": 0.903155232419083,
+   "top3": true,
+   "latency": 0.5691056540235877,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/overlay.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.898769723954161,
+   "p_truth": 0.898769723954161,
+   "top3": true,
+   "latency": 0.5132394490065053,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/nav_test.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.9350053054942791,
+   "p_truth": 0.9350053054942791,
+   "top3": true,
+   "latency": 0.5924003780237399,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/palette.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.7550464800930389,
+   "p_truth": 0.7550464800930389,
+   "top3": true,
+   "latency": 0.4915540150250308,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/nodeexec/httpapi/wire.go",
+   "truth": "web",
+   "pick": "services",
+   "p_pick": 0.4949420662917912,
+   "p_truth": 0.06688912268701766,
+   "top3": false,
+   "latency": 0.4043073530192487,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/templates/index.html",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.9302245878582305,
+   "p_truth": 0.9302245878582305,
+   "top3": true,
+   "latency": 0.5288427949999459,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/brand.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.7139552264730924,
+   "p_truth": 0.7139552264730924,
+   "top3": true,
+   "latency": 0.5119198450120166,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/BUILD.bazel",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.9642635418923647,
+   "p_truth": 0.9642635418923647,
+   "top3": true,
+   "latency": 0.4676640820107423,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/nodeexec/httpapi/BUILD.bazel",
+   "truth": "web",
+   "pick": "services",
+   "p_pick": 0.4587795907487969,
+   "p_truth": 0.13506015045095127,
+   "top3": true,
+   "latency": 0.44881158199859783,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/nav.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.853772775738536,
+   "p_truth": 0.853772775738536,
+   "top3": true,
+   "latency": 0.5199932809919119,
+   "letters_seen": 16
+  },
+  {
+   "file": "web/deploy/webui/brand_test.go",
+   "truth": "web",
+   "pick": "web",
+   "p_pick": 0.8765389851232439,
+   "p_truth": 0.8765389851232439,
+   "top3": true,
+   "latency": 0.5562047940329649,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/README.md",
+   "truth": "widgets",
+   "pick": "widgets",
+   "p_pick": 0.8884734834740748,
+   "p_truth": 0.8884734834740748,
+   "top3": true,
+   "latency": 0.5334213129826821,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/fixer-spend/fixtures.json",
+   "truth": "widgets",
+   "pick": "services",
+   "p_pick": 0.24408276070844215,
+   "p_truth": 0.004948081301946165,
+   "top3": false,
+   "latency": 0.4116623169975355,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/widgets_test.go",
+   "truth": "widgets",
+   "pick": "widgets",
+   "p_pick": 0.7670424513856886,
+   "p_truth": 0.7670424513856886,
+   "top3": true,
+   "latency": 0.5585393090150319,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/widgets_suite_test.go",
+   "truth": "widgets",
+   "pick": "widgets",
+   "p_pick": 0.9550861789125644,
+   "p_truth": 0.9550861789125644,
+   "top3": true,
+   "latency": 0.3520684909890406,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/BUILD.bazel",
+   "truth": "widgets",
+   "pick": "services",
+   "p_pick": 0.4403150501249646,
+   "p_truth": 0.41035869530630764,
+   "top3": true,
+   "latency": 0.37960847903741524,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/merge-train/fixtures.json",
+   "truth": "widgets",
+   "pick": "ipc",
+   "p_pick": 0.4088645854254042,
+   "p_truth": 0.004174218807296334,
+   "top3": false,
+   "latency": 0.3841961740399711,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/merge-train/binding.json",
+   "truth": "widgets",
+   "pick": "proto",
+   "p_pick": 0.2500699362077082,
+   "p_truth": 0.032631488652938835,
+   "top3": false,
+   "latency": 0.39043639600276947,
+   "letters_seen": 16
+  },
+  {
+   "file": "widgets/fixer-spend/binding.json",
+   "truth": "widgets",
+   "pick": "proto",
+   "p_pick": 0.27147060737670003,
+   "p_truth": 0.00821348855858175,
+   "top3": false,
+   "latency": 0.3832852999912575,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/crates/xetcasd/src/dedup_shard.rs",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.9652550591004004,
+   "p_truth": 0.9652550591004004,
+   "top3": true,
+   "latency": 0.5332570179598406,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/docs/research/git-xet.md",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.5510771299057531,
+   "p_truth": 0.5510771299057531,
+   "top3": true,
+   "latency": 0.5428654200513847,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/docs/research/config-selfhost.md",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.8924122282467565,
+   "p_truth": 0.8924122282467565,
+   "top3": true,
+   "latency": 0.685670509992633,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/crates/xetcasd/tests/upload.rs",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.924829571754183,
+   "p_truth": 0.924829571754183,
+   "top3": true,
+   "latency": 0.5348539979895577,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/crates/xetcas-contracts/tests/golden_json.rs",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.9549691059604677,
+   "p_truth": 0.9549691059604677,
+   "top3": true,
+   "latency": 0.606503582035657,
+   "letters_seen": 14
+  },
+  {
+   "file": "xetcas/crates/xetcasd/src/error.rs",
+   "truth": "xetcas",
+   "pick": "web",
+   "p_pick": 0.6618604633168591,
+   "p_truth": 0.02314045473686702,
+   "top3": true,
+   "latency": 0.5161602210137062,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/crates/xetcasd/tests/git_hosting.rs",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.7623266118473758,
+   "p_truth": 0.7623266118473758,
+   "top3": true,
+   "latency": 0.5642714480054565,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/.cargo/config.toml",
+   "truth": "xetcas",
+   "pick": "tools",
+   "p_pick": 0.5606760786171389,
+   "p_truth": 0.018686367596000106,
+   "top3": false,
+   "latency": 0.30268496403004974,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/crates/xetcasd/src/reconstruction.rs",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.9650760769437426,
+   "p_truth": 0.9650760769437426,
+   "top3": true,
+   "latency": 0.502622480969876,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/docs/server.md",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.9616429925622022,
+   "p_truth": 0.9616429925622022,
+   "top3": true,
+   "latency": 0.5263263970264234,
+   "letters_seen": 15
+  },
+  {
+   "file": "xetcas/Cargo.toml",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.8239447035569449,
+   "p_truth": 0.8239447035569449,
+   "top3": true,
+   "latency": 0.3749289499828592,
+   "letters_seen": 16
+  },
+  {
+   "file": "xetcas/crates/xetcasd/src/xorbstore.rs",
+   "truth": "xetcas",
+   "pick": "xetcas",
+   "p_pick": 0.9567202302979528,
+   "p_truth": 0.9567202302979528,
+   "top3": true,
+   "latency": 0.5397735509905033,
+   "letters_seen": 16
+  }
+ ],
+ "level1_wall_s": 86.97007640998345,
+ "level2": [
+  {
+   "file": "services/views/lab.go",
+   "truth": "views",
+   "pick": "views",
+   "p_pick": 0.986040788052853,
+   "latency": 0.8271849590237252
+  },
+  {
+   "file": "services/copilot-adapter/integration/agent_messaging_test.go",
+   "truth": "copilot-adapter",
+   "pick": "copilot-adapter",
+   "p_pick": 0.9384599020630129,
+   "latency": 1.1251809009700082
+  },
+  {
+   "file": "services/harness/sessiongate/endpoint.go",
+   "truth": "harness",
+   "pick": "harness",
+   "p_pick": 0.994318991550232,
+   "latency": 1.0856806360534392
+  },
+  {
+   "file": "services/harness/upgrade/upgrade.go",
+   "truth": "harness",
+   "pick": "harness",
+   "p_pick": 0.9928372006687177,
+   "latency": 1.0510606330353767
+  },
+  {
+   "file": "services/warden/election/liveness_test.go",
+   "truth": "warden",
+   "pick": "warden",
+   "p_pick": 0.9914754843232418,
+   "latency": 1.1221056649810635
+  },
+  {
+   "file": "services/harness/routing/measure.go",
+   "truth": "harness",
+   "pick": "harness",
+   "p_pick": 0.9948563162252737,
+   "latency": 1.09326004300965
+  },
+  {
+   "file": "services/copilot-adapter/workbench/ui_test.go",
+   "truth": "copilot-adapter",
+   "pick": "opsview",
+   "p_pick": 0.848725895722866,
+   "latency": 1.1070014409488067
+  },
+  {
+   "file": "services/deploy/internal/storedb/doc.go",
+   "truth": "deploy",
+   "pick": "deploy",
+   "p_pick": 0.9968864186006687,
+   "latency": 0.8952217489713803
+  },
+  {
+   "file": "services/ouroboros/miners/hand_rolled_wait/rules.dl",
+   "truth": "ouroboros",
+   "pick": "await",
+   "p_pick": 0.9876815554040425,
+   "latency": 1.005900205927901
+  },
+  {
+   "file": "services/copilot-adapter/ui/index.html",
+   "truth": "copilot-adapter",
+   "pick": "opsview",
+   "p_pick": 0.6846468496467562,
+   "latency": 0.9220548269804567
+  },
+  {
+   "file": "services/dreamer/backlog.go",
+   "truth": "dreamer",
+   "pick": "dreamer",
+   "p_pick": 0.9802260179121474,
+   "latency": 1.1583803780376911
+  },
+  {
+   "file": "services/views/lab.json",
+   "truth": "views",
+   "pick": "workcontinuity",
+   "p_pick": 0.5838176955251224,
+   "latency": 0.9795954209985211
+  },
+  {
+   "file": "services/ouroboros/codes/induce.go",
+   "truth": "ouroboros",
+   "pick": "harness",
+   "p_pick": 0.897171047025684,
+   "latency": 1.1551937679760158
+  },
+  {
+   "file": "services/copilot-adapter/copilotbridge/usage_views_gen.go",
+   "truth": "copilot-adapter",
+   "pick": "copilot-adapter",
+   "p_pick": 0.9293655483918271,
+   "latency": 1.1096161679597571
+  },
+  {
+   "file": "services/harness/sessiongate/measurement.go",
+   "truth": "harness",
+   "pick": "harness",
+   "p_pick": 0.9833865974526278,
+   "latency": 1.1441366069484502
+  },
+  {
+   "file": "services/warden/store/BUILD.bazel",
+   "truth": "warden",
+   "pick": "warden",
+   "p_pick": 0.999430478204984,
+   "latency": 0.879345781984739
+  },
+  {
+   "file": "services/harness/inbox_integration_test.go",
+   "truth": "harness",
+   "pick": "harness",
+   "p_pick": 0.9880347559889877,
+   "latency": 1.0660398689797148
+  },
+  {
+   "file": "services/ouroboros/ouroboros_suite_test.go",
+   "truth": "ouroboros",
+   "pick": "ouroboros",
+   "p_pick": 0.9728266208974768,
+   "latency": 0.7750752559513785
+  },
+  {
+   "file": "services/copilot-adapter/terminaladapter/BUILD.bazel",
+   "truth": "copilot-adapter",
+   "pick": "copilot-adapter",
+   "p_pick": 0.999716042531567,
+   "latency": 1.0202600510674529
+  },
+  {
+   "file": "services/opsview/merges.go",
+   "truth": "opsview",
+   "pick": "opsview",
+   "p_pick": 0.9679581751818106,
+   "latency": 1.190981024003122
+  },
+  {
+   "file": "services/deploy/store/migrations/001_initial.sql",
+   "truth": "deploy",
+   "pick": "deploy",
+   "p_pick": 0.9712633488794545,
+   "latency": 8.418063647055533
+  },
+  {
+   "file": "services/views/catalog_internal_test.go",
+   "truth": "views",
+   "pick": "views",
+   "p_pick": 0.9321622536395994,
+   "latency": 0.868564044998493
+  },
+  {
+   "file": "services/harness/longturns/detector_test.go",
+   "truth": "harness",
+   "pick": "harness",
+   "p_pick": 0.9958344167306539,
+   "latency": 1.0610537529573776
+  },
+  {
+   "file": "services/views/corrections.go",
+   "truth": "views",
+   "pick": "views",
+   "p_pick": 0.9874307585833619,
+   "latency": 0.8099829640705138
+  },
+  {
+   "file": "services/warden/internal/transportidentity/identity.go",
+   "truth": "warden",
+   "pick": "warden",
+   "p_pick": 0.9967450036305229,
+   "latency": 0.8221680029528216
+  },
+  {
+   "file": "services/deploy/config/config_suite_test.go",
+   "truth": "deploy",
+   "pick": "deploy",
+   "p_pick": 0.9244496695896938,
+   "latency": 0.7337296140030958
+  },
+  {
+   "file": "services/harness/opencode/sdk_adapter.go",
+   "truth": "harness",
+   "pick": "workcontinuity",
+   "p_pick": 0.6701989615767715,
+   "latency": 0.921089532028418
+  },
+  {
+   "file": "services/harness/upgrade/upgrade_suite_test.go",
+   "truth": "harness",
+   "pick": "warden",
+   "p_pick": 0.7682833368067109,
+   "latency": 0.8605162950698286
+  },
+  {
+   "file": "services/warden/testclock/clock_test.go",
+   "truth": "warden",
+   "pick": "warden",
+   "p_pick": 0.949210631161493,
+   "latency": 1.2248642080230638
+  },
+  {
+   "file": "services/copilot-adapter/ui/src/kanbanTemplates.tsx",
+   "truth": "copilot-adapter",
+   "pick": "opsview",
+   "p_pick": 0.5502941490193366,
+   "latency": 0.9916903920820914
+  }
+ ],
+ "level2_options": 21
+}

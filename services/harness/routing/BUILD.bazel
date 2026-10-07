@@ -9,6 +9,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/harness/routing",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/atomicfile",
         "//services/harness/session",
         "@com_github_prometheus_client_golang//prometheus",
     ],

@@ -263,7 +263,7 @@ assertion:
 ```
 alternates file: (does not exist)      -> shares no object store with the checkout
 clone HEAD  == source HEAD             091dbae8…
-shallow: true    remote: file:///home/dev/…/gotth-live-orchestrator-c3efc4
+shallow: true    remote: file:///srv/…/gotth-live-orchestrator-c3efc4
 node_modules dirs:      0
 built example binaries: 0
 git status --porcelain --ignored: 0 lines
@@ -271,6 +271,9 @@ untracked:                        0 lines
 all 7 generated files present and TRACKED
 gotth-live.min.js: 10391 bytes, byte-identical to the worktree's committed file
 ```
+
+> Edited for publication: the remote's host path, already elided in the record, now reads as the
+> neutral path `/srv/…/`. The output is otherwise as recorded.
 
 10,391 is `client/SIZE.md:45`'s figure for the shipped runtime. The bytes three
 examples served out of a container with no node in it are the committed file,

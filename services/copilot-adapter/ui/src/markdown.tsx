@@ -1,6 +1,8 @@
 import { Fragment } from "react";
 import { marked } from "marked";
 import type { Token, Tokens } from "marked";
+import { safeHref } from "./href";
+import { PICKER_LANGUAGE, Picker, parsePicker, usePickerHost } from "./picker";
 
 // Assistant text is Markdown. marked does the parsing — a hand-rolled parser
 // would be the wrong thing to own — but it is used as a LEXER only: the token
@@ -13,18 +15,7 @@ import type { Token, Tokens } from "marked";
 // is checked before it becomes an href, and an image becomes its alt text
 // rather than a request to somebody else's server.
 
-const SAFE_SCHEMES = ["http:", "https:", "mailto:"];
-
-// A link is a link only if it goes somewhere a browser may safely follow;
-// javascript:, data: and vbscript: hrefs render as their own text instead.
-export function safeHref(href: string): string | null {
-  try {
-    const parsed = new URL(href, "http://adapter.invalid/");
-    return SAFE_SCHEMES.includes(parsed.protocol) ? href : null;
-  } catch {
-    return null;
-  }
-}
+export { safeHref };
 
 // marked hands back HTML-escaped text in `text` and `codespan` tokens. React
 // escapes on output, so the entities have to come back off first or the reader
@@ -100,6 +91,7 @@ function renderBlocks(tokens: Token[] | undefined): React.ReactNode {
       }
       case "code": {
         const code = token as Tokens.Code;
+        if (code.lang === PICKER_LANGUAGE) return <PickerBlock key={key} source={code.text} />;
         return (
           <pre key={key} style={{ maxHeight: 320, overflow: "auto", overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>
             <code data-language={code.lang ?? ""}>{code.text}</code>
@@ -159,6 +151,21 @@ function renderBlocks(tokens: Token[] | undefined): React.ReactNode {
         return <p key={key}>{decodeEntities(token.raw)}</p>;
     }
   });
+}
+
+// A picker renders as buttons only inside a session that can receive the
+// reply and only once its JSON is complete; otherwise it is ordinary code.
+function PickerBlock({ source }: { source: string }) {
+  const host = usePickerHost();
+  const spec = host === null ? null : parsePicker(source);
+  if (host === null || spec === null) {
+    return (
+      <pre style={{ maxHeight: 320, overflow: "auto", overflowWrap: "anywhere", whiteSpace: "pre-wrap" }}>
+        <code data-language={PICKER_LANGUAGE}>{source}</code>
+      </pre>
+    );
+  }
+  return <Picker spec={spec} host={host} />;
 }
 
 export type MarkdownProps = { source: string };

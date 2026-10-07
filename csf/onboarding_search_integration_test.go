@@ -43,9 +43,8 @@ var _ = Describe("CSF onboarding external knowledge integration", func() {
 			_, err := admin.Cluster.Health(requestContext, &opensearchapi.ClusterHealthReq{})
 			return err
 		}, func(err error) bool { return err == nil })).To(Succeed())
+		// The projection creates the index with its chunk mapping on first write.
 		indexName := "csf-onboarding-" + uuid.NewString()
-		_, err = admin.Indices.Create(ctx, opensearchapi.IndicesCreateReq{Index: indexName})
-		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(func() {
 			_, err := admin.Indices.Delete(ctx, &opensearchapi.IndicesDeleteReq{Indices: []string{indexName}})
 			Expect(err).NotTo(HaveOccurred())

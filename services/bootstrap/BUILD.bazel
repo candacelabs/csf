@@ -1,0 +1,36 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "bootstrap",
+    srcs = [
+        "archive.go",
+        "doc.go",
+        "loop.go",
+        "loop_snapshot.go",
+        "measure.go",
+        "stage.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/bootstrap",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf/prod",
+        "//pkg/atomicfile",
+    ],
+)
+
+go_test(
+    name = "bootstrap_test",
+    srcs = [
+        "archive_test.go",
+        "bootstrap_suite_test.go",
+        "foreign_test.go",
+        "loop_test.go",
+    ],
+    data = ["//csf/bootstrap:foreign_go"],  # keep
+    deps = [
+        ":bootstrap",
+        "//csf/prod",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "affect",
+    srcs = ["affect.go"],
+    importpath = "github.com/candacelabs/csf/pkg/affect",
+    visibility = ["//visibility:public"],
+    deps = ["//pkg/terms"],
+)
+
+go_test(
+    name = "affect_test",
+    srcs = [
+        "affect_suite_test.go",
+        "affect_test.go",
+    ],
+    deps = [
+        ":affect",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -3,11 +3,11 @@ load("@rules_go//go:def.bzl", "go_library")
 go_library(
     name = "kanban",
     srcs = [
-        "actions.go",
         "board.go",
+        "board_actions.go",
+        "board_render.go",
+        "board_snapshot.go",
         "generate.go",
-        "render.go",
-        "snapshot.go",
     ],
     embedsrcs = [
         "templates/board_cgen.html",

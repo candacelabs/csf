@@ -13,8 +13,8 @@ range (RFC 5737 TEST-NET-3).
 | node_id  | tailnet IP     | login user | notes              |
 | -------- | -------------- | ---------- | ------------------ |
 | `node-a` | `203.0.113.11` | `deploy`   | hypervisor host    |
-| `node-b` | `203.0.113.12` | `deploy`   | application host   |
-| `node-c` | `203.0.113.13` | `deploy`   | application host   |
+| `node-b` | `203.0.113.12` | `deploy`   | [application](../../../csf/docs/generated/ontology_cgen.md#term-application) host   |
+| `node-c` | `203.0.113.13` | `deploy`   | [application](../../../csf/docs/generated/ontology_cgen.md#term-application) host   |
 | `node-d` | `203.0.113.14` | `deploy`   | edge / proxy host  |
 
 All four listen on `:7717`. warden speaks HTTP/JSON over the tailnet, so every

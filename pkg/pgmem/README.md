@@ -74,7 +74,7 @@ transactional rollback boundary.
 
 Those three pieces — `New`, your real schema, `Backup`/`Restore` — compose into
 the pattern the suites here use. The schema comes from the migration files the
-service actually ships, because a hand-written `CREATE TABLE` in a `_test.go`
+[service](../../csf/docs/generated/ontology_cgen.md#term-service) actually ships, because a hand-written `CREATE TABLE` in a `_test.go`
 is a second schema that drifts from the first one:
 
 ```go
@@ -192,7 +192,7 @@ for the exact tested surface and known gaps.
 
 Like upstream pg-mem, this is a best-effort unit-test emulator rather than a
 production PostgreSQL replacement. Always validate migrations and integration
-behavior against the PostgreSQL versions your application supports.
+behavior against the PostgreSQL versions your [application](../../csf/docs/generated/ontology_cgen.md#term-application) supports.
 
 ## Development
 

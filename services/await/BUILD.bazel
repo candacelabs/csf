@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "await",
+    srcs = [
+        "await.go",
+        "awaiter_conditions.go",
+        "awaiter_operations.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/await",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//io/ipc/proc",
+        "//io/kernel/fs",
+        "//io/net/http",
+        "//pkg/eventually",
+        "//proto/candace/harness/v1:harness",
+        "@com_github_gin_gonic_gin//:gin",
+    ],
+)
+
+go_test(
+    name = "await_test",
+    srcs = [
+        "await_suite_test.go",
+        "await_test.go",
+        "mock_client_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+    ],
+    deps = [
+        ":await",
+        "//io/ipc/proc",
+        "//proto/candace/harness/v1:harness",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

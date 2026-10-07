@@ -2,9 +2,11 @@
 
 These workflows ship with every generated snapshot and run on GitHub-hosted
 runners when the destination repository is public. Every job checks repository
-visibility before allocating a runner. Private staging uses the canonical
-repository's own runner fleet, source checks, exact snapshot comparison and
-archive-consumer acceptance. Skipped staging workflows are not test results.
+visibility before allocating a runner. In private staging they run only on
+release branches: a push to `release/**`, or a pull request into one. They
+never run for `main` or for pull requests into it; there, the local merge gate
+(`tools/check-merge.sh`) is the bar. Skipped staging workflows are not test
+results.
 The monorepo's `Candacefile` sets `requires_workflows_write: true` so the
 publisher may write this directory.
 
@@ -27,7 +29,7 @@ change to this tree must satisfy before it can ever reach here:
 
 | here | monorepo |
 |---|---|
-| `ci.yml` → Bazel inventory, runtime partitions, compiler and metadata | `.github/workflows/candace-bazel-checks.yml` |
+| `ci.yml` → Bazel inventory, [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) partitions, compiler and metadata | `.github/workflows/candace-bazel-checks.yml` |
 | `csfc.yml` → compiler and Lean stub | `.github/workflows/brain-spine-composition.yml` → `compiler-package` |
 | `ci.yml` → `identifiers` | `.github/workflows/component-export-checks.yml` |
 | `ci.yml` → `deploy` | `.github/workflows/deploy-acceptance.yml` |
@@ -52,7 +54,7 @@ check whether the snapshot is coherent on its own. A snapshot can be green in th
 broken here, because here it is a repository rather than a subdirectory: the
 module root moves, `infra/deploy-kit/` sits at the top level, and consumers take this
 tree as a Bazel module. Every job here asks that question and nothing else:
-`ci.yml` checks the runtime packages; `csfc.yml` checks the independent compiler
+`ci.yml` checks the [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) packages; `csfc.yml` checks the independent compiler
 module and compiles its Lean verifier stub. An optional `notify_release` job in
 the existing CI dispatches the canonical publisher after a public `main` push.
 
@@ -78,9 +80,9 @@ this repository publishes a website any more.
 - **`actions/checkout` with `persist-credentials: false`.** No job in this
   repository writes to it.
 - **Bazel comes from the pinned container**, through `tools/bazel.sh`, rather
-  than from a runner-provided Bazel or a `setup-` action. It is the same
+  than from a runner-provided Bazel or a `setup-` [action](../../csf/docs/generated/ontology_cgen.md#term-action). It is the same
   command a developer runs, and `.bazelversion` and `MODULE.bazel` remain the
-  only version authority. Runtime jobs share immutable repository downloads
+  only version authority. [Runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) jobs share immutable repository downloads
   and content-addressed build results; each job resolves its own module graph.
   Separate five-minute preparations compile Go standard libraries and generator
   tools, then Rust build helpers, network dependencies, storage and generator
@@ -91,13 +93,40 @@ this repository publishes a website any more.
   Each partition builds its complete target inventory and runs non-manual
   tests in one invocation. Manual tests still build; their documented Go/Cargo
   owners provide the prerequisites needed to execute them.
-  Compiler jobs restore a separately prepared OCaml installation whose exact
+  [Compiler](../../csf/docs/generated/ontology_cgen.md#term-compiler) jobs restore a separately prepared OCaml installation whose exact
   package and library inventory is revalidated by Bazel. Neither a cache hit
   nor a preparation job substitutes for a consuming check.
 - **Optional cache uploads have a separate budget.** Completed checks remain
   authoritative when an optional build-cache upload is skipped or times out.
   Required preparation caches still fail their producer or consumer when
-  unavailable; the optional-save action does not apply to them.
+  unavailable; the optional-save [action](../../csf/docs/generated/ontology_cgen.md#term-action) does not apply to them.
+
+## Staging runs CI only on release branches
+
+Operator ruling, 2026-10-05: CSF staging does not run CI on `main`; it runs it
+only on release branches. Every verification job's guard is therefore
+
+```yaml
+if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
+```
+
+A push reads its branch from `github.ref_name`; a pull request reads its target
+from `github.base_ref`. So in staging a push to `release/v0.2.0` or a pull request
+into it runs the full suite, and a push to `main` or a pull request into `main`
+runs nothing. The public snapshot is unaffected: it is public, so its own `main`
+still runs every job. `notify_release` keeps its public-`main`-only guard.
+
+## The workflow that runs on staging main
+
+`release.yml` is the exception to the visibility guards, and its guard is
+their inverse: it runs only while the repository is private, so the public
+snapshot, which publishes its own source archives, never runs it. On every
+push to `main` it builds the `csf` binary in the pinned Go image and publishes
+it with its SHA-256 as the release `csf-<commit>`, then moves the
+`latest-main` release to the same two assets. `csf upgrade` downloads from
+these releases, so deploying CSF needs no checkout, Go toolchain or image
+build on the operator's machine. It uses the run's own `GITHUB_TOKEN` with
+`contents: write` and no other credential.
 
 ## Operator prerequisites
 

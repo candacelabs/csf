@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"

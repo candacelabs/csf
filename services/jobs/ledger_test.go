@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/services/jobs"
 	"github.com/candacelabs/csf/services/jobs/jobsmock"
 )

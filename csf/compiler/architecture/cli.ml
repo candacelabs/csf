@@ -4,8 +4,9 @@
 open Cmdliner
 
 let summary (report : Compiler.report) =
-  Printf.sprintf "architecture=%s mode=%s declarations=checked source=checked obligations=%d"
-    report.architecture_name (Compiler.mode_name report.mode) report.obligations
+  Printf.sprintf "architecture=%s mode=%s declarations=checked source=checked directories=%d/%d obligations=%d"
+    report.architecture_name (Compiler.mode_name report.mode)
+    report.directories_declared report.directories_tracked report.obligations
 
 let diagnostic (error : Model.diagnostic) =
   Printf.sprintf "%s:%d:%d: %s: %s" error.at.file error.at.line error.at.column
@@ -58,6 +59,45 @@ let config =
     $ Arg.(value & flag & info ["require-closed"]
         ~doc:"Reject outstanding implementation or verification obligations."))
 
+(* --- the shell verb --- *)
+
+(* One service declaration compiled into a Go shell. The three chief invariants
+   are compile errors: a declaration that fans a question past sixteen options,
+   leaves a question with no option to project it, or leaves a leaf without one
+   template is refused before any file is written. *)
+let shell_grammar =
+  path "grammar" "csf/compiler/architecture/shell.ebnf" "Executable EBNF grammar for the shell declaration."
+
+let shell_out =
+  Arg.(value & opt string "." & info ["out"] ~docv:"DIR"
+    ~doc:"Directory the generated shell is written into.")
+
+let shell_declaration =
+  Arg.(required & pos 0 (some string) None & info [] ~docv:"DECLARATION"
+    ~doc:"A service declaration written in the shell grammar.")
+
+let shell_run grammar_path out source_path =
+  let result =
+    match Shell.parse_files ~grammar_path ~source_path with
+    | Error diagnostics -> Error diagnostics
+    | Ok declaration -> begin match Shell.check declaration with
+        | [] ->
+            (try Shell.write ~source:source_path ~out declaration; Ok ()
+             with
+             | Sys_error message -> Error [{ at = { file = source_path; line = 1; column = 1 };
+                 code = "CSF_IO"; message }]
+             | Unix.Unix_error (error, operation, path) -> Error [{ at = { file = path; line = 1; column = 1 };
+                 code = "CSF_IO"; message = operation ^ ": " ^ Unix.error_message error }])
+        | findings -> Error findings end in
+  match result with
+  | Ok () -> Printf.printf "shell=%s out=%s\n%!" source_path out; 0
+  | Error errors -> failed errors
+
+let shell_command =
+  Cmd.v (Cmd.info "shell"
+    ~doc:"Compile one service declaration into a Go shell, refusing an invariant violation.")
+    Term.(const shell_run $ shell_grammar $ shell_out $ shell_declaration)
+
 (* Inject the runner only at the CLI boundary so argument tests need no source
    tree or writes. The end-to-end example separately exercises Compiler.run
    through the actual executable; injected tests alone do not establish that. *)
@@ -73,6 +113,7 @@ let command_with ?(json = Compiler.json) run =
       Cmd.v (Cmd.info (Compiler.mode_name Compiler.Emit)
         ~doc:"Check the architecture and write its projections, or print it as JSON.") emit;
       command Compiler.Check_generated "Check the architecture and reject projection drift.";
+      shell_command;
     ]
 
 let command = command_with Compiler.run

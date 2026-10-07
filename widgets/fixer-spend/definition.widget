@@ -1,0 +1,79 @@
+%% Fixer spend on the loop's budget day against the daily cap, read from the
+%% loop's snapshot (ouroboros.json) through binding.json.
+
+widget FixerSpend
+dialect 0
+region "widget.fixer-spend"
+palette fieldStation
+
+
+state
+  field day type text
+  field spendToday type text
+  field cap type text
+  field sessions type count
+end
+
+
+labels
+  label titleLabel text "Fixer spend"
+  label sourceLabel text "ouroboros loop, day {day}"
+  label spendLabel text "${spendToday} spent today"
+  label capLabel text "${cap} daily cap"
+  label sceneLabel text "Fixers spent ${spendToday} of the ${cap} daily cap on {day}, over {sessions} fixer sessions in all."
+  label budgetLabel text "budget"
+  label againstLabel text "${spendToday} of ${cap}"
+end
+
+
+chrome
+  title titleLabel
+  source sourceLabel
+  stat spendLabel
+  stat capLabel
+end
+
+
+roles
+  role budgetRole
+    token accent
+    marker large
+    emphasis forbidden
+  end
+end
+
+
+placements
+  placement centre left 50 top 50
+end
+
+
+scene budget
+  description sceneLabel
+
+  node budgetNode
+    role budgetRole
+    at centre
+    title budgetLabel
+    caption againstLabel
+  end
+end
+
+
+events
+  event snapshot
+    wire "widget.fixer-spend.snapshot"
+    field day writes day
+    field spend_today writes spendToday
+    field cap writes cap
+    field sessions writes sessions
+  end
+end
+
+
+data
+  stream spendWatch
+    source "ouroboros.json"
+    delivers snapshot
+  end
+end

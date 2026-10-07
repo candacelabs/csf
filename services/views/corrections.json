@@ -1,0 +1,25 @@
+{
+  "source": "hand_labeled",
+  "provenance": "Hand-labeled by the orchestrator session in the operator-correction comment on #124: distinct operator-flagged mistakes in the window, each classed by the ticket or gate that owns its class. Attention hours are the distinct UTC hours holding at least one operator message to that session in the window, counted from its message timestamps.",
+  "from": "2026-10-04T03:00:00Z",
+  "through": "2026-10-05T02:05:00Z",
+  "attention_hours": 7,
+  "merged_slices": [320, 321, 322, 323, 331, 332, 333, 334],
+  "corrections": [
+    {"class": "#47", "what": "prose rule in a memory file"},
+    {"class": "#47", "what": "prose-for-structure follow-up"},
+    {"class": "#315", "what": "unvetted operator term adopted"},
+    {"class": "#145", "what": "agent panel launched without asking"},
+    {"class": "#145", "what": "false premise in a question option"},
+    {"class": "#145", "what": "option contradicting a ruling"},
+    {"class": "#145", "what": "metric substituted for the asked quantity"},
+    {"class": "#349", "what": "reinvent over reuse"},
+    {"class": "#343", "what": "stale half-done pull requests left out of the program"},
+    {"class": "#343", "what": "over-engineered provider switch"},
+    {"class": "#355", "what": "silent endpoint retirement"},
+    {"class": "#354", "what": "measurement without a dashboard"},
+    {"class": "#351", "what": "unowned advisory signal"},
+    {"class": "#329", "what": "dispatch queue left empty"},
+    {"class": "unticketed", "what": "endorsement without basis"}
+  ]
+}

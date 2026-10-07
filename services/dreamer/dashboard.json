@@ -1,0 +1,58 @@
+{
+  "title": "CSF dreamer",
+  "uid": "csf-dreamer",
+  "schemaVersion": 39,
+  "tags": ["csf", "dreamer"],
+  "time": {"from": "now-14d", "to": "now"},
+  "templating": {"list": [{"name": "datasource", "type": "datasource", "query": "prometheus"}]},
+  "panels": [
+    {
+      "id": 1,
+      "title": "Ready frontier vs target",
+      "description": "Slices in the dispatcher's ready frontier at each dreamer pass, against the target its admission derives: the launches allowed now plus the sessions expected to finish before the next pass.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"refId": "A", "expr": "csf_dreamer_ready_slices", "legendFormat": "ready"},
+        {"refId": "B", "expr": "csf_dreamer_target_slices", "legendFormat": "target"}
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Slices generated per source",
+      "description": "Slices the dreamer added, by the source of their work, and the strategy's exploration weight.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"refId": "A", "expr": "csf_dreamer_slices_generated", "legendFormat": "{{source}}"},
+        {"refId": "B", "expr": "csf_dreamer_explore_weight", "legendFormat": "explore weight"}
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Objective: struggles per 1k tool calls, latest complete week",
+      "description": "The struggle rate on all runs with its 95% Garwood interval, and the weekly compounding factor with its 95% interval; exponential improvement is the factor below 1 and staying there.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"refId": "A", "expr": "csf_dreamer_struggle_rate_per_1k_tool_calls{partition=\"all\"}", "legendFormat": "rate {{bound}}"},
+        {"refId": "B", "expr": "csf_dreamer_struggle_factor_per_week{partition=\"all\"}", "legendFormat": "factor {{bound}}"}
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Held-out vs in-sample improvement",
+      "description": "The weekly struggle factor with its 95% interval on the in-sample runs the dreamer chooses work from and on the held-out runs it never reads; a gain that shows in-sample only is overfitting.",
+      "type": "timeseries",
+      "datasource": {"type": "prometheus", "uid": "${datasource}"},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"refId": "A", "expr": "csf_dreamer_struggle_factor_per_week{partition=~\"in_sample|held_out\"}", "legendFormat": "{{partition}} {{bound}}"},
+        {"refId": "B", "expr": "csf_dreamer_struggle_rate_per_1k_tool_calls{partition=~\"in_sample|held_out\"}", "legendFormat": "rate {{partition}} {{bound}}"}
+      ]
+    }
+  ]
+}

@@ -4,7 +4,7 @@ This small Lean 4 project formalizes the arithmetic slice of
 [`brainspine.proto`](../../../proto/candace/brainspine/v1/brainspine.proto).
 It proves a concrete source-expression to postfix-instruction compiler correct.
 It does not prove physical safety. It models a language, not shipped code: CSF
-has no native controller implementation, because the low-level spine is external
+has no native controller implementation, because the low-level [spine](../../docs/generated/ontology_cgen.md#term-spine) is external
 and ROS-side. The pinned toolchain bootstrap in `check.sh` is also used by
 `csf/compiler/verification`.
 
@@ -18,7 +18,7 @@ The script requires Linux x86_64, `curl`, `sha256sum`, `tar`, `zstd`, and
 `python3`. It downloads an official Lean release into this directory's ignored
 `.cache/`, verifies its SHA256 on every invocation, checks the executable's
 version and source commit, and runs Lean with `--trust=0`, two threads, a
-2048 MiB memory limit, and warnings treated as errors. There is no host install,
+2048 MiB [memory](../../docs/generated/ontology_cgen.md#term-memory) limit, and warnings treated as errors. There is no host install,
 Elan setup, Mathlib dependency, or container/service mutation. The first run
 downloads about 554 MiB; subsequent runs reuse the local archive and toolchain.
 
@@ -85,7 +85,7 @@ run receipts are not part of this public example. Run it for the revision you us
 The proof concerns this Lean model and compiler. Agreement between that model
 and the canonical wire semantics is a reviewed translation boundary. The
 handwritten Go and Rust evaluators were removed; any implementation the external
-ROS-side spine runs needs its own conformance evidence. Native languages,
+ROS-side [spine](../../docs/generated/ontology_cgen.md#term-spine) runs needs its own conformance evidence. Native languages,
 compilers, runtimes, integer representations, JSON or protobuf parsers,
 simulator conversion, timing, and physical behavior remain
 outside the theorem. In particular, finite-width multiplication must be shown

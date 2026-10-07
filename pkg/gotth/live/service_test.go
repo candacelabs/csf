@@ -3,7 +3,7 @@
 package live_test
 
 //go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mock_identity_test.go -package=live_test github.com/candacelabs/csf/pkg/gotth/live IIdentity
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mock_listener_test.go -package=live_test github.com/candacelabs/csf/ipc/net IListener
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mock_listener_test.go -package=live_test github.com/candacelabs/csf/io/net IListener
 
 import (
 	"context"
@@ -25,7 +25,7 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/test/bufconn"
 
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	"github.com/candacelabs/csf/pkg/gotth/live"
 	"github.com/candacelabs/csf/runtime"
 )
@@ -161,7 +161,7 @@ var _ = Describe("The gotth-live service mounted in a host runtime", func() {
 		network.EXPECT().Listen(gomock.Any(), "tcp", serviceAddress).Return(memory, nil)
 
 		app := newCountService(identity, slog.New(logs))
-		listener, err := ipchttp.NewHTTPListener(network, serviceAddress, app.Handler())
+		listener, err := iohttp.NewHTTPListener(network, serviceAddress, app.Handler())
 		Expect(err).NotTo(HaveOccurred())
 		host, err := runtime.NewHostRuntime()
 		Expect(err).NotTo(HaveOccurred())

@@ -146,16 +146,16 @@ equivalence or physical-robot safety.
 
 `local-policy.example.json` is the generated `LocalSimulationConfig` JSON shape.
 Replace its placeholder image ID with the built image's immutable ID and its
-volume with an existing owned artifact volume. The runtime mounts those volumes
-read-only inside the Workbench UI directory, so `InspectSimulation.artifacts`
+volume with an existing owned artifact volume. The [runtime](../../docs/generated/ontology_cgen.md#term-runtime) mounts those volumes
+read-only inside the [Workbench](../../docs/generated/ontology_cgen.md#term-bench) UI directory, so `InspectSimulation.artifacts`
 contains camera and source links. It alone mounts the Docker socket; simulator
 jobs receive only their artifact volume and a GPU. The shared Go queue serializes
 local jobs and retains logs before removing the owned container.
 
-When the existing Workbench OTLP configuration and `traceBaseUrl` are present,
+When the existing [Workbench](../../docs/generated/ontology_cgen.md#term-bench) OTLP configuration and `traceBaseUrl` are present,
 the same worker projects completed native runs into Langfuse. UTC event times
 own spans; simulator seconds remain separate output values. Camera references
 are checked against their recorded hashes. `traceExportError` preserves failures
 and retries; a trace URL records an accepted OTLP upload, not browser verification.
 `publicTraces: true` explicitly enables read-only sharing for these simulator
-traces. Workbench sessions and project APIs retain their existing authentication.
+traces. [Workbench](../../docs/generated/ontology_cgen.md#term-bench) sessions and project APIs retain their existing authentication.

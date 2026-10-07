@@ -24,7 +24,7 @@ TOKENIZER_URL = "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2/r
 TOKENIZER_SHA256 = "be50c3628f2bf5bb5e3a7f17b1f74611b2561a3a27eeab05e5aa30f411572037"
 CODE_PATHS = (
     "ipc/ros/spine.go", "csf/service.go",
-    "csf/knowledge.go", "csf/opensearch.go",
+    "csf/service_knowledge.go", "csf/opensearch.go",
     "ipc/db/csfpg/schema/001_init.sql",
 )
 

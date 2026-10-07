@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/clock"
+	"github.com/candacelabs/csf/io/kernel/clock"
 	grammar "github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/runtime"
 	cron "github.com/candacelabs/csf/services/cron"

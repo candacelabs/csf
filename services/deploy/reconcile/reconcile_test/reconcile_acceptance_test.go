@@ -33,7 +33,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"github.com/candacelabs/csf/services/deploy"
 	"github.com/candacelabs/csf/services/deploy/fleet"

@@ -192,21 +192,30 @@ let findings file =
       significant arguments |> List.mapi (argument callee) |> List.concat) (field node "arguments") in
   visit false file.root
 
+(* CS-20: a scan reports its count, findings and errors as one named record,
+   never as a bare triple. *)
+type scan = { count : int; findings : Source.finding list; errors : Source.finding list }
+
 let inspect root path =
   let source = Checker.read_file (Checker.checked_path root path) in
-  if generated source then 0, [], [] else
+  if generated source then { count = 0; findings = []; errors = [] } else
   if not (String.is_valid_utf_8 source) then
-    1, [], [{path; line=1; rule="SCAN"; message="Python source is not UTF-8; scan is incomplete"}]
+    { count = 1; findings = [];
+      errors = [{path; line=1; rule="SCAN"; message="Python source is not UTF-8; scan is incomplete"}] }
   else
     let file = parse path source in
     let errors = syntax_errors file @ literal_errors file in
-    1, (if errors = [] then findings file else []), errors
+    { count = 1; findings = (if errors = [] then findings file else []); errors }
 let check root paths =
   paths |> List.filter selected_path |> List.sort_uniq String.compare
-  |> List.fold_left (fun (count, found, errors) path ->
-    let selected, next, failed = try inspect root path with
+  |> List.fold_left (fun accumulated path ->
+    let next = try inspect root path with
       | Sys_error message | Invalid_argument message | Failure message ->
-          1, [], [{path; line=1; rule="SCAN"; message}]
+          { count = 1; findings = []; errors = [{path; line=1; rule="SCAN"; message}] }
       | Unix.Unix_error (error, operation, _) ->
-          1, [], [{path; line=1; rule="SCAN"; message=operation ^ ": " ^ Unix.error_message error}] in
-    count + selected, found @ next, errors @ failed) (0, [], [])
+          { count = 1; findings = [];
+            errors = [{path; line=1; rule="SCAN"; message=operation ^ ": " ^ Unix.error_message error}] } in
+    { count = accumulated.count + next.count;
+      findings = accumulated.findings @ next.findings;
+      errors = accumulated.errors @ next.errors })
+    { count = 0; findings = []; errors = [] }

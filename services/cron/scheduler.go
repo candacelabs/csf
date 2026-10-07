@@ -22,7 +22,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/candacelabs/csf/ipc/clock"
+	"github.com/candacelabs/csf/io/kernel/clock"
 	grammar "github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/runtime"
 )

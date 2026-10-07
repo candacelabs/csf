@@ -11,9 +11,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/copilot"
-	"github.com/candacelabs/csf/ipc/model/stub"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/copilot"
+	"github.com/candacelabs/csf/io/net/model/stub"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 )
 

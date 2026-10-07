@@ -46,7 +46,7 @@ var _ = Describe("DispatchService", func() {
 	// twoWide is a host with room for two sessions.
 	twoWide := func(options ...dispatch.Option) *dispatch.DispatchService {
 		service, _ := started(ctx, append([]dispatch.Option{
-			dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, 4, 2)), dispatch.WithClock(fakeClock{}),
+			dispatch.WithSessions(harness.sessions), dispatch.WithClock(fakeClock{}),
 		}, options...)...)
 		return service
 	}
@@ -66,7 +66,7 @@ var _ = Describe("DispatchService", func() {
 		})
 
 		It("answers nothing before it is started and reports not running after it stopped", func() {
-			service, err := dispatch.NewDispatchService(dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, 4, 2)))
+			service, err := dispatch.NewDispatchService(dispatch.WithSessions(harness.sessions))
 			Expect(err).NotTo(HaveOccurred())
 			bounded, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 			defer cancel()
@@ -117,16 +117,16 @@ var _ = Describe("DispatchService", func() {
 				_, err := service.Enqueue(ctx, request)
 				Expect(err).NotTo(HaveOccurred())
 			}
+			Expect(harness.submittedSet(2)).To(ConsistOf(assignmentOf("a"), assignmentOf("d")), "the frontier fills the cap")
 			listed, err := service.List(ctx, &dispatchv1.ListSlicesRequest{})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(listed.GetConcurrencyCap()).To(Equal(uint32(2)), "4 cores under a load of 2")
+			Expect(listed.GetConcurrencyCap()).To(Equal(uint32(2)), "the harness check's worker cap")
 			paths := map[string]uint32{}
 			for _, node := range listed.GetNodes() {
 				paths[node.GetSlice().GetSliceId()] = node.GetPriority().GetCriticalPath()
 			}
 			Expect(paths).To(Equal(map[string]uint32{"a": 3, "b": 2, "c": 1, "d": 1}))
 			Expect(listed.GetNodes()[0].GetPriority().GetDeclaredOrder()).To(Equal(uint64(1)))
-			Expect(harness.submittedSet(2)).To(ConsistOf(assignmentOf("a"), assignmentOf("d")), "the frontier fills the cap")
 			Expect(listed.GetRunning()).To(Equal(uint32(2)))
 			frontier, err := service.Frontier(ctx, &dispatchv1.GetFrontierRequest{})
 			Expect(err).NotTo(HaveOccurred())
@@ -145,7 +145,7 @@ var _ = Describe("DispatchService", func() {
 			Expect(err).NotTo(HaveOccurred())
 			_, err = service.Enqueue(ctx, sliceRequest("ontology", nil, "architecture.csf"))
 			Expect(err).NotTo(HaveOccurred())
-			Expect(harness.submittedSet(2)).To(Equal([]string{assignmentOf("schema-a"), assignmentOf("docs")}), "schema-b contends with schema-a; docs takes the second machine")
+			Expect(harness.submittedSet(2)).To(ConsistOf(assignmentOf("schema-a"), assignmentOf("docs")), "schema-b contends with schema-a; docs takes the second machine")
 			harness.nothingSubmitted()
 			Expect(stateOf(ctx, service, "schema-b").GetState()).To(Equal(dispatchv1.SliceState_SLICE_STATE_QUEUED))
 			Expect(stateOf(ctx, service, "schema-b").GetPriority().GetRank()).To(Equal(uint32(1)), "first in the frontier, held by contends")
@@ -191,8 +191,32 @@ var _ = Describe("DispatchService", func() {
 			Expect(err).To(MatchError(dispatch.ErrUnknownSlice))
 		})
 
+		It("marks merged the slice whose recorded pull request GitHub reports merged, and no other", func() {
+			service := twoWide()
+			_, err := service.Enqueue(ctx, sliceRequest("a", nil))
+			Expect(err).NotTo(HaveOccurred())
+			_, err = service.Enqueue(ctx, sliceRequest("b", dependsOn("a")))
+			Expect(err).NotTo(HaveOccurred())
+			Expect(harness.submitted().GetAssignmentId()).To(Equal(assignmentOf("a")))
+			service.ObserveSession(&harnessv1.AgentSessionState{AssignmentId: assignmentOf("a"), Phase: harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_RUNNING, PullRequestUrl: "https://example.invalid/pull/1"})
+			Expect(awaitPullRequest(ctx, service, "a")).To(Equal("https://example.invalid/pull/1"))
+
+			marked, err := service.MarkPullRequestMerged(ctx, "https://example.invalid/pull/2")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(marked).To(BeEmpty(), "no slice recorded that pull request")
+			marked, err = service.MarkPullRequestMerged(ctx, "https://example.invalid/pull/1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(marked).To(Equal([]string{"a"}))
+			Expect(stateOf(ctx, service, "a").GetState()).To(Equal(dispatchv1.SliceState_SLICE_STATE_MERGED))
+			Expect(harness.submitted().GetAssignmentId()).To(Equal(assignmentOf("b")), "the merge moved the frontier")
+			marked, err = service.MarkPullRequestMerged(ctx, "https://example.invalid/pull/1")
+			Expect(err).NotTo(HaveOccurred())
+			Expect(marked).To(BeEmpty(), "a redelivered merge finds the slice merged already")
+		})
+
 		It("preempts a lower-ranked running session for an urgent intent at its safepoint, then re-enqueues it with a checkpoint", func() {
-			oneWide, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, 2, 1)), dispatch.WithClock(fakeClock{}))
+			harness.workerCap = 1
+			oneWide, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithClock(fakeClock{}))
 			_, err := oneWide.Enqueue(ctx, sliceRequest("slow", nil, "schema"))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(harness.submitted().GetAssignmentId()).To(Equal(assignmentOf("slow")))
@@ -225,7 +249,8 @@ var _ = Describe("DispatchService", func() {
 		})
 
 		It("does not preempt for an urgent intent on a slice that ranks below what runs", func() {
-			oneWide, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, 2, 1)), dispatch.WithClock(fakeClock{}))
+			harness.workerCap = 1
+			oneWide, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithClock(fakeClock{}))
 			_, err := oneWide.Enqueue(ctx, sliceRequest("root", nil))
 			Expect(err).NotTo(HaveOccurred())
 			_, err = oneWide.Enqueue(ctx, sliceRequest("leaf", dependsOn("root")))
@@ -331,7 +356,7 @@ var _ = Describe("DispatchService", func() {
 	Describe("persistence", func() {
 		It("survives a restart: the graph, its edges and intents come back and running slices return to the frontier", func() {
 			database := openDatabase(ctx)
-			first, err := dispatch.NewDispatchService(dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, 4, 2)), dispatch.WithClock(fakeClock{}), dispatch.WithDatabase(database))
+			first, err := dispatch.NewDispatchService(dispatch.WithSessions(harness.sessions), dispatch.WithClock(fakeClock{}), dispatch.WithDatabase(database))
 			Expect(err).NotTo(HaveOccurred())
 			firstScope := runtime.NewScope(ctx, "first")
 			Expect(first.Start(firstScope)).To(Succeed())
@@ -350,7 +375,7 @@ var _ = Describe("DispatchService", func() {
 			Expect(listed.GetPersisted()).To(BeTrue())
 			Expect(firstScope.Close()).To(Succeed())
 
-			second, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithHostMeasures(measuresFor(controller, 4, 2)), dispatch.WithClock(fakeClock{}), dispatch.WithDatabase(database))
+			second, _ := started(ctx, dispatch.WithSessions(harness.sessions), dispatch.WithClock(fakeClock{}), dispatch.WithDatabase(database))
 			restored, err := second.List(ctx, &dispatchv1.ListSlicesRequest{})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(restored.GetNodes()).To(HaveLen(3))
@@ -376,6 +401,7 @@ var _ = Describe("DispatchService", func() {
 			database.EXPECT().ListSlices(gomock.Any()).Return(nil, nil)
 			database.EXPECT().ListSliceEdges(gomock.Any()).Return(nil, nil)
 			database.EXPECT().ListIntents(gomock.Any()).Return(nil, nil)
+			database.EXPECT().ListDispatchControls(gomock.Any()).Return(nil, nil)
 			refused := errors.New("disk full")
 			database.EXPECT().Transact(gomock.Any(), gomock.Any()).Return(refused)
 			service := twoWide(dispatch.WithDatabase(database))

@@ -18,9 +18,11 @@ var (
 	_liquidAgentDefinitionIdRe0                 = regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
 	_liquidAgentConfigurationAgentIdRe0         = regexp.MustCompile("^[a-z][a-z0-9_-]{0,63}$")
 	_liquidAgentAssignmentRecipeAssignmentIdRe0 = regexp.MustCompile("^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$")
+	_liquidAgentAssignmentRecipeExecutorRe0     = regexp.MustCompile("^(claude-code|copilot)?$")
 	_liquidAgentWorkspaceRepositoryPathRe0      = regexp.MustCompile("^/.+")
 	_liquidAgentWorkspaceBaseBranchRe0          = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
 	_liquidAgentWorkspaceBranchRe0              = regexp.MustCompile("^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
+	_liquidAgentWorkspaceModeRe0                = regexp.MustCompile("^(normal|patch)$")
 )
 
 // ValidateExpression checks this message's annotated fields; it does not recurse.
@@ -577,6 +579,14 @@ func ValidateAgentAssignmentRecipe(message *AgentAssignmentRecipe) error {
 			return err
 		}
 	}
+	if !(_liquidAgentAssignmentRecipeExecutorRe0.MatchString(message.Executor)) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentAssignmentRecipe",
+			Field:     "executor",
+			Predicate: "matches(this, `^(claude-code|copilot)?$`)",
+			Value:     message.Executor,
+		}
+	}
 	return nil
 }
 
@@ -624,6 +634,14 @@ func ValidateAgentWorkspace(message *AgentWorkspace) error {
 			Field:     "pull_request_title",
 			Predicate: "len(this) > 0 && len(this) <= 256",
 			Value:     message.PullRequestTitle,
+		}
+	}
+	if !(len(message.Mode) == 0 || _liquidAgentWorkspaceModeRe0.MatchString(message.Mode)) {
+		return &liquidproto.Error{
+			Message:   "candace.brainspine.v1.AgentWorkspace",
+			Field:     "mode",
+			Predicate: "len(this) == 0 || matches(this, `^(normal|patch)$`)",
+			Value:     message.Mode,
 		}
 	}
 	return nil

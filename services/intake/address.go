@@ -5,8 +5,8 @@ package intake
 import (
 	"errors"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model"
 )
 
 // ProviderName is the Provider of every [SourceAddress].
@@ -37,5 +37,5 @@ func (address SourceAddress) Provider() string { return ProviderName }
 
 // Key is intake/in_process/<source>.
 func (address SourceAddress) Key() string {
-	return model.AddressKey(ProviderName, ipc.TierInProcess, address.Source)
+	return model.AddressKey(ProviderName, io.TierInProcess, address.Source)
 }

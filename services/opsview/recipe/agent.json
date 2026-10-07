@@ -1,0 +1,30 @@
+{
+  "assignment_id": "@ASSIGNMENT_ID@",
+  "agent": {
+    "id": "widget-maker",
+    "revision": 1,
+    "display_name": "Widget maker",
+    "instructions": "You are a CSF agent that makes one widget for the Workbench, as data: a widget definition directory under widgets/ in a git worktree the harness created for you. You drive CSF through its MCP tools (mcp__csf__list_widgets, mcp__csf__check_widget, mcp__csf__propose_widget): check with check_widget and propose with propose_widget, which commits your definition and opens its pull request through the harness. Never git commit yourself and never write Go. Follow the brief exactly, in order, and stop when it says to stop."
+  },
+  "ticket_url": "@TICKET_URL@",
+  "model": "claude-opus-5-5",
+  "repository_id": "@REPOSITORY_ID@",
+  "workspace": {
+    "repository_path": "@REPOSITORY_PATH@",
+    "base_branch": "@BASE_BRANCH@",
+    "branch": "widget/@NAME@-@SHORT_ID@",
+    "brief_path": "brief.md",
+    "allowed_tools": [
+      "Bash",
+      "Read",
+      "Write",
+      "Edit",
+      "Glob",
+      "Grep",
+      "mcp__csf__list_widgets",
+      "mcp__csf__check_widget",
+      "mcp__csf__propose_widget"
+    ],
+    "pull_request_title": "WIDGET @NAME@: @NEED@"
+  }
+}

@@ -144,17 +144,20 @@ use_repo(
     "com_github_gin_gonic_gin",
     "com_github_github_copilot_sdk_go",
     "com_github_go_chi_chi_v5",
+    "com_github_google_renameio_v2",
     "com_github_google_uuid",
     "com_github_guregu_null_v5",
     "com_github_jackc_pgx_v5",
     "com_github_moby_moby_api",
     "com_github_moby_moby_client",
     "com_github_modelcontextprotocol_go_sdk",
+    "com_github_nulab_autog",
     "com_github_oapi_codegen_runtime",
     "com_github_onsi_ginkgo_v2",
     "com_github_onsi_gomega",
     "com_github_opensearch_project_opensearch_go_v5",
     "com_github_pganalyze_pg_query_go_v6",
+    "com_github_pmezard_go_difflib",
     "com_github_prometheus_client_golang",
     "com_github_prometheus_client_model",
     "com_github_prometheus_common",
@@ -177,6 +180,7 @@ use_repo(
     "org_golang_google_protobuf",
     "org_golang_x_oauth2",
     "org_golang_x_sync",
+    "org_golang_x_sys",
     "org_golang_x_tools",
     "org_modernc_sqlite",
     "org_uber_go_goleak",
@@ -258,3 +262,13 @@ crate.from_cargo(
     skip_cargo_lockfile_overwrite = True,
 )
 use_repo(crate, "csf_operator_crates")
+
+# The per-session sandbox launcher and Docker proxy. A separate Cargo package
+# with its own lock, resolved the same hermetic way as the operator above.
+crate.from_cargo(
+    name = "csf_sandbox_crates",
+    cargo_lockfile = "//tools/csf-sandbox:Cargo.lock",
+    manifests = ["//tools/csf-sandbox:Cargo.toml"],
+    skip_cargo_lockfile_overwrite = True,
+)
+use_repo(crate, "csf_sandbox_crates")

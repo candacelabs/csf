@@ -51,6 +51,10 @@
 //	                                    reordered — the sanctioned way to host
 //	                                    HTMX- or third-party-owned DOM inside a
 //	                                    live region (FR-27, FR-32).
+//	data-gotth-transition               Transition(). Patches that morph this
+//	                                    fragment root are applied inside a
+//	                                    view transition (see the transition
+//	                                    region); reduced motion opts out.
 //	data-gotth-status                   Written on <html> by the runtime:
 //	                                    connecting | live | reconnecting |
 //	                                    closed (RFC-0001 §8.2).
@@ -749,6 +753,48 @@ function dispatch(e) {
 }
 //#endregion
 
+//#region transition
+// data-gotth-transition on a fragment root asks for the patches that morph it
+// to be applied inside document.startViewTransition, so the browser animates
+// what moved — rows reordering, a card arriving — from the old view to the new
+// one, with whatever ::view-transition rules the page declares. Nothing else
+// changes: the same applied() runs, one frame later. Where the browser has no
+// such API, the tab is hidden, or the user asked for reduced motion, the patch
+// is applied at once, exactly as for any other region.
+//
+// The update runs asynchronously, after the browser has captured the old view,
+// so frames that arrive meanwhile are held (see frame) and handled in order
+// once it has run; heartbeats included, a frame or two late.
+var A_TRANSITION = "data-gotth-transition",
+  held = null;
+
+function transitional(p) {
+  var u = p.updates || [],
+    i,
+    el;
+  if (!document.startViewTransition || document.hidden || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  for (i = 0; i < u.length; i++) {
+    el = u[i].op === PatchOp.MORPH && region(u[i].fragment_id);
+    if (el && el.hasAttribute(A_TRANSITION)) return true;
+  }
+  return false;
+}
+
+function transition(p) {
+  held = [];
+  var release = function () {
+    var q = held;
+    held = null;
+    for (var i = 0; i < q.length; i++) frame(q[i]);
+  };
+  document
+    .startViewTransition(function () {
+      applied(p);
+    })
+    .updateCallbackDone.then(release, release);
+}
+//#endregion
+
 //#region provenance
 // The causal identifiers, the ack window's client half, and the telemetry the
 // server correlates a morph duration against.
@@ -1092,7 +1138,14 @@ function onMessage(e) {
   } catch (x) {
     return close(4002, "undecodable frame");
   }
+  frame(f);
+}
 
+// frame handles one decoded frame. While a view transition is capturing the
+// page (see transition, below), frames wait in arrival order and are handled
+// the moment its update has run, so nothing is applied out of order.
+function frame(f) {
+  if (held) return held.push(f);
   if (f.snapshot) {
     // Version negotiation's in-band half. The subprotocol token is a fast
     // reject, not the source of truth: the negotiated version is re-asserted
@@ -1118,6 +1171,7 @@ function onMessage(e) {
       resync();
       return send({ ack: { server_seq: seq } });
     }
+    if (transitional(f.patch)) return transition(f.patch);
     applied(f.patch);
   } else if (f.heartbeat) {
     // Echo both fields verbatim: it keeps the interval_ms predicate total in

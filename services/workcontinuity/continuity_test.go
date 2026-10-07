@@ -24,7 +24,7 @@ import (
 	"github.com/candacelabs/csf/services/workcontinuity"
 )
 
-const taskURL = "https://github.com/example/project/issues/1"
+const taskURL = "https://github.com/candacelabs/project/issues/1"
 
 func sourceFixture() *workv1.SourceSnapshot {
 	return &workv1.SourceSnapshot{Issue: &workv1.SourceIssue{Number: 1, Title: "Continue a bounded task", HtmlUrl: taskURL, State: workcontinuity.IssueOpen, Body: "Acceptance: reproduce the saved check."}}
@@ -144,7 +144,7 @@ var _ = Describe("handoff replay", func() {
 		Expect(resume().Condition).To(Equal(workv1.ResumeCondition_RESUME_CONDITION_CONFLICT))
 	})
 	It("rejects receipts for another task", func() {
-		checkpoint.TaskUrl = "https://github.com/example/project/issues/2"
+		checkpoint.TaskUrl = "https://github.com/candacelabs/project/issues/2"
 		appendFixture(snapshot, checkpoint)
 		Expect(resume().Condition).To(Equal(workv1.ResumeCondition_RESUME_CONDITION_CONFLICT))
 	})

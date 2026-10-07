@@ -48,6 +48,10 @@ let unstratified () =
   ];
   Datalog.ask db (Datalog.term_of_string "unstratified(H, P)") |> List.map Datalog.T.to_string
 
+(* A predicate block's header: its kind, its name and its keys. Named so a
+   block is not a bare triple. *)
+type block = { kind : string; name : string; keys : string list }
+
 (* A block is the lines from one starting with "/*" to a line holding only
    its closing marker; its first line names the block kind and subject. *)
 let blocks =
@@ -63,12 +67,26 @@ let blocks =
     | header :: lines -> (match String.split_on_char ' ' header with
       | ["/*"; kind; name] ->
           let key line = List.hd (String.split_on_char ' ' line) in
-          Some (kind, name, List.sort_uniq String.compare (List.map key lines))
+          Some { kind; name; keys = List.sort_uniq String.compare (List.map key lines) }
       | _ -> None)
     | [] -> None)
 
-let named kind = List.filter_map (fun (k, name, keys) -> if k = kind then Some (name, keys) else None) blocks
+let named kind = List.filter_map (fun block -> if block.kind = kind then Some (block.name, block.keys) else None) blocks
 let heads = List.map (fun (clause : Datalog.C.t) -> symbol clause.head) clauses
+
+(* [tier_mismatch] is driven by synthetic [under_io] and [crosses] facts here,
+   independent of the architecture decode, so the rule shape is tested in
+   isolation from the io moves it now reads in [Facts.tree_facts]. *)
+let ask_tier_mismatch under crosses =
+  let db = Datalog.DB.create () in
+  Datalog.setup_default db;
+  let clause = List.find (fun (clause : Datalog.C.t) -> symbol clause.head = "tier_mismatch") clauses in
+  Datalog.DB.add_clause db clause;
+  let fact name subject tier = Datalog.T.mk_apply_l (Datalog_top_down.String name)
+    [Datalog.T.mk_const (Datalog_top_down.String subject); Datalog.T.mk_const (Datalog_top_down.String tier)] in
+  Datalog.DB.add_facts db (List.map (fun (subject, tier) -> fact "under_io" subject tier) under);
+  Datalog.DB.add_facts db (List.map (fun (subject, tier) -> fact "crosses" subject tier) crosses);
+  Datalog.ask db (Datalog.term_of_string "tier_mismatch(D, T, X)") |> List.map Datalog.T.to_string
 
 let tests = [
   "every clause is safe", (fun () ->
@@ -89,6 +107,11 @@ let tests = [
     List.iter (fun (name, keys) ->
       check (keys = ["definition"]) ("relation " ^ name ^ " needs exactly a definition");
       check (List.mem name heads) ("relation " ^ name ^ " is not derived by any rule")) (named "relation"));
+  "tier_mismatch fires when a directory crosses off its tier", (fun () ->
+    let mismatched = ask_tier_mismatch ["io_ipc", "ipc"] ["io_ipc", "net"] in
+    check (mismatched <> []) "io tier crossing a different tier drew no mismatch";
+    let matched = ask_tier_mismatch ["io_net", "net"] ["io_net", "net"] in
+    check (matched = []) "io tier crossing its own tier drew a mismatch");
 ]
 
 let () =

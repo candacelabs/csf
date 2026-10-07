@@ -1,0 +1,1 @@
+{"time": "2026-10-05T02:29:23.88572278Z", "event_type": "assistant", "event": {"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "toolu_01XQ56jif6tye7ixtkZTwabX", "name": "Bash", "input": {"command": "/tmp/claude-1000/await-go/csf await harness-ready -deadline 30s"}}]}}}

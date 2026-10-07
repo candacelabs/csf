@@ -10,3 +10,6 @@ tools/csf-operator/target/
 /ontology-alignment/
 /ontology-ratchet/
 /ontology-ratchet.md
+
+# A go build of app/harness/cmd at the root writes this binary; it is never source.
+/cmd

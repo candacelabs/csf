@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "mocks",
+    srcs = [
+        "mock_store.go",
+        "mock_tickets.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/ouroboros/mocks",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//services/ouroboros",
+        "@org_uber_go_mock//gomock",
+    ],
+)

@@ -18,8 +18,10 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"github.com/candacelabs/csf/ipc/ros"
+	"github.com/candacelabs/csf/io/net/ros"
 	"github.com/candacelabs/csf/pkg/liquidproto"
+	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
+	"github.com/candacelabs/csf/services/jobs"
 	"github.com/gin-gonic/gin"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -54,14 +56,35 @@ type IHTTPDoer interface {
 type Client struct {
 	endpoint string
 	http     IHTTPDoer
+	warn     func(warning string)
 }
 
-func NewClient(endpoint string, transport IHTTPDoer) (*Client, error) {
+// ClientOption configures a [Client].
+type ClientOption func(client *Client)
+
+// WithClientWarnings receives the client's warnings, such as a response from
+// a newer host carrying fields this client does not know. Without it they are
+// dropped.
+func WithClientWarnings(warn func(warning string)) ClientOption {
+	return func(client *Client) {
+		if warn != nil {
+			client.warn = warn
+		}
+	}
+}
+
+func NewClient(endpoint string, transport IHTTPDoer, options ...ClientOption) (*Client, error) {
 	parsed, err := url.Parse(endpoint)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" || transport == nil {
 		return nil, fmt.Errorf("an HTTP(S) endpoint and transport are required")
 	}
-	return &Client{endpoint: strings.TrimRight(endpoint, "/"), http: transport}, nil
+	client := &Client{endpoint: strings.TrimRight(endpoint, "/"), http: transport, warn: func(warning string) {}}
+	for _, option := range options {
+		if option != nil {
+			option(client)
+		}
+	}
+	return client, nil
 }
 
 func (client *Client) call(ctx context.Context, method string, path string, input proto.Message, output proto.Message) error {
@@ -89,7 +112,22 @@ func (client *Client) call(ctx context.Context, method string, path string, inpu
 	if response.StatusCode != http.StatusOK {
 		return fmt.Errorf("adapter returned HTTP %d: %s", response.StatusCode, string(body))
 	}
-	return protojson.Unmarshal(body, output)
+	strict := protojson.Unmarshal(body, output)
+	if strict == nil {
+		return nil
+	}
+	// A newer host answers with fields this client predates. The operation
+	// succeeded, so the response is kept without them, and the warning names
+	// both versions so the operator knows which binary to upgrade.
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(body, output); err != nil {
+		return strict
+	}
+	host := response.Header.Get(VersionHeader)
+	if host == "" {
+		host = UnknownVersion
+	}
+	client.warn(fmt.Sprintf("this csf (%s) is older than the host (%s): ignored fields of %s it does not know (%v); upgrade this csf", Version(), host, path, strict))
+	return nil
 }
 
 // Service composes CSF capabilities and their generated HTTP/MCP operations.
@@ -229,9 +267,10 @@ func registerOperation[Q proto.Message, R proto.Message](service *Service, name 
 		}
 		result, err := invoke(ctx.Request.Context(), raw)
 		if err != nil {
-			ctx.String(operationErrorStatus(err), "%s", err.Error())
+			ctx.String(OperationErrorStatus(err), "%s", err.Error())
 			return
 		}
+		ctx.Header(VersionHeader, Version())
 		ctx.Data(http.StatusOK, "application/json", result)
 	}})
 	service.mcp.AddTool(&mcp.Tool{Name: name, Title: humanDescription, Description: humanDescription + " Technical operation: " + name + ".", InputSchema: schema}, func(ctx context.Context, request *mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -243,7 +282,10 @@ func registerOperation[Q proto.Message, R proto.Message](service *Service, name 
 	})
 }
 
-func operationErrorStatus(err error) int {
+// OperationErrorStatus is the HTTP status an operation's error is served
+// with: the stable classifications above, and 500 for everything else. A
+// service serving its own typed operations over HTTP answers with it too.
+func OperationErrorStatus(err error) int {
 	var validation *liquidproto.Error
 	switch {
 	case errors.Is(err, ErrInvalidRequest), errors.As(err, &validation):
@@ -270,4 +312,42 @@ func (service *Service) MCPHandler() *mcp.StreamableHTTPHandler {
 // and cancellation context.
 func (service *Service) ServeStdioMCP(ctx context.Context) error {
 	return service.mcp.Run(ctx, &mcp.StdioTransport{})
+}
+
+// RebuildSimulationTrace derives versioned spans from OpenSearch alone. The
+// durable delivery ledger prevents repeating an accepted or ambiguous export.
+func (service *Service) RebuildSimulationTrace(ctx context.Context, request *pb.RebuildSimulationTraceRequest) (*pb.RebuildSimulationTraceResponse, error) {
+	simulations := service.simulations
+	if simulations == nil || simulations.local == nil || simulations.traces == nil || simulations.logSearch == nil || simulations.local.config.TraceBaseUrl == "" || simulations.local.config.LogIndex == "" || request == nil || !simulationID.MatchString(request.RunId) {
+		return nil, fmt.Errorf("simulation trace reconstruction unavailable or invalid run identity")
+	}
+	job, err := simulations.ledger.Get(ctx, request.RunId)
+	if err != nil {
+		return nil, err
+	}
+	if job.Executor != simulationExecutorLocal || !job.State.Terminal() || (job.Managed && !job.CleanupConfirmed) {
+		return nil, fmt.Errorf("simulation is not terminal with confirmed cleanup")
+	}
+	deadline, cancel := context.WithTimeout(ctx, simulationTraceDeadline)
+	defer cancel()
+	record, err := simulations.logSearch.SimulationSource(deadline, simulations.local.config.LogIndex, request.RunId)
+	if err != nil {
+		return nil, err
+	}
+	if record.Simulation.Run.Simulator != simulatorOf(job.Kind) || int64(record.Simulation.Run.Steps) != job.TotalUnits {
+		return nil, fmt.Errorf("archived simulation does not match admitted job")
+	}
+	spans, identity, err := simulations.local.projectTrace(record.Simulation)
+	if err != nil {
+		return nil, err
+	}
+	if err := simulations.deliverSimulationTrace(deadline, job, spans, identity); err != nil {
+		retained := simulations.ledger.RecordTrace(ctx, job.ID, jobs.TraceProjection{URL: job.Trace.URL, ExportError: err.Error()})
+		return nil, errors.Join(err, retained)
+	}
+	run, err := simulations.inspect(ctx, job.ID)
+	if err != nil {
+		return nil, err
+	}
+	return &pb.RebuildSimulationTraceResponse{Run: run, SourceSha256: record.SourceSha256}, nil
 }

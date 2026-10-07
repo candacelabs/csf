@@ -5,7 +5,7 @@ go_library(
     srcs = ["main.go"],
     importpath = "github.com/candacelabs/csf/tools/generateopensearch",
     visibility = ["//visibility:private"],
-    deps = ["//ipc/proc"],
+    deps = ["//io/ipc/proc"],
 )
 
 go_binary(

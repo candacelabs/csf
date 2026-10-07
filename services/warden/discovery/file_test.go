@@ -2,27 +2,25 @@ package discovery
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/services/warden"
 )
 
 // filePoll is a short poll interval that keeps file tests fast but not flaky.
 const filePoll = 10 * time.Millisecond
 
-// writeAtomic writes contents to path via a temp file + rename, so a poller
-// never observes a half-written file (which would otherwise be a spurious
-// parse error). It is a file-IO simulator, not a mock.
+// writeAtomic replaces the roster whole, so a poller never observes a
+// half-written file (which would otherwise be a spurious parse error). It is
+// a file-IO simulator, not a mock.
 func writeAtomic(path, contents string) {
 	GinkgoHelper()
-	tmp := path + ".tmp"
-	Expect(os.WriteFile(tmp, []byte(contents), 0o600)).To(Succeed(), "write temp roster")
-	Expect(os.Rename(tmp, path)).To(Succeed(), "rename roster")
+	Expect(atomicfile.WriteFile(path, []byte(contents), 0o600)).To(Succeed(), "write roster")
 }
 
 var _ = Describe("File discoverer", func() {

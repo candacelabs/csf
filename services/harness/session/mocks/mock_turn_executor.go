@@ -13,8 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	model "github.com/candacelabs/csf/ipc/model"
-	claudecode "github.com/candacelabs/csf/ipc/model/claudecode"
+	model "github.com/candacelabs/csf/io/net/model"
+	claudecode "github.com/candacelabs/csf/io/net/model/claudecode"
 	session "github.com/candacelabs/csf/services/harness/session"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -41,6 +41,20 @@ func NewMockITurnExecutor(ctrl *gomock.Controller) *MockITurnExecutor {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockITurnExecutor) EXPECT() *MockITurnExecutorMockRecorder {
 	return m.recorder
+}
+
+// Inject mocks base method.
+func (m *MockITurnExecutor) Inject(ctx context.Context, message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Inject", ctx, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Inject indicates an expected call of Inject.
+func (mr *MockITurnExecutorMockRecorder) Inject(ctx, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Inject", reflect.TypeOf((*MockITurnExecutor)(nil).Inject), ctx, message)
 }
 
 // Propose mocks base method.
@@ -94,6 +108,20 @@ func (m *MockIOpenTurnExecutor) Close(ctx context.Context) error {
 func (mr *MockIOpenTurnExecutorMockRecorder) Close(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockIOpenTurnExecutor)(nil).Close), ctx)
+}
+
+// Inject mocks base method.
+func (m *MockIOpenTurnExecutor) Inject(ctx context.Context, message string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Inject", ctx, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Inject indicates an expected call of Inject.
+func (mr *MockIOpenTurnExecutorMockRecorder) Inject(ctx, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Inject", reflect.TypeOf((*MockIOpenTurnExecutor)(nil).Inject), ctx, message)
 }
 
 // Interrupt mocks base method.

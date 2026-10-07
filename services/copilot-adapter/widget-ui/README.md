@@ -1,12 +1,12 @@
 # Workbench widgets and WDL
 
-WDL means **Widget Definition Language**: the existing Widget Foundry dialect,
+WDL means **[Widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) Definition Language**: the existing [Widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) Foundry dialect,
 currently pinned to `dialect 0`. Its parser, validator, resolved representation
 and generator are Go libraries. Keeping those libraries in Go permits a host to
 validate agent-authored definitions in its own process.
 
-Widgets exist within gotth-live; they are not independent application components.
-The current Kanban uses gotth-live-owned generated widget instances. Each session is
+[Widgets](../../../csf/docs/generated/ontology_cgen.md#term-widget) exist within [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live); they are not independent [application](../../../csf/docs/generated/ontology_cgen.md#term-application) components.
+The current Kanban uses gotth-live-owned generated [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) instances. Each session is
 one keyed instance of the definition in `kanban-card.widget`. The host subscribes
 to committed adapter changes and loads retained session/task associations; one
 gotth connection per browser patches only changed cards. Membership or task-column
@@ -15,10 +15,10 @@ process, listener, socket or worker.
 
 | Owner | Responsibility |
 |---|---|
-| `kanban-card.widget` | Typed card state, source event fields and widget registration. |
+| `kanban-card.widget` | Typed card state, source event fields and [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) registration. |
 | `../kanban/generate.go` | Reproducible Go/templ generation from WDL. |
 | `../ui/src/kanbanTemplates.tsx` | Mantine card and column presentation, emitted as Go HTML templates. |
-| `../kanban` | Load authority observations, route actions, render keyed instances and close subscriptions. |
+| `../kanban` | Load authority observations, route [actions](../../../csf/docs/generated/ontology_cgen.md#term-action), render keyed instances and close subscriptions. |
 | `../openapi.yaml` and `../store` | Generated workspace API and durable session-to-task associations. |
 | `copilot-adapter-pulse.widget` | Earlier aggregate-status example; not the Kanban composition. |
 
@@ -46,7 +46,7 @@ return board.Close(shutdownContext)
 `NewBoard` constructs handlers. `Register` mounts `/v1/kanban/view` and
 `/v1/kanban/live` on the supplied router. The host retains its authentication
 policy. `Close` drains sessions and their subscriptions; the caller continues to
-own the adapter and database. A Workbench composition can instead set
+own the adapter and database. A [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) composition can instead set
 `workbench.WithKanbanOrigins(...)` and call `Workbench.Close(ctx)`.
 
 ## Associate a session with authoritative work
@@ -58,7 +58,7 @@ last observed generation and reject stale updates:
 ```go
 linked, err := client.LinkSessionTaskWithResponse(ctx, sessionID,
     api.LinkSessionTaskJSONRequestBody{
-        TaskUrl: "https://github.com/example/project/issues/123",
+        TaskUrl: "https://github.com/candacelabs/project/issues/123",
         ExpectedGeneration: 0,
     })
 if err != nil {
@@ -69,15 +69,15 @@ if linked.StatusCode() != http.StatusOK {
 }
 ```
 
-The card shows the last observed continuity checkpoint, with task, checkpoint,
+The card shows the last observed continuity [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint), with task, [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint),
 evidence and session links. Task status is distinct from session runtime status:
 idle or ended does not imply done. Moving a card publishes and rereads a new
-checkpoint against its observed predecessor; stale or competing source tips
+[checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) against its observed predecessor; stale or competing source tips
 remain visible errors. GitHub comments are not a transactional lease.
 
-An unlinked session, missing checkpoint or unavailable authority stays in
-**Needs task checkpoint**. Configure `workbench.WithTaskContinuity(...)`, link the
-task and publish its initial checkpoint through the continuity API before moving
+An unlinked session, missing [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) or unavailable authority stays in
+**Needs task [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint)**. Configure `workbench.WithTaskContinuity(...)`, link the
+task and publish its initial [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) through the continuity API before moving
 it. `POST /v1/workspace/refresh`, also available through the board's refresh
 button, explicitly ingests external issue changes. There is no configured GitHub
 webhook in this slice. Direct database writers must call

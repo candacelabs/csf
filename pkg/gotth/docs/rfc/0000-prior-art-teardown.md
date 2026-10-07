@@ -723,7 +723,7 @@ the server's work; gotth-live proposes to make the frame itself the trace carrie
 - **Circuit retention as a DoS surface** — `DisconnectedCircuitMaxRetained = 100` and
   `PersistedCircuitInMemoryMaxRetained = 1000` are bounded for exactly this reason, which
   means a busy app evicts legitimate users' state under churn.
-- A live .NET 10 bug ([aspnetcore#64607](https://github.com/dotnet/aspnetcore/issues/64607))
+- A live .NET 10 bug (issue 64607 in the [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore) repository)
   reports the app entering a bugged state on circuit resume after
   `PersistedCircuitInMemoryRetentionPeriod` elapses — resume-after-eviction is a genuinely
   hard state machine and it is not fully settled even for Microsoft.
@@ -1196,6 +1196,6 @@ and they should be **generated** from the same descriptors rather than transcrib
 - [ASP.NET Core Blazor performance best practices (metrics and tracing)](https://learn.microsoft.com/en-us/aspnet/core/blazor/performance/?view=aspnetcore-10.0)
 - [Blazor `RemoteRenderer.cs`](https://github.com/dotnet/aspnetcore/blob/main/src/Components/Server/src/Circuits/RemoteRenderer.cs)
 - [Blazor `CircuitOptions.cs`](https://github.com/dotnet/aspnetcore/blob/main/src/Components/Server/src/CircuitOptions.cs)
-- [dotnet/aspnetcore#64607 — circuit resume after retention period](https://github.com/dotnet/aspnetcore/issues/64607)
+- [dotnet/aspnetcore](https://github.com/dotnet/aspnetcore) issue 64607 — circuit resume after retention period
 - Refinement types for Protocol Buffers — `research/protobuf-refinement-types/`
   in the canonical monorepo, outside this export

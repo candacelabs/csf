@@ -15,7 +15,7 @@ the source of truth. This crate is what a Rust server links against:
   rules: each Liquid Proto `expr` from the schema, plus the cross-field
   invariants (range ordering, parallel array lengths, derived totals) that a
   single-field predicate cannot state.
-- **`constants`** — the fixed protocol strings and limits: the `default`
+- **`constants`** — the fixed [protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol) strings and limits: the `default`
   prefix, the `X-Xet-*` batch-action headers, the Git LFS content type and
   transfer names, and the xorb/chunk size limits.
 

@@ -15,10 +15,10 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/model/copilot"
-	ipcnet "github.com/candacelabs/csf/ipc/net"
+	"github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/net/model/copilot"
+	ionet "github.com/candacelabs/csf/io/net"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/runtime"
 	"github.com/candacelabs/csf/services/relay"
@@ -100,8 +100,8 @@ var _ = Describe("Relay", func() {
 		// constructor option takes a capability, so the in-process route
 		// cannot reach the kernel even if it tried.
 		controller := gomock.NewController(GinkgoT())
-		var listener ipcnet.IListener = NewMockIListener(controller)
-		var dialer ipcnet.IDialer = NewMockIDialer(controller)
+		var listener ionet.IListener = NewMockIListener(controller)
+		var dialer ionet.IDialer = NewMockIDialer(controller)
 		Expect(listener).NotTo(BeNil())
 		Expect(dialer).NotTo(BeNil())
 		socketsBefore := socketCount()
@@ -159,7 +159,7 @@ var _ = Describe("Relay", func() {
 		reference := question
 		sent, err := messenger.Send(ctx, alphaAddress, betaAddress, note{Text: question, Reference: &reference})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sent.Tier).To(Equal(ipc.TierInProcess))
+		Expect(sent.Tier).To(Equal(io.TierInProcess))
 		Expect(sent.Body.Reference).To(BeIdenticalTo(&reference), "an in-process envelope is handed over, not encoded")
 
 		var reply relay.Envelope[note]
@@ -167,12 +167,12 @@ var _ = Describe("Relay", func() {
 		Expect(reply.Body.Text).To(Equal(answer))
 		Expect(reply.FromAgent).To(Equal(beta))
 		Expect(reply.ToAgent).To(Equal(alpha))
-		Expect(reply.Tier).To(Equal(ipc.TierInProcess))
+		Expect(reply.Tier).To(Equal(io.TierInProcess))
 		Expect(owner.Close()).To(Succeed())
 
-		Expect(sentCounter(registry, ipc.TierInProcess)).To(Equal(2.0))
-		Expect(deliveredCounter(registry, ipc.TierInProcess)).To(Equal(2.0))
-		for _, tier := range []ipc.Tier{ipc.TierHost, ipc.TierNetwork} {
+		Expect(sentCounter(registry, io.TierInProcess)).To(Equal(2.0))
+		Expect(deliveredCounter(registry, io.TierInProcess)).To(Equal(2.0))
+		for _, tier := range []io.Tier{io.TierIpc, io.TierNet} {
 			Expect(sentCounter(registry, tier)).To(BeZero(), tier.String())
 		}
 		if socketsBefore >= 0 {
@@ -219,12 +219,12 @@ var _ = Describe("Relay", func() {
 
 		sent, err := messenger.Send(ctx, claude, resident, question)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(sent.Tier).To(Equal(ipc.TierHost))
+		Expect(sent.Tier).To(Equal(io.TierIpc))
 		received, err := messenger.Receive(ctx, alpha)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(received.Body).To(Equal(question))
-		Expect(sentCounter(registry, ipc.TierHost)).To(Equal(1.0))
-		Expect(sentCounter(registry, ipc.TierInProcess)).To(BeZero())
+		Expect(sentCounter(registry, io.TierIpc)).To(Equal(1.0))
+		Expect(sentCounter(registry, io.TierInProcess)).To(BeZero())
 	})
 
 	It("redelivers fetched envelopes until they are acknowledged", func(ctx SpecContext) {
@@ -257,7 +257,7 @@ var _ = Describe("Relay", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(remaining).To(HaveLen(1))
 		Expect(remaining[0].Body).To(Equal(answer))
-		Expect(deliveredCounter(registry, ipc.TierHost)).To(Equal(1.0))
+		Expect(deliveredCounter(registry, io.TierIpc)).To(Equal(1.0))
 	})
 
 	It("keeps an agent's inbox across re-registration and retires its old address", func(ctx SpecContext) {
@@ -286,7 +286,7 @@ var _ = Describe("Relay", func() {
 		registration, err := core.Resolve(ctx, reviewer)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(registration.Address).To(Equal(after))
-		Expect(registration.Kind()).To(Equal(ipc.TierHost))
+		Expect(registration.Kind()).To(Equal(io.TierIpc))
 	})
 
 	It("refuses an address held by another agent and a sender that holds none", func(ctx SpecContext) {
@@ -374,17 +374,17 @@ var _ = Describe("Relay", func() {
 	})
 })
 
-func sentCounter(registry *prometheus.Registry, tier ipc.Tier) float64 {
+func sentCounter(registry *prometheus.Registry, tier io.Tier) float64 {
 	return counterSeries(registry, relay.MetricEnvelopesSent, tier)
 }
 
-func deliveredCounter(registry *prometheus.Registry, tier ipc.Tier) float64 {
+func deliveredCounter(registry *prometheus.Registry, tier io.Tier) float64 {
 	return counterSeries(registry, relay.MetricEnvelopesDelivered, tier)
 }
 
 // counterSeries reads one tier's value from the registry the binary would
 // scrape, so the spec checks the exported series rather than an internal.
-func counterSeries(registry *prometheus.Registry, name string, tier ipc.Tier) float64 {
+func counterSeries(registry *prometheus.Registry, name string, tier io.Tier) float64 {
 	families, err := registry.Gather()
 	Expect(err).NotTo(HaveOccurred())
 	for _, family := range families {

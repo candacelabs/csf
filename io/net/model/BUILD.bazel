@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "model",
+    srcs = [
+        "address.go",
+        "brain.go",
+        "turnreport.go",
+    ],
+    importpath = "github.com/candacelabs/csf/io/net/model",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io",
+        "//pkg/telemetry",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "model_test",
+    srcs = [
+        "brain_test.go",
+        "model_suite_test.go",
+        "turnreport_test.go",
+    ],
+    deps = [
+        ":model",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

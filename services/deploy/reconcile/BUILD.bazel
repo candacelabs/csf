@@ -3,13 +3,13 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "reconcile",
     srcs = [
-        "approval.go",
         "service.go",
+        "service_approval.go",
     ],
     importpath = "github.com/candacelabs/csf/services/deploy/reconcile",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//proto/candace/deploy/v1:deploy",
         "//services/deploy",
         "//services/deploy/fleet",
@@ -32,7 +32,7 @@ go_test(
     ],
     embed = [":reconcile"],
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//proto/candace/deploy/v1:deploy",
         "//services/deploy",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

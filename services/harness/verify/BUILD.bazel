@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "verify",
+    srcs = ["verifier.go"],
+    importpath = "github.com/candacelabs/csf/services/harness/verify",
+    visibility = [
+        "//app/harness:__subpackages__",
+        "//services/harness:__subpackages__",
+    ],
+    deps = [
+        "//io/ipc/proc",
+        "//proto/candace/harness/v1:harness",
+    ],
+)
+
+go_test(
+    name = "verify_test",
+    srcs = ["verifier_test.go"],
+    embed = [":verify"],
+    deps = [
+        "//io/ipc/proc",
+        "//proto/candace/harness/v1:harness",
+    ],
+)

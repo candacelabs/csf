@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# The step 4 generator emits pkg/collections/collections.go; this golden is the
+# byte-for-byte target its native test asserts against.
+exports_files(
+    ["testdata/golden/collections.go"],
+    visibility = ["//csf/compiler/collections_codegen:__pkg__"],
+)
+
+go_library(
+    name = "collections",
+    srcs = ["collections.go"],
+    importpath = "github.com/candacelabs/csf/pkg/collections",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "collections_test",
+    srcs = ["collections_test.go"],
+    deps = [
+        ":collections",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

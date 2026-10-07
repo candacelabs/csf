@@ -19,9 +19,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/telemetry"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/candacelabs/csf/services/harness/session"
@@ -34,8 +34,8 @@ const (
 	branch       = "h1/scratch"
 	baseBranch   = "main"
 	instructions = "Work in the worktree. Commit once."
-	pullRequest  = "https://github.com/example/repository/pull/9"
-	remoteURL    = "https://github.com/example/repository.git"
+	pullRequest  = "https://github.com/candacelabs/repository/pull/9"
+	remoteURL    = "https://github.com/candacelabs/repository.git"
 	gateBinary   = "/opt/csf/harness"
 	gateVerb     = "gate"
 )
@@ -139,14 +139,17 @@ var _ = Describe("AgentSessionRunner", func() {
 		Expect(err).NotTo(HaveOccurred())
 	})
 
-	// expectWorktree expects the worktree, its hooks path and its initial
-	// commit, in that order, and returns the last of them.
+	// expectWorktree expects the worktree, the repository's per-worktree
+	// config, the worktree's own hooks path and its initial commit, in that
+	// order, and returns the last of them.
 	expectWorktree := func() *gomock.Call {
 		worktree := filepath.Join(run, session.WorktreeDirectory)
 		add := launcher.EXPECT().Run(gomock.Any(), launched("git", "-C", repository, "worktree", "add", "-b", branch,
 			worktree, baseBranch)).Return(proc.Result{}, nil)
-		hooks := launcher.EXPECT().Run(gomock.Any(), launched("git", "-C", worktree, "config", "core.hooksPath",
-			filepath.Join(run, "hooks"))).Return(proc.Result{}, nil).After(add)
+		perWorktree := launcher.EXPECT().Run(gomock.Any(), launched("git", "-C", repository, "config", "extensions.worktreeConfig",
+			"true")).Return(proc.Result{}, nil).After(add)
+		hooks := launcher.EXPECT().Run(gomock.Any(), launched("git", "-C", worktree, "config", "--worktree", "core.hooksPath",
+			filepath.Join(run, "hooks"))).Return(proc.Result{}, nil).After(perWorktree)
 		return launcher.EXPECT().Run(gomock.Any(), launched("git", "-C", worktree, "commit", "--allow-empty")).
 			Return(proc.Result{}, nil).After(hooks)
 	}
@@ -173,6 +176,7 @@ var _ = Describe("AgentSessionRunner", func() {
 			Entry("a nil option", session.ErrInvalidOption, nil),
 			Entry("a nil turn executor factory", session.ErrInvalidOption, session.WithTurnExecutors(nil)),
 			Entry("an empty Claude Code executable", session.ErrInvalidOption, session.WithClaudeExecutable("")),
+			Entry("an empty MCP server URL", session.ErrInvalidOption, session.WithMCPServer("")),
 		)
 
 		It("requires the state directory", func() {
@@ -187,6 +191,29 @@ var _ = Describe("AgentSessionRunner", func() {
 	})
 
 	Describe("Run", func() {
+		It("gives every turn the host's MCP server when it was granted one", func() {
+			var err error
+			runner, err = session.NewAgentSessionRunner(
+				session.WithLauncher(launcher),
+				session.WithStateDirectory(state),
+				session.WithGateCommand(gateBinary, gateVerb),
+				session.WithMCPServer("http://127.0.0.1:14120/mcp"),
+				session.WithTurnExecutors(func(spec session.TurnExecutorSpec) (session.ITurnExecutor, error) {
+					specs = append(specs, spec)
+					return executor, nil
+				}),
+			)
+			Expect(err).NotTo(HaveOccurred())
+			gomock.InOrder(expectWorktree(), executor.EXPECT().Propose(gomock.Any(), gomock.Any()).Return(proposal, nil),
+				expectPushRemote(), expectPullRequestLookup(pullRequest))
+			_, err = runner.Run(ctx, recipe)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(specs).To(HaveLen(1))
+			Expect(specs[0].Arguments[len(specs[0].Arguments)-2:]).To(Equal([]string{
+				"--mcp-config", `{"mcpServers":{"csf":{"type":"http","url":"http://127.0.0.1:14120/mcp","headers":{"X-CSF-Assignment":"` + recipe.GetAssignmentId() + `"}}}}`,
+			}))
+		})
+
 		It("starts the session in its own worktree with the gates installed and returns the receipt", func() {
 			var turnTrace string
 			gomock.InOrder(
@@ -241,9 +268,17 @@ var _ = Describe("AgentSessionRunner", func() {
 			Expect(json.Unmarshal(settings, &hooks)).To(Succeed())
 			Expect(hooks.Hooks).To(HaveKey(session.HookPreToolUse))
 			Expect(hooks.Hooks).To(HaveKey(session.HookPostToolUse))
+			Expect(hooks.Hooks).To(HaveKey(session.HookStop))
 			for event, matchers := range hooks.Hooks {
 				Expect(matchers).To(HaveLen(1))
-				Expect(matchers[0].Matcher).To(Equal(session.ToolBash))
+				switch event {
+				case session.HookStop:
+					Expect(matchers[0].Matcher).To(BeEmpty(), "Stop fires on every stop")
+				case session.HookPreToolUse:
+					Expect(matchers[0].Matcher).To(Equal(session.ToolBash + "|" + session.ToolAskUserQuestion + "|" + session.ToolReadyPullRequest + "|" + session.ToolGrep + "|" + session.ToolGlob))
+				default:
+					Expect(matchers[0].Matcher).To(Equal(session.ToolBash))
+				}
 				Expect(matchers[0].Hooks[0].Type).To(Equal("command"))
 				Expect(matchers[0].Hooks[0].Command).To(Equal(strings.Join([]string{gateBinary, gateVerb, event, run}, " ")))
 			}
@@ -474,5 +509,69 @@ var _ = Describe("AgentSessionRunner in a real git worktree", func() {
 			ContainSubstring("CSF-Turn: 1"),
 			ContainSubstring("CSF-Model: sonnet"),
 		))
+	})
+
+	It("sets core.hooksPath per worktree, not in the shared config", func() {
+		ctx := context.Background()
+		host, err := proc.NewHostLauncher()
+		Expect(err).NotTo(HaveOccurred())
+		git := func(directory string, arguments ...string) string {
+			result, err := host.Run(ctx, proc.Command{Executable: "git", Arguments: append([]string{"-C", directory}, arguments...), Directory: directory})
+			Expect(err).NotTo(HaveOccurred())
+			return strings.TrimSpace(string(result.Stdout))
+		}
+		repo := GinkgoT().TempDir()
+		git(repo, "init", "--initial-branch", baseBranch)
+		git(repo, "config", "user.name", "Spec")
+		git(repo, "config", "user.email", "spec@example.invalid")
+		git(repo, "commit", "--allow-empty", "-m", "base")
+
+		state := GinkgoT().TempDir()
+		executor := mocks.NewMockITurnExecutor(gomock.NewController(GinkgoT()))
+		runner, err := session.NewAgentSessionRunner(
+			session.WithLauncher(host),
+			session.WithStateDirectory(state),
+			session.WithGateCommand(gateBinary, gateVerb),
+			session.WithTurnExecutors(func(spec session.TurnExecutorSpec) (session.ITurnExecutor, error) { return executor, nil }),
+		)
+		Expect(err).NotTo(HaveOccurred())
+
+		recipe1 := newRecipe()
+		recipe1.Workspace.RepositoryPath = repo
+		worktree1 := filepath.Join(session.RunDirectory(state, recipe1.AssignmentId), session.WorktreeDirectory)
+		executor.EXPECT().Propose(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, turn *claudecode.Turn) (*model.Proposal[claudecode.Event], error) {
+				git(worktree1, "commit", "--allow-empty", "-m", "agent change")
+				return &model.Proposal[claudecode.Event]{Provider: claudecode.ProviderName}, nil
+			})
+
+		receipt1, err := runner.Run(ctx, recipe1)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(receipt1.GetWorktreeId()).To(Equal(worktree1))
+
+		recipe2 := newRecipe()
+		recipe2.Workspace.RepositoryPath = repo
+		recipe2.AssignmentId = "5b0f1c7e-3d2a-4e6b-9a41-8c7d2e9f6a13"
+		recipe2.Workspace.Branch = "h1/scratch-two"
+		worktree2 := filepath.Join(session.RunDirectory(state, recipe2.AssignmentId), session.WorktreeDirectory)
+		executor.EXPECT().Propose(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, turn *claudecode.Turn) (*model.Proposal[claudecode.Event], error) {
+				git(worktree2, "commit", "--allow-empty", "-m", "agent change")
+				return &model.Proposal[claudecode.Event]{Provider: claudecode.ProviderName}, nil
+			})
+
+		receipt2, err := runner.Run(ctx, recipe2)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(receipt2.GetWorktreeId()).To(Equal(worktree2))
+
+		hooksPath1 := git(worktree1, "config", "--show-scope", "--get", "core.hooksPath")
+		hooksPath2 := git(worktree2, "config", "--show-scope", "--get", "core.hooksPath")
+
+		Expect(hooksPath1).To(ContainSubstring("worktree"))
+		Expect(hooksPath2).To(ContainSubstring("worktree"))
+		Expect(hooksPath1).NotTo(Equal(hooksPath2))
+
+		Expect(strings.ToLower(git(repo, "config", "--local", "--list"))).NotTo(ContainSubstring("core.hookspath"),
+			"the shared config holds no hooks path")
 	})
 })

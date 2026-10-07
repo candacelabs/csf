@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "cite_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/candacelabs/csf/tools/cite",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "cite",
+    embed = [":cite_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "cite_test",
+    srcs = ["main_test.go"],
+    embed = [":cite_lib"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

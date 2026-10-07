@@ -12,7 +12,13 @@ type config = {
   output_path : string;
   require_closed : bool;
 }
-type report = { architecture_name : string; mode : mode; obligations : int }
+type report = {
+  architecture_name : string;
+  mode : mode;
+  obligations : int;
+  directories_declared : int;
+  directories_tracked : int;
+}
 
 let mode_name = function Check -> "check" | Emit -> "emit" | Check_generated -> "check-generated"
 (* [let*] below is Result.bind: unwrap [Ok] to continue, or return the first
@@ -25,18 +31,33 @@ let io_result file operation =
   | Sys_error message -> failure file message
   | Unix.Unix_error (error, operation, path) -> failure path (operation ^ ": " ^ Unix.error_message error)
 
-(* Ordinary compilation retains open obligations as data. Closed mode promotes
-   them to errors: valid declarations are not evidence of implemented cleanup. *)
-let compile config = io_result config.source_path (fun () ->
+(* Text to a resolved graph plus its tree census. The census needs the tracked
+   inventory, which comes from git, so this is where the checkout is read. *)
+let analyze config =
   let* syntax = Frontend.parse_files ~grammar_path:config.grammar_path ~source_path:config.source_path in
   let* model = Decode.architecture syntax in
   let* resolved = Validate.resolve model in
-  let errors = Source_check.check ~root:config.root resolved in
+  Ok (resolved, Validate.tree_diagnostics resolved.architecture (Source_check.tracked ~root:config.root))
+
+(* Ordinary compilation retains open obligations as data. Closed mode promotes
+   them to errors: valid declarations are not evidence of implemented cleanup.
+   Tree offenses are errors in every mode: a tracked file outside its declared
+   home is not a warning. *)
+let checked config = io_result config.source_path (fun () ->
+  let* resolved, tree = analyze config in
+  let errors = Source_check.check ~root:config.root resolved @ tree.offenses in
   if errors <> [] then Error errors
   else if config.require_closed && resolved.obligations <> [] then
     Error (List.map (fun (item : obligation) ->
-      { at = model.at; code = "CSF_OBLIGATION"; message = item.subject ^ ": " ^ item.requirement }) resolved.obligations)
-  else Ok resolved)
+      { at = resolved.architecture.at; code = "CSF_OBLIGATION"; message = item.subject ^ ": " ^ item.requirement }) resolved.obligations)
+  else Ok (resolved, tree))
+
+let compile config = Result.map fst (checked config)
+
+(* The panel ratio: declared directories over tracked directories. Reads the
+   same git inventory the census does, without resolving the graph. *)
+let census ~root (architecture : Model.architecture) =
+  (List.length architecture.directories, Facts.tracked_directories (Source_check.tracked ~root))
 
 let projections model = [
   "csf_architecture_cgen.ml", Emit.ocaml model;
@@ -70,11 +91,16 @@ let check_generated output model =
   if errors = [] then Ok () else Error errors
 
 let run mode config = io_result config.output_path (fun () ->
-  let* resolved = compile config in
+  let* resolved, tree = checked config in
   let* () = match mode with
     | Check -> Ok ()
     | Emit -> write config.output_path resolved
     | Check_generated -> check_generated config.output_path resolved in
-  Ok {architecture_name = resolved.architecture.name; mode; obligations = List.length resolved.obligations})
+  Ok {
+    architecture_name = resolved.architecture.name; mode;
+    obligations = List.length resolved.obligations;
+    directories_declared = tree.directories_declared;
+    directories_tracked = tree.directories_tracked;
+  })
 
 let json config = Result.map Emit.json (compile config)

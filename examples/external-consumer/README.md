@@ -3,7 +3,7 @@
 This is a complete Bazel repository that depends on `candace` the way a real
 consumer does: it pins one published source archive and, from that archive
 alone, links a Core binary of its own wearing its own identity, serving its own
-page, running its own services, and driven by its own agent runtime. It never
+page, running its own [services](../../csf/docs/generated/ontology_cgen.md#term-service), and driven by its own [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime). It never
 forks or vendors the source tree, and it holds every one of Core's extension
 seams to a compiled test.
 
@@ -24,7 +24,7 @@ exercised here, and every candace package behind them arrives through an
 |---|---|
 | `WithComponent` | three components of its own, in a graph Core orders |
 | `WithHarnessFactory` | a full `harness.IFactory` and `harness.IRuntime` |
-| `WithBrand` | an invented product's name, agent, wordmark, and palette |
+| `WithBrand` | an invented product's name, [agent](../../csf/docs/generated/ontology_cgen.md#term-agent), wordmark, and palette |
 | `WithUIOverlay` | one shipped template block, redefined |
 | `WithNavItem` | one sidebar entry, after Core's own four |
 | `WithHTTPService` | the page that entry links to |
@@ -40,15 +40,15 @@ by something other than candace's own name.
 
 ## What it builds
 
-- `steering/` — a bounded store and a service, composed with
+- `steering/` — a bounded store and a [service](../../csf/docs/generated/ontology_cgen.md#term-service), composed with
   `component.WithRequires` so Core assembles and starts the store first and
   stops it last. Core constructs neither and reads neither one's configuration;
   it owns only the order.
-- `noteboard/` — this repository's own service, and the one with business logic
+- `noteboard/` — this repository's own [service](../../csf/docs/generated/ontology_cgen.md#term-service), and the one with business logic
   rather than a fixture's. It keeps a bounded ledger of the steering inputs the
   harness observed, treats a consecutive repeat as a retry, counts sequence
   numbers past an evicted note, and records nothing until Core has started it.
-  It joins the graph as a component *requiring* the steering service — an edge
+  It joins the graph as a component *requiring* the steering [service](../../csf/docs/generated/ontology_cgen.md#term-service) — an edge
   between two of this repository's own components, resolved by Core — and it
   mounts its own operator page through the HTTP seam.
 - `identity/` — the product identity: the two brand-bearing names, a wordmark
@@ -58,13 +58,13 @@ by something other than candace's own name.
   Everything the overlay does not name keeps shipping from candace.
 - `customharness/` — a full `harness.IFactory` and `harness.IRuntime`
   implementation compiled outside the deploy tree, publishing typed events
-  through the host boundary and holding the steering service the composition
+  through the host boundary and holding the steering [service](../../csf/docs/generated/ontology_cgen.md#term-service) the composition
   root handed it.
 - `composition/` — the composition root, as a library rather than inline in
   `main`, so the suites assert on the option list the binary is linked with
   instead of a second copy of it written to be asserted on.
 - `cmd/` — `bootstrap.Run` with that option list, producing a Core binary with a
-  different agent runtime, a different identity, an extra page, and the stock
+  different [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime), a different identity, an extra page, and the stock
   control plane.
 - The suites — Ginkgo specs over the harness with a `gomock` host, over the
   ledger's own rules, over the resolved component order, and over the rendered
@@ -75,7 +75,7 @@ by something other than candace's own name.
 
 What Core keeps is as much the point: its routes, including the `/claws/...`
 paths, its snapshot contract, its API, its persistence, and every string in the
-UI that does not name the product or the agent. The specs assert that too.
+UI that does not name the product or the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent). The specs assert that too.
 
 ## The two ways to pin the archive
 
@@ -151,7 +151,7 @@ templates as `MODULE.bazel`, and fill it in by hand: the release's `integrity`
 archive's own `MODULE.bazel`, which `bazel mod tidy` will also write for you.
 Keep `_workspace/.bazelrc` too: CSF's OCaml compiler resolves `tools_opam` from
 the OBazl registry listed there, before Bazel searches the public registry.
-This outside-product example builds the Go runtime, so Candace does not ask it
+This outside-product example builds the Go [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime), so Candace does not ask it
 to resolve the archive's development-only compiler toolchain.
 Then, from inside that copy:
 
@@ -165,7 +165,7 @@ harness, the custom components, and the custom presentation compiled in. It
 reads exactly the configuration the stock command reads — a PostgreSQL URL, a
 writable data directory and workspace, a Warden URL, and a harness selection —
 and adds no setting of its own. `infra/deploy-kit/README.md` describes how a fleet
-deployment layers such a binary over the standard Core runtime.
+deployment layers such a binary over the standard Core [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime).
 
 ## Consuming from a legacy WORKSPACE build
 
@@ -181,9 +181,9 @@ establishes one checkable thing: a repository with no candace source in it
 builds every target it declares and passes every suite it declares, in both
 pinning shapes, against a tarball served over HTTP, using nothing from the
 monorepo but that tarball. The composition it links is the whole extension
-surface at once — three components in a graph Core orders, a full agent
+surface at once — three components in a graph Core orders, a full [agent](../../csf/docs/generated/ontology_cgen.md#term-agent)
 harness, an invented identity, an overlay, a sidebar entry, and a page of its
-own — so "a service is easy to add" is a claim the build either satisfies or
+own — so "a [service](../../csf/docs/generated/ontology_cgen.md#term-service) is easy to add" is a claim the build either satisfies or
 breaks on.
 
 It stops short of running Core. An assembled Core opens PostgreSQL, a Warden

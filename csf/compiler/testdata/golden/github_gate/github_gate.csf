@@ -1,0 +1,42 @@
+// GITHUB-GATE. One gate, declared once in the ontology language. csfc reads
+// this block and emits two artifacts from the one syntax tree: its Datalog
+// program (github_shell.dl) and its Go check (github_gate.go). A golden test
+// pins both against the checked-in files.
+//
+// The kind is gate; the instance is github_gate. Its relations are word (the
+// gh nouns the gate names) and replacement (the CSF tool that replaces a gh
+// noun and verb); its rule is github_shell. A session reaches GitHub through
+// CSF's typed GitHub tools, which record every call, so a gh command in the
+// Bash shell is refused.
+
+gate github_gate
+  "GitHub through the shell"
+  "A gh pr, gh issue or gh api command, which a session must replace with a CSF GitHub tool."
+  edge session github
+  side harness
+  relation word "A gh noun the gate names: pr, issue or api."
+  relation replacement "The CSF GitHub tool that replaces a gh noun and verb."
+  rule github_shell "A gh pr, gh issue or gh api command."
+{
+  word pr;
+  word issue;
+  word api;
+
+  replacement pr create pulls_create;
+  replacement pr ready mark_pull_request_ready;
+  replacement pr merge pulls_merge;
+  replacement pr list pulls_list;
+  replacement pr view pulls_get;
+  replacement pr checks checks_list_for_ref;
+  replacement pr edit pulls_update;
+  replacement pr close pulls_update;
+  replacement pr comment issues_create_comment;
+
+  replacement issue create issues_create;
+  replacement issue comment issues_create_comment;
+  replacement issue edit issues_update;
+  replacement issue close issues_update;
+  replacement issue reopen issues_update;
+  replacement issue list issues_list_for_repo;
+  replacement issue view issues_get;
+}

@@ -48,8 +48,8 @@ import (
 	"github.com/candacelabs/csf/pkg/gotth/internal/protocol"
 	pb "github.com/candacelabs/csf/pkg/gotth/internal/protocol/gotthlivepb"
 
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	ionet "github.com/candacelabs/csf/io/net"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	csfruntime "github.com/candacelabs/csf/runtime"
 )
 
@@ -116,8 +116,8 @@ func run() error {
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(d.snapshot())
 	})
-	statusListener, err := ipchttp.NewHTTPListener(ipcnet.NewHostNetwork(), *status, mux,
-		ipchttp.WithShutdownBudget(statusDrainBudget))
+	statusListener, err := iohttp.NewHTTPListener(ionet.NewHostNetwork(), *status, mux,
+		iohttp.WithShutdownBudget(statusDrainBudget))
 	if err != nil {
 		return err
 	}

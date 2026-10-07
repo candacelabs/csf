@@ -31,5 +31,7 @@ let miner = {
   package = "services/ouroboros/miners/_template";
   rules = Rules_cgen.source;
   verdicts = [{ name = "invisible"; arity = 1; severity = S3 }];
+  (* A draft pull request opened late is an offense for any harness user. *)
+  scope = Generic;
   extract;
 }

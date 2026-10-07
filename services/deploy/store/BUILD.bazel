@@ -13,7 +13,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/deploy/store",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
+        "//io/ipc/db/csfpg",
         "//services/deploy/internal/storedb",
         "@com_github_jackc_pgx_v5//:pgx",
         "@com_github_jackc_pgx_v5//pgtype",
@@ -28,7 +28,7 @@ go_test(
     ],
     embed = [":store"],
     deps = [
-        "//ipc/db/csfpg/mocks",
+        "//io/ipc/db/csfpg/mocks",
         "@com_github_jackc_pgx_v5//pgconn",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",

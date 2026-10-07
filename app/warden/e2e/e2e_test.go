@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/pkg/eventually"
 )
 
@@ -584,12 +585,8 @@ func writeRoster(t *testing.T, path string, ids map[string]string) {
 	if err != nil {
 		t.Fatalf("marshal roster: %v", err)
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+	if err := atomicfile.WriteFile(path, data, 0o644); err != nil {
 		t.Fatalf("write roster: %v", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		t.Fatalf("rename roster: %v", err)
 	}
 }
 

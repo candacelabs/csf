@@ -32,4 +32,7 @@ var (
 	ErrCycle = fmt.Errorf("%w: depends_on would close a cycle", csf.ErrInvalidRequest)
 	// ErrSliceFinished reports a change to a merged or canceled slice.
 	ErrSliceFinished = fmt.Errorf("%w: the slice has finished", csf.ErrConflict)
+	// ErrInvalidControl reports a control without a reason, or a hold or
+	// release naming no slice.
+	ErrInvalidControl = fmt.Errorf("%w: invalid control", csf.ErrInvalidRequest)
 )

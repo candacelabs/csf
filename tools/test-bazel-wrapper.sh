@@ -22,7 +22,7 @@ run_wrapper() {
   PATH="$fake_bin:$PATH" \
     FAKE_DOCKER_ARGUMENTS="$arguments" \
     CANDACE_BAZEL_CACHE="$scratch/cache" \
-    CANDACE_BAZEL_DISK_CACHE=/bazel-home/sharedtaskcache \
+    CANDACE_BAZEL_DISK_CACHE="$scratch/disk cache" \
     CANDACE_BAZEL_WORKSPACE="$module_root" \
     "$wrapper" "$@"
 }
@@ -34,26 +34,27 @@ assert_tail() {
 }
 
 run_wrapper build //...
-assert_tail 3 build --disk_cache=/bazel-home/sharedtaskcache //...
+assert_tail 3 build --disk_cache=/bazel-disk-cache //...
+grep -Fx -- "$scratch/disk cache:/bazel-disk-cache" "$arguments"
 ! grep -F -- 'CSF_OCAML_TOOLCHAIN_ROOT=' "$arguments"
 ! grep -F -- ':/csf-ocaml-toolchain' "$arguments"
 
 CANDACE_OCAML_TOOLCHAIN_CACHE="$scratch/installation with spaces" run_wrapper build //...
 grep -Fx -- "$scratch/installation with spaces:/csf-ocaml-toolchain" "$arguments"
 grep -Fx -- 'CSF_OCAML_TOOLCHAIN_ROOT=/csf-ocaml-toolchain' "$arguments"
-assert_tail 3 build --disk_cache=/bazel-home/sharedtaskcache //...
+assert_tail 3 build --disk_cache=/bazel-disk-cache //...
 
 run_wrapper test //tools/example:all
-assert_tail 3 test --disk_cache=/bazel-home/sharedtaskcache //tools/example:all
+assert_tail 3 test --disk_cache=/bazel-disk-cache //tools/example:all
 
 run_wrapper --batch test //tools/example:batch
-assert_tail 4 --batch test --disk_cache=/bazel-home/sharedtaskcache //tools/example:batch
+assert_tail 4 --batch test --disk_cache=/bazel-disk-cache //tools/example:batch
 
 run_wrapper run //tools/example:binary
-assert_tail 3 run --disk_cache=/bazel-home/sharedtaskcache //tools/example:binary
+assert_tail 3 run --disk_cache=/bazel-disk-cache //tools/example:binary
 
 run_wrapper run //tools/example:binary -- --argument
-assert_tail 5 run --disk_cache=/bazel-home/sharedtaskcache //tools/example:binary -- --argument
+assert_tail 5 run --disk_cache=/bazel-disk-cache //tools/example:binary -- --argument
 
 for command in mod query version; do
   case "$command" in
@@ -66,8 +67,9 @@ done
 
 if [[ "${BAZEL_WRAPPER_STANDALONE_TEST:-}" != true ]]; then
   standalone="$scratch/standalone"
-  mkdir -p -- "$standalone/tools"
+  mkdir -p -- "$standalone/tools" "$standalone/bazel"
   printf 'module(name = "fixture")\n' >"$standalone/MODULE.bazel"
+  cp -- "$module_root/bazel/execution_image.txt" "$standalone/bazel/"
   cp -- "$tool_directory/bazel.sh" "$tool_directory/test-bazel-wrapper.sh" "$standalone/tools/"
   BAZEL_WRAPPER_STANDALONE_TEST=true bash "$standalone/tools/test-bazel-wrapper.sh"
 fi

@@ -6,7 +6,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/copilot-adapter/worktreeadapter",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//pkg/boundedbuffer",
         "//pkg/boundedbuffer/v1:boundedbuffer",
         "//services/copilot-adapter",
@@ -22,7 +22,7 @@ go_test(
     ],
     deps = [
         ":worktreeadapter",
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//services/copilot-adapter",
         "@com_github_google_uuid//:uuid",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

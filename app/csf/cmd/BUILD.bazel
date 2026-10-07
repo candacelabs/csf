@@ -3,31 +3,46 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 go_library(
     name = "cmd_lib",
     srcs = [
+        "bootstrap.go",
         "configuration.go",
+        "decide.go",
         "email.go",
+        "eval.go",
         "links.go",
         "main.go",
+        "scoreboard.go",
         "workbench_mcp.go",
         "workbench_tasks.go",
+    ],
+    # The scoreboard command embeds the two scratchpad demos' recorded output and
+    # the consistency measurement so a rerun reproduces the same values with no
+    # model and no network.
+    embedsrcs = [
+        "testdata/scoreboard/consistency.json",
+        "testdata/scoreboard/place_files.json",
+        "testdata/scoreboard/tier_from_csf.json",
     ],
     importpath = "github.com/candacelabs/csf/app/csf/cmd",
     visibility = ["//visibility:private"],
     deps = [
         "//csf",
-        "//ipc/db/csfpg",
-        "//ipc/docker",
-        "//ipc/net",
-        "//ipc/proc",
-        "//ipc/ros",
+        "//csf/bootstrap/archive",
+        "//io/ipc/db/csfpg",
+        "//io/ipc/docker",
+        "//io/ipc/proc",
+        "//io/net",
+        "//io/net/github",
+        "//io/net/http",
+        "//io/net/model/jev",
+        "//io/net/ros",
+        "//pkg/atomicfile",
         "//pkg/httpserver",
-        "//pkg/privatefile",
         "//pkg/sqlmigrate",
         "//pkg/telemetry",
         "//proto/candace/agent/v1:agent",
         "//proto/candace/brainspine/v1:brainspine",
-        "//proto/candace/email/v1:email",
-        "//proto/candace/provenance/v1:provenance",
         "//runtime",
+        "//services/bootstrap",
         "//services/copilot-adapter",
         "//services/copilot-adapter/copilotbridge",
         "//services/copilot-adapter/gen/api",
@@ -50,7 +65,6 @@ go_library(
         "@com_github_prometheus_client_golang//prometheus",
         "@io_opentelemetry_go_otel_exporters_otlp_otlptrace_otlptracehttp//:otlptracehttp",
         "@org_golang_google_protobuf//encoding/protojson",
-        "@org_golang_x_oauth2//:oauth2",
         "@org_golang_x_sync//errgroup",
     ],
 )
@@ -64,23 +78,36 @@ go_binary(
 go_test(
     name = "cmd_test",
     srcs = [
+        "bootstrap_test.go",
         "configuration_test.go",
+        "decide_test.go",
         "email_test.go",
+        "eval_test.go",
         "links_test.go",
         "main_runtime_test.go",
         "mock_spine_test.go",
+        "scoreboard_test.go",
         "workbench_mcp_test.go",
     ],
-    # The MCP configuration test reads the owned trace defaults through os.ReadFile.
-    data = ["//services/copilot-adapter/config:traces.defaults.json"],  # keep
+    # The scoreboard test reads the committed artifact declaration through
+    # os.ReadFile; the MCP configuration test reads the owned trace defaults the
+    # same way.
+    data = [
+        "//csf/bootstrap:bootstrap.csf",  # keep
+        "//csf/observability:scoreboard.csf",  # keep
+        "//services/copilot-adapter/config:traces.defaults.json",  # keep
+    ],
     embed = [":cmd_lib"],
     deps = [
         "//csf",
-        "//ipc/ros",
+        "//io/net/model/jev",
+        "//io/net/ros",
         "//pkg/httpserver",
         "//proto/candace/brainspine/v1:brainspine",
+        "//services/bootstrap",
         "//services/copilot-adapter",
         "//services/copilot-adapter/proto/candace/copilot/v1:copilot",
+        "//services/email",
         "@com_github_github_copilot_sdk_go//:go",
         "@com_github_google_uuid//:uuid",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

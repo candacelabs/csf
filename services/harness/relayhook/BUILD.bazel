@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "relayhook",
+    srcs = [
+        "hook.go",
+        "sender.go",
+        "settings.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/relayhook",
+    visibility = ["//app/harness:__subpackages__"],
+    deps = [
+        "//csf",
+        "//pkg/atomicfile",
+        "//proto/candace/harness/v1:harness",
+    ],
+)
+
+go_test(
+    name = "relayhook_test",
+    srcs = ["hook_test.go"],
+    embed = [":relayhook"],
+)

@@ -1,15 +1,25 @@
 // Copyright 2026 Candace Labs
 
-// Package intake wakes the agent that owns a pull request or issue when
-// something actionable happens to it: a comment, a review, an inline review
-// comment, or a failed CI run.
+// Package intake turns GitHub activity into the typed candace.intake.v1.Event
+// and takes each to whoever acts on it. It has two sources.
 //
-// It is a tailnet-side poller, not a webhook receiver. Accepting GitHub's
-// webhooks would need public ingress, which is a trust-model change this
-// service deliberately does not make; instead it polls the GitHub REST API
-// with conditional requests (an unchanged feed answers 304 and costs no rate
-// limit), honours the X-Poll-Interval GitHub asks for, and backs off until the
-// rate-limit window resets when it is exhausted.
+// The [WebhookReceiver] is the one csf serve mounts: GitHub delivers to
+// [WebhookPath] as things happen. Each delivery's X-Hub-Signature-256 is
+// checked against the webhook secret in constant time; a verified delivery is
+// kept once by its X-GitHub-Delivery GUID (its raw body is the corpus copy),
+// recorded with its typed events on the GitHub event stream ([Stream]), and
+// every event is offered to the [EventRoute]s: [SessionRoute] queues pull
+// request feedback in the session that owns the branch, [MergeRoute] marks a
+// merge into main on the slice dispatcher. At Start, recovery asks GitHub to
+// redeliver every delivery since the last one kept that never arrived. The
+// receiver needs public ingress to its one route, which is the operator's
+// decision; until then it is proven with signed replays.
+//
+// The [EventIntake] is a tailnet-side poller for a host without ingress: it
+// polls the GitHub REST API with conditional requests (an unchanged feed
+// answers 304 and costs no rate limit), honours the X-Poll-Interval GitHub
+// asks for, and backs off until the rate-limit window resets when it is
+// exhausted. The rest of this comment describes the poller.
 //
 // # Flow
 //
@@ -25,8 +35,8 @@
 //
 // # Capabilities and goroutines
 //
-// The GitHub API is reached only through the [ipchttp.IHTTPClient] the binary
-// grants — normally one built by ipchttp.NewHTTPClient from an ipc/net dialer.
+// The GitHub API is reached only through the [iohttp.IHTTPClient] the binary
+// grants — normally one built by iohttp.NewHTTPClient from an ipc/net dialer.
 // The service reads no environment and opens no socket of its own. It is a
 // runtime service: [EventIntake.Start] starts exactly two goroutines on the
 // scope it is given, the poller and the dispatcher, and both return when that

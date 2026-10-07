@@ -1,0 +1,49 @@
+load("@rules_ocaml//build:rules.bzl", "ocaml_binary", "ocaml_module", "ocaml_test")
+
+package(default_visibility = ["//visibility:public"])
+
+# The rest_client kind's template engine (golden_first step 4, issue #475). The
+# templates it fills are plain files the driver paths in, so the executable
+# carries no copy of the golden: csf/tools/rest_codegen/generate.sh runs it
+# against csf/compiler/testdata/golden/rest_client and diffs the result.
+ocaml_module(
+    name = "Template",
+    struct = "template.ml",
+)
+
+ocaml_module(
+    name = "Main",
+    struct = "main.ml",
+    deps = [":Template"],
+)
+
+ocaml_binary(
+    name = "template_native",
+    main = ":Main",
+)
+
+# Publish the executable at one stable path for the generation driver.
+genrule(
+    name = "template",
+    srcs = [":template_native"],
+    outs = ["template.exe"],
+    cmd = "cp $(location :template_native) $@",
+    executable = True,
+)
+
+ocaml_module(
+    name = "Template_test",
+    struct = "template_test.ml",
+    deps = [":Template"],
+)
+
+ocaml_test(
+    name = "template_test",
+    size = "small",
+    main = ":Template_test",
+)
+
+test_suite(
+    name = "tests",
+    tests = [":template_test"],
+)

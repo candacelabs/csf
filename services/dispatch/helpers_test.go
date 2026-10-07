@@ -5,6 +5,7 @@ package dispatch_test
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/pgmem"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
@@ -21,7 +22,6 @@ import (
 	"github.com/candacelabs/csf/runtime"
 	"github.com/candacelabs/csf/services/dispatch"
 	"github.com/candacelabs/csf/services/dispatch/mocks"
-	harnessmocks "github.com/candacelabs/csf/services/harness/mocks"
 )
 
 // settleBudget bounds a spec's wait for the owner goroutine to dispatch;
@@ -43,6 +43,30 @@ func (fakeClock) After(_ time.Duration) (<-chan time.Time, func() bool) {
 }
 
 func (fakeClock) AfterFunc(_ time.Duration, _ func()) func() bool { return func() bool { return true } }
+
+// movableClock is a clock a spec moves: the rate limit reads it to tell a
+// provider window that has reset from one that has not.
+type movableClock struct {
+	now atomic.Int64
+}
+
+func newMovableClock(at time.Time) *movableClock {
+	clock := &movableClock{}
+	clock.set(at)
+	return clock
+}
+
+func (clock *movableClock) set(at time.Time) { clock.now.Store(at.UnixNano()) }
+
+func (clock *movableClock) Now() time.Time { return time.Unix(0, clock.now.Load()).UTC() }
+
+func (clock *movableClock) After(_ time.Duration) (<-chan time.Time, func() bool) {
+	return make(chan time.Time), func() bool { return true }
+}
+
+func (clock *movableClock) AfterFunc(_ time.Duration, _ func()) func() bool {
+	return func() bool { return true }
+}
 
 // assignmentOf is the first attempt's assignment for a slice: the recipe's.
 func assignmentOf(slice string) string {
@@ -86,14 +110,19 @@ func dependsOn(slices ...string) *dispatchv1.SliceEdges {
 }
 
 // harnessDouble is the agent harness as the service sees it: every Submit
-// is recorded and answered open, every Cancel is recorded, and the spec
-// delivers the session's later phases through ObserveSession.
+// is recorded and answered open, every Cancel is recorded, the launch check
+// reports workerCap, and the spec delivers the session's later phases
+// through ObserveSession.
 type harnessDouble struct {
 	sessions *mocks.MockISessionHost
 	submits  chan *pb.AgentAssignmentRecipe
 	cancels  chan string
-	// workerCap is what the launch check reports.
+	// workerCap is what the launch check reports; set it before the
+	// service starts.
 	workerCap uint32
+	// check, when set before the service starts, replaces the launch check:
+	// a full disk, or a held admission as its error.
+	check func() (*harnessv1.LaunchCheck, error)
 }
 
 func newHarnessDouble(controller *gomock.Controller) *harnessDouble {
@@ -115,6 +144,12 @@ func newHarnessDouble(controller *gomock.Controller) *harnessDouble {
 	}).AnyTimes()
 	double.sessions.EXPECT().Send(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, request *harnessv1.SendAgentSessionMessageRequest) (*harnessv1.SendAgentSessionMessageResponse, error) {
 		return &harnessv1.SendAgentSessionMessageResponse{TurnId: "2", Session: &harnessv1.AgentSessionState{AssignmentId: request.GetAssignmentId()}}, nil
+	}).AnyTimes()
+	double.sessions.EXPECT().Check(gomock.Any()).DoAndReturn(func(_ context.Context) (*harnessv1.LaunchCheck, error) {
+		if double.check != nil {
+			return double.check()
+		}
+		return &harnessv1.LaunchCheck{Cores: double.workerCap + 1, LoadOneMinute: 1, WorkerCap: double.workerCap, FreeBytes: 1 << 40, DiskFloorBytes: 1 << 30}, nil
 	}).AnyTimes()
 	return double
 }
@@ -138,16 +173,6 @@ func (double *harnessDouble) submittedSet(count int) []string {
 // nothingSubmitted asserts no Submit arrives for a while.
 func (double *harnessDouble) nothingSubmitted() {
 	Consistently(double.submits, quiet).ShouldNot(Receive(), "no session is submitted")
-}
-
-// measuresFor is a host of cores under load, so the cap is cores - load.
-func measuresFor(controller *gomock.Controller, cores int, load float64) *harnessmocks.MockIHostMeasures {
-	measures := harnessmocks.NewMockIHostMeasures(controller)
-	measures.EXPECT().Cores().Return(cores).AnyTimes()
-	measures.EXPECT().LoadAverage().Return(load, nil).AnyTimes()
-	measures.EXPECT().FreeBytes(gomock.Any()).Return(uint64(1<<40), nil).AnyTimes()
-	measures.EXPECT().DirectoryBytes(gomock.Any()).Return(uint64(0), nil).AnyTimes()
-	return measures
 }
 
 // openDatabase is a pgmem database holding CSF's real schema, served through

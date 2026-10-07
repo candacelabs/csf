@@ -7,6 +7,7 @@ import (
 	"fmt"
 	stdfs "io/fs"
 	"slices"
+	"strconv"
 	"strings"
 	"testing/fstest"
 	"time"
@@ -19,9 +20,10 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/clock"
-	"github.com/candacelabs/csf/ipc/docker"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/kernel/clock"
+	"github.com/candacelabs/csf/io/ipc/docker"
+	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/pkg/eventually"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"github.com/candacelabs/csf/runtime"
 	cronservice "github.com/candacelabs/csf/services/cron"
@@ -48,6 +50,10 @@ const (
 
 var start = time.Date(2026, time.October, 2, 12, 0, 0, 0, time.UTC)
 
+// graceBudget is how long a spec waits for a pass to reach, and then leave,
+// its wait on the manual clock.
+var graceBudget = eventually.Budget{Within: 10 * time.Second}
+
 // host is the machine the specs grant: a launcher double that answers the
 // programs housekeeping runs, the Docker and admission doubles, the state
 // directory and the process table as in-memory trees, and the record sink.
@@ -65,6 +71,18 @@ type host struct {
 	sizes      map[string]uint64
 	unpushed   map[string]string
 	prState    string
+	// git answers a git command by its arguments after -C DIR.
+	git map[string]answer
+	// groups is each added process's group; a group in stubborn ignores
+	// SIGTERM, every other one exits on it.
+	groups   map[int]int
+	stubborn map[int]bool
+}
+
+// answer is what one scripted program prints, or how it fails.
+type answer struct {
+	stdout string
+	err    error
 }
 
 func newHost() *host {
@@ -77,7 +95,10 @@ func newHost() *host {
 		free:       []uint64{1 << 40},
 		sizes:      map[string]uint64{endedWorktree: 40 << 20, outputBase: 2 << 30, endedRun: 3 << 30, activeRun: 1 << 30},
 		unpushed:   map[string]string{},
+		git:        map[string]answer{},
 		prState:    "MERGED",
+		groups:     map[int]int{},
+		stubborn:   map[int]bool{},
 		state: fstest.MapFS{
 			endedID + "/run.json":                  {Data: []byte(`{"repository":"` + repository + `"}`)},
 			endedID + "/events.jsonl":              {Data: []byte("{}\n")},
@@ -131,7 +152,12 @@ func (machine *host) run(_ context.Context, command proc.Command) (proc.Result, 
 		return proc.Result{Stdout: []byte(fmt.Sprintf("%d\t%s\n", machine.sizes[target], target))}, nil
 	case "gh":
 		return proc.Result{Stdout: []byte(machine.prState + "\n")}, nil
+	case "kill":
+		machine.signal(command.Arguments[0], command.Arguments[len(command.Arguments)-1])
 	case "git":
+		if scripted, exists := machine.git[strings.Join(command.Arguments[2:], " ")]; exists {
+			return proc.Result{Stdout: []byte(scripted.stdout)}, scripted.err
+		}
 		switch {
 		case strings.Contains(arguments, " log "):
 			return proc.Result{Stdout: []byte(machine.unpushed[command.Arguments[1]])}, nil
@@ -142,10 +168,35 @@ func (machine *host) run(_ context.Context, command proc.Command) (proc.Result, 
 	return proc.Result{}, nil
 }
 
+// addProcess adds a process init adopted.
 func (machine *host) addProcess(pid int, group int, directory string, arguments ...string) {
-	machine.processes[fmt.Sprintf("%d/stat", pid)] = &fstest.MapFile{Data: []byte(fmt.Sprintf("%d (worker) S 1 %d %d", pid, group, group))}
+	machine.addChild(pid, 1, group, directory, arguments...)
+}
+
+func (machine *host) addChild(pid int, parent int, group int, directory string, arguments ...string) {
+	machine.groups[pid] = group
+	machine.processes[fmt.Sprintf("%d/stat", pid)] = &fstest.MapFile{Data: []byte(fmt.Sprintf("%d (worker) S %d %d %d", pid, parent, group, group))}
 	machine.processes[fmt.Sprintf("%d/cwd", pid)] = &fstest.MapFile{Data: []byte(directory), Mode: stdfs.ModeSymlink}
 	machine.processes[fmt.Sprintf("%d/cmdline", pid)] = &fstest.MapFile{Data: []byte(strings.Join(arguments, "\x00") + "\x00")}
+}
+
+// signal delivers kill's signal to target, a negated group: every member
+// exits on SIGKILL, and on SIGTERM unless its group is stubborn.
+func (machine *host) signal(signal string, target string) {
+	group, err := strconv.Atoi(strings.TrimPrefix(target, "-"))
+	Expect(err).NotTo(HaveOccurred())
+	if signal == "-TERM" && machine.stubborn[group] {
+		return
+	}
+	for pid, member := range machine.groups {
+		if member != group {
+			continue
+		}
+		delete(machine.groups, pid)
+		for _, name := range []string{"stat", "cwd", "cmdline"} {
+			delete(machine.processes, fmt.Sprintf("%d/%s", pid, name))
+		}
+	}
 }
 
 func (machine *host) housekeeper(options ...housekeeping.HousekeeperOption) *housekeeping.Housekeeper {
@@ -265,13 +316,50 @@ var _ = Describe("the sessions trigger", func() {
 		Expect(machine.ran("git", "-C", repository, "worktree", "remove", "--force", endedWorktree)).To(BeTrue())
 	})
 
-	It("never signals a service a session detached, and keeps the worktree it works in", func() {
-		machine.addProcess(700, 700, endedWorktree, "/opt/bin/harness", "view")
+	It("terminates a tree an ended session detached once init adopted it, then removes the worktree", func() {
+		// The script the session backgrounded leads group 700; its parent,
+		// the executor, exited, so its parent is init.
+		machine.addProcess(700, 700, endedWorktree, "bash", "migrate.sh")
+		machine.addProcess(701, 700, "/", "gh", "issue", "create", "--body-file", endedWorktree+"/body.md")
+		Expect(machine.housekeeper().Run(context.Background(), housekeeping.TriggerSessions)).To(Succeed())
+
+		Expect(machine.ran("kill", "-TERM", "--", "-700")).To(BeTrue())
+		Expect(machine.ran("kill", "-KILL")).To(BeFalse())
+		Expect(machine.recorded(housekeeping.RecordDeletion, "process group 700 (2 processes, orphaned to init)")).To(HaveField("Session", endedID))
+		Expect(machine.ran("git", "-C", repository, "worktree", "remove", "--force", endedWorktree)).To(BeTrue())
+	})
+
+	It("kills an orphaned group that survives SIGTERM once the grace has passed", func() {
+		machine.addProcess(700, 700, endedWorktree, "bash", "-c", "trap '' TERM; sleep infinity")
+		machine.stubborn[700] = true
+		housekeeper := machine.housekeeper()
+		finished := make(chan error, 1)
+		go func() { finished <- housekeeper.Run(context.Background(), housekeeping.TriggerSessions) }()
+
+		eventually.Await(GinkgoTB(), "the reaper to wait out the grace", graceBudget, machine.clock.Waiting,
+			func(waiting int) bool { return waiting == 1 })
+		machine.clock.Advance(time.Minute)
+
+		Eventually(finished).WithTimeout(graceBudget.Within).Should(Receive(Succeed()))
+		Expect(machine.ran("kill", "-TERM", "--", "-700")).To(BeTrue())
+		Expect(machine.ran("kill", "-KILL", "--", "-700")).To(BeTrue())
+	})
+
+	It("never signals a detached group whose parent still runs, and keeps the worktree it works in", func() {
+		machine.addChild(800, 950, 800, endedWorktree, "/opt/bin/csf", "view")
 		Expect(machine.housekeeper().Run(context.Background(), housekeeping.TriggerSessions)).To(Succeed())
 
 		Expect(machine.ran("kill")).To(BeFalse())
 		Expect(machine.ran("git", "-C", repository, "worktree", "remove")).To(BeFalse())
-		Expect(machine.recorded(housekeeping.RecordFinding, endedRun)).To(HaveField("Detail", ContainSubstring("process 700")))
+		Expect(machine.recorded(housekeeping.RecordFinding, endedRun)).To(HaveField("Detail", ContainSubstring("process 800")))
+	})
+
+	It("never signals an orphan that also works for a running session", func() {
+		machine.addProcess(700, 700, endedWorktree, "bash")
+		machine.addProcess(701, 700, activeWorktree, "bash")
+		Expect(machine.housekeeper().Run(context.Background(), housekeeping.TriggerSessions)).To(Succeed())
+
+		Expect(machine.ran("kill")).To(BeFalse())
 	})
 
 	It("never signals the harness host and keeps the run directory it works in", func() {
@@ -446,7 +534,7 @@ var _ = Describe("the housekeeper", func() {
 		triggers, err := housekeeper.Triggers()
 		Expect(err).NotTo(HaveOccurred())
 		scheduler, err := cronservice.NewScheduler(append([]cronservice.Option{
-			cronservice.WithStore(crontest.OpenStore(GinkgoT())), cronservice.WithClock(machine.clock)}, triggers...)...)
+			cronservice.WithStore(crontest.OpenStore(GinkgoT()).Store), cronservice.WithClock(machine.clock)}, triggers...)...)
 		Expect(err).NotTo(HaveOccurred())
 		hostRuntime, err := runtime.NewHostRuntime()
 		Expect(err).NotTo(HaveOccurred())

@@ -1,8 +1,8 @@
 # widget
 
-The widget SDK's smallest end-to-end host: two generated widgets, one registry,
-one page, one binary — and, behind one of the widgets, a real consensus
-protocol.
+The [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) SDK's smallest end-to-end host: two generated [widgets](../../csf/docs/generated/ontology_cgen.md#term-widget), one registry,
+one page, one binary — and, behind one of the [widgets](../../csf/docs/generated/ontology_cgen.md#term-widget), a real consensus
+[protocol](../../csf/docs/generated/ontology_cgen.md#term-protocol).
 
 ```
 cd examples/widget
@@ -14,8 +14,8 @@ go run . -chaos 0             # elect once and never fail a node again
 
 The raft card is drawing an election that is actually happening.
 [`raftdemo/`](raftdemo) runs Raft's election half — terms and votes, no log — as
-one goroutine per node inside this process, and one heartbeat round of that
-protocol is one snapshot is one round of pulses on the card. A pulse crossing an
+one [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine) per node inside this process, and one heartbeat round of that
+[protocol](../../csf/docs/generated/ontology_cgen.md#term-protocol) is one snapshot is one round of pulses on the card. A pulse crossing an
 edge is a heartbeat that crossed a channel.
 
 Every `-chaos` interval the current leader is crashed and, an interval later,
@@ -24,7 +24,7 @@ turns, the scene's text alternative is rewritten and the term in the stat line
 goes up when somebody wins — none of it scripted, and all of it identical to what
 a real failure would produce. The button pauses the pulses, and a viewer who has
 asked for reduced motion never sees them. The node card's caption alternates
-between `reachable` and `unreachable` on a timer, because that widget has
+between `reachable` and `unreachable` on a timer, because that [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) has
 nothing behind it yet.
 
 ## What was written by hand, and what was not
@@ -40,20 +40,20 @@ generated marker and is overwritten on the next run.
 `relaypipeline/` is generated too, from
 [`03-relay-pipeline.widget`](../../pkg/widget/docs/examples/03-relay-pipeline.widget),
 and this host does not mount it. It is here because `gen.sh` generates every
-exemplar that describes a real widget rather than only the ones something
+exemplar that describes a real [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) rather than only the ones something
 serves: the relay pipeline is the chain-shaped scene — three nodes, two edges,
 no `forbids` on the motion gate — and a generator change that broke that shape
 would otherwise be found by whoever next read the document. Compiling it is the
 assertion; serving it would be a second demo.
 
-What is hand-written is this host: `main.go` registers the two widgets it serves, resolves
+What is hand-written is this host: `main.go` registers the two [widgets](../../csf/docs/generated/ontology_cgen.md#term-widget) it serves, resolves
 the palette they name, hands the registry the four security decisions a library
 may not make for a host, and serves the result. `page.templ` is the page shell,
-and it knows nothing about what a widget is — it is handed already-rendered
-regions in registration order, which is why the second widget cost a
+and it knows nothing about what a [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) is — it is handed already-rendered
+regions in registration order, which is why the second [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) cost a
 registration rather than a page edit.
 
-`widget.css` is this page's chrome and nothing else. The widgets' own CSS — the
+`widget.css` is this page's chrome and nothing else. The [widgets](../../csf/docs/generated/ontology_cgen.md#term-widget)' own CSS — the
 seven token values, the token classes, the scene's structure and the motion gate
 — is `widget.Stylesheet(palette)`, served in front of it: a host that kept its
 own copy of that mapping would be hand-maintaining the projection the SDK
@@ -63,7 +63,7 @@ derives.
 
 Each document declares a stream — `widget.cluster.watch` and
 `widget.node-status.watch` — and the generated `Register` carries it. Nothing in
-either widget opens one, and nothing could: a widget document names no host, no
+either [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) opens one, and nothing could: a [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) document names no host, no
 address and no credential by construction, which is what makes one publishable.
 Resolving those names against something real is the host's job, and here
 `widget.cluster.watch` resolves to a subscription on the election and
@@ -71,15 +71,15 @@ Resolving those names against something real is the host's job, and here
 
 The whole seam is `clusterFields` in `main.go`: eight wire field names against a
 fleet view, and nothing else. The engine knows no region, no wire name and no
-field spelling; the widget knows no cluster. Either could be replaced without
+field spelling; the [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) knows no cluster. Either could be replaced without
 the other noticing, which is the test of whether a seam is a seam.
 
 ## Where the goroutines are
 
-There is no per-widget process, port or connection. A session is one goroutine,
-its reducer advances one widget at a time, and each effect gets a goroutine of
+There is no per-widget process, port or connection. A session is one [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine),
+its reducer advances one [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) at a time, and each effect gets a [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine) of
 its own at the actor boundary — which is the whole of what "monolithic
-microservices" cashes out to. Registering a third widget adds a fragment, some
+microservices" cashes out to. Registering a third [widget](../../csf/docs/generated/ontology_cgen.md#term-widget) adds a fragment, some
 event names and a slice index.
 
 The cluster adds `-nodes` + 2 more: one per member, one for the network, one for
@@ -90,7 +90,7 @@ copy of one.
 ## What is actually checked
 
 - `dirty_test.go` replays a log of events through the registry and holds each
-  generated widget's dirty declaration against its own markup.
+  generated [widget](../../csf/docs/generated/ontology_cgen.md#term-widget)'s dirty declaration against its own markup.
 - `live_test.go` opens a **real WebSocket** against the real handler — a real
   handshake, real protobuf frames — waits for the election to elect somebody,
   and asserts the patch that arrives carries the new leader, in the raft region

@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "codes",
+    srcs = [
+        "catalogue_cgen.go",
+        "coder.go",
+        "codes.go",
+        "complaint_coder_induce.go",
+        "records.go",
+        "tally.go",
+        "transcript.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/ouroboros/codes",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/net/model",
+        "//io/net/model/ollama",
+        "//pkg/affect",
+        "//pkg/collections",
+        "//pkg/textbound",
+    ],
+)
+
+go_test(
+    name = "codes_test",
+    srcs = [
+        "codes_suite_test.go",
+        "codes_test.go",
+    ],
+    deps = [
+        ":codes",
+        "//io/net/model",
+        "//io/net/model/ollama",
+        "//io/net/model/stub",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

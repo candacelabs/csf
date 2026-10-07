@@ -98,9 +98,17 @@ service Research {
   rpc SendAgentSessionMessage(candace.harness.v1.SendAgentSessionMessageRequest) returns (candace.harness.v1.SendAgentSessionMessageResponse) {
     option (google.api.http) = {post: "/api/harness/sessions/send" body: "*"};
   }
+  // Apply a proposed patch to a session's worktree in patch mode, returning a typed rejection when it is not accepted.
+  rpc ProposeProposal(candace.harness.v1.ProposeProposalRequest) returns (candace.harness.v1.ProposeProposalResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/propose" body: "*"};
+  }
   // List every session this harness process holds, with its phase, turns and queue, and the one process they all run in.
   rpc ListAgentSessions(candace.harness.v1.ListAgentSessionsRequest) returns (candace.harness.v1.ListAgentSessionsResponse) {
     option (google.api.http) = {post: "/api/harness/sessions/list" body: "*"};
+  }
+  // Report every message in a session's inbox with its state and priority class.
+  rpc ListInbox(candace.harness.v1.ListInboxRequest) returns (candace.harness.v1.ListInboxResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/inbox" body: "*"};
   }
   // Read one session's state by its assignment identifier.
   rpc GetAgentSession(candace.harness.v1.GetAgentSessionRequest) returns (candace.harness.v1.GetAgentSessionResponse) {
@@ -110,9 +118,33 @@ service Research {
   rpc CancelAgentSession(candace.harness.v1.CancelAgentSessionRequest) returns (candace.harness.v1.CancelAgentSessionResponse) {
     option (google.api.http) = {post: "/api/harness/sessions/cancel" body: "*"};
   }
+  // Report the launch check a recipe would meet now, without admitting it: the host's measured load, free disk and worker cap, the findings, and why admission is held when it is.
+  rpc CheckAgentSessionAdmission(candace.harness.v1.CheckAgentSessionAdmissionRequest) returns (candace.harness.v1.CheckAgentSessionAdmissionResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/check" body: "*"};
+  }
+  // Mark a session's draft pull request ready for review. The action is recorded in the session's event log.
+  rpc ReadyAgentSessionPullRequest(candace.harness.v1.ReadyAgentSessionPullRequestRequest) returns (candace.harness.v1.ReadyAgentSessionPullRequestResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/ready" body: "*"};
+  }
+  // Merge a session's pull request through the repository's merge path (tools/merge-pr.sh when the worktree has one, else gh's squash merge). It waits for the merge path's checks; the report is the path's output. The action is recorded in the session's event log.
+  rpc MergeAgentSessionPullRequest(candace.harness.v1.MergeAgentSessionPullRequestRequest) returns (candace.harness.v1.MergeAgentSessionPullRequestResponse) {
+    option (google.api.http) = {post: "/api/harness/sessions/merge" body: "*"};
+  }
+  // Record one operator ruling and the alternatives it rules out. From the next turn of every session, the question gate refuses a question, or an offered alternative, that names an excluded alternative. Returns the rulings in force.
+  rpc RecordRuling(candace.harness.v1.RecordRulingRequest) returns (candace.harness.v1.RecordRulingResponse) {
+    option (google.api.http) = {post: "/api/harness/rulings/record" body: "*"};
+  }
   // Stop the harness process in order: listeners first, then every open session. Running sessions are closed, not completed.
   rpc StopHarness(candace.harness.v1.StopHarnessRequest) returns (candace.harness.v1.StopHarnessResponse) {
     option (google.api.http) = {post: "/api/harness/stop" body: "*"};
+  }
+  // Read the turn executor and model a recipe that names no executor runs on.
+  rpc GetAgentExecutorDefault(candace.harness.v1.GetAgentExecutorDefaultRequest) returns (candace.harness.v1.GetAgentExecutorDefaultResponse) {
+    option (google.api.http) = {post: "/api/harness/executor/get" body: "*"};
+  }
+  // Switch the turn executor and model every session submitted from now on runs on when its recipe names no executor: the way to move the whole harness to another model provider at once, as when one provider's usage quota runs out. Running sessions keep theirs.
+  rpc SetAgentExecutorDefault(candace.harness.v1.SetAgentExecutorDefaultRequest) returns (candace.harness.v1.SetAgentExecutorDefaultResponse) {
+    option (google.api.http) = {post: "/api/harness/executor/set" body: "*"};
   }
   // Browse the ideas connected to a starting point.
   rpc GetGraph(candace.brainspine.v1.GetGraphRequest) returns (candace.brainspine.v1.GetGraphResponse) {

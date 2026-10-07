@@ -1,7 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 975" width="1000" height="975" role="img" aria-labelledby="title description">
-  <title id="title">How CSF fits together on a robot's CPU 0</title>
-  <desc id="description">Eight parts arranged clockwise around CPU 0, one Go process built on the pkg primitives. 1 declare: the languages and csfc say what the software is and check the code still matches. 2 run: the runtime library puts every CPU 0 capability in one Go process, with no IPC and typed tools over MCP. 3 show: gotth-live makes the robot's UI a web page anyone can use, with no client state, so many versions can be served on scarce compute. 4 change: the agent harness lets AI agents change the code in worktrees under gates. 5 ship: deploy and Warden roll versions out to the fleet, fenced against one view. 6 learn, planned: xetcas stores weights and data once so the robot can retrain itself. 7 improve: Ouroboros turns mistakes in the record into gates proven on history. 8 evolve: RRSI rewrites the agent harness and keeps only changes that beat noise on a held-out exam.</desc>
-  <!-- Hand-drawn tour figure in the style of docs/assets/csf-cpu0-mapping.svg; not generated from architecture.csf. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1184" width="1000" height="1184" role="img" aria-labelledby="title description">
+  <title id="title">How CSF fits together: two loops</title>
+  <desc id="description">A big loop around CPU 0 builds the robot's autonomy, clockwise: declare with the languages and csfc, run on the runtime library, show with gotth-live, change with the agent harness, ship with deploy and Warden, and learn with xetcas, which is planned. Beside the agent harness sits a small loop, Ouroboros, which takes every session trace and returns the next gate. A panel opens the small loop: the corpus of runs, extract.ml facts with source lines, a rules.dl Datalog rule, a walk-forward backtest that fits a knee of 468 seconds on earlier runs and judges later ones with one true positive, no false positives, no misses and a 304 second lead, and the gate that closes the ticket. The gated runs become the next corpus. Planned: log_mistake types each rule with csfc and proves it in Lean before it can gate.</desc>
   <style>
     text { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif; }
     .bg { fill: #FFFFFF; }
@@ -83,6 +82,12 @@
       .godash { stroke: #818CF8; }
       .go-head { fill: #818CF8; }
     }
+    .codebg { fill: #0F172A; stroke: #1E293B; stroke-width: 1; }
+    .disc { fill: #0F766E; }
+    .mini { fill: #EEF2FF; stroke: #4338CA; stroke-width: 2.5; }
+    .llm { fill: #FDF2F8; stroke: #BE185D; stroke-width: 2.5; }
+    .llm-chip { fill: #BE185D; }
+    @media (prefers-color-scheme: dark) { .codebg { fill: #010409; stroke: #30363D; } .disc { fill: #115E59; } .mini { fill: #1E1B4B; stroke: #818CF8; } .llm { fill: #2A0F1F; stroke: #F472B6; } .llm-chip { fill: #9D174D; } }
   </style>
   <defs>
     <marker id="wire-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="wire-head" d="M0,0 L10,5 L0,10 z"/></marker>
@@ -90,81 +95,169 @@
     <marker id="go-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="go-head" d="M0,0 L10,5 L0,10 z"/></marker>
     <marker id="bad-end" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path class="bad-head" d="M0,0 L10,5 L0,10 z"/></marker>
   </defs>
-  <rect class="bg" x="0" y="0" width="1000" height="975" rx="16"/>
-  <text class="ink" x="24" y="36" font-size="20" font-weight="700">Everything in CSF is shaped for one job: middleware for a robot's CPU 0.</text>
-  <text class="muted" x="24" y="58" font-size="13">Read clockwise from the top: declare, run, show, change, ship, learn, improve, evolve. All of it lives in one Go process.</text>
-  <circle class="life" cx="500" cy="510" r="345"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(632.0,191.3) rotate(22.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(818.7,378.0) rotate(67.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(818.7,642.0) rotate(112.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(632.0,828.7) rotate(157.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(368.0,828.7) rotate(202.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(181.3,642.0) rotate(247.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(181.3,378.0) rotate(292.5)"/>
-  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(368.0,191.3) rotate(337.5)"/>
-  <rect class="process" x="395" y="104" width="210" height="122" rx="12"/>
-  <rect class="chip" x="407" y="116" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="453.0" y="131.5" font-size="11.5" font-weight="700" text-anchor="middle">1 · declare</text>
-  <text class="ink" x="409" y="160" font-size="15" font-weight="700">Languages and csfc</text>
-  <text class="muted" x="409" y="180" font-size="12.5">say what the software is;</text>
-  <text class="muted" x="409" y="196" font-size="12.5">csfc checks the code</text>
-  <text class="muted" x="409" y="212" font-size="12.5">still matches it</text>
-  <rect class="process" x="639" y="205" width="210" height="122" rx="12"/>
-  <rect class="chip" x="651" y="217" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="697.0" y="232.5" font-size="11.5" font-weight="700" text-anchor="middle">2 · run</text>
-  <text class="ink" x="653" y="261" font-size="15" font-weight="700">Runtime library</text>
-  <text class="muted" x="653" y="281" font-size="12.5">every CPU 0 capability</text>
-  <text class="muted" x="653" y="297" font-size="12.5">in one Go process: no IPC,</text>
-  <text class="muted" x="653" y="313" font-size="12.5">typed tools over MCP</text>
-  <rect class="process" x="740" y="449" width="210" height="122" rx="12"/>
-  <rect class="chip" x="752" y="461" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="798.0" y="476.5" font-size="11.5" font-weight="700" text-anchor="middle">3 · show</text>
-  <text class="ink" x="754" y="505" font-size="15" font-weight="700">gotth-live</text>
-  <text class="muted" x="754" y="525" font-size="12.5">a web page anyone can use;</text>
-  <text class="muted" x="754" y="541" font-size="12.5">no client state, so many</text>
-  <text class="muted" x="754" y="557" font-size="12.5">versions on scarce compute</text>
-  <rect class="process" x="639" y="693" width="210" height="122" rx="12"/>
-  <rect class="chip" x="651" y="705" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="697.0" y="720.5" font-size="11.5" font-weight="700" text-anchor="middle">4 · change</text>
-  <text class="ink" x="653" y="749" font-size="15" font-weight="700">Agent harness</text>
-  <text class="muted" x="653" y="769" font-size="12.5">AI agents change the code</text>
-  <text class="muted" x="653" y="785" font-size="12.5">in worktrees, every step</text>
-  <text class="muted" x="653" y="801" font-size="12.5">under a gate</text>
-  <rect class="process" x="395" y="794" width="210" height="122" rx="12"/>
-  <rect class="chip" x="407" y="806" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="453.0" y="821.5" font-size="11.5" font-weight="700" text-anchor="middle">5 · ship</text>
-  <text class="ink" x="409" y="850" font-size="15" font-weight="700">Deploy and Warden</text>
-  <text class="muted" x="409" y="870" font-size="12.5">versions out to the fleet,</text>
-  <text class="muted" x="409" y="886" font-size="12.5">each change fenced</text>
-  <text class="muted" x="409" y="902" font-size="12.5">against one view</text>
-  <rect class="gate" x="151" y="693" width="210" height="122" rx="12"/>
-  <rect class="chip" x="163" y="705" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="209.0" y="720.5" font-size="11.5" font-weight="700" text-anchor="middle">6 · learn</text>
-  <text class="ink" x="165" y="749" font-size="15" font-weight="700">xetcas</text>
-  <text class="muted" x="165" y="769" font-size="12.5">weights and data stored</text>
-  <text class="muted" x="165" y="785" font-size="12.5">once, so the robot can</text>
-  <text class="muted" x="165" y="801" font-size="12.5">retrain itself (planned)</text>
-  <rect class="process" x="50" y="449" width="210" height="122" rx="12"/>
-  <rect class="chip" x="62" y="461" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="108.0" y="476.5" font-size="11.5" font-weight="700" text-anchor="middle">7 · improve</text>
-  <text class="ink" x="64" y="505" font-size="15" font-weight="700">Ouroboros</text>
-  <text class="muted" x="64" y="525" font-size="12.5">mistakes in the record</text>
-  <text class="muted" x="64" y="541" font-size="12.5">become the next gates,</text>
-  <text class="muted" x="64" y="557" font-size="12.5">proven on history</text>
-  <rect class="process" x="151" y="205" width="210" height="122" rx="12"/>
-  <rect class="chip" x="163" y="217" width="92" height="22" rx="11"/>
-  <text class="chip-text" x="209.0" y="232.5" font-size="11.5" font-weight="700" text-anchor="middle">8 · evolve</text>
-  <text class="ink" x="165" y="261" font-size="15" font-weight="700">RRSI</text>
-  <text class="muted" x="165" y="281" font-size="12.5">rewrites the harness, keeps</text>
-  <text class="muted" x="165" y="297" font-size="12.5">only changes that beat</text>
-  <text class="muted" x="165" y="313" font-size="12.5">noise on a held-out exam</text>
-  <circle class="chip" cx="500" cy="510" r="128"/>
-  <text class="chip-text" x="500" y="466" font-size="28" font-weight="700" text-anchor="middle">CPU 0</text>
-  <text class="chip-text" x="500" y="492" font-size="12.5" text-anchor="middle">and every core not reserved</text>
-  <text class="chip-text" x="500" y="512" font-size="12.5" font-weight="700" text-anchor="middle">one Go process</text>
-  <text class="chip-text" x="500" y="544" font-size="11.5" text-anchor="middle">built on pkg/:</text>
-  <text class="chip-text" x="500" y="562" font-size="11.5" text-anchor="middle">pgmem · liquidproto</text>
-  <text class="chip-text" x="500" y="580" font-size="11.5" text-anchor="middle">mailbox · telemetry</text>
-  <text class="muted" x="24" y="941" font-size="12.5">Amber marks planned work. Each step feeds the next: what the robot runs, shows and ships becomes the record</text>
-  <text class="muted" x="24" y="959" font-size="12.5">that Ouroboros mines for gates and RRSI uses to evolve the harness.</text>
+  <rect class="bg" x="0.0" y="0.0" width="1000.0" height="1184.0" rx="16"/>
+  <text class="ink" x="24.0" y="36.0" font-size="17" font-weight="700">Two loops: a big one builds the robot's autonomy, a small one beside it mines our mistakes into gates</text>
+  <text class="muted" x="24.0" y="58.0" font-size="13">Big loop: start at 1 · declare (upper left) and read clockwise. Small loop: Ouroboros, opened up in the panel below.</text>
+  <circle class="life" cx="380" cy="440" r="270"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(245.0,206.2) rotate(-30.0)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(515.0,206.2) rotate(30.0)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(650.0,440.0) rotate(90.0)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(515.0,673.8) rotate(150.0)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(245.0,673.8) rotate(-150.0)"/>
+  <path class="link-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(110.0,440.0) rotate(-90.0)"/>
+  <circle class="disc" cx="380" cy="440" r="122"/>
+  <text fill="#FFFFFF" x="380.0" y="406.0" font-size="30" font-weight="700" text-anchor="middle">CPU 0</text>
+  <text fill="#E6FFFA" x="380.0" y="432.0" font-size="12" text-anchor="middle">and every core not reserved</text>
+  <text fill="#E6FFFA" x="380.0" y="450.0" font-size="12" text-anchor="middle">one Go process</text>
+  <text fill="#E6FFFA" x="380.0" y="478.0" font-size="11.5" text-anchor="middle">built on pkg/:</text>
+  <text fill="#E6FFFA" x="380.0" y="495.0" font-size="11.5" text-anchor="middle">pgmem · liquidproto</text>
+  <text fill="#E6FFFA" x="380.0" y="512.0" font-size="11.5" text-anchor="middle">mailbox · telemetry</text>
+  <rect class="process" x="30.2" y="249.0" width="232.0" height="112.0" rx="12"/>
+  <rect class="chip" x="42.2" y="260.0" width="96.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="90.2" y="275.5" font-size="11.5" font-weight="700" text-anchor="middle">1 · declare</text>
+  <text class="ink" x="44.2" y="301.0" font-size="15" font-weight="700">Languages and csfc</text>
+  <text class="muted" x="44.2" y="320.0" font-size="12">say what the software is;</text>
+  <text class="muted" x="44.2" y="335.5" font-size="12">csfc checks the code</text>
+  <text class="muted" x="44.2" y="351.0" font-size="12">still matches it</text>
+  <rect class="process" x="264.0" y="114.0" width="232.0" height="112.0" rx="12"/>
+  <rect class="chip" x="276.0" y="125.0" width="96.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="324.0" y="140.5" font-size="11.5" font-weight="700" text-anchor="middle">2 · run</text>
+  <text class="ink" x="278.0" y="166.0" font-size="15" font-weight="700">Runtime library</text>
+  <text class="muted" x="278.0" y="185.0" font-size="12">every CPU 0 capability in</text>
+  <text class="muted" x="278.0" y="200.5" font-size="12">one Go process: no IPC,</text>
+  <text class="muted" x="278.0" y="216.0" font-size="12">typed tools over MCP</text>
+  <rect class="process" x="497.8" y="249.0" width="232.0" height="112.0" rx="12"/>
+  <rect class="chip" x="509.8" y="260.0" width="96.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="557.8" y="275.5" font-size="11.5" font-weight="700" text-anchor="middle">3 · show</text>
+  <text class="ink" x="511.8" y="301.0" font-size="15" font-weight="700">gotth-live</text>
+  <text class="muted" x="511.8" y="320.0" font-size="12">a web page anyone can use;</text>
+  <text class="muted" x="511.8" y="335.5" font-size="12">no client state, so many</text>
+  <text class="muted" x="511.8" y="351.0" font-size="12">versions on scarce compute</text>
+  <rect class="llm" x="497.8" y="519.0" width="232.0" height="112.0" rx="12"/>
+  <rect class="chip" x="509.8" y="530.0" width="96.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="557.8" y="545.5" font-size="11.5" font-weight="700" text-anchor="middle">4 · change</text>
+  <rect class="llm-chip" x="645.8" y="530.0" width="72.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="681.8" y="545.5" font-size="11.5" font-weight="700" text-anchor="middle">LLM calls</text>
+  <text class="ink" x="511.8" y="571.0" font-size="15" font-weight="700">Agent harness</text>
+  <text class="muted" x="511.8" y="590.0" font-size="12">AI agents change the code</text>
+  <text class="muted" x="511.8" y="605.5" font-size="12">in worktrees, every step</text>
+  <text class="muted" x="511.8" y="621.0" font-size="12">under a gate</text>
+  <rect class="process" x="264.0" y="654.0" width="232.0" height="112.0" rx="12"/>
+  <rect class="chip" x="276.0" y="665.0" width="96.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="324.0" y="680.5" font-size="11.5" font-weight="700" text-anchor="middle">5 · ship</text>
+  <text class="ink" x="278.0" y="706.0" font-size="15" font-weight="700">Deploy and Warden</text>
+  <text class="muted" x="278.0" y="725.0" font-size="12">versions out to the fleet,</text>
+  <text class="muted" x="278.0" y="740.5" font-size="12">each change fenced</text>
+  <text class="muted" x="278.0" y="756.0" font-size="12">against one view</text>
+  <rect class="gate" x="30.2" y="519.0" width="232.0" height="112.0" rx="12"/>
+  <rect class="chip" x="42.2" y="530.0" width="96.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="90.2" y="545.5" font-size="11.5" font-weight="700" text-anchor="middle">6 · learn</text>
+  <text class="ink" x="44.2" y="571.0" font-size="15" font-weight="700">xetcas</text>
+  <text class="muted" x="44.2" y="590.0" font-size="12">weights and data stored</text>
+  <text class="muted" x="44.2" y="605.5" font-size="12">once, so the robot can</text>
+  <text class="muted" x="44.2" y="621.0" font-size="12">retrain itself (planned)</text>
+  <circle class="mini" cx="872" cy="575.0" r="78"/>
+  <circle class="go-dot" cx="804.5" cy="536.0" r="10"/>
+  <text class="chip-text" x="804.5" y="540.0" font-size="11" font-weight="700" text-anchor="middle">1</text>
+  <path class="go-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(840.3,503.7) rotate(-24.0)"/>
+  <circle class="go-dot" cx="888.2" cy="498.7" r="10"/>
+  <text class="chip-text" x="888.2" y="502.7" font-size="11" font-weight="700" text-anchor="middle">2</text>
+  <path class="go-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(930.0,522.8) rotate(48.0)"/>
+  <circle class="go-dot" cx="949.6" cy="566.8" r="10"/>
+  <text class="chip-text" x="949.6" y="570.8" font-size="11" font-weight="700" text-anchor="middle">3</text>
+  <path class="go-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(939.5,614.0) rotate(120.0)"/>
+  <circle class="go-dot" cx="903.7" cy="646.3" r="10"/>
+  <text class="chip-text" x="903.7" y="650.3" font-size="11" font-weight="700" text-anchor="middle">4</text>
+  <path class="go-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(855.8,651.3) rotate(-168.0)"/>
+  <circle class="go-dot" cx="814.0" cy="627.2" r="10"/>
+  <text class="chip-text" x="814.0" y="631.2" font-size="11" font-weight="700" text-anchor="middle">5</text>
+  <path class="go-head" d="M-8,-7 L9,0 L-8,7 z" transform="translate(794.4,583.2) rotate(-96.0)"/>
+  <text class="ink" x="872.0" y="563.0" font-size="14" font-weight="700" text-anchor="middle">Ouroboros</text>
+  <text class="muted" x="872.0" y="580.0" font-size="11.5" text-anchor="middle">mining loop</text>
+  <text class="muted" x="872.0" y="596.0" font-size="11" text-anchor="middle">LLMs write miners</text>
+  <path class="gowire" d="M729.8,553.0 C751.8,531.0 769.5,528.0 793.5,532.0" marker-end="url(#go-end)"/>
+  <path class="gowire" d="M803.0,631.2 C779.0,635.2 751.8,619.0 729.8,597.0" marker-end="url(#go-end)"/>
+  <text class="muted" x="757.9" y="523.0" font-size="11" text-anchor="middle">every trace</text>
+  <text class="muted" x="757.9" y="637.0" font-size="11" text-anchor="middle">next gate</text>
+  <rect class="card" x="770.0" y="96.0" width="206.0" height="238.0" rx="12"/>
+  <text class="ink" x="784.0" y="120.0" font-size="14" font-weight="700">Two loops</text>
+  <rect class="process" x="784.0" y="140.0" width="22.0" height="22.0" rx="6"/>
+  <text class="ink" x="816.0" y="150.0" font-size="12">Big loop: building the</text>
+  <text class="muted" x="816.0" y="166.0" font-size="12">robot's autonomy</text>
+  <rect class="mini" x="784.0" y="192.0" width="22.0" height="22.0" rx="6"/>
+  <text class="ink" x="816.0" y="202.0" font-size="12">Small loop: Ouroboros</text>
+  <text class="muted" x="816.0" y="218.0" font-size="12">turns mistakes into gates</text>
+  <rect class="llm" x="784.0" y="244.0" width="22.0" height="22.0" rx="6"/>
+  <text class="ink" x="816.0" y="254.0" font-size="12">Rose: makes LLM calls;</text>
+  <text class="muted" x="816.0" y="270.0" font-size="12">all else is plain code</text>
+  <rect class="gate" x="784.0" y="296.0" width="22.0" height="22.0" rx="6"/>
+  <text class="ink" x="816.0" y="306.0" font-size="12">Amber: planned work</text>
+  <path class="godash" d="M872,657.0 L872,818" marker-end="url(#go-end)"/>
+  <text class="muted" x="882.0" y="740.5" font-size="11.5">opened up below</text>
+  <rect class="mini" x="24.0" y="820.0" width="952.0" height="314.0" rx="16"/>
+  <text class="ink" x="42.0" y="848.0" font-size="16" font-weight="700">Inside the small loop: one turn of Ouroboros</text>
+  <text class="muted" x="42.0" y="867.0" font-size="12.5">The DRAFT-PR-LATE miner on three real runs. The five stages are plain code; LLMs enter only at the two rose inputs.</text>
+  <rect class="card" x="42.0" y="916.0" width="162.0" height="170.0" rx="12"/>
+  <rect class="tag-b" x="52.0" y="926.0" width="104.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="104.0" y="941.5" font-size="11.5" font-weight="700" text-anchor="middle">1 · corpus</text>
+  <text class="ink" x="54.0" y="968.0" font-size="12">what the agents did:</text>
+  <text class="ink" x="54.0" y="984.0" font-size="12">event logs, tickets, PRs</text>
+  <rect class="codebg" x="50.0" y="998.0" width="146.0" height="76.0" rx="8"/>
+  <text x="58.0" y="1018.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% events.jsonl, 4e60</tspan></text>
+  <text x="58.0" y="1032.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FDBA74">L2 </tspan><tspan fill="#E2E8F0">gate: passed</tspan></text>
+  <text x="58.0" y="1046.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FDBA74">L3 </tspan><tspan fill="#E2E8F0">draft PR: none</tspan></text>
+  <text x="58.0" y="1060.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">   after </tspan><tspan fill="#FDBA74">1259</tspan><tspan fill="#E2E8F0"> s</tspan></text>
+  <path class="gowire" d="M206.0,1009 L223.0,1009" marker-end="url(#go-end)"/>
+  <rect class="card" x="227.0" y="916.0" width="162.0" height="170.0" rx="12"/>
+  <rect class="tag-b" x="237.0" y="926.0" width="104.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="289.0" y="941.5" font-size="11.5" font-weight="700" text-anchor="middle">2 · extract</text>
+  <text class="ink" x="239.0" y="968.0" font-size="12">extract.ml turns each</text>
+  <text class="ink" x="239.0" y="984.0" font-size="12">item into facts</text>
+  <rect class="codebg" x="235.0" y="998.0" width="146.0" height="76.0" rx="8"/>
+  <text x="243.0" y="1018.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">gated</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">4e60</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="243.0" y="1032.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">score</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">4e60</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#FDBA74">1259</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <text x="243.0" y="1046.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% each fact keeps</tspan></text>
+  <text x="243.0" y="1060.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">% its source line</tspan></text>
+  <path class="gowire" d="M391.0,1009 L408.0,1009" marker-end="url(#go-end)"/>
+  <rect class="card" x="412.0" y="916.0" width="162.0" height="170.0" rx="12"/>
+  <rect class="tag-b" x="422.0" y="926.0" width="104.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="474.0" y="941.5" font-size="11.5" font-weight="700" text-anchor="middle">3 · rule</text>
+  <text class="ink" x="424.0" y="968.0" font-size="12">rules.dl derives</text>
+  <text class="ink" x="424.0" y="984.0" font-size="12">verdicts with proofs</text>
+  <rect class="codebg" x="420.0" y="998.0" width="146.0" height="76.0" rx="8"/>
+  <text x="428.0" y="1018.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">invisible</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">R</tspan><tspan fill="#E2E8F0">) :-</tspan></text>
+  <text x="428.0" y="1032.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">  </tspan><tspan fill="#FBBF24">gated</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">R</tspan><tspan fill="#E2E8F0">),</tspan></text>
+  <text x="428.0" y="1046.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">  </tspan><tspan fill="#FBBF24">score</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">R</tspan><tspan fill="#E2E8F0">, </tspan><tspan fill="#7DD3FC">S</tspan><tspan fill="#E2E8F0">),</tspan></text>
+  <text x="428.0" y="1060.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">  </tspan><tspan fill="#FBBF24">knee</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">K</tspan><tspan fill="#E2E8F0">), </tspan><tspan fill="#FBBF24">gt</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">S</tspan><tspan fill="#E2E8F0">,</tspan><tspan fill="#7DD3FC">K</tspan><tspan fill="#E2E8F0">).</tspan></text>
+  <path class="gowire" d="M576.0,1009 L593.0,1009" marker-end="url(#go-end)"/>
+  <rect class="card" x="597.0" y="916.0" width="162.0" height="170.0" rx="12"/>
+  <rect class="tag-b" x="607.0" y="926.0" width="104.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="659.0" y="941.5" font-size="11.5" font-weight="700" text-anchor="middle">4 · backtest</text>
+  <text class="ink" x="609.0" y="968.0" font-size="12">fit on the past,</text>
+  <text class="ink" x="609.0" y="984.0" font-size="12">judge on the future</text>
+  <rect class="codebg" x="605.0" y="998.0" width="146.0" height="76.0" rx="8"/>
+  <text x="613.0" y="1018.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">fit </tspan><tspan fill="#E2E8F0">≤ t: </tspan><tspan fill="#7DD3FC">knee</tspan><tspan fill="#E2E8F0"> = </tspan><tspan fill="#FDBA74">468</tspan></text>
+  <text x="613.0" y="1032.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">judge </tspan><tspan fill="#E2E8F0">&gt; t:</tspan></text>
+  <text x="613.0" y="1046.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#86EFAC">TP 1</tspan><tspan fill="#E2E8F0">  </tspan><tspan fill="#86EFAC">FP 0</tspan><tspan fill="#E2E8F0">  </tspan><tspan fill="#86EFAC">FN 0</tspan></text>
+  <text x="613.0" y="1060.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#7DD3FC">lead</tspan><tspan fill="#E2E8F0"> +</tspan><tspan fill="#FDBA74">304</tspan><tspan fill="#E2E8F0"> s</tspan></text>
+  <path class="gowire" d="M761.0,1009 L778.0,1009" marker-end="url(#go-end)"/>
+  <rect class="card" x="782.0" y="916.0" width="162.0" height="170.0" rx="12"/>
+  <rect class="tag-b" x="792.0" y="926.0" width="104.0" height="22.0" rx="11"/>
+  <text class="chip-text" x="844.0" y="941.5" font-size="11.5" font-weight="700" text-anchor="middle">5 · gate</text>
+  <text class="ink" x="794.0" y="968.0" font-size="12">an accepted miner</text>
+  <text class="ink" x="794.0" y="984.0" font-size="12">becomes the next gate</text>
+  <rect class="codebg" x="790.0" y="998.0" width="146.0" height="76.0" rx="8"/>
+  <text x="798.0" y="1018.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#FBBF24">invisible</tspan><tspan fill="#E2E8F0">(</tspan><tspan fill="#7DD3FC">4e60</tspan><tspan fill="#E2E8F0">)</tspan></text>
+  <text x="798.0" y="1032.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#94A3B8">  1259 &gt; 468</tspan></text>
+  <text x="798.0" y="1046.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">FN = 0 </tspan><tspan fill="#F472B6">→</tspan><tspan fill="#86EFAC"> gate on</tspan></text>
+  <text x="798.0" y="1060.0" font-size="10.5" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" xml:space="preserve"><tspan fill="#E2E8F0">close-ticket </tspan><tspan fill="#FDBA74">#102</tspan></text>
+  <rect x="233.0" y="884.0" width="295" height="20" rx="10" fill="#500724" stroke="#F472B6" stroke-width="1.2"/>
+  <text fill="#FBCFE8" x="244.0" y="898.0" font-size="11.5" font-weight="700">LLM: an agent writes extract.ml + rules.dl</text>
+  <rect x="603.0" y="884.0" width="243" height="20" rx="10" fill="#500724" stroke="#F472B6" stroke-width="1.2"/>
+  <text fill="#FBCFE8" x="614.0" y="898.0" font-size="11.5" font-weight="700">LLM: csf label proposes, you judge</text>
+  <path class="gowire" d="M863.0,1086 L863.0,1108 L123.0,1108 L123.0,1090" marker-end="url(#go-end)"/>
+  <rect class="mini" x="297.0" y="1098" width="392" height="20" rx="6" style="stroke:none"/>
+  <text class="ink" x="493.0" y="1112.0" font-size="12" text-anchor="middle">the gated runs become the next corpus: the snake eats its tail</text>
+  <rect x="24.0" y="1148.0" width="626" height="20" rx="10" fill="#451A03" stroke="#FBBF24" stroke-width="1.2"/>
+  <text fill="#FDE68A" x="35.0" y="1162.0" font-size="11.5" font-weight="700">planned: log_mistake types each rule with csfc and proves it sound in Lean before it can gate</text>
 </svg>

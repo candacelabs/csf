@@ -1,7 +1,7 @@
 # CSF Workbench theme consumer
 
-This runnable example composes the CSF service in one Go process and exposes its
-HTTP operations and MCP tools. It reads one operator-owned CSS file from a
+This runnable example composes the CSF [service](../../csf/docs/generated/ontology_cgen.md#term-service) in one Go process and exposes its
+HTTP operations and [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp) tools. It reads one operator-owned CSS file from a
 consumer-selected directory. The filename is always
 `csf.WorkbenchThemeFileName` (`workbench-theme.css`); neither the CSS contents
 nor a filepath can be supplied as operation input.
@@ -17,7 +17,7 @@ go run ./examples/csf-theme \
 `-listen` selects the HTTP address, and `-theme-dir` selects only the directory
 that contains `workbench-theme.css`. The example file in this directory is a
 small sample. CSF loads the file during startup; a missing or empty file uses
-the default Workbench appearance. The configured file is limited to 65536
+the default [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) appearance. The configured file is limited to 65536
 UTF-8 bytes.
 
 The HTTP API reads the current in-memory theme and its resolved host file path:
@@ -44,7 +44,7 @@ and rereads only the fixed filename
 under the configured directory. It updates the active theme on successful
 validation and returns the theme snapshot. Missing or empty CSS restores the
 default theme; invalid UTF-8 or CSS larger than 65536 bytes leaves the active
-theme unchanged. The MCP surface offers the same `GetWorkbenchTheme` and
+theme unchanged. The [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp) surface offers the same `GetWorkbenchTheme` and
 `ReloadWorkbenchTheme` capabilities at `/mcp`; reload takes no CSS or filepath
 arguments:
 
@@ -56,8 +56,8 @@ curl -sS http://127.0.0.1:8089/mcp \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"ReloadWorkbenchTheme","arguments":{},"_meta":{"io.modelcontextprotocol/protocolVersion":"2025-11-25"}}}'
 ```
 
-The example exposes CSF HTTP and MCP endpoints only. It does not serve or embed
-the packaged React Workbench. A consumer that wants the browser UI must build
+The example exposes CSF HTTP and [MCP](../../csf/docs/generated/ontology_cgen.md#term-mcp) endpoints only. It does not serve or embed
+the packaged React [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench). A consumer that wants the browser UI must build
 and serve that bundle explicitly and configure its CSF API origin to reach this
 process.
 

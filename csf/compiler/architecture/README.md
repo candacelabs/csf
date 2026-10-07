@@ -2,7 +2,7 @@
 
 `csfc` compiles a CSF architecture declaration into a typed OCaml model and
 checks the corresponding repository sources. The first consumer is the CSF
-composition continuous integration (CI) gate. The running application does not
+composition continuous integration (CI) gate. The running [application](../../docs/generated/ontology_cgen.md#term-application) does not
 load these architecture files. Syntax is defined in Extended Backus-Naur Form
 (EBNF), a notation for grammar rules.
 
@@ -44,8 +44,9 @@ flowchart LR
 | [rules.dl](rules.dl) | Every relational check (join, closure or count) as a Datalog finding relation, each with its formal predicate |
 | [facts.ml](facts.ml) | The base relations those rules read, extracted from the typed model |
 | [validate.ml](validate.ml) | Single-record checks, findings into diagnostics, the resolved graph and dependency order; the engine is [pinned third-party code](../third_party/datalog/README.md) |
+| [grammar.ml](grammar.ml) | The JEV-writability census: one use-site per production of the six CSF grammars, bounded when it offers no free text and at most sixteen alternatives. The `offense(grammar, _, unbounded)` relation in [rules.dl](rules.dl) reports the rest, and the census is the `jev_writable_share` meter the scoreboard carries |
 | [architecture.csf](../../architecture/architecture.csf) | Selected serve-mode composition and source roots |
-| [Generated review](../../architecture/generated/review_cgen.md) | Declared graph and unresolved obligations; never observed runtime state |
+| [Generated review](../../architecture/generated/review_cgen.md) | Declared graph and unresolved obligations; never observed [runtime](../../docs/generated/ontology_cgen.md#term-runtime) state |
 | [cli.ml](cli.ml) | Declarative Cmdliner options and typed subcommand dispatch |
 | [compiler.ml](compiler.ml) | Reusable compilation and artifact operations; no process exit or console output |
 
@@ -157,7 +158,7 @@ checked architecture as one JSON document on standard output and writes
 nothing. It is for tools in other languages that need the declarations
 without linking OCaml or re-implementing this grammar. The document carries
 `"format": "csf-architecture"` and `"format_version": 1`; its fields are the
-processes, scopes (with their owning process), components (`kind` is the role
+processes, [scopes](../../docs/generated/ontology_cgen.md#term-scope) (with their owning process), components (`kind` is the role
 keyword, plus `process`, `scope`, `source`, `state`, `lifecycle` and
 `verification`), dependencies, connections, `scan_roots`, `generated_roots`
 and outstanding `obligations`, each with its declaration location. Paths stay
@@ -195,16 +196,16 @@ language validity.
 
 ## Accepted relationships
 
-| Declaration | Compiler rule |
+| Declaration | [Compiler](../../docs/generated/ontology_cgen.md#term-compiler) rule |
 |---|---|
-| Process | Exactly one Go application host; other endpoints are explicitly external |
-| Scope | One declared parent; no cycles; resolves to its owning process |
-| Service | Scoped lifetime; a name does not establish cleanup implementation |
-| Manager | Conceptual coordination; may borrow a lifetime, and adds no goroutine or cleanup guarantee |
+| Process | Exactly one Go [application](../../docs/generated/ontology_cgen.md#term-application) host; other endpoints are explicitly external |
+| [Scope](../../docs/generated/ontology_cgen.md#term-scope) | One declared parent; no cycles; resolves to its owning process |
+| [Service](../../docs/generated/ontology_cgen.md#term-service) | Scoped lifetime; a name does not establish cleanup implementation |
+| [Manager](../../docs/generated/ontology_cgen.md#term-manager) | Conceptual coordination; may borrow a lifetime, and adds no [goroutine](../../docs/generated/ontology_cgen.md#term-goroutine) or cleanup guarantee |
 | Library, adapter, gateway | Explicit scoped or borrowed lifetime |
-| Requires | Known provider in the same process and an equal or enclosing scope; no dependency cycle |
+| Requires | Known provider in the same process and an equal or enclosing [scope](../../docs/generated/ontology_cgen.md#term-scope); no dependency cycle |
 | Call | Same process; callee lifetime must contain caller lifetime |
-| Channel | Same process; declaration describes a connection, not channel protocol correctness |
+| Channel | Same process; declaration describes a connection, not channel [protocol](../../docs/generated/ontology_cgen.md#term-protocol) correctness |
 | Subprocess | Crosses processes through an explicitly named gateway in the caller process |
 | Remote or device | Crosses processes through a named adapter or gateway |
 | Existing connection | Cannot depend on a planned endpoint or boundary |
@@ -225,19 +226,19 @@ for existence and retained for inspection, not interpreted as passing tests.
 
 The grammar covers one selected host composition. Package nesting, conceptual
 multiplexer/queue behavior and manager coordination policy are not enforced.
-A scope tree describes lifetimes, not the package hierarchy. Inbound callbacks, per-instance
+A [scope](../../docs/generated/ontology_cgen.md#term-scope) tree describes lifetimes, not the package hierarchy. Inbound callbacks, per-instance
 terminal lifetimes, the full transitive software development kit (SDK) graph,
-simulator internals and other application modes are not modeled here.
+simulator internals and other [application](../../docs/generated/ontology_cgen.md#term-application) modes are not modeled here.
 Source checks are bounded syntax-tree policy:
-they do not infer arbitrary wrapper effects, dataflow, reflection, goroutine
+they do not infer arbitrary wrapper effects, dataflow, reflection, [goroutine](../../docs/generated/ontology_cgen.md#term-goroutine)
 termination or the correctness of C, foreign function interfaces (FFI) and
 third-party implementations.
 
-The next vertical slice should consume one declared service scope to generate
+The next vertical slice should consume one declared [service](../../docs/generated/ontology_cgen.md#term-service) [scope](../../docs/generated/ontology_cgen.md#term-scope) to generate
 Go registration and cleanup around its existing implementation, then test
 cancellation, joining and error propagation at that consumer boundary. This
 slice changes build-time checks only. It does not add a daemon, change running
-services, claim Resource Acquisition Is Initialization (RAII: scope-bound
+[services](../../docs/generated/ontology_cgen.md#term-service), claim Resource Acquisition Is Initialization (RAII: scope-bound
 resource cleanup) enforcement or verify the compiler in Lean.
 
 Existing Liquid Proto, OpenAPI and SQLC schemas continue to own their contracts.

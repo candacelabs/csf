@@ -11,7 +11,7 @@ import (
 // The scene's coordinate system. A placement is a percentage of the normalized
 // scene box, so a viewBox of a hundred units square makes one percent one user
 // unit and the emitted coordinate the authored number, unscaled.
-const sceneExtent = 100
+const SceneExtent = 100
 
 // The two marker sizes as radii, and the offsets that keep a node's title above
 // its marker and its caption below. They are here rather than in CSS because an
@@ -142,7 +142,7 @@ func writeScene(view *strings.Builder, document *ir.Document, identifiers *names
 	}
 	fmt.Fprintf(view, " viewBox=\"0 0 %d %d\" preserveAspectRatio=\"xMidYMid meet\""+
 		" role=\"img\" aria-label={ %s }>\n",
-		sceneExtent, sceneExtent, labelCall(document.Scene.DescriptionSlot.Label, identifiers))
+		SceneExtent, SceneExtent, labelCall(document.Scene.DescriptionSlot.Label, identifiers))
 
 	for index, orbit := range document.Scene.Orbits {
 		writeOrbit(view, orbit, index)
@@ -160,16 +160,17 @@ func writeScene(view *strings.Builder, document *ir.Document, identifiers *names
 // accessibility tree by the scene's own boundary — the scene is one image with
 // one text alternative — so an orbit needs no attribute of its own to be silent.
 func writeOrbit(view *strings.Builder, orbit *ir.Orbit, index int) {
-	radiusX, radiusY, rotation := orbitGeometry(index)
-	centre := sceneExtent / 2
+	radiusX, radiusY, rotation := OrbitGeometry(index)
+	centre := SceneExtent / 2
 	fmt.Fprintf(view, "\t\t\t<ellipse class=\"widget-orbit widget-token-%s\""+
 		" cx=\"%d\" cy=\"%d\" rx=\"%d\" ry=\"%d\" transform=\"rotate(%d %d %d)\"></ellipse>\n",
 		orbit.Token, centre, centre, radiusX, radiusY, rotation, centre, centre)
 }
 
-// orbitGeometry derives one orbit's ellipse from its ordinal. See the constants
-// above for why an orbit's size is derived rather than authored.
-func orbitGeometry(index int) (int, int, int) {
+// OrbitGeometry derives one orbit's ellipse from its ordinal. See the constants
+// above for why an orbit's size is derived rather than authored. The
+// interpreted render draws the same ellipse, so it is exported to it.
+func OrbitGeometry(index int) (int, int, int) {
 	long := firstOrbitLongRadius - (index/2)*orbitRadiusStep
 	short := firstOrbitShortRadius - (index/2)*orbitRadiusStep
 	if long < smallestOrbitRadius {
@@ -192,11 +193,11 @@ func orbitGeometry(index int) (int, int, int) {
 // the shipped card hand-wrote them, which is a copy of the endpoints that
 // silently goes stale when a node moves.
 func writeEdge(view *strings.Builder, document *ir.Document, edge *ir.Edge, identifiers *names) {
-	length := formatNumber(edge.Geometry.LengthPercent)
+	length := FormatNumber(edge.Geometry.LengthPercent)
 	fmt.Fprintf(view, "\t\t\t<g class=\"widget-edge\" transform=\"translate(%d,%d) rotate(%s)\""+
 		" style=\"--widget-edge-length: %spx\">\n",
 		edge.From.Placement.Left, edge.From.Placement.Top,
-		formatNumber(edge.Geometry.AngleDegrees), length)
+		FormatNumber(edge.Geometry.AngleDegrees), length)
 	fmt.Fprintf(view, "\t\t\t\t<line class=\"widget-edge-line widget-token-rule\""+
 		" x1=\"0\" y1=\"0\" x2=\"%s\" y2=\"0\"></line>\n", length)
 	for _, pulse := range pulsesOn(document, edge) {
@@ -221,10 +222,7 @@ func writePulse(view *strings.Builder, pulse *ir.Pulse) {
 // writeNode emits one participant: its emphasis ring if it has one, a marker at
 // its placement, its title above and its caption below.
 func writeNode(view *strings.Builder, document *ir.Document, node *ir.Node, identifiers *names) {
-	radius, titleOffset, captionOffset := largeRadius, largeTitleOffset, largeCaptionOffset
-	if node.Role.Marker == ir.MarkerSmall {
-		radius, titleOffset, captionOffset = smallRadius, smallTitleOffset, smallCaptionOffset
-	}
+	radius, titleOffset, captionOffset := MarkerGeometry(node.Role.Marker)
 
 	fmt.Fprintf(view, "\t\t\t<g class=\"widget-node widget-role-%s\" transform=\"translate(%d,%d)\">\n",
 		node.Role.Name, node.Placement.Left, node.Placement.Top)
@@ -365,10 +363,19 @@ func tick(document *ir.Document) *ir.StateField {
 	return document.Motion.RestartOn
 }
 
-// formatNumber renders one computed geometry number with a fixed two decimal
+// MarkerGeometry is one marker size's radius and the offsets of the node's
+// title above it and caption below it.
+func MarkerGeometry(marker ir.Marker) (radius int, titleOffset int, captionOffset int) {
+	if marker == ir.MarkerSmall {
+		return smallRadius, smallTitleOffset, smallCaptionOffset
+	}
+	return largeRadius, largeTitleOffset, largeCaptionOffset
+}
+
+// FormatNumber renders one computed geometry number with a fixed two decimal
 // places and no trailing zeros, so that the same document emits the same bytes
 // on every machine.
-func formatNumber(value float64) string {
+func FormatNumber(value float64) string {
 	rendered := strconv.FormatFloat(value, 'f', 2, 64)
 	rendered = strings.TrimRight(rendered, "0")
 	return strings.TrimSuffix(rendered, ".")

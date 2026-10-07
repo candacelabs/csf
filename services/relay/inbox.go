@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/candacelabs/csf/pkg/collections"
 	"github.com/candacelabs/csf/pkg/mailbox"
 	"github.com/candacelabs/csf/runtime"
 )
@@ -157,8 +158,8 @@ func (box *inbox[Body]) receive(ctx context.Context) (Envelope[Body], error) {
 func (box *inbox[Body]) withdraw(owner *mailbox.Mailbox[inboxState[Body]], waiter chan Envelope[Body]) {
 	owner.Submit(func(state *inboxState[Body]) bool {
 		defer box.settle(state)
-		if index := slices.Index(state.waiters, waiter); index >= 0 {
-			state.waiters = slices.Delete(state.waiters, index, index+1)
+		if remaining, removed := collections.Set[chan Envelope[Body]](state.waiters).Remove(waiter); removed {
+			state.waiters = remaining
 			return false
 		}
 		select {

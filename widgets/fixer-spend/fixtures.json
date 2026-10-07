@@ -1,0 +1,12 @@
+[
+  {
+    "name": "under the cap",
+    "source": {"day": "2026-10-03", "fixers": {"sessions": 107, "spend_today_usd": 79.37, "budget_usd": 100}},
+    "expect": ["ouroboros loop, day 2026-10-03", "$79.37 spent today", "$100.00 daily cap", "$79.37 of $100.00"]
+  },
+  {
+    "name": "nothing spent yet",
+    "source": {"day": "2026-10-05", "fixers": {"sessions": 0, "spend_today_usd": 0, "budget_usd": 100}},
+    "expect": ["ouroboros loop, day 2026-10-05", "$0.00 spent today", "$0.00 of $100.00"]
+  }
+]

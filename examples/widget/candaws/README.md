@@ -1,6 +1,6 @@
 # CandaWS
 
-Five parody cloud services, five CSP engines, five generated widgets, one
+Five parody cloud services, five CSP engines, five generated [widgets](../../../csf/docs/generated/ontology_cgen.md#term-widget), one
 binary. "Monolithic microservices" taken literally.
 
 ```
@@ -16,12 +16,12 @@ than passed on to become an engine complaining about an interval nobody chose.
 `-trouble` reads a negative value as zero, and the banner prints the pace and
 trouble the fleet is actually running at.
 
-| Service | Category parodied | Engine shape |
+| Service | Category parodied | [Engine](../../../csf/docs/generated/ontology_cgen.md#term-engine) shape |
 |---|---|---|
-| [Yakshave](yakshave) | continuous-delivery pipeline | a chain of stage goroutines, closed from the head |
+| [Yakshave](yakshave) | continuous-delivery pipeline | a chain of stage [goroutines](../../../csf/docs/generated/ontology_cgen.md#term-goroutine), closed from the head |
 | [Queuecumber](queuecumber) | managed message queue | a broker answering lease requests on their own reply channels |
 | [Blobfish](blobfish) | object store | a coordinator that stops counting at the write quorum |
-| [Coldstart](coldstart) | function-as-a-service | a dispatcher that spawns and reaps instance goroutines |
+| [Coldstart](coldstart) | function-as-a-service | a dispatcher that spawns and reaps instance [goroutines](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) |
 | [Dashbored](dashbored) | metrics and dashboards | a fan-in with a counted shutdown |
 
 [`docs/fleet.md`](docs/fleet.md) is the design — the roster, the build order and
@@ -44,10 +44,10 @@ both halves exist: it maps one view onto the wire field names the document
 declared, using the generated constants, so renaming a field in a document is a
 compile error rather than a card that silently stops updating. No engine file
 names a region, a wire name or a field spelling; no generated file knows there
-are goroutines behind it.
+are [goroutines](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) behind it.
 
 `main.go` and `fleet.go` are this host: they build the five engines, register
-the five widgets, resolve the six sources their declared streams name — six and
+the five [widgets](../../../csf/docs/generated/ontology_cgen.md#term-widget), resolve the six sources their declared streams name — six and
 not five, because Yakshave declares two — and serve the result.
 [`../hosting`](../hosting) is the plumbing both this host and the SDK's smaller
 one share: the Origin allowlist, the palette resolution, the region rendering
@@ -67,8 +67,8 @@ candaws: 47 goroutines at steady state, 6s in
 ```
 
 That is the whole fleet with **no browser connected**: five engines, the HTTP
-listener, the signal watcher and the Go runtime's own. It breaks down as the
-sum of what each engine documents, plus one goroutine per engine holding its
+listener, the signal watcher and the Go [runtime](../../../csf/docs/generated/ontology_cgen.md#term-runtime)'s own. It breaks down as the
+sum of what each engine documents, plus one [goroutine](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) per engine holding its
 `Run`:
 
 | Service | Goroutines | What they are |
@@ -79,26 +79,26 @@ sum of what each engine documents, plus one goroutine per engine holding its
 | Coldstart | 4 + n | a feed, the dispatcher, the caller, `Run` — plus one per live instance and one per in-flight call, which come and go by design |
 | Dashbored | 8 | a feed, an observer, the aggregator, the alerter, three collectors, `Run` |
 
-A browser session adds one session goroutine plus one per effect, and this host
+A browser session adds one session [goroutine](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) plus one per effect, and this host
 opens six. The end-to-end specification measures it rather than asserting it
-from a table: against a bare test binary's six goroutines, the fleet plus one
+from a table: against a bare test binary's six [goroutines](../../../csf/docs/generated/ontology_cgen.md#term-goroutine), the fleet plus one
 live session runs at **58** — the same 40-odd, plus the session, plus its six
 sources, plus whatever Coldstart happens to have warm.
 
-Registering a sixth service would add its engine's goroutines, one fragment,
+Registering a sixth service would add its engine's [goroutines](../../../csf/docs/generated/ontology_cgen.md#term-goroutine), one fragment,
 some event names and a slice index. It would not add a port, a process or a
 deployment.
 
 ## What is actually checked
 
-- **Engine specifications, `-race` green, one suite per service.** Every one of
-  the five has a file that starts no goroutine at all, because the interesting
+- **[Engine](../../../csf/docs/generated/ontology_cgen.md#term-engine) specifications, `-race` green, one suite per service.** Every one of
+  the five has a file that starts no [goroutine](../../../csf/docs/generated/ontology_cgen.md#term-goroutine) at all, because the interesting
   half of each engine is a pure function: Yakshave's stage registry and its view
   fold, Queuecumber's conservation law, Blobfish's replica rule table,
   Coldstart's temperature ladder, Dashbored's reservoir, histogram and merge.
   The running specifications are then about the concurrency and nothing else.
 - **Card assertions on rendered output only.** Every service has a `card_test.go`
-  that mounts its widget through [`pkg/widget/widgettest`](../../../pkg/widget/widgettest)
+  that mounts its [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) through [`pkg/widget/widgettest`](../../../pkg/widget/widgettest)
   and asserts substrings, counts, declaration order and the landmark — never
   source. A generated card and a hand-written one share no file names and no
   formatting, and what comes out of `Render` is the only thing both can be held
@@ -108,7 +108,7 @@ deployment.
   the pipeline card carries a stage the chain is actually in, that the console
   card carries an ingest rate the collectors actually produced, that a browser's
   own toggle comes back on the same connection, and that the prewarm command,
-  which changes no widget state at all, reaches an engine and warms something.
+  which changes no [widget](../../../csf/docs/generated/ontology_cgen.md#term-widget) state at all, reaches an engine and warms something.
 - **`gen.sh --check`** asserts every committed generated file is byte-identical
   to a fresh generation, so a document edited without regenerating fails.
 

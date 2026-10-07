@@ -24,8 +24,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/candacelabs/csf/ipc/clock"
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/kernel/clock"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/runtime"
 	cronservice "github.com/candacelabs/csf/services/cron"

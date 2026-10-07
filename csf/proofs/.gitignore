@@ -1,0 +1,13 @@
+# Proof assistant artifacts
+# Coq (Rocq)
+*.glob
+*.vo
+*.vok
+*.vos
+.*.aux
+
+# Lean 4
+.cache/
+.lake/
+lake-manifest.json
+*.olean

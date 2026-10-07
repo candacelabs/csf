@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "golden",
+    srcs = ["progress.go"],
+    importpath = "github.com/candacelabs/csf/services/harness/progress/testdata/golden",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/textbound",
+        "//services/harness/session",
+    ],
+)

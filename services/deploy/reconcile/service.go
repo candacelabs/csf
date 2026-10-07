@@ -31,7 +31,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"github.com/candacelabs/csf/services/deploy"
 	"github.com/candacelabs/csf/services/deploy/fleet"

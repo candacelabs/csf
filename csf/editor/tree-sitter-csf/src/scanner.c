@@ -37,6 +37,7 @@ bool tree_sitter_csf_external_scanner_scan(void *payload, TSLexer *lexer, const 
     lexer->mark_end(lexer);
   }
   if (length == 7 && memcmp(word, "adapter", 7) == 0) return false;
+  if (length == 7 && memcmp(word, "allowed", 7) == 0) return false;
   if (length == 12 && memcmp(word, "architecture", 12) == 0) return false;
   if (length == 8 && memcmp(word, "borrowed", 8) == 0) return false;
   if (length == 8 && memcmp(word, "boundary", 8) == 0) return false;
@@ -44,6 +45,7 @@ bool tree_sitter_csf_external_scanner_scan(void *payload, TSLexer *lexer, const 
   if (length == 7 && memcmp(word, "channel", 7) == 0) return false;
   if (length == 7 && memcmp(word, "connect", 7) == 0) return false;
   if (length == 6 && memcmp(word, "device", 6) == 0) return false;
+  if (length == 3 && memcmp(word, "dir", 3) == 0) return false;
   if (length == 10 && memcmp(word, "entrypoint", 10) == 0) return false;
   if (length == 8 && memcmp(word, "existing", 8) == 0) return false;
   if (length == 8 && memcmp(word, "external", 8) == 0) return false;
@@ -51,11 +53,15 @@ bool tree_sitter_csf_external_scanner_scan(void *payload, TSLexer *lexer, const 
   if (length == 9 && memcmp(word, "generated", 9) == 0) return false;
   if (length == 2 && memcmp(word, "go", 2) == 0) return false;
   if (length == 2 && memcmp(word, "in", 2) == 0) return false;
+  if (length == 10 && memcmp(word, "in_process", 10) == 0) return false;
+  if (length == 3 && memcmp(word, "ipc", 3) == 0) return false;
+  if (length == 6 && memcmp(word, "kernel", 6) == 0) return false;
   if (length == 4 && memcmp(word, "kind", 4) == 0) return false;
   if (length == 4 && memcmp(word, "lazy", 4) == 0) return false;
   if (length == 7 && memcmp(word, "library", 7) == 0) return false;
   if (length == 9 && memcmp(word, "lifecycle", 9) == 0) return false;
   if (length == 7 && memcmp(word, "manager", 7) == 0) return false;
+  if (length == 3 && memcmp(word, "net", 3) == 0) return false;
   if (length == 7 && memcmp(word, "pending", 7) == 0) return false;
   if (length == 7 && memcmp(word, "planned", 7) == 0) return false;
   if (length == 7 && memcmp(word, "process", 7) == 0) return false;
@@ -70,6 +76,7 @@ bool tree_sitter_csf_external_scanner_scan(void *payload, TSLexer *lexer, const 
   if (length == 5 && memcmp(word, "state", 5) == 0) return false;
   if (length == 10 && memcmp(word, "subprocess", 10) == 0) return false;
   if (length == 4 && memcmp(word, "test", 4) == 0) return false;
+  if (length == 4 && memcmp(word, "tier", 4) == 0) return false;
   if (length == 5 && memcmp(word, "under", 5) == 0) return false;
   if (length == 12 && memcmp(word, "verification", 12) == 0) return false;
   if (length == 7 && memcmp(word, "version", 7) == 0) return false;

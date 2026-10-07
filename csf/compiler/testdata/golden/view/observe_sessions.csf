@@ -1,0 +1,43 @@
+# OBSERVE-SESSIONS. One projection of every session, declared once in the
+# ontology language, read by two verbs. csfc reads this block and emits two
+# artifacts from the one syntax tree: its Datalog acceptance program
+# (observe_sessions.dl) and its Go projection (progress.go). A golden test
+# pins both against the checked-in files.
+#
+# The kind is view; the instance is observe_sessions. Its relation is
+# session_progress (one row per session); its two verbs are status (the table)
+# and tail (the stream); its line render is the one thing both read. A session
+# is virtual — one assignment the harness runs — and resolves to the real
+# session that carries the prompt cache through services/harness/routing, so
+# two rows sharing one conversation share that cache.
+
+view observe_sessions
+  "Session progress"
+  "One row per harness session, and the lines its event log folds to: csf status shows the rows, csf tail shows the lines, and neither reads the log a second way."
+  relation session_progress "One row per session: its identity, phase, turn, queue, work, model, last activity and last note."
+  verb status "Every session as one session_progress row, as a table." -> table session_progress
+  verb tail "Every session's folded lines, readably, labelled by agent, never as JSON." -> stream line
+  render line "{time} {agent} {kind} {text}"
+  resolve virtual through "services/harness/routing"
+{
+  # The fields of one session_progress row, in table order. Each names the type
+  # csfc emits it as.
+  field assignment "assignment_id" "The assignment the session runs; its run directory name.";
+  field agent "agent_id" "The agent identity the session runs as.";
+  field phase "phase" "running, open, closed, canceled or failed.";
+  field turn "int" "The highest turn the event log has started.";
+  field queued "int" "Messages waiting behind the running turn.";
+  field tool_calls "int" "Tool calls the session has made.";
+  field commits_ahead "int" "Commits the worktree branch is ahead of its base.";
+  field changed_files "int" "Files the worktree reports changed but not committed.";
+  field model "model" "The model the session runs on.";
+  field last_activity "time" "When the session last wrote a record.";
+  field last_note "text" "The last thing the session said.";
+
+  # The kinds of tail line, one per kind of thing a session does.
+  kind turn "A turn starting, ending, or a message sent to the session.";
+  kind tool "One tool call the session made.";
+  kind gate "A session gate's decision.";
+  kind merge "A pull request moving: marked ready, a merge starting or landing.";
+  kind error "A failure a record reported.";
+}

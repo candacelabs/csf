@@ -7,6 +7,7 @@
    universe   R: harness runs (assignment identifiers); S, K: seconds
    relation   run ⊆ R; gated ⊆ R; opened ⊆ R × S
    relation   score ⊆ R × S: seconds from the run's start to its first draft pull request, or to its last event when it opened none
+   relation   knee ⊆ K: the candidate knee, in seconds, the contract injects for each run it scores
 */
 
 /* predicate invisible

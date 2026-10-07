@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"io"
 	"log/slog"
 	"net"
@@ -22,6 +21,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/batch"
@@ -36,11 +37,12 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/db/csfpg"
-	ipcdocker "github.com/candacelabs/csf/ipc/docker"
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	"github.com/candacelabs/csf/ipc/proc"
-	"github.com/candacelabs/csf/ipc/ros"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
+	iodocker "github.com/candacelabs/csf/io/ipc/docker"
+	ionet "github.com/candacelabs/csf/io/net"
+	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/net/ros"
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	"github.com/candacelabs/csf/pkg/sqlmigrate"
 	agentv1 "github.com/candacelabs/csf/proto/candace/agent/v1"
@@ -62,7 +64,6 @@ const maxRequestBytes = 256 * 1024
 const watchRootFlag = "watch-root"
 const agentMCPKeyFileFlag = "agent-mcp-key-file"
 const watchReceiptFile = "receipt.json"
-const watchReceiptTemporary = "receipt.json.tmp"
 const httpServiceName = "csf"
 
 const copilotHistorySessionsToolName = "ListCopilotHistorySessions"
@@ -101,6 +102,31 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) > 1 && os.Args[1] == decideCommand {
+		if err := interruptible(func(ctx context.Context) error {
+			return decide(ctx, os.Args[2:], os.Stdin, os.Stdout)
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == evalCommand {
+		if err := interruptible(func(ctx context.Context) error {
+			return eval(ctx, os.Args[2:], os.Stdout)
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && os.Args[1] == scoreboardCommand {
+		if err := scoreboard(os.Args[2:], os.Stdout); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) == 2 && os.Args[1] == "link" {
 		if _, err := fmt.Fprintln(os.Stdout, dashboardURL+"ui/"); err != nil {
 			os.Exit(1)
@@ -122,10 +148,45 @@ func main() {
 		return
 	}
 
+	if len(os.Args) > 1 && os.Args[1] == bootstrapCommand {
+		if err := interruptible(func(ctx context.Context) error {
+			return bootstrap(ctx, os.Args[2:], os.Stdout)
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+	if len(os.Args) > 1 && isArchive(os.Args[1]) {
+		if err := interruptible(func(ctx context.Context) error {
+			code, err := runArchive(ctx, os.Args[1], os.Args[2:], os.Stdin, os.Stdout, os.Stderr)
+			if err != nil {
+				return err
+			}
+			if code != 0 {
+				os.Exit(code)
+			}
+			return nil
+		}); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+// interruptible runs one command under a context that an interrupt or SIGTERM
+// cancels. Signal handling is a process concern, so it lives here in the
+// declared entrypoint and a command receives only the context.
+func interruptible(command func(ctx context.Context) error) error {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	return command(ctx)
 }
 
 // All operation names, request types and dispatch are generated from the same
@@ -369,7 +430,7 @@ func serve(mode string, arguments []string) error {
 			if err := protojson.Unmarshal(content, localConfig); err != nil {
 				return err
 			}
-			docker, err := ipcdocker.NewContainerHost(ipcdocker.WithDockerHost(localConfig.DockerHost))
+			docker, err := iodocker.NewContainerHost(iodocker.WithDockerHost(localConfig.DockerHost))
 			if err != nil {
 				return err
 			}
@@ -442,11 +503,7 @@ func serve(mode string, arguments []string) error {
 			if err := os.MkdirAll(directory, 0700); err != nil {
 				return err
 			}
-			temporary := filepath.Join(directory, watchReceiptTemporary)
-			if err := os.WriteFile(temporary, content, 0600); err != nil {
-				return err
-			}
-			if err := os.Rename(temporary, filepath.Join(directory, watchReceiptFile)); err != nil {
+			if err := atomicfile.WriteFile(filepath.Join(directory, watchReceiptFile), content, 0600); err != nil {
 				return err
 			}
 			return checkErr
@@ -599,7 +656,7 @@ func serve(mode string, arguments []string) error {
 		}
 		if traceConfig != nil {
 			exporter, err := copilotadapter.NewTraceExporter(copilotWorkbench.Store, traceConfig,
-				copilotadapter.WithTraceNetwork(ipcnet.NewHostNetwork()))
+				copilotadapter.WithTraceNetwork(ionet.NewHostNetwork()))
 			if err != nil {
 				return err
 			}

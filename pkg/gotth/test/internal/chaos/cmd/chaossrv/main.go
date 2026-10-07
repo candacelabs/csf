@@ -42,8 +42,8 @@ import (
 
 	"github.com/a-h/templ"
 
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	ionet "github.com/candacelabs/csf/io/net"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	"github.com/candacelabs/csf/pkg/gotth/live"
 	csfruntime "github.com/candacelabs/csf/runtime"
 )
@@ -190,7 +190,7 @@ func main() {
 	// capability opens, then the READY line, which runs only once the listener
 	// is bound. The parent restarts this process by killing it, so the stop
 	// path matters only for a signal from a person running it by hand.
-	listener, err := ipchttp.NewHTTPListener(ipcnet.NewHostNetwork(), *addr, app.Handler())
+	listener, err := iohttp.NewHTTPListener(ionet.NewHostNetwork(), *addr, app.Handler())
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "chaossrv:", err)
 		os.Exit(1)

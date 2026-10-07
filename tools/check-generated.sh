@@ -50,6 +50,7 @@ build() {  # build TARGET OUTPUT NAME, copied out before the next build repoints
 }
 build //csf/compiler/language:generate csf/compiler/language/generate.exe generate
 build //csf/compiler/architecture:csfc csf/compiler/architecture/csfc.exe csfc
+build //csf/compiler/architecture:decision_codegen csf/compiler/architecture/decision_codegen.exe decision_codegen
 
 printf '== orphans and drift\n'
 mapfile -d '' -t owned < <(git -C "$root" ls-files -z -- ':(glob)docs/generated/**' ':(glob)**/docs/generated/**')
@@ -57,6 +58,10 @@ for path in "${owned[@]}"; do rm -f -- "$root/$path"; done
 "$stage/generate" --root "$root" write || findings=1
 # csfc runs in the repository root with its default inputs, as score.ml does.
 (cd -- "$root" && "$stage/csfc" emit) || findings=1
+# The decision tree projects the Lean proof and the four text files beside it,
+# named relative to the root so the emitted header records the declaration's
+# logical name rather than a host path.
+(cd -- "$root" && "$stage/decision_codegen" write csf/compiler/architecture/decision.ebnf csf/compiler/verification/question_tree.csf csf/compiler/verification) || findings=1
 mapfile -t orphans < <(git -C "$root" ls-files --deleted -- ':(glob)docs/generated/**' ':(glob)**/docs/generated/**')
 if [[ ${#orphans[@]} -gt 0 ]]; then
   printf 'orphan: no generator writes %s; delete it or make a generator own it\n' "${orphans[@]}"

@@ -9,8 +9,8 @@ go_library(
     importpath = "github.com/candacelabs/csf/pkg/gotth/test/memory/cmd/memsrv",
     visibility = ["//visibility:private"],
     deps = [
-        "//ipc/net",
-        "//ipc/net/http",
+        "//io/net",
+        "//io/net/http",
         "//pkg/gotth/live",
         "//runtime",
         "@com_github_a_h_templ//:templ",

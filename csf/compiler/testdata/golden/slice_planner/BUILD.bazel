@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# The slice planner declaration and its Go projection, read by the csfc golden
+# test that pins the generator's output byte for byte.
+exports_files([
+    "slice_planner.csf",
+    "slice_planner.go",
+])
+
+go_library(
+    name = "slice_planner",
+    srcs = ["slice_planner.go"],
+    importpath = "github.com/candacelabs/csf/csf/compiler/testdata/golden/slice_planner",
+)

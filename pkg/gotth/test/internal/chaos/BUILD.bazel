@@ -7,7 +7,6 @@ go_test(
         "case1_drop_test.go",
         "case2_gap_test.go",
         "case3_restart_test.go",
-        "case4_slowclient_test.go",
         "case5_flood_test.go",
         "case6_partition_test.go",
         "case7_churn_test.go",
@@ -16,6 +15,7 @@ go_test(
         "measure_test.go",
         "relay_test.go",
         "reverify_test.go",
+        "wire_case4_slowclient_test.go",
         "wire_test.go",
     ],
     deps = [

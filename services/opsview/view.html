@@ -2,67 +2,391 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>CSF ops view</title>
-<style>
-:root { --ink: #1c1b1a; --muted: #6b6760; --line: #e3dfd7; --paper: #faf8f4; --card: #ffffff; --accent: #0b6e4f; --warn: #a1340a; --wait: #8a6d00; }
-@media (prefers-color-scheme: dark) { :root { --ink: #ecebe7; --muted: #a39f97; --line: #35322d; --paper: #15140f; --card: #1e1c17; --accent: #5bc49a; --warn: #f28c5b; --wait: #e0b94a; } }
-* { box-sizing: border-box; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 15px/1.45 ui-sans-serif, system-ui, sans-serif; }
-header.top { padding: 12px 16px 0; display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-header.top h1 { font-size: 18px; margin: 0; }
-header.top span { color: var(--muted); font-size: 13px; }
-main { padding: 12px 16px 24px; display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
-.notice { color: var(--warn); grid-column: 1 / -1; }
-.empty { color: var(--muted); grid-column: 1 / -1; }
-article.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 8px; overflow-wrap: anywhere; }
-article.card .head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
-article.card .agent { font-weight: 600; font-size: 17px; }
-article.card .status { text-transform: uppercase; letter-spacing: .04em; font-size: 12px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
-article.card.running .status { border-color: var(--accent); color: var(--accent); }
-article.card.failed .status { border-color: var(--warn); color: var(--warn); }
-article.card.finished .status { border-color: var(--wait); color: var(--wait); }
-article.card .elapsed { margin-left: auto; color: var(--muted); font-size: 13px; }
-dl.facts { margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px 10px; }
-dl.facts div { display: grid; gap: 1px; }
-dl.facts dt { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-dl.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
-dl.facts dd code { font-size: 12px; }
-dl.facts .wide { grid-column: 1 / -1; }
-.links { margin: 0; display: flex; gap: 12px; font-size: 14px; }
-.links a { color: var(--accent); }
-.error { margin: 0; color: var(--warn); font-size: 13px; }
-ol.recent { list-style: none; margin: 0; padding: 0; display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
-ol.recent li .time { font-variant-numeric: tabular-nums; margin-right: 6px; }
-ol.recent li.gate { color: var(--warn); }
-ol.recent li.harness { color: var(--ink); }
-button.expand { justify-self: start; font: inherit; font-size: 13px; padding: 4px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: var(--muted); cursor: pointer; }
-</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<title>CSF Workbench</title>
+<style>{{.Style}}</style>
+<style>{{.WidgetStyle}}</style>
+{{if .Theme}}<style data-opsview="theme">{{.Theme}}</style>{{end}}
 </head>
 <body>
-<header class="top"><h1>CSF ops view</h1><span>harness sessions, live from their event logs</span></header>
-{{.Board}}
+<header class="top"><h1>CSF <span>Workbench</span></h1><span class="link-state" role="status" aria-live="polite"><span class="pulse" aria-hidden="true"></span><span class="label"></span></span></header>
+{{range .Regions}}{{.}}
+{{end}}<script>
+// Clears a composer once its message is on its way: its text is the browser's
+// own (a preserved region), so the server cannot clear it.
+document.addEventListener("submit", (event) => {
+	if (event.target.matches("form.send")) requestAnimationFrame(() => event.target.reset());
+});
+</script>
 {{.Script}}
 </body>
 </html>{{end}}
 
-{{define "board"}}<main id="{{.Region}}" data-gotth-region="{{.Region}}" aria-live="polite">
-{{if .Notice}}<p class="notice">{{.Notice}}</p>{{end}}
-{{range .Cards}}{{.}}{{else}}<p class="empty">No harness sessions yet. A card appears when a run directory gains its run record.</p>{{end}}
+{{define "summary"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="tiles" aria-label="today">
+<div class="tile-row">{{range .Tiles}}<button type="button" class="tile{{if .Warn}} warn{{end}}" data-opsview-tile="{{.Name}}" aria-expanded="{{if .Open}}true{{else}}false{{end}}" {{.OnDefine}}>
+<span class="tile-label">{{.Label}}</span><span class="tile-value" data-opsview="{{.Name}}">{{.Value}}</span><span class="tile-detail">{{.Detail}}</span></button>{{end}}</div>
+{{with .Defined}}<p class="definition" data-opsview="definition" role="note"><strong>{{.Label}}:</strong> {{.Definition}} <a class="panel" data-opsview-panel="{{.Panel}}" href="{{.Panel}}">History in Grafana</a></p>{{end}}
+</section>{{end}}
+
+{{define "dreamer"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="queue" aria-label="dreamer">
+<h2>Dreamer{{if .Present}} <span data-opsview="dreamer-state">{{if .Paused}}paused: {{.PauseReason}}{{else}}running{{end}}, exploration ×{{.Explore}}</span>{{end}}</h2>
+{{if .Present}}{{if .Button}}<div class="actions">{{.Button}}</div>{{end}}
+{{if .Comparison}}<ul class="facts" aria-label="held-out comparison">{{range .Comparison}}<li>{{.}}</li>{{end}}</ul>{{end}}
+{{if .Generated}}<p class="notice-line" data-opsview="dreamer-generated">generated: {{range $index, $line := .Generated}}{{if $index}}, {{end}}{{$line}}{{end}}</p>{{end}}
+{{if .Records}}<ol class="slices" aria-label="decision records">{{range .Records}}<li data-opsview-record="{{.At}}"><strong>{{.At}}</strong> {{.Kind}}{{if .Outcome}} <span class="state">{{.Outcome}}</span>{{end}} {{.Reason}}
+{{if .Target}}<div class="notice-line">{{.Target}}</div>{{end}}
+{{range .Added}}<div class="notice-line" data-opsview-added="{{.SliceID}}">added {{.SliceID}}: {{.Title}} ({{.Source}}, rank {{.Rank}}, score {{printf "%.3g" .Score}}) <a href="{{.TicketURL}}" target="_blank" rel="noreferrer">ticket ↗</a></div>{{end}}
+{{if .Ranked}}<table aria-label="ranked candidates"><thead><tr><th>rank</th><th>source</th><th>work</th><th>per week</th><th>fixability</th><th>exploration</th><th>score</th></tr></thead><tbody>
+{{range .Ranked}}<tr><td>{{.Rank}}</td><td>{{.Source}}</td><td>{{.Title}}</td><td>{{printf "%.3g" .Frequency}}</td><td>{{printf "%.2f" .Fixability}}</td><td>{{printf "%.0f" .Explore}}</td><td>{{printf "%.3g" .Score}}</td></tr>
+{{end}}</tbody></table>{{end}}
+{{range .Notes}}<div class="notice-line">{{.}}</div>{{end}}</li>{{end}}</ol>{{end}}
+{{else}}<p class="empty">No dreamer yet. The panel fills when the dreamer writes its snapshot into the state directory.</p>{{end}}
+</section>{{end}}
+
+{{define "launch"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="fold{{if .Section.Open}} open{{end}}" aria-label="launch">
+<button type="button" class="fold-head" aria-expanded="{{if .Section.Open}}true{{else}}false{{end}}" data-opsview="launch-toggle" {{.Section.OnToggle}}><span>Launch a virtual session</span><span class="chevron" aria-hidden="true"></span></button>
+{{if .Section.Open}}<div class="fold-body">
+{{if .Operable}}<form class="launch" {{.OnCheck}}>
+<label class="field"><span>Ticket</span><input type="url" name="ticket" required placeholder="https://github.com/…/issues/…" value="{{.Ticket}}" data-opsview="ticket"></label>
+<label class="field"><span>Recipe</span><select name="template" required data-opsview="template">{{range .Templates}}<option value="{{.}}"{{if eq . $.Template}} selected{{end}}>{{.}}</option>{{else}}<option value="">no templates</option>{{end}}</select></label>
+<div class="actions"><button type="submit" class="act quiet" data-opsview="check"{{if .Pending}} disabled aria-busy="true"{{end}}>Check admission</button>
+{{if .Checked}}<button type="button" class="act" data-opsview="launch" {{.OnLaunch}}{{if .Pending}} disabled aria-busy="true"{{end}}>Launch</button>{{end}}</div>
+</form>
+{{with .Check}}<dl class="facts" data-opsview="admission">
+<div><dt>Admitted</dt><dd data-opsview="admitted">{{if .Admitted}}yes{{else}}no{{end}}{{if .ReportOnly}} (report only){{end}}</dd></div>
+<div><dt>Load / cores</dt><dd>{{printf "%.2f" .LoadOneMinute}} / {{.Cores}}</dd></div>
+<div><dt>Running / cap</dt><dd>{{.RunningSessions}} / {{.WorkerCap}}</dd></div>
+<div><dt>Free disk</dt><dd>{{.FreeBytes}} B</dd></div>
+</dl>{{if .Findings}}<ul class="findings">{{range .Findings}}<li>{{.}}</li>{{end}}</ul>{{end}}{{end}}
+{{if .Held}}<p class="problem">Admission is held: {{.Held}}</p>{{end}}
+<form class="launch" {{.OnExecutor}}>
+<label class="field"><span>Default executor</span><select name="executor" data-opsview="default-executor">{{range .Executors}}<option value="{{.}}">{{.}}</option>{{end}}</select></label>
+<label class="field"><span>Default model</span><input type="text" name="model" placeholder="empty: each recipe's own" data-opsview="default-model"></label>
+<div class="actions"><button type="submit" class="act quiet" data-opsview="switch-executor"{{if .Pending}} disabled{{end}}>Switch default executor</button></div>
+</form>
+{{else}}<p class="muted">Read-only: this page was mounted without the control plane or recipe templates.</p>{{end}}
+{{if .Notice}}<p class="notice-line" role="status" data-opsview="launch-notice">{{.Notice}}</p>{{end}}
+</div>{{end}}
+</section>{{end}}
+
+{{define "queue"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="fold{{if .Section.Open}} open{{end}}" aria-label="dispatch queue">
+<button type="button" class="fold-head" aria-expanded="{{if .Section.Open}}true{{else}}false{{end}}" {{.Section.OnToggle}}><span>Dispatch queue</span><span class="fold-sum" data-opsview="dispatch">{{if .Present}}{{len .Running}} running · {{len .Queue}} queued{{if .Paused}} · paused{{end}}{{else}}no snapshot{{end}}</span><span class="chevron" aria-hidden="true"></span></button>
+{{if .Section.Open}}<div class="fold-body">{{if .Paused}}<p class="problem">Paused: {{.PauseReason}}</p>{{end}}
+{{if .Slices}}<ol class="slices">{{range .Slices}}<li data-opsview-slice="{{.SliceID}}"><span>{{.Title}}</span> <span class="badge">{{.State}}</span>{{if .PullRequestURL}} <a href="{{.PullRequestURL}}" target="_blank" rel="noreferrer">{{pullNumber .PullRequestURL}}</a>{{end}}{{if .Held}}<div class="muted">held: {{.Held}}</div>{{else if .Waiting}}<div class="muted">{{.Waiting}}</div>{{end}}{{if .Source}}<div class="muted" data-opsview-source="{{.SliceID}}">{{.Source}}</div>{{end}}{{if .Button}}<div class="actions">{{.Button}}</div>{{end}}</li>{{end}}</ol>
+{{else if .Present}}<p class="muted">The queue is empty.</p>
+{{else}}<p class="muted">No queue yet. It fills when the slice dispatcher writes its snapshot into the state directory.</p>{{end}}
+{{if .Notice}}<p class="notice-line" role="status" data-opsview="control-notice">{{.Notice}}</p>{{end}}</div>{{end}}
+</section>{{end}}
+
+{{define "line"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="fold line{{if .Section.Open}} open{{end}}" aria-label="the line" {{.Transition}}>
+<button type="button" class="fold-head" aria-expanded="{{if .Section.Open}}true{{else}}false{{end}}" data-opsview="line-toggle" {{.Section.OnToggle}}><span>The line</span><span class="fold-sum" data-opsview="line-sum">{{range .Columns}}{{if .Cards}}<span>{{len .Cards}} {{.Label}}</span>{{end}}{{end}}</span><span class="chevron" aria-hidden="true"></span></button>
+{{if not .Build.Revision}}<p class="upgrade" role="status" data-opsview="build-unknown">This host's build is unknown, so no merge shows as live.</p>
+{{else if .NotLive}}<p class="upgrade" role="status" data-opsview="upgrade">{{.NotLive}} merged {{if eq .NotLive 1}}pull request is{{else}}pull requests are{{end}} not in the build this host runs ({{.Revision}}, {{.BuiltAt}} UTC). Run <code>csf upgrade</code> to take {{if eq .NotLive 1}}it{{else}}them{{end}} live.</p>{{end}}
+{{if .Section.Open}}<div class="fold-body">
+<h3>Board</h3>
+<div class="stages">{{range .Columns}}<section class="stage" aria-label="{{.Label}}" data-opsview-stage="{{.Stage}}"><h4>{{.Label}} <span class="count">{{len .Cards}}</span></h4>
+{{if .Cards}}<ol>{{range .Cards}}<li class="slice st-{{.Stage}}" data-opsview-line="{{.Key}}" style="view-transition-name: {{.Key}}">
+<div class="slice-head"><span class="name">{{.Title}}</span>{{if .Cost}}<span class="cost">{{.Cost}}</span>{{end}}</div>
+{{if .Owner}}<div class="meta">{{if ne .Owner .Title}}{{.Owner}} · {{end}}{{.Model}}{{if .Executor}} · {{.Executor}}{{end}}{{if .Elapsed}} · {{.Elapsed}}{{end}}</div>{{end}}
+{{if .Activity}}<div class="activity" data-opsview="line-activity">{{.Activity}}</div>{{end}}
+{{if .Why}}<div class="why">{{.Why}}</div>{{end}}
+{{if or .TicketURL .PullRequestURL}}<div class="slice-links">{{if .TicketURL}}<a href="{{.TicketURL}}" target="_blank" rel="noreferrer">ticket</a>{{end}}{{if .PullRequestURL}}<a href="{{.PullRequestURL}}" target="_blank" rel="noreferrer" data-opsview="line-pr">{{pullNumber .PullRequestURL}}{{if .PullRequest}} {{.PullRequest}}{{end}}</a>{{end}}</div>{{end}}
+</li>{{end}}</ol>{{if .More}}<p class="muted more">+{{.More}} more</p>{{end}}{{else}}<p class="muted">none</p>{{end}}</section>{{end}}</div>
+<h3>Slice graph</h3>
+{{with .Graph}}{{if .Nodes}}<div class="graph-scroll"><svg class="graph" viewBox="0 0 {{.Width}} {{.Height}}" width="{{.Width}}" height="{{.Height}}" role="img" aria-label="slice graph: depends_on solid, contends dashed, the frontier outlined">
+<defs><marker id="line-arrow" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L8,4 L0,8 z"></path></marker></defs>
+{{range .Edges}}<polyline class="depends" points="{{.}}" marker-end="url(#line-arrow)"></polyline>{{end}}
+{{range .Contends}}<line class="contends" x1="{{index . 0}}" y1="{{index . 1}}" x2="{{index . 2}}" y2="{{index . 3}}"></line>{{end}}
+{{range .Nodes}}<g class="node st-{{.Stage}}{{if .Frontier}} frontier{{end}}" data-opsview-node="{{.Key}}" style="transform: translate({{.X}}px, {{.Y}}px)"><title>{{.Title}}: {{.Label}}</title><rect width="196" height="46" rx="8"></rect><text x="10" y="19">{{.Short}}</text><text class="owner" x="10" y="37">{{if .Owner}}{{.Owner}}{{else}}{{.Label}}{{end}}</text></g>{{end}}
+</svg></div>{{end}}
+{{if .Loose}}<p class="muted">{{len .Loose}} {{if eq (len .Loose) 1}}slice depends on nothing and contends with nothing{{else}}slices depend on nothing and contend with nothing{{end}}:</p>
+<ul class="loose">{{range .Loose}}<li class="st-{{.Stage}}" data-opsview-node="{{.Key}}" title="{{.Title}}">{{.Title}}{{if and .Owner (ne .Owner .Title)}} <span class="owner">{{.Owner}}</span>{{end}}</li>{{end}}</ul>{{end}}
+{{if not (or .Nodes .Loose)}}<p class="muted">The slice graph is empty.</p>{{end}}{{end}}
+<h3>Workers <span class="count" data-opsview="line-running">{{.Running}} running{{if .Snapshot}} · {{.Capacity}} admitted{{end}}</span></h3>
+{{if .Snapshot}}<p class="capacity{{if .Quota}} quota{{end}}" data-opsview="capacity">{{if .Binding}}The {{.Binding}} limit sets the admission, so work waits on {{if .Quota}}quota, not the machine{{else}}the machine{{end}}.{{end}}{{range .Limits}} <span class="limit">{{.Name}}: {{if .Bounded}}{{.Launches}}{{else}}unbounded{{end}}</span>{{end}}</p>
+{{else}}<p class="muted">No dispatcher snapshot, so the admission is unknown.</p>{{end}}
+{{if .Workers}}<ul class="workers">{{range .Workers}}{{if ne .State "idle"}}<li class="worker{{if eq .State "running"}} busy{{end}}" data-opsview-worker="{{.Key}}"><span class="who">{{.Owner}}</span> <span class="state">{{.State}}</span>{{if ne .On .Owner}} <span class="on">{{.On}}</span>{{end}} <span class="meta">{{.Model}} · {{.Executor}} · {{.Elapsed}}</span></li>{{end}}{{end}}</ul>
+<p class="muted idle" data-opsview="idle-workers">Idle, executor open:{{range .Workers}}{{if eq .State "idle"}} <span data-opsview-worker="{{.Key}}">{{.Owner}}</span>{{end}}{{end}}</p>{{else}}<p class="muted">No real session is alive.</p>{{end}}
+<h3>Ouroboros</h3>
+<ol class="ring" aria-label="the mining loop">{{range .Loop}}<li class="hop{{if .PilesUp}} piles{{end}}{{if not .Recorded}} unrecorded{{end}}"><span class="hop-count">{{if .Recorded}}{{.Count}}{{else}}–{{end}}</span><span class="hop-name">{{.Name}}</span>{{if .PilesUp}}<span class="pile">piles up</span>{{end}}</li>{{end}}</ol>
+</div>{{end}}
+</section>{{end}}
+
+{{define "loop"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="fold{{if .Section.Open}} open{{end}}" aria-label="mining loop">
+<button type="button" class="fold-head" aria-expanded="{{if .Section.Open}}true{{else}}false{{end}}" {{.Section.OnToggle}}><span>Ouroboros loop</span><span class="fold-sum">{{if .Present}}<span data-opsview="struggle-rate">{{.WeekRate}}</span> per 1k · <span data-opsview="compounding">{{.Factor}}</span>/week{{else}}no measure yet{{end}}</span><span class="chevron" aria-hidden="true"></span></button>
+{{if .Section.Open}}<div class="fold-body">{{if .Present}}<p class="muted">Measured {{.ComputedAt}} UTC, day {{.Day}}.</p><dl class="facts">
+<div><dt><a class="panel" data-opsview-panel="csf_struggle_rate_per_1k_tool_calls" href="/views/panels/csf_struggle_rate_per_1k_tool_calls" title="history in Grafana">Struggles per 1k tool calls</a>, week of {{.WeekStart}}</dt><dd>{{.WeekRate}} ({{.WeekRange}}, {{.WeekHits}} / {{.WeekCalls}})</dd></div>
+<div><dt><a class="panel" data-opsview-panel="csf_compounding_factor" href="/views/panels/csf_compounding_factor" title="history in Grafana">Compounding per week</a> ({{.FactorWeeks}} of 3 weeks)</dt><dd data-opsview="compounding-interval">{{.Factor}} ({{.FactorRange}})</dd></div>
+<div><dt>Baseline to beat (week of {{.BaseWeek}})</dt><dd data-opsview="baseline">{{.Baseline}} ({{.BaseRange}}), {{.BaseRate}} per 1k</dd></div>
+<div><dt>Today</dt><dd data-opsview="today">{{.Rate}} per 1k ({{.Interval}}), {{.Struggles}} / {{.ToolCalls}} calls</dd></div>
+<div><dt>Per day, early read ({{.DailyDays}} days)</dt><dd data-opsview="compounding-daily">{{.DailyFactor}} ({{.DailyRange}})</dd></div>
+<div><dt>Structure exponent per week ({{.ExpWeeks}} of 3)</dt><dd data-opsview="structure-exponent">{{.Exponent}} ({{.ExpRange}})</dd></div>
+<div><dt>Miners generic / tenant</dt><dd data-opsview="scope">{{.Generic}} / {{.Tenant}}</dd></div>
+<div><dt>Findings</dt><dd data-opsview="findings">{{.Findings}} ({{.Today}} today, {{.PerDay}}/day)</dd></div>
+<div><dt>Fixers</dt><dd data-opsview="fixers">{{.Sessions}} ({{.Running}} running, {{.Ready}} ready)</dd></div>
+<div><dt>Cost per ready pull request</dt><dd data-opsview="cost-per-ready">{{.CostPerPull}}</dd></div>
+<div><dt>Fixer yield</dt><dd>{{.Yield}}</dd></div>
+<div><dt>Fixer spend today / cap</dt><dd>{{.SpendToday}} / {{.Budget}}{{if not .Launch}} (fixers off){{end}}</dd></div>
+<div><dt>Merge train</dt><dd>{{.Merged}} merged, {{.Refused}} refused</dd></div>
+<div><dt>Waiting for labels</dt><dd data-opsview="needs-labels">{{.Queue}}</dd></div>
+</dl>
+<div class="scroll-x">{{if .Miners}}<table aria-label="miners"><thead><tr><th>Miner</th><th>Built</th><th>Scope</th><th>Knee</th><th>Findings</th></tr></thead><tbody>
+{{range .Miners}}<tr><td>{{.Name}}</td><td>{{if .Built}}yes{{else}}no{{end}}</td><td>{{.Scope}}</td><td>{{if .HasKnee}}{{.Knee}}{{else}}–{{end}}</td><td>{{.Findings}}</td></tr>
+{{end}}</tbody></table>{{end}}
+{{if .Structure}}<table aria-label="structure per intervention"><thead><tr><th>Week</th><th>Gates</th><th>Miners</th><th>Terms</th><th>Gained</th><th>Interventions ({{.Proxy}})</th><th>Per intervention</th></tr></thead><tbody>
+{{range .Structure}}<tr><td>{{.Week}}</td><td>{{.Gates}}</td><td>{{.Miners}}</td><td>{{.Terms}}</td><td>{{.Gained}}</td><td>{{.Interventions}}</td><td>{{.PerIntervention}}</td></tr>
+{{end}}</tbody></table>{{end}}
+{{if .Days}}<table aria-label="struggle rate by day"><thead><tr><th>Day</th><th>Tool calls</th><th>Struggles</th><th>Per 1k</th></tr></thead><tbody>
+{{range .Days}}<tr><td>{{.Day}}</td><td>{{.ToolCalls}}</td><td>{{.Struggles}}</td><td>{{.Rate}}</td></tr>
+{{end}}</tbody></table>{{end}}</div>
+{{else}}<p class="muted">No measure yet. It appears when the mining loop writes its snapshot into the state directory.</p>{{end}}</div>{{end}}
+</section>{{end}}
+
+{{define "endpoints"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="endpoints" aria-label="endpoints">
+<h2>Endpoints</h2>
+{{if .Endpoints}}<ul>{{range .Endpoints}}<li data-opsview-endpoint="{{.URL}}"><strong>{{.Name}}</strong> <a href="{{.URL}}">{{.URL}}</a> <span class="via">{{if .RedirectsTo}}redirects to port {{.RedirectsTo}}{{else}}{{.Via}}{{end}}, since {{.Since}}</span> <span class="users">used by {{.Users}}</span></li>{{end}}</ul>
+{{else}}<p class="empty">No endpoint registered. csf serve registers every address it serves when it starts.</p>{{end}}
+{{if .Retirements}}<h2>Retired addresses</h2>
+<ul class="retired">{{range .Retirements}}<li data-opsview-retired="{{.Address}}">{{.Address}} moved to {{.MovedTo}} on {{.RetiredOn}}: “{{.Acknowledgement}}”</li>{{end}}</ul>{{end}}
+</section>{{end}}
+
+{{define "cloud"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="cloud" aria-label="cloud jobs">
+<h2>Cloud{{if .Recorded}} <span>as of {{.UpdatedTime}} UTC</span>{{end}}</h2>
+{{if .Recorded}}<dl class="summary">
+<div{{if .OverDay}} class="over"{{end}}><dt>cloud spend today</dt><dd data-opsview="cloud-spend-today">{{.SpentToday}}<small>of {{.DailyCap}} cap</small></dd></div>
+<div><dt>jobs running</dt><dd data-opsview="cloud-running">{{.Running}}</dd></div>
+</dl>
+<p class="constraint">{{.Constraint}}</p>
+{{if .Rows}}<ol class="jobs">{{range .Rows}}<li data-opsview-cloud-job="{{.ID}}"{{if .Running}} class="running"{{end}}>
+<div class="job-head"><span class="purpose">{{.Purpose}}</span><span class="stage" data-opsview="cloud-stage">{{.Stage}}{{if .StopReason}} · {{.StopReason}}{{end}}</span></div>
+<dl class="facts">
+<div><dt>provider</dt><dd>{{.Provider}}</dd></div>
+<div><dt>flavor</dt><dd>{{.Flavor}}</dd></div>
+<div><dt>started</dt><dd>{{.Started}} UTC</dd></div>
+<div><dt>elapsed</dt><dd>{{.Elapsed}}</dd></div>
+<div{{if .Over}} class="over"{{end}}><dt>spend</dt><dd data-opsview="cloud-spend">{{.Spend}} of {{.Cap}}</dd></div>
+<div><dt>job</dt><dd>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noreferrer">{{.ID}} ↗</a>{{else}}{{.ID}}{{end}}</dd></div>
+</dl>
+{{if .Stop}}<div class="actions">{{.Stop}}</div>{{end}}
+</li>{{end}}</ol>{{else}}<p class="empty">No cloud job yet.</p>{{end}}
+{{if .Notices}}<ul class="notices" aria-label="notices">{{range .Notices}}<li class="{{.Kind}}" data-opsview="cloud-notice">{{.At.Format "15:04:05"}} {{.Text}}</li>{{end}}</ul>{{end}}
+{{else}}<p class="empty">No cloud record. The panel fills when csf serve mounts the cloud service.</p>{{end}}
+{{if .Notice}}<p class="notice-line" data-opsview="cloud-panel-notice">{{.Notice}}</p>{{end}}
+</section>{{end}}
+
+{{define "github"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="github" aria-label="GitHub events">
+<h2>GitHub</h2>
+{{if .Notice}}<p class="notice-line" data-opsview="github-release">{{.Notice}}</p>{{end}}
+{{if .Recorded}}<dl class="summary">
+<div><dt>deliveries answered</dt><dd data-opsview="github-accepted">{{.Accepted}}</dd></div>
+<div{{if .Refused}} class="over"{{end}}><dt>refused or failed</dt><dd data-opsview="github-refused">{{.Refused}}</dd></div>
+</dl>
+{{if .Events}}<ol class="jobs">{{range .Events}}<li data-opsview-github-event="{{.EventID}}">
+<div class="job-head"><span class="purpose">{{.Kind}}</span><span class="stage">{{.Time}} UTC</span></div>
+<dl class="facts">
+<div><dt>where</dt><dd>{{if .URL}}<a href="{{.URL}}" target="_blank" rel="noreferrer">{{.Where}} ↗</a>{{else}}{{.Where}}{{end}}</dd></div>
+<div><dt>by</dt><dd>{{.Actor}}</dd></div>
+{{if .Summary}}<div><dt>what</dt><dd>{{.Summary}}</dd></div>{{end}}
+{{if .Routed}}<div><dt>routed to</dt><dd data-opsview="github-routed">{{.Routed}}</dd></div>{{end}}
+</dl>
+</li>{{end}}</ol>{{else}}<p class="empty">No GitHub event yet.</p>{{end}}
+{{if .Failures}}<ul class="notices" aria-label="refused or failed deliveries">{{range .Failures}}<li class="refused" data-opsview="github-failure">{{.Time}} {{.Event}} {{.Delivery}}: {{.Outcome}}, {{.Why}}</li>{{end}}</ul>{{end}}
+{{else}}<p class="empty">No GitHub event stream yet. It starts with the first delivery to the webhook route.</p>{{end}}
+</section>{{end}}
+
+{{define "resident"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="resident" aria-label="resident memory">{{if .Points}}<article class="resident">
+<div class="head"><span class="name">resident memory</span><span class="total" data-opsview="executors-rss">harness {{.Latest.Harness}} · executors {{.Latest.Executors}}</span></div>
+<dl class="resident-facts">
+<div><dt>open sessions</dt><dd data-opsview="open-sessions">{{.OpenSessions}}</dd></div>
+<div><dt>executors alive</dt><dd data-opsview="executors-alive">{{.ExecutorsAlive}}</dd></div>
+<div><dt>resumes</dt><dd data-opsview="resumes">{{.Resumes}}</dd></div>
+<div><dt>first token after resume</dt><dd data-opsview="resume-ttft">{{.ResumeTTFT}}</dd></div>
+<div><dt>idle bound</dt><dd data-opsview="idle-bound">{{.IdleBound}}</dd></div>
+</dl>
+<ol class="series" aria-label="resident memory series">{{range .Points}}<li><span class="time">{{.Time}}</span> {{.Executors}} / {{.Alive}} alive</li>{{end}}</ol>
+</article>{{end}}</section>{{end}}
+
+{{define "rulings"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="rulings" aria-label="operator rulings">{{if .Rulings}}<article class="rulings">
+<div class="head"><span class="name">operator rulings</span><span class="total" data-opsview="rulings-coverage">{{.Enforced}} of {{.Total}} enforced · {{.Unenforced}} UNENFORCED</span></div>
+<ol class="rulings" aria-label="rulings in force">{{range .Rulings}}<li class="{{if .Enforced}}enforced{{else}}unenforced{{end}}" data-opsview-ruling="{{.ID}}">
+<div class="head"><span class="name">{{.ID}}</span><span class="gate" data-opsview="ruling-gate">{{.Gate}}</span></div>
+<p class="statement">{{.Statement}}</p>
+{{if .Quote}}<blockquote>{{.Quote}}</blockquote>{{end}}
+<p class="facts">{{.RuledOn}}{{if .Scope}} · {{.Scope}}{{end}}</p>
+{{if .Why}}<p class="why">{{.Why}}</p>{{end}}
+</li>{{end}}</ol>
+</article>{{end}}</section>{{end}}
+
+{{define "miners"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="miners" aria-label="mutation scores">{{range .Miners}}<article class="miner" data-opsview-miner="{{.Miner}}">
+<div class="head"><span class="name">{{.Miner}}</span><span class="score {{if .Latest.Accepted}}accepted{{else}}rejected{{end}}" data-opsview="mutation-score">{{.Latest.Label}}</span></div>
+<ol class="series" aria-label="mutation score series">{{range .Points}}<li class="{{if .Accepted}}accepted{{else}}rejected{{end}}"><span class="time">{{.Time}}</span> {{.Label}}</li>{{end}}</ol>
+{{if .Surviving}}<ul class="surviving" aria-label="surviving mutants">{{range .Surviving}}<li>{{.}}</li>{{end}}</ul>{{end}}
+</article>{{end}}</section>{{end}}
+
+{{define "widgets"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="widgets" aria-label="installed widgets">{{range .Widgets}}{{if .Reasons}}<article class="refused" data-opsview-widget="{{.Name}}" data-opsview-installed="false">
+<h3>{{.Name}}: refused</h3>
+<ul aria-label="reasons">{{range .Reasons}}<li>{{.}}</li>{{end}}</ul>
+</article>{{else}}<article data-opsview-widget="{{.Name}}" data-opsview-installed="true">{{.Markup}}</article>{{end}}{{end}}</section>{{end}}
+
+{{define "labeler"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="labeler {{.Phase}}" aria-label="ouroboros labeler">
+<div class="head"><span class="agent">ouroboros labeler</span>{{if .Recorded}}<span class="status">{{.Phase}}</span><span class="elapsed">{{.Updated}}</span>{{end}}</div>
+{{if .Recorded}}<dl class="facts">
+<div><dt>model</dt><dd>{{.Model}}</dd></div>
+<div><dt>ticket</dt><dd data-opsview="labeler-current">{{.Current}}</dd></div>
+<div><dt>tickets</dt><dd data-opsview="labeler-tickets">{{.Tickets}}</dd></div>
+<div><dt>labels</dt><dd data-opsview="labeler-labels">{{.Labels}}</dd></div>
+<div><dt>precision</dt><dd data-opsview="labeler-precision">{{.Precision}}</dd></div>
+<div><dt>labels per hour</dt><dd data-opsview="labeler-rate">{{.Rate}}</dd></div>
+<div><dt>gpu</dt><dd data-opsview="labeler-gpu">{{.GPU}}</dd></div>
+<div><dt>keep-alive</dt><dd>{{.KeepAlive}}</dd></div>
+<div><dt>yields</dt><dd>{{.Yields}}</dd></div>
+</dl>{{else}}<p class="empty">No labeler run recorded. The panel fills when a run writes its record under the state directory.</p>{{end}}
+</section>{{end}}
+
+{{define "costs"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="loop costs" aria-label="session cost model">
+<h2>session costs{{if .Recorded}}<span>{{.Runs}}, built {{.Updated}}</span>{{end}}</h2>
+{{if .Recorded}}<div class="scroll"><table aria-label="cost per virtual-session-hour by operation"><thead><tr><th>day</th><th>session hours</th>{{range .Columns}}<th>$/h {{.}}</th>{{end}}<th>h_fleet</th><th>saving $</th></tr></thead><tbody>
+{{range .Days}}<tr data-opsview-cost-day="{{.Day}}"><td>{{.Day}}</td><td>{{.SessionHours}}</td>{{range .ByOperation}}<td>{{.}}</td>{{end}}<td>{{.HFleet}}</td><td>{{.Saving}}</td></tr>
+{{end}}</tbody></table></div>
+<div class="scroll"><table aria-label="chosen policies"><thead><tr><th>decision</th><th>chosen</th><th>$/day</th><th>saving $/day</th><th>note</th></tr></thead><tbody>
+{{range .Policies}}<tr><td>{{.Decision}}</td><td>{{.Policy}}</td><td>{{.USD}}</td><td>{{.Saving}}</td><td class="note">{{.Note}}</td></tr>
+{{end}}</tbody></table></div>
+<div class="scroll"><table aria-label="hypervisor parameters"><thead><tr><th>parameter</th><th>value</th><th>chosen</th></tr></thead><tbody>
+{{range .Parameters}}<tr><td>{{.Name}}</td><td>{{.Value}}</td><td>{{if .Chosen}}yes{{else}}no{{end}}</td></tr>
+{{end}}</tbody></table></div>
+{{else}}<p class="empty">No cost model yet. The panel fills when csf costs writes its report into the state directory.</p>{{end}}
+</section>{{end}}
+
+{{define "jev"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="jev" aria-label="local decision model">
+<div class="head"><span class="agent">local decision model</span>{{if .Recorded}}<span class="status">{{.Model}}</span><span class="elapsed">{{.Updated}}</span>{{end}}</div>
+{{if .Recorded}}<dl class="facts">
+<div><dt>day</dt><dd>{{.Day}}</dd></div>
+<div><dt>runs</dt><dd>{{.Runs}}</dd></div>
+<div><dt>llm tokens per day</dt><dd data-opsview="jev-tokens">{{.TokensPerDay}}</dd></div>
+<div><dt>jev decisions per day</dt><dd data-opsview="jev-decisions">{{.DecisionsPerDay}}</dd></div>
+</dl>{{else}}<p class="empty">No decision run recorded. The panel fills when csf decide writes its record under the state directory.</p>{{end}}
+</section>{{end}}
+
+{{define "certificate"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="loop certificate {{if .Pass}}pass{{else}}fail{{end}}" aria-label="choice certificate">
+<h2>choice certificate{{if .Recorded}}<span>{{.Repo}} @ {{.Revision}}, built {{.Created}}</span>{{end}}</h2>
+{{if .Recorded}}<p class="verdict" data-opsview="certificate-verdict">{{if .Pass}}Every required check passed.{{else}}The certificate failed: at least one required check is below its threshold.{{end}}</p>
+<div class="scroll"><table aria-label="one row per check, with the threshold read from the data"><thead><tr><th>check</th><th>value</th><th>threshold</th><th>method</th><th>pass</th></tr></thead><tbody>
+{{range .Checks}}<tr data-opsview-check="{{.Name}}" class="{{if .Pass}}pass{{else}}fail{{end}}"><td>{{.Name}}</td><td>{{.Value}}</td><td>{{.Threshold}}</td><td>{{.Method}}</td><td>{{if .Pass}}yes{{else}}no{{end}}</td></tr>
+{{end}}</tbody></table></div>
+{{else}}<p class="empty">No choice certificate yet. The panel fills when a bootstrap writes certificate.json into the state directory.</p>{{end}}
+</section>{{end}}
+
+{{define "golden_metrics"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="loop golden-metrics {{if .Refused}}fail{{else}}pass{{end}}" aria-label="golden metrics">
+<h2>golden metrics{{if .Recorded}}<span>{{.MainRevision}} → {{.MergeRevision}}</span>{{end}}</h2>
+{{if .Recorded}}<p class="verdict" data-opsview="golden-verdict">{{if .Refused}}The merge quality gate refused the merge.{{else}}The merge quality gate accepted the merge.{{end}}</p>
+<div class="scroll"><table aria-label="the four golden metrics on main and the merge result"><thead><tr><th>metric</th><th>main</th><th>merge</th><th>refused</th></tr></thead><tbody>
+{{range .Rows}}<tr data-opsview-golden="{{.Name}}" class="{{if .Refuses}}fail{{else}}pass{{end}}"><td>{{.Name}}</td><td>{{.Main}}</td><td>{{.Merge}}</td><td>{{if .Refuses}}yes{{else}}no{{end}}</td></tr>
+{{end}}</tbody></table></div>
+{{else}}<p class="empty">No merge quality gate verdict yet. The panel fills when a merge writes golden_metrics.json into the state directory.</p>{{end}}
+</section>{{end}}
+
+{{define "board"}}<main id="{{.Region}}" data-gotth-region="{{.Region}}" {{.Transition}} aria-live="polite">
+{{if .Notice}}<p class="problem">{{.Notice}}</p>{{end}}
+{{if .Needs}}<section class="group needs" aria-label="needs you"><h2>Needs you <span class="count">{{len .Needs}}</span></h2>
+<div class="rows">{{range .Needs}}{{.}}{{end}}</div></section>{{end}}
+<section class="group running" aria-label="running"><h2>Running <span class="count" data-opsview="running-count">{{len .Running}}</span></h2>
+<div class="rows">{{range .Running}}{{.}}{{else}}<p class="muted empty">{{if .Loaded}}No virtual session is running a turn.{{else}}Reading the virtual sessions…{{end}}</p>{{end}}</div></section>
+{{if .Merges}}<section class="group merges" aria-label="merged today"><h2>Merged today <span class="count">{{.MergedCount}}</span></h2>
+<ol class="merged">{{range .Merges}}<li><a href="{{.URL}}" target="_blank" rel="noreferrer"><span class="number">{{pullNumber .URL}}</span> {{.Title}}</a><span class="when">{{.MergedAt.UTC.Format "15:04"}}</span></li>{{end}}</ol>
+{{if .MoreMerges}}<button type="button" class="link" aria-expanded="{{if .MergesOpen}}true{{else}}false{{end}}" data-opsview="merges-toggle" {{.OnMerges}}>{{if .MergesOpen}}Show the latest{{else}}Show all {{.MergedCount}}{{end}}</button>{{end}}</section>{{end}}
+<section class="group others{{if .Prefs.OthersOpen}} open{{end}}" aria-label="idle and finished">
+<button type="button" class="fold-head" aria-expanded="{{if .Prefs.OthersOpen}}true{{else}}false{{end}}" data-opsview="others" {{.OnOthers}}><span>Idle and finished virtual sessions</span><span class="count" data-opsview="others-count">{{.OtherCount}}</span><span class="chevron" aria-hidden="true"></span></button>
+{{if .Prefs.OthersOpen}}<form class="filter" role="search" {{.OnFilter}}>
+<div class="filter-text" {{.Preserve}}><input type="search" name="filter" value="{{.Prefs.Filter}}" placeholder="Filter by name, branch or activity" aria-label="filter" autocomplete="off" data-opsview="filter"></div>
+<select name="show" aria-label="status" data-opsview="show"><option value="">any status</option>{{range .Statuses}}<option value="{{.}}"{{if eq . $.Prefs.Show}} selected{{end}}>{{.}}</option>{{end}}</select>
+</form>
+<p class="muted" data-opsview="matching">{{.Matching}} of {{.OtherCount}}</p>
+<div class="rows">{{range .Others}}{{.}}{{end}}</div>{{end}}
+</section>
 </main>{{end}}
 
-{{define "card"}}<article id="{{.Region}}" data-gotth-region="{{.Region}}" class="card {{.Status}}" data-opsview-assignment="{{.Assignment}}">
-<div class="head"><span class="agent">{{if .Agent}}{{.Agent}}{{else}}(no agent yet){{end}}</span><span class="status">{{.Status}}</span><span class="elapsed">{{.Elapsed}}</span></div>
-<dl class="facts">
-<div class="wide"><dt>assignment</dt><dd><code>{{.Assignment}}</code></dd></div>
-<div class="wide"><dt>branch</dt><dd>{{.Branch}}</dd></div>
-<div><dt>model</dt><dd>{{.Model}}</dd></div>
-<div><dt>turns</dt><dd>{{.Turns}}</dd></div>
-<div><dt>tool calls</dt><dd data-opsview="tool-calls">{{.ToolCalls}}</dd></div>
-<div><dt>gate denials</dt><dd data-opsview="gate-denials">{{.GateDenials}}</dd></div>
-</dl>
-{{if or .PullRequestURL .TicketURL}}<p class="links">{{if .PullRequestURL}}<a href="{{.PullRequestURL}}" target="_blank" rel="noreferrer">pull request ↗</a>{{end}}{{if .TicketURL}}<a href="{{.TicketURL}}" target="_blank" rel="noreferrer">ticket ↗</a>{{end}}</p>{{end}}
-{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
-<ol class="recent" aria-label="recent events">{{range .Shown}}<li class="{{.Kind}}"><span class="time">{{.Time}}</span>{{.Text}}</li>{{end}}</ol>
-{{if .Hidden}}<button type="button" class="expand" {{.OnExpand}}>show {{.Hidden}} earlier</button>{{else if .Expanded}}<button type="button" class="expand" {{.OnExpand}}>show fewer</button>{{end}}
+{{define "card"}}<article id="{{.Region}}" data-gotth-region="{{.Region}}" class="row s-{{.Status}}{{if .Expanded}} open{{end}}{{if .Pending}} busy{{end}}" data-opsview-assignment="{{.Assignment}}" data-opsview-tool-calls="{{.ToolCalls}}" style="view-transition-name: row-{{.Assignment}}">
+<button type="button" class="row-head" aria-expanded="{{if .Expanded}}true{{else}}false{{end}}" data-opsview="expand" {{.OnExpand}}>
+<span class="line1"><span class="dot" aria-hidden="true"></span><span class="name">{{.Name}}</span><span class="status">{{.Status}}</span><span class="when">{{.Elapsed}}</span></span>
+<span class="line2" data-opsview="activity">{{.Summary}}</span>
+<span class="line3">{{if .Stage}}<span class="badge pr-{{.Stage}}" data-opsview="pr">PR {{pullNumber .PullRequestURL}} {{.Stage}}</span>{{end}}{{with .Forge}}{{if .ChangedFiles}}<span class="diffstat" data-opsview="diffstat"><span class="plus">+{{.Additions}}</span> <span class="minus">−{{.Deletions}}</span> · {{.ChangedFiles}} {{if eq .ChangedFiles 1}}file{{else}}files{{end}}</span>{{end}}{{if .Checks}}<span class="checks checks-{{.Checks}}" data-opsview="checks">checks {{.Checks}}</span>{{end}}{{end}}{{if .Cost}}<span class="cost" data-opsview="cost">{{.Cost}}</span>{{end}}{{if not .Partial}}<span class="steps">turn {{.Turns}} · {{.Steps}}</span>{{end}}</span>
+</button>
+<a class="row-open" href="{{.ChatURL}}" data-opsview="open-transcript" aria-label="Open the transcript of {{.Name}}">Transcript ›</a>
+{{if .Expanded}}<div class="detail">
+{{if .Problem}}<p class="problem" data-opsview="problem">{{.Problem}}</p>{{end}}
+{{if and .Said (ne .Said .Summary)}}<p class="said">“{{.Said}}”</p>{{end}}
+<p class="links"><a href="{{.ChatURL}}" data-opsview="chat">Open chat</a>{{if .PullRequestURL}}<a href="{{.PullRequestURL}}" target="_blank" rel="noreferrer">Pull request {{pullNumber .PullRequestURL}}</a>{{end}}{{if .TicketURL}}<a href="{{.TicketURL}}" target="_blank" rel="noreferrer">Ticket</a>{{end}}</p>
+{{if or .CanSend .CanReady .CanMerge .CanCancel}}<div class="actions">
+{{if .CanSend}}<button type="button" class="act quiet" aria-expanded="{{if .Composing}}true{{else}}false{{end}}" data-opsview="compose" {{.OnCompose}}>Message</button>{{end}}
+{{if .CanReady}}<button type="button" class="act quiet{{if eq .Pending "opsview.ready"}} working{{end}}" data-opsview="ready" {{.OnReady}}{{if .Pending}} disabled{{end}}>{{if eq .Pending "opsview.ready"}}Marking ready…{{else}}Mark ready{{end}}</button>{{end}}
+{{if .CanMerge}}<button type="button" class="act{{if eq .Pending "opsview.merge"}} working{{end}}" data-opsview="merge" {{.OnAskMerge}}{{if .Pending}} disabled{{end}}>{{if eq .Pending "opsview.merge"}}Merging…{{else}}Merge…{{end}}</button>{{else if eq .PullRequest "merging"}}<button type="button" class="act working" disabled data-opsview="merging">Merging…</button>{{end}}
+{{if .CanCancel}}<button type="button" class="act danger{{if eq .Pending "opsview.cancel"}} working{{end}}" data-opsview="cancel" {{.OnAskStop}}{{if .Pending}} disabled{{end}}>{{if eq .Pending "opsview.cancel"}}Canceling…{{else}}Cancel…{{end}}</button>{{end}}
+</div>{{end}}
+{{if eq .Confirm "opsview.merge"}}<div class="confirm" role="alertdialog" aria-label="confirm merge" data-opsview="confirm">
+<p>Merge pull request {{pullNumber .PullRequestURL}} from <strong>{{.Name}}</strong>? The merge path runs its checks first and keeps going if you close this page.</p>
+<div class="actions"><button type="button" class="act" data-opsview="confirm-merge" {{.OnMerge}}>Merge {{pullNumber .PullRequestURL}}</button><button type="button" class="act quiet" data-opsview="keep" {{.OnKeep}}>Not now</button></div></div>{{end}}
+{{if eq .Confirm "opsview.cancel"}}<div class="confirm danger" role="alertdialog" aria-label="confirm cancel" data-opsview="confirm">
+<p>Cancel <strong>{{.Name}}</strong>? Its current turn stops and the session closes.</p>
+<div class="actions"><button type="button" class="act danger" data-opsview="confirm-cancel" {{.OnCancel}}>Cancel {{.Name}}</button><button type="button" class="act quiet" data-opsview="keep" {{.OnKeep}}>Keep it running</button></div></div>{{end}}
+{{if and .CanSend .Composing}}<form id="{{.Region}}.send" class="send" {{.OnSend}}><div class="composer" {{.Preserve}}><textarea id="{{.Region}}.message" name="message" rows="2" placeholder="Message {{.Name}}" aria-label="message" data-opsview="message"></textarea></div>
+<div class="actions"><button type="submit" class="act" data-opsview="send"{{if eq .Pending "opsview.send"}} disabled{{end}}>{{if eq .Pending "opsview.send"}}Sending…{{else}}Send{{end}}</button></div></form>{{end}}
+{{if .Notice}}<p class="notice-line" role="status" data-opsview="card-notice">{{.Notice}}</p>{{end}}
+<ol class="recent" aria-label="recent activity">{{range .Shown}}<li class="{{.Kind}}"><span class="time">{{.Time}}</span><span class="text">{{if $.Internals}}{{.Raw}}{{else}}{{.Text}}{{end}}</span></li>{{end}}</ol>
+<div class="actions small"><button type="button" class="link" aria-expanded="{{if .Internals}}true{{else}}false{{end}}" data-opsview="internals" {{.OnInternal}}>{{if .Internals}}Hide internals{{else}}Internals and raw activity{{end}}</button></div>
+{{if .Internals}}<dl class="facts internals" data-opsview="internals-list">
+<div class="wide"><dt>Assignment</dt><dd><code>{{.Assignment}}</code></dd></div>
+<div class="wide"><dt>Branch</dt><dd><code>{{.Branch}}</code></dd></div>
+<div><dt>Model</dt><dd>{{.Model}}</dd></div>
+<div><dt>Executor</dt><dd data-opsview="executor">{{.Executor}}</dd></div>
+<div><dt>Turns</dt><dd>{{.Turns}}</dd></div>
+<div><dt>Tool calls</dt><dd data-opsview="tool-calls">{{.ToolCalls}}</dd></div>
+<div><dt>Gate denials</dt><dd data-opsview="gate-denials">{{.GateDenials}}</dd></div>
+{{if or .Background .BackgroundTurns}}<div><dt>Background</dt><dd data-opsview="background">waiting on {{.Background}}, woke {{.BackgroundTurns}} turns</dd></div>{{end}}
+{{if .Launch}}<div><dt>Launch</dt><dd data-opsview="launch">{{.Launch}}</dd></div>{{end}}
+{{if .CPU}}<div><dt>Cpu</dt><dd data-opsview="cpu">{{.CPU}}</dd></div>
+<div><dt>Memory peak</dt><dd data-opsview="memory-peak">{{.MemoryPeak}}</dd></div>{{end}}
+{{if .Resumes}}<div><dt>Resumes</dt><dd data-opsview="resumes">{{.Resumes}}</dd></div>{{end}}
+{{if .Partial}}<div class="wide"><dt>Read</dt><dd>the end of the event log only</dd></div>{{end}}
+{{if .Error}}<div class="wide"><dt>Error</dt><dd><code>{{.Error}}</code></dd></div>{{end}}
+</dl>{{end}}
+</div>{{end}}
 </article>{{end}}
+
+{{define "host"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="host" aria-label="host">
+<h2>Host</h2>
+{{if .Present}}{{if .Error}}<p class="error" data-opsview="host-error">{{.Error}}</p>{{else}}<dl class="summary" aria-label="host gauges">
+<div{{if .Overloaded}} class="over"{{end}}><dt>load</dt><dd data-opsview="host-load">{{.Load}}</dd></div>
+<div><dt>memory</dt><dd data-opsview="host-memory">{{.Memory}}</dd></div>
+<div><dt>disk</dt><dd data-opsview="host-disk">{{.Disk}}</dd></div>
+<div><dt>pressure, 10 s</dt><dd data-opsview="host-pressure">{{.Pressure}}</dd></div>
+{{with .Resumes}}<div><dt>resumes</dt><dd data-opsview="host-resumes">{{.Resumed}} back, {{len .Held}} held</dd></div>{{end}}
+</dl>{{with .Resumes}}{{if .Held}}<ol class="findings" aria-label="held resumes" data-opsview="host-held-resumes">{{range .Held}}<li data-opsview-assignment="{{.AssignmentID}}">#{{.Position}} <code>{{.AssignmentID}}</code>: {{.Reason}}</li>{{end}}</ol>{{end}}{{end}}{{if .Findings}}<ul class="findings">{{range .Findings}}<li>{{.}}</li>{{end}}</ul>{{end}}
+{{if .Overloaded}}<div class="guard" data-opsview="load-guard"><p class="notice-line">Load is past 1.5 times the cores. Nothing acts on its own; shed work here:</p><div class="actions">{{range .Guard}}{{.}}{{end}}</div></div>{{end}}
+{{with .Confirm}}<div class="confirm" data-opsview="host-confirm" data-opsview-action="{{.ID}}"><strong>{{.Label}}?</strong>
+<p class="notice-line" data-opsview="host-diff">{{.Result}}</p>
+<ul aria-label="containers it changes">{{range .Names}}<li>{{.}}</li>{{end}}</ul>
+<div class="actions"><button type="button" class="act danger" data-opsview="host-confirm-button" {{.OnConfirm}}>Confirm</button><button type="button" class="act quiet" data-opsview="host-dismiss" {{.OnDismiss}}>Cancel</button></div></div>{{end}}
+{{if .Notice}}<p class="notice-line" data-opsview="host-notice">{{.Notice}}</p>{{end}}
+<h3>Profiles</h3>
+<ul class="profiles">{{range .Profiles}}<li class="profile" data-opsview-profile="{{.Name}}"><div class="actions">{{.Button}}</div>
+<span class="notice-line">{{if .Keep}}keeps {{.KeepText}}{{end}}{{if .KeepCSFWork}}{{if .Keep}}; {{end}}keeps CSF work{{end}}{{if .StopOthers}}; stops everything else{{end}}</span></li>{{end}}
+<li class="profile"><div class="actions">{{.Undo}}</div>{{if .Undoable}}<span class="notice-line" data-opsview="host-undoable">{{.Undoable}}</span>{{end}}</li></ul>
+{{if .Operable}}<details><summary>Edit a profile</summary><form class="profile" {{.OnProfile}}>
+<input name="name" required placeholder="profile name" aria-label="profile name" data-opsview="profile-name">
+<textarea name="keep" rows="2" placeholder="containers to keep running, comma separated" aria-label="containers to keep" data-opsview="profile-keep"></textarea>
+<label class="check"><input type="checkbox" name="keep_csf_work"> keep CSF work</label>
+<label class="check"><input type="checkbox" name="stop_others"> stop everything else</label>
+<label class="check"><input type="checkbox" name="remove"> remove the profile of this name</label>
+<div class="actions"><button type="submit" class="act quiet" data-opsview="profile-save">Save profile</button></div></form></details>{{end}}
+{{range .Groups}}<h3 data-opsview-group="{{.Group}}">{{.Title}} <span class="notice-line">{{len .Live}} running, {{len .Stopped}} stopped</span></h3>
+<div class="actions">{{range .Buttons}}{{.}}{{end}}</div>
+<ul class="containers">{{range .Live}}{{template "host-row" .}}{{end}}</ul>
+{{if .Stopped}}<details><summary>{{len .Stopped}} stopped</summary><ul class="containers">{{range .Stopped}}{{template "host-row" .}}{{end}}</ul></details>{{end}}
+{{end}}{{end}}{{else}}<p class="empty">Reading the host…</p>{{end}}
+</section>{{end}}
+
+{{define "host-row"}}<li class="container {{.State}}{{if .Protected}} protected{{end}}" data-opsview-container="{{.Name}}" data-opsview-state="{{.State}}">
+<div class="head"><span class="name">{{.Name}}</span><span class="status">{{.State}}</span><span class="meta">cpu {{.CPU}} · mem {{.Memory}}</span></div>
+<span class="meta">{{.Image}}{{if .Project}} · {{.Project}}{{end}}{{if .Assignment}} · {{.Assignment}}{{end}} · {{.Status}}</span>
+<div class="actions">{{range .Buttons}}{{.}}{{end}}</div></li>{{end}}

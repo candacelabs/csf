@@ -324,16 +324,27 @@ message SearchRequest {
   uint32 limit = 2 [(candace.liquid.v1.field) = {expr: "this > 0 && this <= 50"}];
 }
 
+// A hit is one chunk of a document: the lines it spans, its score in the
+// result's order, and why it ranked there.
 message SearchHit {
   SourceDocument document = 1;
   string excerpt = 2;
   double score = 3;
+  // The document's title: a repository-relative path, a ticket or a run.
+  string path = 4;
+  // The 1-based lines of the document the excerpt spans.
+  uint32 line_start = 5;
+  uint32 line_end = 6;
+  // Which retrievers found the chunk, at what rank, and the reranker's score.
+  string why = 7;
 }
 
 message SearchResult {
   repeated SearchHit hits = 1;
   string mode = 2;
   string embedding_model = 3;
+  // The cross-encoder that ordered the hits; empty when none did.
+  string reranker = 4;
 }
 message SearchResponse { SearchResult result = 1; }
 
@@ -648,6 +659,11 @@ message AgentAssignmentRecipe {
   // session; absent for a Workbench submission. Set only fields change the
   // recipe fingerprint, so recipes without a workspace keep their hashes.
   AgentWorkspace workspace = 7 [(candace.liquid.v1.field) = {recurse: true}];
+  // The turn executor a harness session runs on: "claude-code" (also when
+  // empty) runs Claude Code and "copilot" runs the GitHub Copilot CLI. The
+  // model is passed to the chosen executor unchanged, so it is spelled as that
+  // executor spells it.
+  string executor = 8 [(candace.liquid.v1.field) = {expr: "matches(this, `^(claude-code|copilot)?$`)"}];
 }
 
 // Where and how the harness runs an assignment: a git worktree it creates
@@ -664,10 +680,14 @@ message AgentWorkspace {
   // task; relative paths resolve against the recipe file.
   string brief_path = 4 [(candace.liquid.v1.field) = {expr: "len(this) <= 4096"}];
   // Claude Code tool rules the session may use without asking, such as
-  // "Bash", "Edit" or "Bash(git *)". Everything else is denied.
+  // "Bash", "Edit" or "Bash(git *)". Everything else is denied. A Copilot
+  // session runs the same rules translated to Copilot's tools; a rule with
+  // no Copilot equivalent refuses the recipe.
   repeated string allowed_tools = 5;
   // Title of the draft pull request opened after the first commit.
   string pull_request_title = 6 [(candace.liquid.v1.field) = {expr: "len(this) > 0 && len(this) <= 256"}];
+  // Workspace mode: "normal" (default) or "patch" for submit-then-verify flow.
+  string mode = 7 [(candace.liquid.v1.field) = {expr: "len(this) == 0 || matches(this, `^(normal|patch)$`)"}];
 }
 
 // A prepared recipe is inspectable data, not a dispatched or completed task.
@@ -697,4 +717,19 @@ message AgentAssignmentReceipt {
   string branch = 6;
   string pull_request_url = 7;
   string trace_id = 8;
+  // Set on the first turn after the session hypervisor resumed a suspended
+  // session, so the cost of resuming is on the receipt.
+  ResumedTurn resumed = 9;
+  // The turn executor the session ran on, as the recipe names it; never empty
+  // for a harness run.
+  string executor = 10;
+}
+
+// The cost of the first turn on a resumed session, whose turn executor the
+// hypervisor had closed on suspend and opened again on the recorded
+// conversation for this turn: the time from the turn's request to the
+// executor's first assistant event, and how long the session was suspended.
+message ResumedTurn {
+  double time_to_first_token_ms = 1;
+  double suspended_seconds = 2;
 }

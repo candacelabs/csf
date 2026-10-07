@@ -9,11 +9,12 @@
    [python_path], which check mode keeps current. Adding a kind therefore
    changes no metric code. *)
 
-type kind = Diagram | North_star
+type kind = Diagram | North_star | Components
 
-let kinds = [Diagram; North_star]
+let kinds = [Diagram; North_star; Components]
 
-let name = function Diagram -> "diagram" | North_star -> "north_star"
+let name = function
+  | Diagram -> "diagram" | North_star -> "north_star" | Components -> "components"
 
 (* The Python compatibility oracle's generated copy of [kinds]. *)
 let python_path = "csf/compiler/metric_compat/generated_blocks_cgen.py"

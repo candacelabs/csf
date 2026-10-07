@@ -4,9 +4,11 @@ package dispatch
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"slices"
+	"strings"
 
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
@@ -14,24 +16,37 @@ import (
 
 	"github.com/candacelabs/csf/csf"
 	"github.com/candacelabs/csf/io/inproc"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
+	grammar "github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/pkg/listsched"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	dispatchv1 "github.com/candacelabs/csf/proto/candace/dispatch/v1"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"github.com/candacelabs/csf/runtime"
+	cronservice "github.com/candacelabs/csf/services/cron"
 	"github.com/candacelabs/csf/services/harness"
 )
 
 // ISessionHost is what the service needs of the agent harness: to open a
-// session for a slice, to steer a running one and to ask one to stop at its
-// next safepoint. *harness.AgentSessionService satisfies it.
+// session for a slice, to steer a running one, to ask one to stop at its
+// next safepoint, and the launch check the dispatcher's admission starts
+// from. *harness.AgentSessionService satisfies it.
 //
 //go:generate go run go.uber.org/mock/mockgen@v0.6.0 -source=dispatch.go -destination=mocks/mock_sessions.go -package=mocks
 type ISessionHost interface {
 	Submit(ctx context.Context, request *harnessv1.SubmitAgentSessionRequest) (*harnessv1.SubmitAgentSessionResponse, error)
 	Send(ctx context.Context, request *harnessv1.SendAgentSessionMessageRequest) (*harnessv1.SendAgentSessionMessageResponse, error)
 	Cancel(ctx context.Context, request *harnessv1.CancelAgentSessionRequest) (*harnessv1.CancelAgentSessionResponse, error)
+	Check(ctx context.Context) (*harnessv1.LaunchCheck, error)
 }
+
+// MergeCheck reports whether the pull request at url has merged: the
+// dispatcher asks it about every slice that recorded one.
+type MergeCheck func(ctx context.Context, url string) (bool, error)
+
+// SnapshotSink receives every snapshot the dispatcher publishes, on the
+// service's own goroutine: the binary writes it to the state directory.
+type SnapshotSink func(snapshot Snapshot) error
 
 const (
 	ownerName = "dispatch"
@@ -81,14 +96,40 @@ func WithDatabase(database IDispatchDatabase) Option {
 	}
 }
 
-// WithHostMeasures replaces the host measures the concurrency cap is derived
-// from.
-func WithHostMeasures(measures harness.IHostMeasures) Option {
+// WithLimit adds one measure the dispatcher's admission is the minimum of,
+// beside the harness's launch check, which is always one: [DailyBudgetLimit]
+// and [RateLimit] are the binary's.
+func WithLimit(source LimitSource) Option {
 	return func(service *DispatchService) error {
-		if measures == nil {
-			return fmt.Errorf("%w: nil host measures", ErrInvalidOption)
+		if source == nil {
+			return fmt.Errorf("%w: nil limit", ErrInvalidOption)
 		}
-		service.measures = measures
+		service.limits = append(service.limits, source)
+		return nil
+	}
+}
+
+// WithMergeCheck grants the check a dispatcher pass asks about every recorded
+// pull request, so a slice whose pull request merged anywhere — by the merge
+// train, its own session or the operator — releases what depends on it.
+// Without it only MarkSliceMerged records a merge.
+func WithMergeCheck(check MergeCheck) Option {
+	return func(service *DispatchService) error {
+		if check == nil {
+			return fmt.Errorf("%w: nil merge check", ErrInvalidOption)
+		}
+		service.mergeCheck = check
+		return nil
+	}
+}
+
+// WithSnapshotSink receives every published snapshot.
+func WithSnapshotSink(sink SnapshotSink) Option {
+	return func(service *DispatchService) error {
+		if sink == nil {
+			return fmt.Errorf("%w: nil snapshot sink", ErrInvalidOption)
+		}
+		service.sink = sink
 		return nil
 	}
 }
@@ -134,15 +175,17 @@ type command func(ctx context.Context, store *graph)
 // One goroutine owns the graph; every operation and every session event is
 // a command it pops from one queue.
 type DispatchService struct {
-	sessions ISessionHost
-	database IDispatchDatabase
-	measures harness.IHostMeasures
-	clock    harness.IClock
-	logger   *slog.Logger
-	ontology string
-	commands *inproc.Queue[command]
-	stopped  chan struct{}
-	scope    *runtime.Scope
+	sessions   ISessionHost
+	database   IDispatchDatabase
+	limits     []LimitSource
+	mergeCheck MergeCheck
+	sink       SnapshotSink
+	clock      harness.IClock
+	logger     *slog.Logger
+	ontology   string
+	commands   *inproc.Queue[command]
+	stopped    chan struct{}
+	scope      *runtime.Scope
 }
 
 var _ runtime.IService = (*DispatchService)(nil)
@@ -152,7 +195,6 @@ var _ csf.IDispatch = (*DispatchService)(nil)
 // service. [WithSessions] is required.
 func NewDispatchService(options ...Option) (*DispatchService, error) {
 	service := &DispatchService{
-		measures: harness.HostMeasures{},
 		clock:    harness.SystemClock{},
 		logger:   slog.New(slog.DiscardHandler),
 		commands: inproc.NewQueue[command](),
@@ -169,13 +211,14 @@ func NewDispatchService(options ...Option) (*DispatchService, error) {
 	if service.sessions == nil {
 		return nil, ErrNoSessions
 	}
+	service.limits = append([]LimitSource{harnessLimit(service.sessions)}, service.limits...)
 	return service, nil
 }
 
-// Start restores the graph from the database, when one was granted, and
-// starts the owner goroutine on the scope. Slices the previous process was
-// running return to the frontier, and the restored frontier is dispatched at
-// once.
+// Start restores the graph and the controls from the database, when one was
+// granted, starts the owner goroutine on the scope and runs the first
+// dispatcher pass. Slices the previous process was running return to the
+// frontier and are dispatched by that pass.
 func (service *DispatchService) Start(scope *runtime.Scope) error {
 	store := newGraph()
 	if service.database != nil {
@@ -184,9 +227,8 @@ func (service *DispatchService) Start(scope *runtime.Scope) error {
 		}
 	}
 	service.scope = scope
-	return scope.GoOwner(ownerName, func(ctx context.Context) error {
+	if err := scope.GoOwner(ownerName, func(ctx context.Context) error {
 		defer close(service.stopped)
-		service.schedule(ctx, store)
 		for {
 			next, err := service.commands.Pop(ctx)
 			if err != nil {
@@ -196,6 +238,14 @@ func (service *DispatchService) Start(scope *runtime.Scope) error {
 			}
 			next(ctx, store)
 		}
+	}); err != nil {
+		return err
+	}
+	return scope.Go(func(ctx context.Context) error {
+		if _, err := service.Dispatch(ctx); err != nil && ctx.Err() == nil {
+			service.logger.Warn("dispatch: first pass incomplete", "error", err)
+		}
+		return nil
 	})
 }
 
@@ -246,16 +296,6 @@ func (service *DispatchService) push(work command) {
 // harness.WithSessionObserver. Session events reach the graph in order.
 func (service *DispatchService) ObserveSession(state *harnessv1.AgentSessionState) {
 	service.push(func(ctx context.Context, store *graph) { service.observe(ctx, store, state) })
-}
-
-// capacity is the concurrency cap, derived from the host's idle cores the
-// same way the harness derives its worker cap.
-func (service *DispatchService) capacity() uint32 {
-	load, err := service.measures.LoadAverage()
-	if err != nil {
-		service.logger.Warn("dispatch: load not measured", "error", err)
-	}
-	return harness.WorkerCap(uint32(service.measures.Cores()), load)
 }
 
 func (service *DispatchService) now() *timestamppb.Timestamp {
@@ -605,12 +645,13 @@ func (service *DispatchService) Frontier(ctx context.Context, _ *dispatchv1.GetF
 }
 
 // List reports every slice in enqueue order with its priority breakdown, the
-// derived cap and how many sessions run under it.
+// admission the latest dispatcher pass derived and how many sessions run
+// under it.
 func (service *DispatchService) List(ctx context.Context, _ *dispatchv1.ListSlicesRequest) (*dispatchv1.ListSlicesResponse, error) {
 	response := &dispatchv1.ListSlicesResponse{Persisted: service.database != nil}
 	err := service.command(ctx, func(_ context.Context, store *graph) error {
 		response.Nodes = store.views(store.order())
-		response.ConcurrencyCap = service.capacity()
+		response.ConcurrencyCap = uint32(store.capacity)
 		response.Running = uint32(len(store.runningIDs()))
 		return nil
 	})
@@ -665,12 +706,17 @@ func (service *DispatchService) MarkMerged(ctx context.Context, request *dispatc
 	return response, nil
 }
 
-// schedule is one list-scheduling pass: the frontier in rank order onto the
-// free capacity, skipping what contends with a running slice.
+// schedule is one list-scheduling pass: the frontier in rank order, less the
+// held slices and the slices whose provider's rate limit admits no launches,
+// onto the admission the latest dispatcher pass derived, skipping what
+// contends with a running slice. A paused dispatcher launches nothing.
 func (service *DispatchService) schedule(ctx context.Context, store *graph) {
+	if store.paused != "" {
+		return
+	}
 	ranks := store.ranks()
-	ready := store.frontier(ranks)
-	for _, id := range listsched.Pick(ready, store.runningIDs(), int(service.capacity()), store.conflicts, store.less(ranks)) {
+	ready := slices.DeleteFunc(store.launchable(ranks), func(id string) bool { return store.throttle(id) != "" })
+	for _, id := range listsched.Pick(ready, store.runningIDs(), store.capacity, store.conflicts, store.less(ranks)) {
 		service.launch(ctx, store, id)
 	}
 }
@@ -716,6 +762,13 @@ func (service *DispatchService) launched(ctx context.Context, store *graph, id s
 		record.proto.State = dispatchv1.SliceState_SLICE_STATE_FAILED
 		record.proto.AssignmentId = ""
 		record.proto.Error = err.Error()
+		if errors.Is(err, harness.ErrAdmissionHeld) {
+			// The harness held admission after the pass measured it: the
+			// slice waits for the next pass rather than failing.
+			record.proto.State = dispatchv1.SliceState_SLICE_STATE_QUEUED
+			record.proto.Attempts--
+			store.capacity = len(store.runningIDs())
+		}
 		if persistErr := service.persistState(ctx, record); persistErr != nil {
 			service.logger.Error("dispatch: failure not recorded", "slice", id, "error", persistErr)
 		}
@@ -757,15 +810,15 @@ func resumeRecipe(record *dispatchv1.SliceNode, assignment string) *pb.AgentAssi
 // safepoint. The preempted slice is checkpointed and re-enqueued when its
 // session reports CANCELED.
 func (service *DispatchService) preempt(ctx context.Context, store *graph, target string) {
-	if store.state(target) != dispatchv1.SliceState_SLICE_STATE_QUEUED {
+	if store.state(target) != dispatchv1.SliceState_SLICE_STATE_QUEUED || store.paused != "" {
 		return
 	}
 	ranks := store.ranks()
-	if !slices.Contains(store.frontier(ranks), target) {
+	if !slices.Contains(store.launchable(ranks), target) {
 		return
 	}
 	running := store.runningIDs()
-	full := len(running) >= int(service.capacity())
+	full := len(running) >= store.capacity
 	var blockers []string
 	for _, id := range running {
 		if store.state(id) == dispatchv1.SliceState_SLICE_STATE_RUNNING && (full || store.conflicts(target, id)) {
@@ -973,6 +1026,312 @@ func (service *DispatchService) restore(ctx context.Context, store *graph) error
 			}
 		}
 	}
-	service.logger.Info("dispatch: graph restored", "slices", store.edges.Len(), "intents", len(store.intents))
+	if err := service.restoreControls(ctx, store); err != nil {
+		return err
+	}
+	service.logger.Info("dispatch: graph restored", "slices", store.edges.Len(), "intents", len(store.intents), "controls", store.controls, "paused", store.paused != "")
 	return nil
+}
+
+// restoreControls replays every recorded control in order, so a pause or a
+// hold outlives the process that was given it.
+func (service *DispatchService) restoreControls(ctx context.Context, store *graph) error {
+	controls, err := service.database.ListDispatchControls(ctx)
+	if err != nil {
+		return fmt.Errorf("dispatch: restore controls: %w", err)
+	}
+	for _, row := range controls {
+		control := Control{Action: ControlAction(row.Action), Reason: row.Reason}
+		if row.SliceID != nil {
+			control.SliceID = *row.SliceID
+		}
+		store.apply(control)
+		store.controls = uint64(row.Sequence)
+	}
+	return nil
+}
+
+// Pause stops every launch until Resume; running sessions are not touched.
+func (service *DispatchService) Pause(ctx context.Context, input DispatcherControlInput) (Snapshot, error) {
+	return service.control(ctx, Control{Action: ControlPause, Reason: input.Reason})
+}
+
+// Resume lets the dispatcher launch again, at once within the latest
+// admission.
+func (service *DispatchService) Resume(ctx context.Context, input DispatcherControlInput) (Snapshot, error) {
+	return service.control(ctx, Control{Action: ControlResume, Reason: input.Reason})
+}
+
+// Hold keeps one slice from being launched until Release; a held slice that
+// runs keeps running.
+func (service *DispatchService) Hold(ctx context.Context, input SliceControlInput) (Snapshot, error) {
+	return service.control(ctx, Control{Action: ControlHold, SliceID: input.SliceID, Reason: input.Reason})
+}
+
+// Release lets a held slice be launched again.
+func (service *DispatchService) Release(ctx context.Context, input SliceControlInput) (Snapshot, error) {
+	return service.control(ctx, Control{Action: ControlRelease, SliceID: input.SliceID, Reason: input.Reason})
+}
+
+// control validates, records and applies one control, then schedules and
+// publishes the snapshot it leaves.
+func (service *DispatchService) control(ctx context.Context, control Control) (Snapshot, error) {
+	reason := strings.TrimSpace(control.Reason)
+	if reason == "" || len(reason) > maxReasonBytes {
+		return Snapshot{}, fmt.Errorf("%w: a reason of 1 to %d bytes is required", ErrInvalidControl, maxReasonBytes)
+	}
+	control.Reason = reason
+	if control.Action.names() != (control.SliceID != "") {
+		return Snapshot{}, fmt.Errorf("%w: hold and release name one slice; pause and resume name none", ErrInvalidControl)
+	}
+	var snapshot Snapshot
+	err := service.command(ctx, func(ctx context.Context, store *graph) error {
+		if control.Action.names() {
+			if !store.has(control.SliceID) {
+				return fmt.Errorf("%w: %s", ErrUnknownSlice, control.SliceID)
+			}
+			if control.Action == ControlHold && terminal(store.state(control.SliceID)) {
+				return fmt.Errorf("%w: %s", ErrSliceFinished, control.SliceID)
+			}
+		}
+		if err := service.persistControl(ctx, store, control); err != nil {
+			return err
+		}
+		store.apply(control)
+		service.logger.Info("dispatch: control", "action", control.Action, "slice", control.SliceID, "reason", control.Reason)
+		service.schedule(ctx, store)
+		snapshot = service.publish(store)
+		return nil
+	})
+	return snapshot, err
+}
+
+// persistControl records a control under the next sequence.
+func (service *DispatchService) persistControl(ctx context.Context, store *graph, control Control) error {
+	sequence := store.controls + 1
+	if service.database != nil {
+		params := csfpg.InsertDispatchControlParams{
+			Sequence: int64(sequence), Action: string(control.Action), Reason: control.Reason, RecordedAt: timestamp(service.clock.Now()),
+		}
+		if control.SliceID != "" {
+			params.SliceID = &control.SliceID
+		}
+		if _, err := service.database.InsertDispatchControl(ctx, params); err != nil {
+			return fmt.Errorf("dispatch: record control: %w", err)
+		}
+	}
+	store.controls = sequence
+	return nil
+}
+
+// Trigger declares the dispatcher's pass for the cron service.
+func (service *DispatchService) Trigger() cronservice.Option {
+	return cronservice.WithTrigger(TriggerDispatcher, grammar.Spec(grammar.Every(DispatcherInterval)), func(ctx context.Context, _ cronservice.Occurrence) error {
+		_, err := service.Dispatch(ctx)
+		return err
+	})
+}
+
+// Dispatch is one pass of the slice dispatcher. It marks merged every slice
+// whose recorded pull request merged, measures every limit, and launches the
+// ready frontier in rank order up to the admission they derive: the minimum
+// of the limits' launches over the dispatched sessions running. Between
+// passes, merges and session ends launch within that admission at once. It
+// returns the snapshot it published.
+func (service *DispatchService) Dispatch(ctx context.Context) (Snapshot, error) {
+	if service.mergeCheck != nil {
+		if err := service.detectMerges(ctx); err != nil {
+			return Snapshot{}, err
+		}
+	}
+	running := 0
+	if err := service.command(ctx, func(_ context.Context, store *graph) error {
+		running = len(store.runningIDs())
+		return nil
+	}); err != nil {
+		return Snapshot{}, err
+	}
+	limits := make([]Limit, 0, len(service.limits))
+	for _, source := range service.limits {
+		limits = append(limits, source(ctx, running))
+	}
+	var snapshot Snapshot
+	err := service.command(ctx, func(ctx context.Context, store *graph) error {
+		store.limits = limits
+		// The limits' launches were measured against running sessions, so the
+		// admission adds them to that count: another pass may have launched
+		// since, and adding to the count read now would admit its launch twice.
+		store.capacity = admission(limits, running)
+		store.passAt = service.clock.Now()
+		service.schedule(ctx, store)
+		snapshot = service.publish(store)
+		return nil
+	})
+	return snapshot, err
+}
+
+// detectMerges asks the merge check about every recorded pull request of an
+// unfinished slice and marks merged each one that did. A pull request it
+// cannot read is asked about again at the next pass.
+func (service *DispatchService) detectMerges(ctx context.Context) error {
+	pending, err := service.pendingMerges(ctx)
+	if err != nil {
+		return err
+	}
+	for _, candidate := range pending {
+		merged, err := service.mergeCheck(ctx, candidate.url)
+		if err != nil {
+			service.logger.Warn("dispatch: pull request not read", "slice", candidate.slice, "url", candidate.url, "error", err)
+			continue
+		}
+		if !merged {
+			continue
+		}
+		if _, err := service.MarkMerged(ctx, &dispatchv1.MarkSliceMergedRequest{SliceId: candidate.slice, PullRequestUrl: candidate.url}); err != nil {
+			return err
+		}
+		service.logger.Info("dispatch: merge detected", "slice", candidate.slice, "url", candidate.url)
+	}
+	return nil
+}
+
+// MarkPullRequestMerged marks merged every unfinished slice that recorded the
+// pull request at url: a merge GitHub reported, so the frontier moves without
+// waiting for the next pass to ask. It returns the slices it marked, none
+// when no slice recorded that pull request.
+func (service *DispatchService) MarkPullRequestMerged(ctx context.Context, url string) ([]string, error) {
+	pending, err := service.pendingMerges(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var marked []string
+	for _, candidate := range pending {
+		if candidate.url != url {
+			continue
+		}
+		if _, err := service.MarkMerged(ctx, &dispatchv1.MarkSliceMergedRequest{SliceId: candidate.slice, PullRequestUrl: url}); err != nil {
+			return marked, err
+		}
+		service.logger.Info("dispatch: merge reported", "slice", candidate.slice, "url", url)
+		marked = append(marked, candidate.slice)
+	}
+	return marked, nil
+}
+
+func (service *DispatchService) pendingMerges(ctx context.Context) ([]pendingMerge, error) {
+	var pending []pendingMerge
+	err := service.command(ctx, func(_ context.Context, store *graph) error {
+		pending = store.awaitingMerge()
+		return nil
+	})
+	return pending, err
+}
+
+// HeldBranch reports whether the slice whose branch is branch is held, and the
+// reason it is: a merge of a pull request from that branch is refused while
+// the hold stands. It is the guard the GitHub tools ask before merging, so a
+// held slice's branch cannot reach main.
+func (service *DispatchService) HeldBranch(ctx context.Context, branch string) (string, bool, error) {
+	var reason string
+	var held bool
+	err := service.command(ctx, func(_ context.Context, store *graph) error {
+		reason, held = store.heldBranch(branch)
+		return nil
+	})
+	return reason, held, err
+}
+
+// CurrentSnapshot reports the dispatcher's state now, under the latest
+// pass's limits.
+func (service *DispatchService) CurrentSnapshot(ctx context.Context, _ SnapshotInput) (Snapshot, error) {
+	var snapshot Snapshot
+	err := service.command(ctx, func(_ context.Context, store *graph) error {
+		snapshot = service.snapshot(store)
+		return nil
+	})
+	return snapshot, err
+}
+
+// publish builds the snapshot and hands it to the sink, on the owner.
+func (service *DispatchService) publish(store *graph) Snapshot {
+	snapshot := service.snapshot(store)
+	if service.sink != nil {
+		if err := service.sink(snapshot); err != nil {
+			service.logger.Warn("dispatch: snapshot not published", "error", err)
+		}
+	}
+	return snapshot
+}
+
+// snapshot is the dispatcher's state, read on the owner.
+func (service *DispatchService) snapshot(store *graph) Snapshot {
+	snapshot := Snapshot{
+		At: service.clock.Now(), Paused: store.paused != "", PauseReason: store.paused, Capacity: store.capacity,
+		Limits: slices.Clone(store.limits), LimitsAt: store.passAt, NextPassAt: store.passAt.Add(DispatcherInterval),
+		Queue: []SliceView{}, Running: []SliceView{}, Held: []SliceView{}, Finished: []SliceView{},
+	}
+	if snapshot.Limits == nil {
+		snapshot.Limits = []Limit{}
+	}
+	ranks := store.ranks()
+	frontier := store.frontier(ranks)
+	running := store.runningIDs()
+	queued := slices.Clone(frontier)
+	for _, id := range store.order() {
+		if store.state(id) == dispatchv1.SliceState_SLICE_STATE_QUEUED && !slices.Contains(queued, id) {
+			queued = append(queued, id)
+		}
+	}
+	for _, id := range queued {
+		view := store.sliceView(id, ranks, frontier)
+		view.Waiting = store.waiting(id, running)
+		if view.Held != "" {
+			snapshot.Held = append(snapshot.Held, view)
+			continue
+		}
+		snapshot.Queue = append(snapshot.Queue, view)
+		if snapshot.NextLaunch == nil && slices.Contains(frontier, id) && !store.contendsRunning(id, running) {
+			next := view
+			snapshot.NextLaunch = &next
+		}
+	}
+	for _, id := range running {
+		view := store.sliceView(id, ranks, frontier)
+		snapshot.Running = append(snapshot.Running, view)
+		if view.Held != "" {
+			snapshot.Held = append(snapshot.Held, view)
+		}
+	}
+	for _, id := range store.order() {
+		if state := store.state(id); terminal(state) || state == dispatchv1.SliceState_SLICE_STATE_FAILED {
+			snapshot.Finished = append(snapshot.Finished, store.sliceView(id, ranks, frontier))
+		}
+	}
+	return snapshot
+}
+
+// ReadySlices is at most limit slices that may run away from this host now,
+// in dispatch order: on the frontier, not held, contending with nothing that
+// runs here and with none of the others picked. The pause and the admission
+// govern this host's launches, not another machine's, so they do not apply.
+func (service *DispatchService) ReadySlices(ctx context.Context, limit int) ([]ReadySlice, error) {
+	var ready []ReadySlice
+	err := service.command(ctx, func(_ context.Context, store *graph) error {
+		ranks := store.ranks()
+		running := store.runningIDs()
+		var picked []string
+		for _, id := range store.launchable(ranks) {
+			if len(picked) >= limit {
+				break
+			}
+			if store.contendsRunning(id, running) || store.contendsRunning(id, picked) {
+				continue
+			}
+			picked = append(picked, id)
+			recipe := proto.Clone(store.nodes[id].proto.GetSlice().GetRecipe()).(*pb.AgentAssignmentRecipe)
+			ready = append(ready, ReadySlice{SliceID: id, TicketURL: store.sliceView(id, ranks, nil).TicketURL, Recipe: recipe})
+		}
+		return nil
+	})
+	return ready, err
 }

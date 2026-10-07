@@ -4,7 +4,10 @@ go_library(
     name = "metrics",
     srcs = [
         "metrics.go",
+        "metrics_config.go",
         "names.go",
+        "option.go",
+        "view_collector.go",
     ],
     importpath = "github.com/candacelabs/csf/services/warden/metrics",
     visibility = ["//visibility:public"],

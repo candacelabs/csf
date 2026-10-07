@@ -7,15 +7,15 @@ the assembler installs below `/usr/lib/systemd/system`. Docker is used only as
 a pinned build environment for source compilation. The installed archive does
 not contain or invoke Docker, Compose, or a process supervisor of its own.
 
-The default selection is only `csf`. It starts the in-memory runtime on
-`127.0.0.1:14111` without a database, search service, Workbench repository, or
+The default selection is only `csf`. It starts the in-memory [runtime](../../../csf/docs/generated/ontology_cgen.md#term-runtime) on
+`127.0.0.1:14111` without a database, search service, [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) repository, or
 telemetry backend. Every dependency is opt-in.
 
 | Selection | Native process or boundary | Pin |
 |---|---|---|
-| `csf` | CSF Go application | selected source revision |
+| `csf` | CSF Go [application](../../../csf/docs/generated/ontology_cgen.md#term-application) | selected source revision |
 | `postgresql` | PostgreSQL server | 17.11 |
-| `opensearch` | OpenSearch JVM | 3.8.0 |
+| `opensearch` | [OpenSearch](../../../csf/docs/generated/ontology_cgen.md#term-opensearch) JVM | 3.8.0 |
 | `minio` | Optional loopback S3-compatible fallback | RELEASE.2025-09-07T16-13-09Z |
 | `object-storage` | Native Rust AWS S3 preflight and explicit optional local fallback command | selected source revision |
 | `langfuse` | Langfuse web and worker | 4.36.1 |
@@ -49,7 +49,7 @@ Both Langfuse profiles also require the native `object-storage` payload. Build
 it from a clean Git checkout with
 `app/csf/native/build-payload.sh object-storage /tmp/candace-csf-payloads/object-storage`.
 
-Build the remaining selected payloads with the same command. OpenSearch and
+Build the remaining selected payloads with the same command. [OpenSearch](../../../csf/docs/generated/ontology_cgen.md#term-opensearch) and
 ClickHouse consume their upstream Linux amd64 archives. Langfuse follows the
 v4.36.1 web and worker builds on Node 24 and includes Prisma plus the pinned
 ClickHouse migration CLI.
@@ -63,7 +63,7 @@ app/csf/native/assemble.py \
   --output /tmp/candace-csf-native.tar.gz
 ```
 
-Assemble CSF, OpenSearch, and the complete local Langfuse profile:
+Assemble CSF, [OpenSearch](../../../csf/docs/generated/ontology_cgen.md#term-opensearch), and the complete local Langfuse profile:
 
 ```bash
 app/csf/native/assemble.py \
@@ -80,7 +80,7 @@ assembler refuses an unknown component, a wrong component version
 or target, an undeclared file, a hash or mode mismatch, a missing executable,
 or an escaping, dangling, or cyclic symlink below a payload root. Safe internal
 relative symlinks are hash-receipted and preserved. It streams large payloads
-rather than holding them in memory. The archive and its embedded
+rather than holding them in [memory](../../../csf/docs/generated/ontology_cgen.md#term-memory). The archive and its embedded
 `NATIVE_RECEIPT.json` are deterministic for identical inputs.
 
 ## Payload receipt writer
@@ -100,7 +100,7 @@ the archive, create users, install packages, enable units, or start services.
 
 Debian 12 runtime libraries required by the source-built PostgreSQL and Redis
 payloads remain host packages: `libreadline8`, `libssl3`, `zlib1g`, and
-`libgcc-s1`. The OpenSearch payload includes its upstream JDK. CSF and ClickHouse
+`libgcc-s1`. The [OpenSearch](../../../csf/docs/generated/ontology_cgen.md#term-opensearch) payload includes its upstream JDK. CSF and ClickHouse
 are self-contained Linux amd64 executables. The Langfuse payload
 includes Node 24 and the native Node modules produced on the Debian 12 baseline.
 Node also requires the Debian `libstdc++6` runtime.
@@ -163,10 +163,10 @@ fallback, and `20` means a wrong-region, throttled, transient, or unclassified
 AWS failure for which fallback is not offered. Local configuration and host
 command failures return `2`.
 
-OpenSearch also requires the host's `vm.max_map_count` to already meet its
+[OpenSearch](../../../csf/docs/generated/ontology_cgen.md#term-opensearch) also requires the host's `vm.max_map_count` to already meet its
 documented minimum of 262144; this package never changes the kernel setting.
 
-The units bind their application ports to loopback. They do not add firewall
+The units bind their [application](../../../csf/docs/generated/ontology_cgen.md#term-application) ports to loopback. They do not add firewall
 rules or public routing. Start and enable only the selected services. Each
 store owns its own initialization:
 
@@ -182,12 +182,12 @@ dependency does not prevent the minimal in-memory CSF unit from starting.
 
 ## Workbench boundary
 
-`bin/csf` is the shared Go application. A usable Copilot Workbench additionally
-needs an operator-selected repository, Git and Git LFS, a built Workbench UI,
+`bin/csf` is the shared Go [application](../../../csf/docs/generated/ontology_cgen.md#term-application). A usable Copilot [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) additionally
+needs an operator-selected repository, Git and Git LFS, a built [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) UI,
 worktree and receipt directories, provider credentials, and the corresponding
 `--workbench-*` flags. Those inputs are deliberately absent from the minimal
 native payload. Installing this archive alone does not claim a configured
-Workbench session runtime.
+[Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) session runtime.
 
 ## Acceptance boundary
 
@@ -198,7 +198,7 @@ Redis 7 on the Debian 12 baseline and feeding their receipts through the same
 assembler; report those build results separately from fixture results. The
 latest lightweight CSF and Redis run is recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
 
-OpenSearch, ClickHouse, and Langfuse are substantially larger. Their source and
+[OpenSearch](../../../csf/docs/generated/ontology_cgen.md#term-opensearch), ClickHouse, and Langfuse are substantially larger. Their source and
 artifact recipes are pinned here, but a full build and first-boot acceptance of
 those heavy payloads must be recorded separately on a builder with sufficient
-disk. A fixture result is not that runtime evidence.
+disk. A fixture result is not that [runtime](../../../csf/docs/generated/ontology_cgen.md#term-runtime) evidence.

@@ -11,10 +11,11 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/candacelabs/csf/ipc/clock"
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/kernel/clock"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	grammar "github.com/candacelabs/csf/pkg/cron"
 	"github.com/candacelabs/csf/pkg/eventually"
+	"github.com/candacelabs/csf/pkg/pgmem"
 	"github.com/candacelabs/csf/runtime"
 	cron "github.com/candacelabs/csf/services/cron"
 	"github.com/candacelabs/csf/services/cron/crontest"
@@ -98,7 +99,7 @@ func occurrenceStatuses(ctx context.Context, store cron.IStore) map[grammar.Occu
 var _ = Describe("the cron service in a host runtime", func() {
 	var (
 		ctx    context.Context
-		store  *crontest.MemoryStore
+		store  *pgmem.PostgresStoreOnPgmem[*cron.Store]
 		manual *clock.ManualClock
 		every  grammar.Schedule
 	)
@@ -113,7 +114,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 	It("fires the declared trigger on its schedule and records the occurrence through csfpg", func() {
 		fired := make(chan cron.Occurrence, 1)
 		scheduler, err := cron.NewScheduler(
-			cron.WithStore(store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
+			cron.WithStore(store.Store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
 			cron.WithTrigger(rollup, every, func(_ context.Context, occurrence cron.Occurrence) error {
 				fired <- occurrence
 				return nil
@@ -124,7 +125,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 
 		awaitWaits(manual, 1)
 		Consistently(fired).ShouldNot(Receive(), "nothing fires before its instant")
-		Expect(occurrenceStatuses(ctx, store)).To(BeEmpty())
+		Expect(occurrenceStatuses(ctx, store.Store)).To(BeEmpty())
 
 		manual.Advance(time.Minute)
 		var occurrence cron.Occurrence
@@ -135,35 +136,35 @@ var _ = Describe("the cron service in a host runtime", func() {
 		Expect(occurrence.Attempt).To(Equal(uint32(1)))
 		Expect(occurrence.ID).To(Equal(grammar.OccurrenceID(rollup, start.Add(time.Minute))))
 
-		recorded := awaitOccurrence(store, occurrence.ID, grammar.OccurrenceSucceeded)
+		recorded := awaitOccurrence(store.Store, occurrence.ID, grammar.OccurrenceSucceeded)
 		Expect(recorded.FinishedAt).To(Equal(start.Add(time.Minute)))
 		row, err := csfpg.New(store.Database()).GetCronOccurrence(ctx, occurrence.ID)
 		Expect(err).NotTo(HaveOccurred(), "the record is a row of csf_cron_occurrences")
 		Expect(row.Status).To(Equal(string(grammar.OccurrenceSucceeded)))
 		Expect(row.LeaseToken).To(BeNil(), "a finished occurrence holds no lease")
-		Expect(snapshotOf(ctx, store).Triggers[0].NextRunAt).To(Equal(start.Add(2 * time.Minute)))
+		Expect(snapshotOf(ctx, store.Store).Triggers[0].NextRunAt).To(Equal(start.Add(2 * time.Minute)))
 
 		Expect(mounted.shutdown()).To(Succeed())
 	})
 
 	It("rejects a duplicate trigger name, an invalid schedule and a missing store before mounting", func() {
 		operation := func(_ context.Context, _ cron.Occurrence) error { return nil }
-		_, err := cron.NewScheduler(cron.WithStore(store),
+		_, err := cron.NewScheduler(cron.WithStore(store.Store),
 			cron.WithTrigger(rollup, every, operation), cron.WithTrigger(rollup, every, operation))
 		Expect(err).To(MatchError(cron.ErrInvalidConfiguration))
 		Expect(err).To(MatchError(ContainSubstring("duplicate trigger")))
 
-		_, err = cron.NewScheduler(cron.WithStore(store),
+		_, err = cron.NewScheduler(cron.WithStore(store.Store),
 			cron.WithTrigger(rollup, grammar.Spec(grammar.Daily(grammar.At(13).AM())), operation))
 		Expect(err).To(MatchError(cron.ErrInvalidConfiguration))
 		Expect(err).To(MatchError(ContainSubstring("schedule")))
 
-		_, err = cron.NewScheduler(cron.WithStore(store), cron.WithTrigger("Rollup", every, operation))
+		_, err = cron.NewScheduler(cron.WithStore(store.Store), cron.WithTrigger("Rollup", every, operation))
 		Expect(err).To(MatchError(grammar.ErrInvalidTrigger))
 
 		_, err = cron.NewScheduler(cron.WithTrigger(rollup, every, operation))
 		Expect(err).To(MatchError(cron.ErrStoreRequired))
-		_, err = cron.NewScheduler(cron.WithStore(store))
+		_, err = cron.NewScheduler(cron.WithStore(store.Store))
 		Expect(err).To(MatchError(cron.ErrNoTriggers))
 	})
 
@@ -171,7 +172,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 		release := make(chan struct{})
 		started := make(chan cron.Occurrence, 2)
 		scheduler, err := cron.NewScheduler(
-			cron.WithStore(store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
+			cron.WithStore(store.Store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
 			cron.WithTrigger(rollup, every, func(ctx context.Context, occurrence cron.Occurrence) error {
 				started <- occurrence
 				select {
@@ -189,17 +190,17 @@ var _ = Describe("the cron service in a host runtime", func() {
 		manual.Advance(time.Minute)
 		var first cron.Occurrence
 		Eventually(started).WithTimeout(runBudget.Within).Should(Receive(&first))
-		awaitOccurrence(store, first.ID, grammar.OccurrenceRunning)
+		awaitOccurrence(store.Store, first.ID, grammar.OccurrenceRunning)
 		awaitWaits(manual, 2) // the next occurrence's wait and the lease renewal
 
 		manual.Advance(time.Minute)
 		secondID := grammar.OccurrenceID(rollup, start.Add(2*time.Minute))
-		skipped := awaitOccurrence(store, secondID, grammar.OccurrenceSkipped)
+		skipped := awaitOccurrence(store.Store, secondID, grammar.OccurrenceSkipped)
 		Expect(skipped.SkipReason).To(Equal("overlap"))
 		Consistently(started).ShouldNot(Receive(), "the skipped occurrence never invokes the operation")
 
 		close(release)
-		awaitOccurrence(store, first.ID, grammar.OccurrenceSucceeded)
+		awaitOccurrence(store.Store, first.ID, grammar.OccurrenceSucceeded)
 		Expect(mounted.shutdown()).To(Succeed())
 	})
 
@@ -208,7 +209,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 			// The store already holds the trigger from an earlier run whose
 			// cursor stopped at the first occurrence; three are overdue when
 			// the service starts again.
-			_, err := store.Reconcile(ctx, []grammar.TriggerDefinition{
+			_, err := store.Store.Reconcile(ctx, []grammar.TriggerDefinition{
 				triggerDefinition(rollup, every, policy, grammar.OverlapAllow),
 			}, start)
 			Expect(err).NotTo(HaveOccurred())
@@ -216,7 +217,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 
 			invoked := make(chan cron.Occurrence, 3)
 			scheduler, err := cron.NewScheduler(
-				cron.WithStore(store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
+				cron.WithStore(store.Store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
 				cron.WithTrigger(rollup, every, func(_ context.Context, occurrence cron.Occurrence) error {
 					invoked <- occurrence
 					return nil
@@ -227,18 +228,18 @@ var _ = Describe("the cron service in a host runtime", func() {
 
 			eventually.Await(GinkgoTB(), "every overdue occurrence to be recorded", runBudget,
 				func() int {
-					counts := occurrenceStatuses(ctx, store)
+					counts := occurrenceStatuses(ctx, store.Store)
 					return counts[grammar.OccurrenceSucceeded] + counts[grammar.OccurrenceSkipped]
 				},
 				func(recorded int) bool { return recorded == 3 })
-			counts := occurrenceStatuses(ctx, store)
+			counts := occurrenceStatuses(ctx, store.Store)
 			Expect(counts[grammar.OccurrenceSucceeded]).To(Equal(wantInvoked))
 			Expect(counts[grammar.OccurrenceSkipped]).To(Equal(wantSkipped))
 			Expect(invoked).To(HaveLen(wantInvoked))
 			if policy == grammar.CatchUpLatest {
 				Expect(<-invoked).To(HaveField("ScheduledAt", start.Add(3*time.Minute)), "only the latest ran")
 			}
-			Expect(snapshotOf(ctx, store).Triggers[0].NextRunAt).To(Equal(start.Add(4 * time.Minute)))
+			Expect(snapshotOf(ctx, store.Store).Triggers[0].NextRunAt).To(Equal(start.Add(4 * time.Minute)))
 			Expect(mounted.shutdown()).To(Succeed())
 		},
 		Entry("none skips every missed occurrence", grammar.CatchUpNone, 0, 3),
@@ -250,7 +251,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 		started := make(chan cron.Occurrence, 1)
 		observedCancel := make(chan struct{})
 		scheduler, err := cron.NewScheduler(
-			cron.WithStore(store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
+			cron.WithStore(store.Store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
 			cron.WithTrigger(rollup, every, func(ctx context.Context, occurrence cron.Occurrence) error {
 				started <- occurrence
 				<-ctx.Done()
@@ -265,11 +266,11 @@ var _ = Describe("the cron service in a host runtime", func() {
 		manual.Advance(time.Minute)
 		var occurrence cron.Occurrence
 		Eventually(started).WithTimeout(runBudget.Within).Should(Receive(&occurrence))
-		awaitOccurrence(store, occurrence.ID, grammar.OccurrenceRunning)
+		awaitOccurrence(store.Store, occurrence.ID, grammar.OccurrenceRunning)
 
 		Expect(mounted.shutdown()).To(Succeed())
 		Expect(observedCancel).To(BeClosed(), "Run returned only after the operation stopped")
-		snapshot := snapshotOf(ctx, store)
+		snapshot := snapshotOf(ctx, store.Store)
 		Expect(snapshot.Occurrences).To(HaveLen(1))
 		Expect(snapshot.Occurrences[0].Status).To(Equal(grammar.OccurrenceCanceled), "the end was recorded before the join completed")
 		Expect(snapshot.Occurrences[0].LeaseOwner).To(BeEmpty())
@@ -278,7 +279,7 @@ var _ = Describe("the cron service in a host runtime", func() {
 	It("records an operation's failure and panic without failing the service", func() {
 		failure := errors.New("rollup refused")
 		scheduler, err := cron.NewScheduler(
-			cron.WithStore(store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
+			cron.WithStore(store.Store), cron.WithClock(manual), cron.WithLeaseDuration(longLease),
 			cron.WithTrigger("failing", every, func(_ context.Context, _ cron.Occurrence) error { return failure }),
 			cron.WithTrigger("panicking", every, func(_ context.Context, _ cron.Occurrence) error { panic("boom") }),
 		)
@@ -287,9 +288,9 @@ var _ = Describe("the cron service in a host runtime", func() {
 
 		awaitWaits(manual, 1)
 		manual.Advance(time.Minute)
-		failed := awaitOccurrence(store, grammar.OccurrenceID("failing", start.Add(time.Minute)), grammar.OccurrenceFailed)
+		failed := awaitOccurrence(store.Store, grammar.OccurrenceID("failing", start.Add(time.Minute)), grammar.OccurrenceFailed)
 		Expect(failed.Error).To(Equal(failure.Error()))
-		panicked := awaitOccurrence(store, grammar.OccurrenceID("panicking", start.Add(time.Minute)), grammar.OccurrenceFailed)
+		panicked := awaitOccurrence(store.Store, grammar.OccurrenceID("panicking", start.Add(time.Minute)), grammar.OccurrenceFailed)
 		Expect(panicked.Error).To(ContainSubstring("operation panic: boom"))
 		Consistently(mounted.done).ShouldNot(Receive(), "an operation's failure never stops the service")
 

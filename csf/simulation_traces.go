@@ -5,22 +5,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
-	"github.com/candacelabs/csf/services/jobs"
 	commonpb "go.opentelemetry.io/proto/otlp/common/v1"
-	resourcepb "go.opentelemetry.io/proto/otlp/resource/v1"
 	tracepb "go.opentelemetry.io/proto/otlp/trace/v1"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -40,147 +35,6 @@ type ISimulationTraces interface {
 
 func WithSimulationTraces(client ISimulationTraces) SimulationOption {
 	return func(simulations *Simulations) { simulations.traces = client }
-}
-
-// Export is a projection of retained native artifacts. The delivery ledger
-// prevents resending immutable Langfuse spans after an ambiguous HTTP outcome.
-func (simulations *Simulations) exportSimulationTrace(ctx context.Context) error {
-	if simulations.traces == nil || simulations.local == nil || simulations.local.config.TraceBaseUrl == "" {
-		return nil
-	}
-	job, ok, err := simulations.ledger.NextUntraced(ctx, simulationExecutorLocal)
-	if err != nil || !ok {
-		return err
-	}
-	spans, identity, problem := simulations.local.trace(job)
-	if problem == nil {
-		deadline, cancel := context.WithTimeout(ctx, simulationTraceDeadline)
-		problem = simulations.deliverSimulationTrace(deadline, job, spans, identity)
-		cancel()
-	}
-	if problem == nil {
-		return nil
-	}
-	return simulations.ledger.RecordTrace(ctx, job.ID, jobs.TraceProjection{ExportError: problem.Error()})
-}
-
-func (simulations *Simulations) deliverSimulationTrace(ctx context.Context, job SimulationJob, spans *tracepb.ResourceSpans, identity string) error {
-	destination := strings.TrimRight(simulations.local.config.TraceBaseUrl, "/")
-	url := destination + "/" + identity
-	if job.Trace.URL == url {
-		return nil
-	}
-	delivery := jobs.TraceDelivery{Destination: destination, JobID: job.ID, TraceID: identity}
-	claimed, err := simulations.ledger.ClaimTraceDelivery(ctx, delivery)
-	if err != nil {
-		return err
-	}
-	if !claimed {
-		state, err := simulations.ledger.TraceDeliveryState(ctx, delivery)
-		if err != nil {
-			return err
-		}
-		if state != jobs.DeliverySucceeded {
-			return fmt.Errorf("trace delivery %s is %s; inspect the sink before recovery, automatic resend is disabled", identity, state)
-		}
-	} else if err := simulations.sendSimulationTrace(ctx, delivery, job.Trace.URL, spans); err != nil {
-		return err
-	}
-	return simulations.ledger.RecordTrace(ctx, job.ID, jobs.TraceProjection{URL: url})
-}
-
-func (simulations *Simulations) sendSimulationTrace(ctx context.Context, delivery jobs.TraceDelivery, previousURL string, spans *tracepb.ResourceSpans) error {
-	if previousURL != "" {
-		parent := spans.ScopeSpans[0].Spans[0]
-		parent.Attributes = append(parent.Attributes, simulationTraceString(simulationTraceSupersedesAttribute, previousURL))
-	}
-	problem := simulations.traces.UploadTraces(ctx, []*tracepb.ResourceSpans{spans})
-	deadline, cancel := context.WithTimeout(context.WithoutCancel(ctx), simulationDeliveryRecordDeadline)
-	defer cancel()
-	err := simulations.ledger.FinishTraceDelivery(deadline, delivery, problem)
-	if failure := errors.Join(problem, err); failure != nil {
-		return fmt.Errorf("trace delivery unconfirmed; automatic resend is disabled: %w", failure)
-	}
-	return nil
-}
-
-func (local *LocalSimulations) trace(job SimulationJob) (*tracepb.ResourceSpans, string, error) {
-	source, err := local.traceSource(job)
-	if err != nil {
-		return nil, "", err
-	}
-	return local.projectTrace(source)
-}
-
-// traceSource retains the exact vendor text used to derive stable trace IDs.
-// Camera byte hashes are verified here; replay retains their observed references.
-func (local *LocalSimulations) traceSource(job SimulationJob) (*pb.SimulationTraceSource, error) {
-	profile := local.profile(simulatorOf(job.Kind))
-	if profile == nil || !simulationID.MatchString(job.ID) {
-		return nil, fmt.Errorf("simulator artifact profile unavailable")
-	}
-	root, err := os.OpenRoot(filepath.Join(profile.ArtifactDirectory, job.ID))
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = root.Close() }()
-	events, err := readSimulationFile(root, "events.jsonl")
-	if err != nil {
-		return nil, err
-	}
-	trajectory, err := readSimulationFile(root, "trace.jsonl")
-	if err != nil {
-		return nil, err
-	}
-	run := simulationRun(job)
-	// Projection receipts are outputs, not inputs to the reconstructed trace.
-	run.TraceUrl, run.TraceExportError = "", ""
-	run.LogDocumentId, run.LogProjectionError, run.LogIndexedAt = "", "", ""
-	run.ArtifactUri = strings.TrimRight(profile.ArtifactUrl, "/") + "/" + job.ID + "/"
-	manifest, err := readSimulationFile(root, "manifest.json")
-	if os.IsNotExist(err) && job.State != jobs.StateSucceeded {
-		manifest, err = protojson.Marshal(run)
-	}
-	if err != nil {
-		return nil, err
-	}
-	source := &pb.SimulationTraceSource{Run: run, EventsJsonl: string(events), TrajectoryJsonl: string(trajectory), ManifestJson: string(manifest), Artifacts: local.artifactViews(job.ID, simulatorOf(job.Kind))}
-	frames, err := readSimulationFile(root, "frames.json")
-	if err == nil {
-		source.Frames = &pb.SimulationFrames{}
-		if err := protojson.Unmarshal(frames, source.Frames); err != nil {
-			return nil, err
-		}
-	} else if !os.IsNotExist(err) {
-		return nil, err
-	}
-	return source, nil
-}
-
-// projectTrace is shared by local artifact export and OpenSearch reconstruction.
-// It does not read a filesystem or substitute simulation time for wall time.
-func (local *LocalSimulations) projectTrace(source *pb.SimulationTraceSource) (*tracepb.ResourceSpans, string, error) {
-	parent, err := newSimulationTraceRoot(source, local.config.PublicTraces)
-	if err != nil {
-		return nil, "", err
-	}
-	children, err := projectSimulationEvents(source.EventsJsonl, parent)
-	if err != nil {
-		return nil, "", err
-	}
-	steps, err := projectSimulationTrajectory(source.TrajectoryJsonl, source.Run.Steps, children)
-	if err != nil {
-		return nil, "", err
-	}
-	if err := projectSimulationFrames(source, children); err != nil {
-		return nil, "", err
-	}
-	spans := append([]*tracepb.Span{parent}, steps...)
-	payload := &tracepb.ResourceSpans{Resource: &resourcepb.Resource{Attributes: []*commonpb.KeyValue{simulationTraceString("service.name", simulationTraceService)}}, ScopeSpans: []*tracepb.ScopeSpans{{Scope: &commonpb.InstrumentationScope{Name: simulationTraceService}, Spans: spans}}}
-	if proto.Size(payload) > simulationTraceLimit {
-		return nil, "", fmt.Errorf("native trace exceeds OTLP projection limit; raw artifacts remain available")
-	}
-	return payload, hex.EncodeToString(parent.TraceId), nil
 }
 
 func newSimulationTraceRoot(source *pb.SimulationTraceSource, publicTraces bool) (*tracepb.Span, error) {

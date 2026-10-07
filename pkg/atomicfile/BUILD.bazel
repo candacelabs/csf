@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "atomicfile",
+    srcs = ["atomicfile.go"],
+    importpath = "github.com/candacelabs/csf/pkg/atomicfile",
+    visibility = ["//visibility:public"],
+    deps = ["@com_github_google_renameio_v2//:renameio"],
+)
+
+go_test(
+    name = "atomicfile_test",
+    srcs = ["atomicfile_test.go"],
+    deps = [
+        ":atomicfile",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

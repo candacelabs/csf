@@ -5,6 +5,12 @@ let expect message condition = if not condition then failwith message
 let rules path source =
   Placement.collect [Source.parse path source] |> List.map (fun (finding : Source.finding) -> finding.rule)
 
+(* The four CS-20 rows are whole-corpus, not per-file, so they are read through
+   consistency_rows rather than collect. *)
+let row_rules path source =
+  Placement.consistency_rows [Source.parse path source]
+  |> List.map (fun (finding : Source.finding) -> finding.rule)
+
 let count rule findings = List.length (List.filter (( = ) rule) findings)
 
 let goroutines () =
@@ -103,8 +109,8 @@ func Open() {
   _ = &network.ListenConfig{}
 }
 |} in
-  expect "boundary crossings outside ipc missed" (count "CS-16" (rules "services/example/open.go" crossings) = 6);
-  expect "boundary crossings in ipc/ reported" (rules "ipc/net/network.go" crossings = []);
+  expect "boundary crossings outside the crossing mechanisms missed" (count "CS-16" (rules "services/example/open.go" crossings) = 6);
+  expect "boundary crossings in io/net reported" (rules "io/net/network.go" crossings = []);
   expect "boundary crossings in a test exempted" (count "CS-16" (rules "services/example/open_test.go" crossings) = 6);
   expect "non-boundary calls reported"
     (rules "services/example/address.go" {|package p
@@ -143,8 +149,8 @@ func Open() {
 |} in
   expect "pool and connection creation in a service missed" (count "CS-16-DB" (rules "services/example/store.go" pools) = 4);
   expect "pool and connection creation in an app missed" (count "CS-16-DB" (rules "app/example/cmd/main.go" pools) = 4);
-  expect "pool creation elsewhere under ipc/ missed" (count "CS-16-DB" (rules "ipc/net/pool.go" pools) = 4);
-  expect "the PostgreSQL capability itself reported" (rules "ipc/db/csfpg/database.go" pools = []);
+  expect "pool creation outside csfpg missed" (count "CS-16-DB" (rules "io/net/pool.go" pools) = 4);
+  expect "the PostgreSQL capability itself reported" (rules "io/ipc/db/csfpg/database.go" pools = []);
   expect "test-file pools missed" (count "CS-16-DB" (rules "services/example/store_test.go" pools) = 4);
   expect "pool configuration and use reported"
     (rules "services/example/use.go" {|package p
@@ -160,7 +166,7 @@ func Use(database *pgxpool.Pool) {
 }
 |} = []);
   expect "net listen inside the PostgreSQL capability exempt from the network part"
-    (rules "ipc/db/csfpg/listen.go" {|package p
+    (rules "io/ipc/db/csfpg/listen.go" {|package p
 import "net"
 func Open() { _, _ = net.Listen("tcp", ":0") }
 |} = [])
@@ -215,13 +221,13 @@ func Launch() {
 |} in
   (* Two imports (os/exec, pty) and three fork/exec calls; the aliased
      exec.Command is covered by its import. *)
-  expect "process crossings outside ipc/proc missed" (count "CS-16" (rules "services/example/launch.go" launches) = 5);
+  expect "process crossings outside io/ipc/proc missed" (count "CS-16" (rules "services/example/launch.go" launches) = 5);
   expect "process crossings in pkg/ missed" (count "CS-16" (rules "pkg/example/launch.go" launches) = 5);
-  expect "the gateway itself reported" (rules "ipc/proc/launcher.go" launches = []);
-  expect "another ipc package exempted from the process rule"
-    (count "CS-16" (rules "ipc/docker/containers.go" launches) = 5);
+  expect "the gateway itself reported" (rules "io/ipc/proc/launcher.go" launches = []);
+  expect "a non-proc io/ipc package reported"
+    (count "CS-16" (rules "io/ipc/docker/containers.go" launches) = 5);
   expect "tests exempted from the process rule" (count "CS-16" (rules "services/example/launch_test.go" launches) = 5);
-  expect "the gateway's own specs reported" (rules "ipc/proc/launcher_unit_test.go" launches = []);
+  expect "the gateway's own specs reported" (rules "io/ipc/proc/launcher_unit_test.go" launches = []);
   expect "non-process os and syscall calls reported"
     (rules "services/example/files.go" {|package p
 import (
@@ -265,6 +271,141 @@ term core "CPU core" "x";
     (found = ["ipc/net/carrier"; "pkg/core"; "services/example/internal/engine"; "xetcas"]);
   expect "an empty ontology reported everything" (Placement.directories ~terms:[] ["x/y.go"] = [])
 
+let atomic_writes () =
+  (* The helper the rule was written against, a CreateTemp copy, and an
+     aliased os import: three hand-rolled writes. *)
+  let copies = {|package p
+import (
+  "os"
+  sys "os"
+)
+func writeAtomically(path string, content string, mode os.FileMode) error {
+  temporary := path + ".tmp"
+  if err := os.WriteFile(temporary, []byte(content), mode); err != nil {
+    return err
+  }
+  return os.Rename(temporary, path)
+}
+func save(directory string, data []byte) error {
+  temporary, err := os.CreateTemp(directory, ".state-*")
+  if err != nil { return err }
+  _, _ = temporary.Write(data)
+  _ = temporary.Close()
+  return os.Rename(temporary.Name(), directory+"/state.json")
+}
+func watch() func() error {
+  return func() error {
+    _ = sys.WriteFile("receipt.json.tmp", nil, 0o600)
+    return sys.Rename("receipt.json.tmp", "receipt.json")
+  }
+}
+|} in
+  expect "hand-rolled atomic writes in a service missed" (count "ATOMIC-WRITE" (rules "services/example/write.go" copies) = 3);
+  expect "hand-rolled atomic writes in a test exempted" (count "ATOMIC-WRITE" (rules "services/example/write_test.go" copies) = 3);
+  expect "hand-rolled atomic writes in pkg/ missed" (count "ATOMIC-WRITE" (rules "pkg/example/write.go" copies) = 3);
+  expect "the primitive's own package reported" (count "ATOMIC-WRITE" (rules "pkg/atomicfile/atomicfile.go" copies) = 0);
+  (* A rename with no write beside it is a move; a write in another
+     function is not this rename's write; a local Rename is not os's. *)
+  let moves = rules "services/example/move.go" {|package p
+import (
+  "os"
+  "github.com/candacelabs/csf/pkg/atomicfile"
+)
+func install(temporary, target string) error { return os.Rename(temporary, target) }
+func swap(binary, kept string) error {
+  if err := os.Link(binary, kept+".link"); err != nil { return err }
+  return os.Rename(kept+".link", kept)
+}
+func record(path string, content []byte) error { return atomicfile.WriteFile(path, content, 0o600) }
+func receipt(path string) error {
+  file, err := os.OpenFile(path, os.O_APPEND, 0o600)
+  if err != nil { return err }
+  return file.Close()
+}
+func Rename(from, to string) error { return nil }
+func local(path string) error {
+  _ = os.WriteFile(path, nil, 0o600)
+  return Rename(path, path+".old")
+}
+|} in
+  expect "moves, the primitive or a local Rename reported" (count "ATOMIC-WRITE" moves = 0)
+
+let consistency () =
+  let runtime = {|package main
+import "github.com/candacelabs/csf/runtime"
+func serve() error {
+  host, err := runtime.NewHostRuntime(runtime.WithHostName("x"))
+  if err != nil { return err }
+  return host.Run(nil)
+}
+|} in
+  expect "an application with one host runtime clean"
+    (row_rules "app/csf/cmd/main.go" runtime = []);
+  expect "an application with no host runtime reported"
+    (count "CS-20-HOST" (row_rules "app/csf/cmd/main.go" {|package main
+import "net"
+func main() { _, _ = net.Listen("tcp", ":0") }
+|}) = 1);
+  expect "an application with two host runtimes reported"
+    (count "CS-20-HOST" (row_rules "app/csf/cmd/main.go" {|package main
+import "github.com/candacelabs/csf/runtime"
+func a() { _, _ = runtime.NewHostRuntime() }
+func b() { _, _ = runtime.NewHostRuntime() }
+|}) = 1);
+  expect "a host runtime outside package main reported"
+    (count "CS-20-RUNTIME" (row_rules "services/example/run.go" {|package example
+import "github.com/candacelabs/csf/runtime"
+func New() { _, _ = runtime.NewHostRuntime() }
+|}) = 1);
+  expect "a host runtime in a package-main file clean"
+    (count "CS-20-RUNTIME" (row_rules "app/example/cmd/main.go" runtime) = 0);
+  expect "os/exec outside io/ipc/proc reported"
+    (count "CS-20-SPAWN" (row_rules "services/harness/verify/verifier.go" {|package verify
+import "os/exec"
+func Apply() { _ = exec.Command("git") }
+|}) = 1);
+  expect "os/exec under io/ipc/proc clean" (row_rules "io/ipc/proc/launcher.go" {|package proc
+import "os/exec"
+func New() { _ = exec.Command("git") }
+|} = []);
+  expect "os/exec in a test exempted"
+    (count "CS-20-SPAWN" (row_rules "services/example/launch_test.go" {|package example
+import "os/exec"
+func TestLaunch() { _ = exec.Command("git") }
+|}) = 0);
+  let binds = {|package p
+import (
+  network "net"
+  "net/http"
+)
+func Serve() {
+  _, _ = network.Listen("tcp", ":0")
+  _ = http.ListenAndServe(":0", nil)
+  _ = server.ListenAndServe()
+  _ = server.ListenAndServeTLS("a", "b")
+  _ = network.ListenConfig{}
+  _ = server.Serve(listener)
+}
+|} in
+  expect "socket binds outside the tier reported"
+    (count "CS-20-LISTEN" (row_rules "pkg/httpserver/lifecycle.go" binds) = 4);
+  expect "socket binds inside io/net clean" (row_rules "io/net/http/listener.go" binds = []);
+  expect "socket binds inside io/ clean" (row_rules "io/example/serve.go" binds = []);
+  expect "socket binds in a package-main file clean"
+    (row_rules "examples/csf-theme/main.go" {|package main
+import (
+  network "net"
+  "net/http"
+)
+func Serve() {
+  _, _ = network.Listen("tcp", ":0")
+  _ = http.ListenAndServe(":0", nil)
+  _ = server.ListenAndServe()
+}
+|} = []);
+  expect "socket binds in a test exempted"
+    (count "CS-20-LISTEN" (row_rules "pkg/httpserver/lifecycle_test.go" binds) = 0)
+
 let () =
   goroutines ();
   boundaries ();
@@ -272,4 +413,6 @@ let () =
   environment ();
   processes ();
   directories ();
+  atomic_writes ();
+  consistency ();
   print_endline "House lint placement rule tests passed"

@@ -29,7 +29,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 
 	"github.com/candacelabs/csf/app/deploy/bootstrap"
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	deployv1 "github.com/candacelabs/csf/proto/candace/deploy/v1"
 	"github.com/candacelabs/csf/web/deploy/browserroutes"
 )

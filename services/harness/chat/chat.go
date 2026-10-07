@@ -30,40 +30,56 @@
 package chat
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
-	"html/template"
 	"log/slog"
 	"net/http"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/prometheus/client_golang/prometheus"
 
+	"github.com/candacelabs/csf/pkg/collections"
 	"github.com/candacelabs/csf/pkg/gotth/live"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"github.com/candacelabs/csf/runtime"
 	"github.com/candacelabs/csf/services/harness"
+	"github.com/candacelabs/csf/services/opsview"
+	"github.com/candacelabs/csf/services/views"
 )
 
 // Routes: the page for one session and the live mount under it. The live
 // handler routes by path suffix, so one application serves every session.
 const (
-	PagePath      = "/chat/:assignment"
-	LivePath      = "/chat/:assignment/live"
+	PagePath      = opsview.ChatPathPrefix + ":assignment"
+	LivePath      = PagePath + liveSuffix
 	liveAssetPath = LivePath + "/*asset"
 	liveSuffix    = "/live"
-	pagePrefix    = "/chat/"
+	pagePrefix    = opsview.ChatPathPrefix
 
 	fragmentStatus     = "chat.status"
+	fragmentTasks      = "chat.tasks"
 	fragmentTranscript = "chat.transcript"
+	fragmentBar        = "chat.bar"
 	fragmentComposer   = "chat.composer"
+	// rowRegionPrefix starts each row's region, under the transcript's: the
+	// row's sequence number follows.
+	rowRegionPrefix = fragmentTranscript + ":r"
 
-	// Events a browser may send.
-	eventSend   = "chat.send"
-	eventCancel = "chat.cancel"
+	// Events a browser may send. Cancel acts only after the session's name
+	// was confirmed: eventAskCancel asks (Esc does too), eventKeep withdraws
+	// the question. eventToggle opens or closes the row fieldRow names.
+	eventSend      = "chat.send"
+	eventCancel    = "chat.cancel"
+	eventAskCancel = "chat.ask_cancel"
+	eventKeep      = "chat.keep"
+	eventToggle    = "chat.toggle"
+	fieldRow       = "row"
 	// Events the effects emit; never registered, so a browser cannot forge a
 	// transcript record.
 	eventRecord   = "chat.record"
@@ -80,8 +96,6 @@ const (
 	sourceSend   = "chat.send"
 	sourceCancel = "chat.cancel"
 
-	// transcriptCap bounds the rendered transcript; older entries drop off.
-	transcriptCap = 400
 	// assignmentParameter is the route parameter naming the session.
 	assignmentParameter = "assignment"
 )
@@ -94,17 +108,31 @@ var (
 	ErrNoAssignment = errors.New("harness chat: the request names no assignment")
 )
 
+// sourceWords are the effects as a notice names them.
+var sourceWords = map[string]string{sourceFollow: "Following the session", sourceSend: "Send", sourceCancel: "Cancel"}
+
 // assignmentKey carries the assignment from the request into Init.
 type assignmentKey struct{}
 
-// Chat is the live application and its routes.
+// Chat is the live application and its routes, and the collector of how long
+// a record takes to reach its transcript.
 type Chat struct {
 	service *harness.AgentSessionService
 	live    *live.App[chatState, live.AnonymousIdentity]
 	logger  *slog.Logger
+	settle  prometheus.Histogram
 }
 
-var _ runtime.IService = (*Chat)(nil)
+var (
+	_ runtime.IService     = (*Chat)(nil)
+	_ prometheus.Collector = (*Chat)(nil)
+)
+
+// settleBuckets are the settle series' buckets: from a record's timestamp in
+// the event log to the page's live session accepting it, per record and per
+// connected page, which services/views catalogues and panels. They span a
+// record that lands in milliseconds to one that waited on a slow tail.
+var settleBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5}
 
 // NewChat builds the chat over service. origins is the browser Origin
 // allowlist, one per address the host serves; nothing else is accepted.
@@ -115,16 +143,21 @@ func NewChat(service *harness.AgentSessionService, origins []string, logger *slo
 	if logger == nil {
 		logger = slog.New(slog.DiscardHandler)
 	}
-	chat := &Chat{service: service, logger: logger}
+	chat := &Chat{service: service, logger: logger, settle: prometheus.NewHistogram(views.HistogramOpts(views.MetricChatSettle, settleBuckets))}
 	app, err := live.New(live.Config[chatState, live.AnonymousIdentity]{
 		Init:   chat.initialize,
 		Reduce: chat.reduce,
 		Fragments: []live.Fragment[chatState]{
 			{ID: fragmentStatus, Render: renderStatus, Dirty: statusChanged},
-			{ID: fragmentTranscript, Render: renderTranscript, Dirty: transcriptChanged},
+			{ID: fragmentTasks, Render: renderTasks, Dirty: tasksChanged},
+			// Each row is a region of its own: a row that changes patches
+			// alone, and a new row re-sends the transcript, whose morph adds
+			// the one element and leaves every other where it is.
+			{ID: fragmentTranscript, Render: renderTranscript, Dirty: transcriptChanged, Children: rowRegions},
+			{ID: fragmentBar, Render: renderBar, Dirty: barChanged},
 			{ID: fragmentComposer, Render: renderComposer, Dirty: composerChanged},
 		},
-		Events:       []string{eventSend, eventCancel},
+		Events:       []string{eventSend, eventCancel, eventAskCancel, eventKeep, eventToggle},
 		Origins:      origins,
 		Authenticate: live.Anonymous,
 		Authorize:    live.AllowAll[live.AnonymousIdentity],
@@ -140,6 +173,12 @@ func NewChat(service *harness.AgentSessionService, origins []string, logger *slo
 
 // Start starts the live application's connection scope.
 func (chat *Chat) Start(scope *runtime.Scope) error { return chat.live.Start(scope) }
+
+// Describe sends the settle series' description.
+func (chat *Chat) Describe(descriptions chan<- *prometheus.Desc) { chat.settle.Describe(descriptions) }
+
+// Collect sends the settle series.
+func (chat *Chat) Collect(metrics chan<- prometheus.Metric) { chat.settle.Collect(metrics) }
 
 // Register mounts the page and the live routes on the caller's router.
 func (chat *Chat) Register(router gin.IRouter) {
@@ -171,11 +210,20 @@ type chatState struct {
 	Assignment string
 	Mount      string
 	Session    sessionView
-	Entries    []entry
-	Cursor     int
-	Notice     string
-	Pending    bool
-	Finished   bool
+	Transcript transcript
+	// Queued is what the operator sent that the session has not read yet,
+	// oldest first.
+	Queued []string
+	// Open is the rows this viewer opened, by sequence number. It is the
+	// server's, so a patch to an open row renders it open: the morph never
+	// closes what the viewer opened.
+	Open     []int
+	Cursor   int
+	Notice   string
+	Pending  bool
+	Finished bool
+	// Confirm is set while the page asks the operator to confirm a cancel.
+	Confirm bool
 }
 
 // sessionView is the part of the session state the page shows.
@@ -187,9 +235,38 @@ type sessionView struct {
 	Branch         string
 	PullRequestURL string
 	Error          string
+	// Real is the real session's state: alive while the virtual session is
+	// starting, running, open or canceling and not suspended; suspended while
+	// it is idle with its executor closed; closed once the virtual session
+	// ended.
+	Real     string
+	Worktree string
+}
+
+// The real session's states, as the header says them.
+const (
+	realAlive     = "alive"
+	realSuspended = "suspended"
+	realClosed    = "closed"
+)
+
+// liveVirtualPhases keep a real session alive unless the session is
+// suspended.
+var liveVirtualPhases = map[harnessv1.AgentSessionPhase]bool{
+	harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_STARTING:  true,
+	harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_RUNNING:   true,
+	harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN:      true,
+	harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_CANCELING: true,
 }
 
 func viewOf(state *harnessv1.AgentSessionState) sessionView {
+	real := realClosed
+	switch {
+	case state.GetSuspended():
+		real = realSuspended
+	case liveVirtualPhases[state.GetPhase()]:
+		real = realAlive
+	}
 	return sessionView{
 		AgentID:        state.GetAgentId(),
 		Phase:          strings.ToLower(strings.TrimPrefix(state.GetPhase().String(), "AGENT_SESSION_PHASE_")),
@@ -197,7 +274,9 @@ func viewOf(state *harnessv1.AgentSessionState) sessionView {
 		Queued:         state.GetQueued(),
 		Branch:         state.GetBranch(),
 		PullRequestURL: state.GetPullRequestUrl(),
-		Error:          state.GetError(),
+		Error:          opsview.HumanError(state.GetError(), state.GetWorktree()),
+		Real:           real,
+		Worktree:       state.GetWorktree(),
 	}
 }
 
@@ -220,14 +299,16 @@ func (chat *Chat) initialize(ctx context.Context, _ live.Session[live.AnonymousI
 	}
 	defer func() { _ = tail.Close() }()
 	for line := tail.Available(); line != nil; line = tail.Available() {
-		state.Entries = appendEntry(state.Entries, entryOf(line))
+		state.Transcript = state.Transcript.apply(line, state.Session.Worktree)
 	}
 	state.Cursor = tail.Sequence()
 	return state, []live.Effect[live.AnonymousIdentity]{{Source: sourceFollow, Run: chat.follow(assignment, state.Cursor)}}, nil
 }
 
 // follow streams the session's records into the connection from cursor on,
-// and the session's state whenever a record arrived.
+// one frame at a time: every record one look at the log finds (the tail
+// looks every harness.DefaultTailInterval) goes out as one event, so as one
+// patch, followed by the session's state.
 func (chat *Chat) follow(assignment string, cursor int) func(ctx context.Context, session live.Session[live.AnonymousIdentity], emit live.Emitter) error {
 	return func(ctx context.Context, _ live.Session[live.AnonymousIdentity], emit live.Emitter) error {
 		tail, err := chat.service.OpenTail(ctx, assignment, cursor)
@@ -246,8 +327,20 @@ func (chat *Chat) follow(assignment string, cursor int) func(ctx context.Context
 				}
 				return nil
 			}
-			if err := emit(live.Event{Name: eventRecord, Fields: live.NewFields(map[string]string{fieldLine: string(line)})}); err != nil {
+			frame := [][]byte{line}
+			for more := tail.Available(); more != nil; more = tail.Available() {
+				frame = append(frame, more)
+			}
+			if err := emit(live.Event{Name: eventRecord, Fields: live.NewFields(map[string]string{fieldLine: string(bytes.Join(frame, recordSeparator))})}); err != nil {
 				return err
+			}
+			for _, record := range frame {
+				var stamped struct {
+					Time time.Time `json:"time"`
+				}
+				if json.Unmarshal(record, &stamped) == nil && !stamped.Time.IsZero() {
+					chat.settle.Observe(time.Since(stamped.Time).Seconds())
+				}
 			}
 			if err := chat.emitState(ctx, assignment, emit); err != nil {
 				return err
@@ -255,6 +348,10 @@ func (chat *Chat) follow(assignment string, cursor int) func(ctx context.Context
 		}
 	}
 }
+
+// recordSeparator joins a frame's records in one event: a record is one JSON
+// line and holds no raw newline.
+var recordSeparator = []byte("\n")
 
 func (chat *Chat) emitState(ctx context.Context, assignment string, emit live.Emitter) error {
 	current, err := chat.service.Get(ctx, &harnessv1.GetAgentSessionRequest{AssignmentId: assignment})
@@ -273,8 +370,17 @@ func (chat *Chat) emitState(ctx context.Context, assignment string, emit live.Em
 func (chat *Chat) reduce(state chatState, event live.Event) (chatState, []live.Effect[live.AnonymousIdentity]) {
 	switch event.Name {
 	case eventRecord:
-		state.Entries = appendEntry(state.Entries, entryOf([]byte(event.Fields.Get(fieldLine))))
-		state.Cursor++
+		for _, line := range bytes.Split([]byte(event.Fields.Get(fieldLine)), recordSeparator) {
+			before := state.Transcript.Next
+			state.Transcript = state.Transcript.apply(line, state.Session.Worktree)
+			state.Cursor++
+			if rows := state.Transcript.Rows; state.Transcript.Next != before && rows[len(rows)-1].Kind == rowOperator {
+				state.Queued = read(state.Queued, rows[len(rows)-1].Text)
+			}
+		}
+		return state, nil
+	case eventToggle:
+		state.Open = toggled(state.Open, event.Fields.Get(fieldRow))
 		return state, nil
 	case eventState:
 		var view sessionView
@@ -294,15 +400,31 @@ func (chat *Chat) reduce(state chatState, event live.Event) (chatState, []live.E
 		state.Pending, state.Notice = true, ""
 		return state, []live.Effect[live.AnonymousIdentity]{{Source: sourceSend, Run: chat.send(state.Assignment, message)}}
 	case eventSent:
-		state.Pending = false
-		state.Notice = "Queued as turn " + event.Fields.Get(fieldTurn) + "."
+		state.Pending, state.Notice = false, ""
+		state.Queued = append(slices.Clip(state.Queued), event.Fields.Get(fieldMessage))
+		return state, nil
+	case eventAskCancel:
+		state.Confirm = true
+		return state, nil
+	case eventKeep:
+		state.Confirm = false
 		return state, nil
 	case eventCancel:
+		if !state.Confirm {
+			// A cancel the operator has not confirmed asks first.
+			state.Confirm = true
+			return state, nil
+		}
+		state.Confirm = false
 		state.Notice = "Cancel requested; the session stops at its next safepoint."
 		return state, []live.Effect[live.AnonymousIdentity]{{Source: sourceCancel, Run: chat.cancel(state.Assignment)}}
 	case live.EffectFailedEvent:
 		state.Pending = false
-		state.Notice = event.Fields.Get(live.EffectFailedSourceField) + " failed: " + event.Fields.Get(live.EffectFailedErrorField)
+		source := event.Fields.Get(live.EffectFailedSourceField)
+		if word, known := sourceWords[source]; known {
+			source = word
+		}
+		state.Notice = source + " failed: " + opsview.HumanError(event.Fields.Get(live.EffectFailedErrorField), state.Session.Worktree)
 		return state, nil
 	}
 	return state, nil
@@ -310,11 +432,13 @@ func (chat *Chat) reduce(state chatState, event live.Event) (chatState, []live.E
 
 func (chat *Chat) send(assignment string, message string) func(ctx context.Context, session live.Session[live.AnonymousIdentity], emit live.Emitter) error {
 	return func(ctx context.Context, _ live.Session[live.AnonymousIdentity], emit live.Emitter) error {
-		response, err := chat.service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: assignment, Message: message})
+		// The chat is the operator's console: what it sends is the operator's
+		// own words, so the harness vets their terms.
+		response, err := chat.service.Send(ctx, &harnessv1.SendAgentSessionMessageRequest{AssignmentId: assignment, Message: message, OperatorAuthored: true})
 		if err != nil {
 			return err
 		}
-		return emit(live.Event{Name: eventSent, Fields: live.NewFields(map[string]string{fieldTurn: response.GetTurnId()})})
+		return emit(live.Event{Name: eventSent, Fields: live.NewFields(map[string]string{fieldTurn: response.GetTurnId(), fieldMessage: message})})
 	}
 }
 
@@ -328,196 +452,63 @@ func (chat *Chat) cancel(assignment string) func(ctx context.Context, session li
 }
 
 func statusChanged(previous, next chatState) bool {
-	return previous.Session != next.Session || previous.Notice != next.Notice || previous.Finished != next.Finished
+	return previous.Session != next.Session || previous.Notice != next.Notice || previous.Finished != next.Finished || previous.Confirm != next.Confirm
 }
 
+// transcriptChanged is the transcript's own markup beyond its rows: the
+// queue. A row added or dropped re-renders it through its regions.
 func transcriptChanged(previous, next chatState) bool {
-	return previous.Cursor != next.Cursor || len(previous.Entries) != len(next.Entries)
+	return !slices.Equal(previous.Queued, next.Queued)
+}
+
+func tasksChanged(previous, next chatState) bool {
+	return previous.Transcript.TasksRev != next.Transcript.TasksRev
+}
+
+// rowRegions are the transcript's rows as regions, in order.
+func rowRegions(state chatState) []live.Fragment[chatState] {
+	regions := make([]live.Fragment[chatState], 0, len(state.Transcript.Rows))
+	for _, shown := range state.Transcript.Rows {
+		regions = append(regions, live.Fragment[chatState]{ID: rowRegion(shown.Seq), Render: renderRow(shown.Seq), Dirty: rowChanged(shown.Seq)})
+	}
+	return regions
+}
+
+func rowRegion(seq int) string { return rowRegionPrefix + strconv.Itoa(seq) }
+
+// rowChanged is whether the row of seq changed or was opened or closed.
+func rowChanged(seq int) func(previous, next chatState) bool {
+	return func(previous, next chatState) bool {
+		before, _ := previous.Transcript.rowOf(seq)
+		after, _ := next.Transcript.rowOf(seq)
+		return before.Rev != after.Rev || slices.Contains(previous.Open, seq) != slices.Contains(next.Open, seq)
+	}
+}
+
+// toggled is open with the row named by key opened, or closed if it was
+// open. A key that names no row's sequence number changes nothing.
+func toggled(open []int, key string) []int {
+	seq, err := strconv.Atoi(key)
+	if err != nil {
+		return open
+	}
+	return collections.Set[int](open).Toggle(seq)
+}
+
+func barChanged(previous, next chatState) bool {
+	return previous.Transcript.Status != next.Transcript.Status || previous.Session.Phase != next.Session.Phase
 }
 
 func composerChanged(previous, next chatState) bool {
 	return previous.Pending != next.Pending || previous.Session.Phase != next.Session.Phase || previous.Finished != next.Finished
 }
 
-// entry is one transcript line. What the operator or the agent wrote is
-// rendered from Markdown into HTML once, when the record is read; a tool
-// result, a gate's reason and a harness record stay plain text; an assistant
-// entry also lists the tools it called.
-type entry struct {
-	Kind  string
-	Turn  int
-	Time  string
-	Text  string
-	HTML  template.HTML
-	Tools []string
-}
-
-// Transcript kinds, which are also the CSS classes.
-const (
-	kindUser      = "user"
-	kindAssistant = "assistant"
-	kindTool      = "tool"
-	kindResult    = "result"
-	kindGate      = "gate"
-	kindHarness   = "harness"
-)
-
-// record is the part of an events.jsonl line the transcript reads.
-type record struct {
-	Time      time.Time       `json:"time"`
-	Message   string          `json:"msg"`
-	EventType string          `json:"event_type"`
-	Turn      int             `json:"turn"`
-	Direction string          `json:"direction"`
-	Event     json.RawMessage `json:"event"`
-	Decision  string          `json:"decision"`
-	Reason    string          `json:"reason"`
-	Error     string          `json:"error"`
-}
-
-// streamMessage is the stream-json message an executor event carries.
-type streamMessage struct {
-	Type    string `json:"type"`
-	Subtype string `json:"subtype"`
-	Message struct {
-		Content json.RawMessage `json:"content"`
-	} `json:"message"`
-	Result     string  `json:"result"`
-	IsError    bool    `json:"is_error"`
-	DurationMS float64 `json:"duration_ms"`
-}
-
-type contentBlock struct {
-	Type    string          `json:"type"`
-	Text    string          `json:"text"`
-	Name    string          `json:"name"`
-	Input   json.RawMessage `json:"input"`
-	Content json.RawMessage `json:"content"`
-}
-
-// entryOf reads one record into a transcript entry; records the transcript
-// does not show return the zero entry.
-func entryOf(line []byte) entry {
-	var parsed record
-	if json.Unmarshal(line, &parsed) != nil {
-		return entry{}
+// read is queued without the first message equal to text: the one the
+// session has now read.
+func read(queued []string, text string) []string {
+	index := slices.IndexFunc(queued, func(message string) bool { return strings.TrimSpace(message) == strings.TrimSpace(text) })
+	if index < 0 {
+		return queued
 	}
-	stamp := parsed.Time.UTC().Format(time.TimeOnly)
-	switch {
-	case parsed.EventType == "user" && parsed.Direction == "in":
-		text := contentText(parsed.Event)
-		return entry{Kind: kindUser, Turn: parsed.Turn, Time: stamp, Text: text, HTML: renderMarkdown(text)}
-	case parsed.EventType == "user":
-		return entry{Kind: kindTool, Turn: parsed.Turn, Time: stamp, Text: "tool result: " + truncate(contentText(parsed.Event), 240)}
-	case parsed.EventType == "assistant":
-		text, tools := assistantText(parsed.Event)
-		shown := entry{Kind: kindAssistant, Turn: parsed.Turn, Time: stamp, Text: text, Tools: tools}
-		if text != "" {
-			shown.HTML = renderMarkdown(text)
-		}
-		return shown
-	case parsed.EventType == "result":
-		var message streamMessage
-		_ = json.Unmarshal(parsed.Event, &message)
-		return entry{Kind: kindResult, Turn: parsed.Turn, Time: stamp, Text: fmt.Sprintf("turn %d finished: %s after %.0fs", parsed.Turn, message.Subtype, message.DurationMS/1000)}
-	case parsed.EventType == "session_gate_decision" && parsed.Decision == "deny":
-		return entry{Kind: kindGate, Turn: parsed.Turn, Time: stamp, Text: parsed.Reason}
-	case strings.HasPrefix(parsed.EventType, "harness_"):
-		text := parsed.Message
-		if parsed.Error != "" {
-			text += ": " + parsed.Error
-		}
-		return entry{Kind: kindHarness, Turn: parsed.Turn, Time: stamp, Text: text}
-	}
-	return entry{}
-}
-
-// contentText is a message's content: a string, or the text of its blocks.
-func contentText(raw json.RawMessage) string {
-	var message streamMessage
-	if json.Unmarshal(raw, &message) != nil {
-		return ""
-	}
-	var text string
-	if json.Unmarshal(message.Message.Content, &text) == nil {
-		return text
-	}
-	var blocks []contentBlock
-	if json.Unmarshal(message.Message.Content, &blocks) != nil {
-		return ""
-	}
-	parts := make([]string, 0, len(blocks))
-	for _, block := range blocks {
-		switch {
-		case block.Text != "":
-			parts = append(parts, block.Text)
-		case block.Type == "tool_result":
-			var nested string
-			if json.Unmarshal(block.Content, &nested) == nil {
-				parts = append(parts, nested)
-			}
-		}
-	}
-	return strings.Join(parts, "\n")
-}
-
-// assistantText is what the assistant said, and the tools it called as one
-// line each.
-func assistantText(raw json.RawMessage) (string, []string) {
-	var message streamMessage
-	if json.Unmarshal(raw, &message) != nil {
-		return "", nil
-	}
-	var blocks []contentBlock
-	if json.Unmarshal(message.Message.Content, &blocks) != nil {
-		return "", nil
-	}
-	parts := make([]string, 0, len(blocks))
-	var tools []string
-	for _, block := range blocks {
-		switch block.Type {
-		case "text":
-			if block.Text != "" {
-				parts = append(parts, block.Text)
-			}
-		case "tool_use":
-			tools = append(tools, "→ "+block.Name+" "+truncate(toolInput(block.Input), 200))
-		}
-	}
-	return strings.Join(parts, "\n\n"), tools
-}
-
-// toolInput is the one-line gist of a tool call's input.
-func toolInput(raw json.RawMessage) string {
-	var input map[string]json.RawMessage
-	if json.Unmarshal(raw, &input) != nil {
-		return ""
-	}
-	for _, key := range []string{"description", "command", "file_path", "pattern", "prompt"} {
-		var value string
-		if json.Unmarshal(input[key], &value) == nil && value != "" {
-			return strings.SplitN(value, "\n", 2)[0]
-		}
-	}
-	return ""
-}
-
-func truncate(text string, limit int) string {
-	if len(text) <= limit {
-		return text
-	}
-	return text[:limit] + "…"
-}
-
-// appendEntry adds a shown entry and keeps the transcript bounded. An
-// assistant record that neither said nor called anything is not shown.
-func appendEntry(entries []entry, next entry) []entry {
-	if next.Kind == "" || (next.Kind == kindAssistant && next.Text == "" && len(next.Tools) == 0) {
-		return entries
-	}
-	entries = append(entries, next)
-	if len(entries) > transcriptCap {
-		entries = entries[len(entries)-transcriptCap:]
-	}
-	return entries
+	return slices.Delete(slices.Clone(queued), index, index+1)
 }

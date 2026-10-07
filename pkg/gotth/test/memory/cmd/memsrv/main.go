@@ -54,8 +54,8 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 
-	ipcnet "github.com/candacelabs/csf/ipc/net"
-	ipchttp "github.com/candacelabs/csf/ipc/net/http"
+	ionet "github.com/candacelabs/csf/io/net"
+	iohttp "github.com/candacelabs/csf/io/net/http"
 	"github.com/candacelabs/csf/pkg/gotth/live"
 	csfruntime "github.com/candacelabs/csf/runtime"
 )
@@ -273,8 +273,8 @@ func run() error {
 	// server shape (no WriteTimeout, which would cut live connections off
 	// mid-session) — last, so a stop refuses new requests before it drains and
 	// joins every session.
-	listener, err := ipchttp.NewHTTPListener(ipcnet.NewHostNetwork(), *addr, mux,
-		ipchttp.WithShutdownBudget(drainBudget))
+	listener, err := iohttp.NewHTTPListener(ionet.NewHostNetwork(), *addr, mux,
+		iohttp.WithShutdownBudget(drainBudget))
 	if err != nil {
 		return err
 	}

@@ -1,0 +1,88 @@
+# SCOREBOARD. Every program meter, declared once in CSF and read two ways:
+# the `csf scoreboard` verb writes the rows into csfpg, and the consistency
+# panel in services/opsview — mounted by `csf serve` at "/" — shows them in the
+# CSF viewer. The kinds below are the artifact's shape. The Go projection in
+# app/csf/cmd and the meter_measurement migration mirror them, and a golden test
+# in that package pins the projection against this file.
+#
+# The scoreboard is a CSF artifact shown by the CSF viewer: it is not a
+# dashboard definition and it is not an external page.
+
+kind meter
+  "One program meter: what it measures, its latest value and target, the query that computes them, and the slices that move it."
+{
+  field name     "identifier" "The meter's name; a lowercase identifier.";
+  field measures "text"       "What the meter measures, one clause.";
+  field now      "value"      "The latest value, e.g. percent(59.0) or ratio(4, 5).";
+  field target   "value"      "The value the meter is rising or falling toward.";
+  field source   "query"      "The query that computes now and target.";
+  field moved_by "[slice]"    "The slices that raise or lower the meter.";
+}
+
+kind invariant
+  "One program invariant behind the consistency headline: the instances it is satisfied over and checked over, the gate mode that holds it, and the slice that owns raising it."
+{
+  field name        "identifier"          "The invariant's name; a lowercase identifier.";
+  field satisfied   "int"                 "Instances the invariant holds for.";
+  field checked     "int"                 "Instances the invariant is checked over; s(I) = satisfied / checked.";
+  field mode        "ratchet | hard_gate | advisory_until_zero" "How the invariant is held: a house or ontology ratchet, a hard gate, or advisory until its offense count reaches zero.";
+  field owner_slice "slice"               "The slice that raises s(I).";
+}
+
+# The meters, in the order the verb prints them and the panel shows them. The
+# consistency headline heads the list: the mean satisfied fraction across the
+# invariants, C = mean(s(I)) with s(I) = satisfied / checked, equal weights, a
+# percentage that rises toward 100 and never gates.
+meter consistency      { measures "mean satisfied fraction across the invariants, s(I) = satisfied / checked"; now percent(59.0); target percent(100); source consistency_score; moved_by [green_main, tiers_true_to_hardware, tree_declared, jev_writable, one_tree, named_and_colocated, cli_from_csf, test_coverage, ipc_proc_only]; }
+meter generated_share  { measures "lines csfc generates / all source lines"; now percent(2.0); target percent(100); source generated_lines; moved_by [service_generator, services_backfilled]; }
+meter harness_generated_share { measures "lines of the harness csfc generates / all harness lines"; now unmeasured; target percent(100); source harness_generated_lines; moved_by [slice_planner, harness_bootstrap]; }
+meter stage_comparison { measures "stage 1 emitter output vs stage 2, identical or diff_lines(N)"; now identical; target identical; source stage_comparison; moved_by [slice_planner, harness_bootstrap]; }
+meter residue_bits     { measures "compressed size of handwritten source"; now mbit(34.3); target mbit(0); source handwritten_residue_bits; moved_by [service_generator, services_backfilled]; }
+meter dirs_declared    { measures "directories with a declared question and options"; now ratio(37, 628); target ratio(628, 628); source declared_directories; moved_by [tree_declared]; }
+meter one_way          { measures "options with exactly one template / all options"; now unmeasured; target ratio(1, 1); source options_by_template; moved_by [kinds_declared, service_generator]; }
+meter compose_proven   { measures "theorem: every allowed combination of picks compiles"; now unproven; target proven; source compose_theorem; moved_by [compose_proven]; }
+meter compose_built    { measures "sampled allowed combinations that go build passes"; now unmeasured; target ratio(1, 1); source sampled_combinations_build; moved_by [compose_proven]; }
+meter csf_decides      { measures "accuracy on questions whose answer CSF states (held out)"; now ratio(4, 5); target ratio(1, 1); source tier_from_csf; moved_by [jev_local, tree_declared]; }
+meter ambiguous        { measures "questions where the best pick is below the confidence knee"; now ratio(5, 22) below(0.6, provisional_until_knee_fit); target count(0); source tier_from_csf; moved_by [kinds_declared, tree_declared]; }
+meter jev_share        { measures "decisions by local JEV / (decisions + operator answers + LLM-authored choices)"; now unmeasured; target ratio(1, 1); source decision_sources; moved_by [jev_local, questions_to_jev]; }
+meter jev_writable_share { measures "grammar use-sites one JEV pick can write / all grammar use-sites"; now ratio(33, 80); target ratio(1, 1); source grammar_use_sites; moved_by [jev_writable]; }
+meter placement        { measures "top-1 placing a file among the 16 top-level directories (181 files)"; now percent(61.9) top3(80.7); target ratio(1, 1); source place_files; moved_by [tree_declared]; }
+meter decision_latency { measures "p50 seconds per local decision, RTX 5070, jevk5-9b Q4_K_M"; now seconds(0.50); target falling; source place_files; moved_by [jev_local]; }
+meter llm_tokens       { measures "LLM tokens per merged slice"; now unmeasured; target falling; source tokens_per_slice; moved_by [jev_local]; }
+meter j                { measures "bits(language) + sum p(w) bits(w | language)"; now unmeasured; target falling; source language_score; moved_by [language_score]; }
+meter derived_share    { measures "files that are source or reproduced / all files, by reproduction not by a generated header"; now percent(23.5); target percent(100); source derived_share; moved_by [service_generator, services_backfilled]; }
+meter cost_per_fix     { measures "worker cost per fix, one point per bootstrap round"; now unmeasured; target falling; source cost_per_fix; moved_by [bootstrap_loop]; }
+
+# The invariants behind the consistency headline, one instance per invariant in
+# the order of the committed measurement of main at 369d12d (app/csf/cmd/testdata/
+# scoreboard/consistency.json). C = mean(s(I)) over these fourteen; the verb, the
+# meter_invariant rows and the panel's invariant rows all read them from here.
+invariant code_compiles                  { satisfied 249; checked 250; mode hard_gate; owner_slice green_main; }
+invariant fanout_at_most_16              { satisfied 242; checked 245; mode ratchet; owner_slice tiers_true_to_hardware; }
+invariant every_directory_declared       { satisfied 69; checked 631; mode ratchet; owner_slice tree_declared; }
+invariant csf_only_under_csf             { satisfied 2; checked 3; mode hard_gate; owner_slice tree_declared; }
+invariant grammar_decision_fits_one_pick { satisfied 33; checked 80; mode advisory_until_zero; owner_slice jev_writable; }
+invariant grammar_generated_from_kinds   { satisfied 0; checked 130; mode ratchet; owner_slice one_tree; }
+invariant cs20                           { satisfied 2060; checked 2210; mode ratchet; owner_slice named_and_colocated; }
+invariant cs21                           { satisfied 3946; checked 4664; mode ratchet; owner_slice named_and_colocated; }
+invariant cli_purpose_declared           { satisfied 0; checked 28; mode hard_gate; owner_slice cli_from_csf; }
+invariant tests                          { satisfied 147; checked 181; mode hard_gate; owner_slice test_coverage; }
+invariant coverage                       { satisfied 117; checked 250; mode ratchet; owner_slice test_coverage; }
+invariant server_listens_in_tier         { satisfied 9; checked 11; mode hard_gate; owner_slice tiers_true_to_hardware; }
+invariant runtime_one_host               { satisfied 4; checked 6; mode hard_gate; owner_slice one_tree; }
+invariant process_spawned_via_ipc        { satisfied 7; checked 13; mode hard_gate; owner_slice ipc_proc_only; }
+
+# The artifact: the rows `csf scoreboard` writes into csfpg, migrations only and
+# sqlc only. meter_measurement holds one row per meter; meter_invariant holds the
+# headline's per-invariant rows.
+artifact scoreboard
+  rows meter_measurement in csfpg written_by "csf scoreboard"
+  rows meter_invariant in csfpg holding the headline's invariant rows
+  seed measured "2026-10-06" on main "369d12d" c 0.590 n 14;
+
+# The viewer: the CSF viewer's consistency panel, never an external page. It
+# sits in services/opsview like the cloud panel and is phone first.
+viewer scoreboard
+  panel "consistency" in "services/opsview" mounted_by "csf serve" path "/"
+  like cloud_panel phone_first
+  shows [c_headline, invariant_rows(satisfied, checked, mode(ratchet | hard_gate | advisory_until_zero), owner_slice), chief_meters, slices];

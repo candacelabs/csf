@@ -3,83 +3,231 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-<title>{{.Session.AgentID}} · harness chat</title>
+<meta name="color-scheme" content="light dark">
+<title>{{.Session.AgentID}} · CSF chat</title>
+<style>{{.Style}}</style>
 <style>
-:root { --ink: #1c1b1a; --muted: #6b6760; --line: #e3dfd7; --paper: #faf8f4; --card: #ffffff; --code: #f1ede6; --accent: #0b6e4f; --warn: #a1340a; }
-@media (prefers-color-scheme: dark) { :root { --ink: #ecebe7; --muted: #a39f97; --line: #35322d; --paper: #15140f; --card: #1e1c17; --code: #26231d; --accent: #5bc49a; --warn: #f28c5b; } }
-* { box-sizing: border-box; }
+/* The chat on the Workbench's tokens: a header that says where the session
+   stands, a transcript that reads like a conversation, a composer pinned
+   above the keyboard. */
 html, body { height: 100%; }
-body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.5 ui-sans-serif, system-ui, sans-serif; -webkit-text-size-adjust: 100%; }
-main { height: 100vh; height: 100dvh; max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; }
-.status { flex: none; display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 15px; color: var(--muted); }
-.status strong { color: var(--ink); }
-.phase { text-transform: uppercase; letter-spacing: .04em; font-size: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; }
-.notice { color: var(--warn); }
-.scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column-reverse; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 12px 16px; }
-.transcript { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
-.entry { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 14px; min-width: 0; overflow-wrap: anywhere; }
-.entry .meta { font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-.entry.user { border-color: var(--accent); }
-.entry.tool, .entry.harness, .entry.result { color: var(--muted); font-size: 16px; }
-.entry.gate { border-color: var(--warn); }
-.entry .plain { white-space: pre-wrap; }
-.entry .body > :first-child { margin-top: 0; }
-.entry .body > :last-child { margin-bottom: 0; }
-.entry .body p, .entry .body ul, .entry .body ol { margin: 0 0 .6em; }
-.entry .body ul, .entry .body ol { padding-left: 22px; }
-.entry .body pre { overflow-x: auto; max-width: 100%; margin: .6em 0; padding: 10px 12px; background: var(--code); border-radius: 10px; -webkit-overflow-scrolling: touch; }
-.entry .body code { font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
-.entry .body :not(pre) > code { background: var(--code); padding: 1px 5px; border-radius: 5px; }
-.entry .body a { color: var(--accent); }
-.entry .body table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; }
-.entry .body td, .entry .body th { border: 1px solid var(--line); padding: 4px 8px; }
-.entry .tools { margin: 6px 0 0; padding-left: 18px; font-size: 15px; color: var(--muted); }
-.empty { color: var(--muted); font-size: 16px; }
-form.composer { flex: none; display: grid; gap: 8px; padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--paper); }
+body.chat { max-width: none; }
+main.chat { height: 100vh; height: 100dvh; max-width: 860px; margin: 0 auto; display: flex; flex-direction: column; padding: 0; }
+/* Whole-pixel line boxes above and below the transcript keep its scroll end
+   at exactly 0, which is where the browser holds the newest message when the
+   viewport shrinks: 14, 16 and 18 px text at 1.5 are 21, 24 and 27 px. */
+.chat-head, form.composer { line-height: 1.5; }
+.chat-head { flex: none; display: grid; gap: var(--space-1); padding: var(--space-2) var(--gutter) var(--space-2); border-bottom: 1px solid var(--line); background: var(--bg); }
+.chat-head .bar { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch); }
+.chat-head .back { display: inline-flex; align-items: center; min-height: var(--touch); padding-right: var(--space-2); text-decoration: none; color: var(--muted); }
+.chat-head .name { font-size: var(--text-title); font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-head .pill { font-size: var(--text-small); padding: 0 var(--space-2); border-radius: 999px; background: var(--surface-sunk); color: var(--muted); white-space: nowrap; }
+.chat-head .pill.running { background: var(--accent-soft); color: var(--accent); }
+.chat-head .pill.failed { background: var(--danger-soft); color: var(--danger); }
+.chat-head .bar .end { margin-left: auto; }
+.chat-head .facts { display: flex; flex-wrap: wrap; gap: 2px var(--space-3); font-size: var(--text-small); color: var(--muted); }
+.chat-head .facts b { color: var(--ink); font-weight: 600; }
+.chat-head .facts .suspended b { color: var(--warn); }
+.chat-head .problem, .chat-head .notice-line { margin: 0; }
+.scroll { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column-reverse; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: var(--space-3) var(--gutter); }
+ol.transcript { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+ol.transcript > li { min-width: 0; overflow-wrap: anywhere; animation: arrive var(--settle) var(--ease); }
+.when { display: block; font-size: var(--text-small); color: var(--muted); margin-top: 2px; }
+li.operator { justify-self: end; max-width: 85%; text-align: left; }
+li.operator .when { text-align: right; }
+li.operator .bubble { background: var(--accent); color: var(--accent-ink); padding: var(--space-2) var(--space-3); border-radius: 18px 18px 4px 18px; }
+li.operator .bubble a { color: inherit; }
+li.agent .reply { font-size: 1.0625rem; line-height: 1.55; max-width: 68ch; }
+.reply > :first-child, .bubble > :first-child { margin-top: 0; }
+.reply > :last-child, .bubble > :last-child { margin-bottom: 0; }
+.reply p, .reply ul, .reply ol, .bubble p { margin: 0 0 .65em; }
+.reply ul, .reply ol { padding-left: 1.3em; }
+.reply li + li { margin-top: .2em; }
+.reply h1, .reply h2, .reply h3, .reply h4 { font-size: 1.0625rem; margin: 1em 0 .35em; }
+.reply pre { overflow-x: auto; max-width: 100%; margin: .6em 0; padding: var(--space-2) var(--space-3); background: var(--surface-sunk); border-radius: var(--radius-small); -webkit-overflow-scrolling: touch; }
+.reply code, .bubble code { font: 0.875rem/1.45 var(--mono); }
+.reply :not(pre) > code { background: var(--surface-sunk); padding: 1px 5px; border-radius: 5px; }
+.reply table { border-collapse: collapse; display: block; overflow-x: auto; max-width: 100%; font-variant-numeric: tabular-nums; }
+.reply td, .reply th { border: 1px solid var(--line); padding: 4px 8px; text-align: left; }
+.reply blockquote { margin: .6em 0; padding-left: var(--space-3); border-left: 3px solid var(--line); color: var(--muted); }
+/* A tool call is one compact row, as in Claude Code: a state dot, the tool
+   and what it acts on, an edit's +/− count, the elapsed time and ✓ or ✗; it
+   opens to the input, an edit's change and the result. */
+ol.transcript > li.tool { gap: 0; }
+li.tool details { min-width: 0; }
+li.tool summary { display: flex; align-items: center; gap: var(--space-2); min-height: 36px; cursor: pointer; list-style: none; font: 0.875rem/1.4 var(--mono); }
+li.tool summary::-webkit-details-marker { display: none; }
+li.tool .dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+li.tool.done .dot { background: var(--ok, #2e9d5b); }
+li.tool.failed .dot { background: var(--danger); }
+li.tool.running .dot { background: var(--accent); animation: pulse 1s var(--ease) infinite alternate; }
+@keyframes pulse { from { opacity: 1; } to { opacity: .25; } }
+li.tool .verb { font-weight: 650; color: var(--ink); flex: none; }
+li.tool .target { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+li.tool .stat { flex: none; white-space: nowrap; }
+.stat .plus, .diff .added .sign { color: var(--ok, #2e9d5b); }
+.stat .minus, .diff .removed .sign { color: var(--danger); }
+li.tool .meta { margin-left: auto; flex: none; display: flex; gap: var(--space-2); align-items: center; color: var(--muted); font-size: var(--text-small); }
+li.tool .mark { width: 1.2em; text-align: center; }
+li.tool.done .mark { color: var(--ok, #2e9d5b); }
+li.tool.failed .mark { color: var(--danger); }
+/* Animation is the browser's alone: every row keeps one element for life (its
+   id is its sequence number), so a patch changes it in place and never
+   replays an entrance or restarts a spinner. A ✓ or ✗ is a new element when a
+   call finishes, so it settles once. */
+li.tool .mark { animation: settle 320ms var(--ease) both; }
+@keyframes settle { from { transform: scale(.4); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } to { transform: scale(1); } }
+li.tool details { interpolate-size: allow-keywords; }
+li.tool details::details-content { height: 0; overflow: clip; transition: height 220ms var(--ease), content-visibility 220ms allow-discrete; }
+li.tool details[open]::details-content { height: auto; }
+.diff tr { animation: reveal 180ms var(--ease) both; animation-delay: calc(min(var(--line, 0), 40) * 12ms); }
+@keyframes reveal { from { opacity: 0; transform: translateX(-6px); } }
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after, ::details-content { animation: none !important; transition: none !important; }
+}
+li.tool .spin { display: inline-block; width: 12px; height: 12px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+li.tool .body { display: grid; gap: var(--space-2); padding: var(--space-2) 0 var(--space-2) 16px; border-left: 2px solid var(--line); margin-left: 3px; }
+li.tool pre { margin: 0; overflow-x: auto; max-width: 100%; padding: var(--space-2) var(--space-3); background: var(--surface-sunk); border-radius: var(--radius-small); font: 0.8125rem/1.45 var(--mono); white-space: pre; -webkit-overflow-scrolling: touch; }
+li.tool .label { font-size: var(--text-small); color: var(--muted); }
+li.tool .more summary { min-height: var(--touch); font: var(--text-small)/1.4 var(--font); color: var(--accent); }
+/* An edit's change, red and green, numbered from the edited text. */
+.diff { overflow-x: auto; max-width: 100%; border: 1px solid var(--line); border-radius: var(--radius-small); font: 0.8125rem/1.45 var(--mono); -webkit-overflow-scrolling: touch; }
+.diff .path { padding: 4px var(--space-3); background: var(--surface-sunk); color: var(--muted); border-bottom: 1px solid var(--line); }
+.diff table { border-collapse: collapse; min-width: 100%; }
+.diff td { padding: 0 var(--space-2); white-space: pre; vertical-align: top; }
+.diff td.n { color: var(--muted); text-align: right; user-select: none; min-width: 2.5em; }
+.diff tr.added { background: color-mix(in srgb, var(--ok, #2e9d5b) 14%, transparent); }
+.diff tr.removed { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.diff tr.gap td { color: var(--muted); text-align: center; }
+li.gate.allowed { color: var(--muted); background: none; padding: 0; font-size: var(--text-small); }
+li.queued { justify-self: end; max-width: 85%; opacity: .6; }
+li.queued .bubble { background: var(--surface-sunk); color: var(--ink); padding: var(--space-2) var(--space-3); border-radius: 18px 18px 4px 18px; border: 1px dashed var(--line); white-space: pre-wrap; }
+/* The task list, pinned under the header; it ticks as the session works. */
+.tasks { flex: none; padding: var(--space-2) var(--gutter); border-bottom: 1px solid var(--line); background: var(--bg); }
+.tasks:empty { display: none; }
+.tasks details summary { cursor: pointer; font-size: var(--text-small); color: var(--muted); min-height: 32px; display: flex; align-items: center; }
+.tasks ol { list-style: none; margin: 0; padding: 0 0 var(--space-1); display: grid; gap: 2px; max-height: 28vh; overflow-y: auto; }
+.tasks li { display: flex; gap: var(--space-2); font-size: var(--text-small); }
+.tasks li::before { content: "☐"; color: var(--muted); }
+.tasks li.in_progress { font-weight: 600; }
+.tasks li.in_progress::before { content: "◼"; color: var(--accent); }
+.tasks li.completed { color: var(--muted); text-decoration: line-through; }
+.tasks li.completed::before { content: "☑"; color: var(--ok, #2e9d5b); text-decoration: none; }
+/* The status bar: a thin line of facts above the composer. */
+.bar { flex: none; display: flex; flex-wrap: wrap; gap: 2px var(--space-3); padding: 4px var(--gutter); border-top: 1px solid var(--line); font: var(--text-small)/1.5 var(--mono); color: var(--muted); background: var(--surface); }
+.bar b { color: var(--ink); font-weight: 600; }
+.bar .phase { margin-left: auto; }
+.bar .phase.thinking b, .bar .phase.running b { color: var(--accent); }
+li.turn { display: flex; align-items: center; gap: var(--space-3); color: var(--muted); font-size: var(--text-small); }
+li.turn::before, li.turn::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+li.gate { color: var(--danger); background: var(--danger-soft); padding: var(--space-2) var(--space-3); border-radius: var(--radius-small); }
+li.system { color: var(--muted); text-align: center; }
+form.composer { flex: none; display: flex; align-items: flex-end; gap: var(--space-2); padding: var(--space-2) var(--gutter) calc(var(--space-2) + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); background: var(--bg); }
+form.composer .field { flex: 1; min-width: 0; }
+form.composer textarea { display: block; width: 100%; min-height: var(--touch); max-height: 40vh; field-sizing: content; padding: 10px var(--space-3); font: var(--text-body)/1.5 var(--font); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 22px; resize: none; }
+form.composer textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 0; border-color: var(--accent); }
+form.composer button.act { border-radius: 22px; flex: none; }
+form.composer .state { font-size: var(--text-small); color: var(--muted); padding-bottom: 12px; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-textarea { width: 100%; min-height: 56px; max-height: 40vh; padding: 12px; font: 16px/1.45 ui-sans-serif, system-ui, sans-serif; color: var(--ink); background: var(--card); border: 1px solid var(--line); border-radius: 12px; resize: vertical; }
-.actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-button { min-height: 44px; min-width: 44px; padding: 10px 18px; font: inherit; font-size: 16px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; touch-action: manipulation; }
-button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-button.danger { color: var(--warn); }
-button[disabled] { opacity: .5; cursor: default; }
 </style>
 </head>
-<body>
-<main>
+<body class="chat">
+<main class="chat">
 {{.Status}}
+{{.Tasks}}
 <div class="scroll" data-chat-scroll>
 {{.Transcript}}
 </div>
+{{.Bar}}
 {{.Composer}}
 </main>
+<script>
+// The composer's text is the browser's (a preserved region), so the page
+// clears it once a message is on its way: on submit, and on the Enter that
+// sends.
+document.addEventListener("submit", (event) => {
+	if (event.target.matches("form.composer")) requestAnimationFrame(() => event.target.reset());
+});
+// A reader at the newest message stays there when the transcript's box
+// shrinks, such as a phone keyboard opening. The transcript scrolls in
+// reverse, so the newest message is the scroll position's end; a sub-pixel
+// height leaves that end a pixel past 0, which the browser's own anchoring
+// does not count as the end, so it moves the view up by exactly the height
+// the box lost. The page undoes that move: a size observer runs after the
+// layout, and a position that is the end less the shrink was the end.
+(() => {
+	const scroller = document.querySelector("[data-chat-scroll]");
+	let height = scroller.clientHeight;
+	new ResizeObserver(() => {
+		const shrink = height - scroller.clientHeight;
+		height = scroller.clientHeight;
+		if (shrink > 0 && Math.abs(scroller.scrollTop + shrink) < 4) scroller.scrollTop = scroller.scrollHeight;
+	}).observe(scroller);
+})();
+document.addEventListener("keydown", (event) => {
+	if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.altKey && !event.metaKey && !event.isComposing && event.target.matches("form.composer textarea")) {
+		requestAnimationFrame(() => { event.target.value = ""; });
+	}
+});
+// A running turn's elapsed time is counted here, from the moment the server
+// rendered into the bar: a render is a pure function of state, and a clock
+// that ticks is not, so the server never sends a tick.
+(() => {
+	const tick = () => {
+		for (const clock of document.querySelectorAll("[data-chat-since]")) {
+			const seconds = Math.max(0, (Date.now() - Date.parse(clock.dataset.chatSince)) / 1000);
+			const shown = seconds < 60 ? seconds.toFixed(0) + "s" : Math.floor(seconds / 60) + "m " + String(Math.floor(seconds % 60)).padStart(2, "0") + "s";
+			if (clock.textContent !== shown) clock.textContent = shown;
+		}
+	};
+	tick();
+	setInterval(tick, 1000);
+	// A patch that replaces the bar starts its clock blank; fill it at once.
+	new MutationObserver(tick).observe(document.body, {subtree: true, childList: true});
+})();
+</script>
 {{.Script}}
 </body>
 </html>{{end}}
 
-{{define "status"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="status" aria-live="polite">
-<strong>{{.Session.AgentID}}</strong>
-<span class="phase">{{.Session.Phase}}</span>
-<span>turns <strong>{{.Session.Turns}}</strong></span>
-<span>queued <strong>{{.Session.Queued}}</strong></span>
-{{if .Session.Branch}}<span>branch <strong>{{.Session.Branch}}</strong></span>{{end}}
-{{if .Session.PullRequestURL}}<a href="{{.Session.PullRequestURL}}" target="_blank" rel="noreferrer">pull request ↗</a>{{end}}
-{{if .Session.Error}}<span class="notice">{{.Session.Error}}</span>{{end}}
-{{if .Notice}}<span class="notice">{{.Notice}}</span>{{end}}
-{{if .Finished}}<span class="notice">The session has ended; the transcript is complete.</span>{{end}}
-</section>{{end}}
+{{define "status"}}<header id="{{.Region}}" data-gotth-region="{{.Region}}" class="chat-head" aria-live="polite">
+<div class="bar"><a class="back" href="{{.Workbench}}" data-chat="workbench">← Workbench</a><span class="name" data-chat="agent">{{.Session.AgentID}}</span><span class="pill {{.Session.Phase}}" data-chat="phase">{{.Session.Phase}}</span>
+<span class="end">{{if not .Finished}}<button type="button" class="link" data-chat="ask-cancel" {{.OnAskCancel}}>Cancel…</button>{{end}}</span></div>
+<div class="facts" data-chat="sessions"><span>virtual session <b>{{.Session.Phase}}</b></span><span class="{{.Session.Real}}">real session <b data-chat="real">{{.Session.Real}}</b></span><span>turn <b>{{.Session.Turns}}</b></span>{{if .Session.Queued}}<span><b>{{.Session.Queued}}</b> queued</span>{{end}}{{if .Session.PullRequestURL}}<a href="{{.Session.PullRequestURL}}" target="_blank" rel="noreferrer">PR {{pullNumber .Session.PullRequestURL}}</a>{{end}}</div>
+{{if .Confirm}}<div class="confirm danger" role="alertdialog" aria-label="confirm cancel" data-chat="confirm"><p>Cancel <strong>{{.Session.AgentID}}</strong>? Its current turn stops and the session closes.</p>
+<div class="actions"><button type="button" class="act danger" data-chat="confirm-cancel" {{.OnCancel}}>Cancel {{.Session.AgentID}}</button><button type="button" class="act quiet" data-chat="keep" {{.OnKeep}}>Keep it running</button></div></div>{{end}}
+{{if .Session.Error}}<p class="problem">{{.Session.Error}}</p>{{end}}
+{{if .Notice}}<p class="notice-line" role="status" data-chat="notice">{{.Notice}}</p>{{end}}
+{{if .Finished}}<p class="notice-line">The session has ended; the transcript is complete.</p>{{end}}
+</header>{{end}}
+
+{{define "tasks"}}<section id="{{.Region}}" data-gotth-region="{{.Region}}" class="tasks" aria-label="task list">{{with .Transcript.Tasks}}<details open data-chat="tasks"><summary>Tasks · {{$.TasksDone}} of {{len .}} done</summary><ol>{{range .}}<li class="{{.State}}">{{.Text}}</li>{{end}}</ol></details>{{end}}</section>{{end}}
 
 {{define "transcript"}}<ol id="{{.Region}}" data-gotth-region="{{.Region}}" class="transcript" aria-label="transcript">
-{{range .Entries}}<li class="entry {{.Kind}}"><div class="meta">{{.Time}} · turn {{.Turn}} · {{.Kind}}</div>{{if .HTML}}<div class="body">{{.HTML}}</div>{{else}}<div class="plain">{{.Text}}</div>{{end}}{{if .Tools}}<ul class="tools">{{range .Tools}}<li>{{.}}</li>{{end}}</ul>{{end}}</li>
-{{else}}<li class="entry harness empty">No records yet.</li>{{end}}
-</ol>{{end}}
+{{range .Rows}}{{template "row" .}}
+{{else}}<li class="system">No messages yet.</li>{{end}}
+{{range .Queued}}<li class="queued" data-chat="queued"><div class="bubble">{{.}}</div><span class="when">queued</span></li>
+{{end}}</ol>{{end}}
+
+{{define "row"}}{{if eq .Kind "operator"}}<li id="{{.Region}}" data-gotth-region="{{.Region}}" class="operator"><div class="bubble">{{.HTML}}</div><span class="when">{{.Time}}</span></li>
+{{- else if eq .Kind "agent"}}<li id="{{.Region}}" data-gotth-region="{{.Region}}" class="agent"><div class="reply">{{.HTML}}</div><span class="when">{{.Time}} · turn {{.Turn}}</span></li>
+{{- else if eq .Kind "tool"}}{{template "tool" .}}
+{{- else if eq .Kind "turn"}}<li id="{{.Region}}" data-gotth-region="{{.Region}}" class="turn"><span>{{.Text}} · {{.Time}}</span></li>
+{{- else if eq .Kind "gate"}}<li id="{{.Region}}" data-gotth-region="{{.Region}}" class="gate{{if not .Denied}} allowed{{end}}" data-chat="gate">{{.Text}} · {{.Time}}</li>
+{{- else}}<li id="{{.Region}}" data-gotth-region="{{.Region}}" class="system">{{.Text}} · {{.Time}}</li>{{end}}{{end}}
+
+{{define "tool"}}<li id="{{.Region}}" data-gotth-region="{{.Region}}" class="tool {{.Tool.State}}" data-chat="tool" data-chat-state="{{.Tool.State}}" data-chat-open="{{.Open}}"><details{{if .Open}} open{{end}}><summary {{.OnToggle}}><span class="dot" aria-hidden="true"></span><span class="verb">{{.Tool.Name}}</span><span class="target">{{.Tool.Target}}</span>{{with .Tool.Diff}}{{if or .Added .Removed}}<span class="stat"><span class="plus">+{{.Added}}</span> <span class="minus">−{{.Removed}}</span></span>{{end}}{{end}}<span class="meta">{{if .Tool.Elapsed}}<span>{{.Tool.Elapsed}}</span>{{end}}{{if eq .Tool.State "running"}}<span class="spin" role="img" aria-label="running"></span>{{else if eq .Tool.State "done"}}<span class="mark" aria-label="done">✓</span>{{else if eq .Tool.State "failed"}}<span class="mark" aria-label="failed">✗</span>{{else}}<span class="mark" aria-label="no result">·</span>{{end}}</span></summary>
+{{with .Tool}}<div class="body">{{if .Diff.Lines}}<div class="diff" data-chat="diff"><div class="path">{{.Target}}</div><table>{{range $index, $line := .Diff.Lines}}{{if eq .Kind "gap"}}<tr class="gap" style="--line: {{$index}}"><td colspan="4">⋯</td></tr>{{else}}<tr class="{{.Kind}}" style="--line: {{$index}}"><td class="n">{{if .Old}}{{.Old}}{{end}}</td><td class="n">{{if .New}}{{.New}}{{end}}</td><td class="sign">{{if eq .Kind "added"}}+{{else if eq .Kind "removed"}}−{{end}}</td><td>{{.Text}}</td></tr>{{end}}{{end}}{{if .Diff.Hidden}}<tr class="gap"><td colspan="4">{{.Diff.Hidden}} more lines</td></tr>{{end}}</table></div>
+{{else}}<span class="label">Input</span><pre>{{.Input}}</pre>{{end}}
+{{if .Output}}<span class="label">{{if eq .State "failed"}}Error{{else}}Output{{end}}</span><pre data-chat="output">{{.Output}}</pre>{{end}}
+{{if .Rest}}<details class="more"><summary>{{.RestLines}} more lines{{if .Cut}}, cut at 2 KB{{end}}</summary><pre>{{.Rest}}</pre></details>{{else if .Cut}}<span class="label">cut at 2 KB</span>{{end}}</div>{{end}}</details></li>{{end}}
+
+{{define "bar"}}<footer id="{{.Region}}" data-gotth-region="{{.Region}}" class="bar" aria-label="status" data-chat="bar">{{with .Bar}}<span data-chat="executor"><b>{{.Executor}}</b>{{if .Model}} · {{.Model}}{{end}}</span><span>context <b data-chat="context">{{.Context}}</b></span><span>turn <b data-chat="turn-cost">{{.TurnCost}}</b></span><span>session <b data-chat="session-cost">{{.Session}}</b></span><span>{{if .Since}}<b data-chat-since="{{.Since}}"></b>{{else if .Elapsed}}<b>{{.Elapsed}}</b>{{end}}</span><span class="phase {{.Phase}}">phase <b data-chat="phase-now">{{.Phase}}</b></span>{{end}}</footer>{{end}}
 
 {{define "composer"}}<form id="{{.Region}}" data-gotth-region="{{.Region}}" class="composer" {{.OnSend}}>
-<label class="sr-only" for="chat-message">Message to the session</label>
-<textarea id="chat-message" name="message" {{.Preserved}} placeholder="Message to the agent; it reaches the session at its next safepoint." required></textarea>
-<div class="actions">
-<button class="primary" type="submit"{{if or .Pending .Finished}} disabled{{end}}>Send</button>
-<button class="danger" type="button" {{.OnCancel}}{{if .Finished}} disabled{{end}}>Cancel session</button>
-{{if .Pending}}<span>sending…</span>{{end}}
-</div>
+<label class="sr-only" for="chat-message">Message to {{.Session.AgentID}}</label>
+<div class="field" {{.Preserved}}><textarea id="chat-message" name="message" rows="1" enterkeyhint="send" {{.OnEnter}} placeholder="Message {{.Session.AgentID}}" required></textarea></div>
+{{if .Pending}}<span class="state" role="status">Sending…</span>{{end}}
+<button class="act" type="submit" data-chat="send"{{if or .Pending .Finished}} disabled{{end}}>Send</button>
 </form>{{end}}

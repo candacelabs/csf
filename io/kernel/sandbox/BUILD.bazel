@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sandbox",
+    srcs = [
+        "policy.go",
+        "sandbox.go",
+    ],
+    importpath = "github.com/candacelabs/csf/io/kernel/sandbox",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "sandbox_test",
+    srcs = [
+        "sandbox_suite_test.go",
+        "sandbox_test.go",
+    ],
+    embed = [":sandbox"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

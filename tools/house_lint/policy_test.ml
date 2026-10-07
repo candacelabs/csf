@@ -5,9 +5,18 @@ let () =
     expect (rule ^ " is not mandatory") ((Policy.find rule).severity = Policy.Mandatory);
     expect (rule ^ " does not block") (Policy.status ~report_only:false [finding rule] [] = 1);
     expect (rule ^ " blocks report-only mode") (Policy.status ~report_only:true [finding rule] [] = 0))
-    ["HANDLER-DB-IO"; "ELSE-AFTER-RETURN"; "CS-16-DB"];
+    ["HANDLER-DB-IO"; "ELSE-AFTER-RETURN"; "CS-16-DB"; "ATOMIC-WRITE"];
   expect "the network part of CS-16 became blocking before its test sites moved"
     ((Policy.find "CS-16").severity = Policy.Advisory);
+  (* Operator ruling 2026-10-06 (see policy.ml): these seven gates were relaxed
+     so the retrofit backlog stops blocking merges. A finding is reported and
+     never blocks; the rule returns to mandatory only when its count is zero. *)
+  List.iter (fun rule ->
+    expect (rule ^ " blocks again before its backlog reached zero") ((Policy.find rule).severity = Policy.Advisory);
+    expect (rule ^ " blocks a merge") (Policy.status ~report_only:false [finding rule] [] = 0);
+    expect (rule ^ " hides a scan error") (Policy.status ~report_only:false [finding rule] [finding "SCAN"] = 2);
+    expect (rule ^ " is not described as advisory") (Policy.describe (Policy.find rule) = "advisory"))
+    ["CS-20"; "CS-21"; "CS-20-HOST"; "CS-20-RUNTIME"; "CS-20-SPAWN"; "CS-20-LISTEN"; "NO-MAIN-TEST"];
   (* An owner driven to zero blocks on every crossing rule, its tests
      included; the same finding elsewhere stays advisory. *)
   let at path rule : Source.finding = {path; line=1; rule; message="fixture"} in

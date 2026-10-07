@@ -1,0 +1,50 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "githubtools",
+    srcs = [
+        "call_collector.go",
+        "call_counts.go",
+        "call_key.go",
+        "githubtools.go",
+        "schema.go",
+        "tools.gen.go",
+    ],
+    importpath = "github.com/candacelabs/csf/csf/githubtools",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//csf/prod",
+        "//io/kernel/clock",
+        "//io/net/github",
+        "//pkg/atomicfile",
+        "//services/harness/session",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_modelcontextprotocol_go_sdk//mcp",
+        "@com_github_prometheus_client_golang//prometheus",
+    ],
+)
+
+go_test(
+    name = "githubtools_test",
+    srcs = [
+        "githubtools_suite_test.go",
+        "githubtools_test.go",
+        "mock_client_test.go",
+        "mock_generate_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":githubtools",
+        "//csf",
+        "//csf/prod",
+        "//io/net/github",
+        "//pkg/httpserver",
+        "//services/harness/session",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_modelcontextprotocol_go_sdk//mcp",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

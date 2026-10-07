@@ -4,7 +4,7 @@ import (
 	"context"
 	"os"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/model/copilot"
+	"github.com/candacelabs/csf/io/net/model/copilot"
 	"github.com/candacelabs/csf/pkg/httpserver"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
@@ -42,7 +42,7 @@ func newAgentAssignmentConsumer(database csfpg.IDB) *agentAssignmentConsumer {
 	consumer.adapter, err = copilotadapter.NewCopilotAdapter(
 		copilotadapter.WithBridge(consumer.bridge), copilotadapter.WithStore(persistence),
 		copilotadapter.WithWorktreeManager(consumer.worktrees), copilotadapter.WithTerminalManager(terminals),
-		copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+		copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 	)
 	Expect(err).NotTo(HaveOccurred())
 	DeferCleanup(consumer.adapter.Close)

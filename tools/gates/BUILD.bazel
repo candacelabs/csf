@@ -14,7 +14,7 @@ go_test(
     # the golang container is this suite's authority.
     tags = ["manual"],  # keep
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",
         "@in_gopkg_yaml_v3//:yaml_v3",

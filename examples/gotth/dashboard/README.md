@@ -153,13 +153,13 @@ two. `/metrics.txt` shows all of it.
 | Stage | Trigger | What happens | Where you see it |
 |---|---|---|---|
 | **Coalesce** | half the outbound window unacknowledged | a transition stops emitting a frame of its own and collapses into the next one, **carrying its provenance with it** | `gotthlive_patches_coalesced_total` |
-| **Degrade** | the window is full | nothing is emitted at all until an acknowledgement re-opens it; the application is told through a synthesized event | `gotthlive_slow_client_events_total`, and "falling behind" in the control panel |
+| **Degrade** | the window is full | nothing is emitted at all until an acknowledgement re-opens it; the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) is told through a synthesized event | `gotthlive_slow_client_events_total`, and "falling behind" in the control panel |
 | **Evict** | the window stays full past `SlowClientGrace` | the *session* is closed with `slow_client` | `gotthlive_connections_closed_total{code="slow_client"}` — QA-2's chaos suite, not here |
 
 **A patch is never dropped.** It coalesces, then it defers, and then the session
 is closed. Losing a patch while keeping the connection would leave the DOM
 disagreeing with the server with nothing saying so, which is the one outcome the
-protocol will not produce. The spec that holds this asserts the consequence
+[protocol](../../../csf/docs/generated/ontology_cgen.md#term-protocol) will not produce. The spec that holds this asserts the consequence
 rather than the intent: server sequence numbers arriving at a stalled client are
 **contiguous**, because a dropped patch would leave a hole.
 
@@ -182,7 +182,7 @@ There are two plain-HTMX regions and they are placed differently on purpose.
 **The deploys card is outside every live region.** It is not a fragment, it is
 not in `Config.Fragments`, no patch can name it, and morph never touches it
 (FR-31). Its button makes an ordinary `GET` to an ordinary `http.Handler` that
-knows nothing about gotth-live.
+knows nothing about [gotth-live](../../../csf/docs/generated/ontology_cgen.md#term-gotth_live).
 
 **The operator-notes island is inside the controls region, behind
 `live.Preserve()`.** That is the sanctioned way to host HTMX-owned DOM inside
@@ -295,7 +295,7 @@ latency, request written to snapshot read
 **Where this was taken, because a latency figure without its host is a
 decoration.** Commit `35d4e258`, in `dis-gotth-live:latest` (Go 1.26.5), on
 `node-a` (a neutral name for the machine; every figure below is the one
-observed) — 32 cores, and **not quiescent**: load average
+observed) — 32 [cores](../../../csf/docs/generated/ontology_cgen.md#term-core), and **not quiescent**: load average
 4.06 / 5.24 / 4.92 at the start of the run, twenty containers up, `gpu-desktop-steam-1`
 among them (healthy, GPU at 5 %, no streaming session in progress). Nothing in
 this project pretends to have a quiet machine, and a number taken on a busy one
@@ -381,13 +381,13 @@ than the idle period it is measured over. `ci.sh` runs it beside the counter and
 chat suites, because an example CI does not run is a regression suite in name
 only (FR-63).
 
-The specs are split by what they can see. `dashboard_test.go` is the application
+The specs are split by what they can see. `dashboard_test.go` is the [application](../../../csf/docs/generated/ontology_cgen.md#term-application)
 in isolation — the reducer, replay determinism through `livetest.ReplayN`,
 `livetest.AssertDirtyComplete`, the render helpers, the feed's edge-triggered
 alerts and bounded backlog, the Origin allowlist and the HTMX digest check.
 `wire_test.go` drives real WebSockets through `livetest.Client` and asserts on
 the frames it decodes, because three of FR-62's five properties are
-unfalsifiable from inside the application.
+unfalsifiable from inside the [application](../../../csf/docs/generated/ontology_cgen.md#term-application).
 
 Two things in the suite are worth copying:
 
@@ -415,8 +415,8 @@ from the listen address, which is the library's own stated condition.
 
 **A real queue in the feed, not a latest-value-wins slot.** A gauge reading is
 absolute, so a real dashboard would very likely collapse undelivered samples in
-the application layer — the counter example's slot. This one deliberately does
-not, because collapsing samples in the application would be doing the batching
+the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) layer — the counter example's slot. This one deliberately does
+not, because collapsing samples in the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) would be doing the batching
 FR-62 asks the *library* to do, and it would discard the causal edge a probe
 carries before the library ever saw it. The coalescing this example measures
 would then be partly `feed.go`'s, and the provenance assertion would be

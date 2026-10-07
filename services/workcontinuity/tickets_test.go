@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -22,7 +23,7 @@ var _ = Describe("typed ticket publication", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(body).To(ContainSubstring("## Goal\n\nUse mount for runtime composition."))
 		Expect(body).To(ContainSubstring("- [ ] Describe an observable completion criterion."))
-		Expect(body).To(ContainSubstring("| https://github.com/example/project/issues/1 | Stack in a new worktree or wait for merge |"))
+		Expect(body).To(ContainSubstring("| https://github.com/candacelabs/project/issues/1 | Stack in a new worktree or wait for merge |"))
 		Expect(body).To(ContainSubstring("1. Create a **new worktree** from its implementation branch and **stack these changes on top**."))
 		Expect(body).To(ContainSubstring("2. Wait for its implementation to merge, then develop from the updated base."))
 		Expect(body).NotTo(ContainSubstring("Blocked by"))
@@ -41,10 +42,7 @@ var _ = Describe("typed ticket publication", func() {
 	DescribeTable("rejects malformed author input before any GitHub call", func(change func(spec *workv1.TicketSpec)) {
 		spec := workcontinuity.TicketTemplate()
 		change(spec)
-		source := workcontinuity.NewGitHubSource(func(ctx context.Context, args ...string) ([]byte, error) {
-			Fail("invalid input must not contact GitHub")
-			return nil, nil
-		})
+		source := githubSource(unreachable("invalid input must not contact GitHub"))
 		receipt, err := source.CreateTicket(context.Background(), spec)
 		Expect(err).To(HaveOccurred())
 		Expect(receipt).To(BeNil())
@@ -61,7 +59,7 @@ var _ = Describe("typed ticket publication", func() {
 		Entry("duplicate dependency", func(spec *workv1.TicketSpec) { spec.Dependencies = append(spec.Dependencies, spec.Dependencies[0]) }),
 		Entry("case-insensitive duplicate", func(spec *workv1.TicketSpec) {
 			spec.Dependencies = append(spec.Dependencies, &workv1.TicketDependency{
-				IssueUrl:  "https://github.com/EXAMPLE/PROJECT/issues/1",
+				IssueUrl:  "https://github.com/" + strings.ToUpper("candacelabs/project") + "/issues/1",
 				Condition: workv1.DependencyCondition_DEPENDENCY_CONDITION_COMPLETED,
 			})
 		}),
@@ -81,39 +79,45 @@ var _ = Describe("typed ticket publication", func() {
 		spec.Dependencies[0].Condition = workv1.DependencyCondition_DEPENDENCY_CONDITION_IMPLEMENTATION_MERGED
 		spec.Title = "Use `mount` $(literal); keep text"
 		spec.Dependencies = append(spec.Dependencies, &workv1.TicketDependency{
-			IssueUrl:  "https://github.com/other/project/issues/2",
+			IssueUrl:  "https://github.com/candacelabs/other/issues/2",
 			Condition: workv1.DependencyCondition_DEPENDENCY_CONDITION_COMPLETED,
 		})
 		body, err := workcontinuity.RenderTicket(spec)
 		Expect(err).NotTo(HaveOccurred())
 		calls := 0
-		source := workcontinuity.NewGitHubSource(func(ctx context.Context, args ...string) ([]byte, error) {
+		source := githubSource(func(call githubCall) (int, string) {
 			calls++
 			switch calls {
 			case 1:
-				Expect(args).To(Equal([]string{"api", "repos/" + strings.TrimPrefix(dependencyURL, "https://github.com/")}))
-				return []byte(`{"id":101,"number":1,"state":"open","html_url":"https://github.com/example/project/issues/1"}`), nil
+				Expect(call.Method + " " + call.Path).To(Equal("GET /repos/" + strings.TrimPrefix(dependencyURL, "https://github.com/")))
+				return http.StatusOK, `{"id":101,"number":1,"state":"open","html_url":"https://github.com/candacelabs/project/issues/1"}`
 			case 2:
-				Expect(args).To(Equal([]string{"api", "repos/other/project/issues/2"}))
-				return []byte(`{"id":102,"number":2,"state":"closed","html_url":"https://github.com/other/project/issues/2"}`), nil
+				Expect(call.Method + " " + call.Path).To(Equal("GET /repos/candacelabs/other/issues/2"))
+				return http.StatusOK, `{"id":102,"number":2,"state":"closed","html_url":"https://github.com/candacelabs/other/issues/2"}`
 			case 3:
-				Expect(args).To(Equal([]string{"api", "repos/" + repository + "/issues", "--method", "POST", "--raw-field", "title=" + spec.Title, "--raw-field", "body=" + body}))
-				return json.Marshal(map[string]any{"number": 3, "title": spec.Title, "body": body, "html_url": "https://github.com/example/project/issues/3"})
+				Expect(call.Method + " " + call.Path).To(Equal("POST /repos/" + repository + "/issues"))
+				sent, err := json.Marshal(map[string]any{"title": spec.Title, "body": body})
+				Expect(err).NotTo(HaveOccurred())
+				Expect(call.Body).To(MatchJSON(sent))
+				created, err := json.Marshal(map[string]any{"number": 3, "title": spec.Title, "body": body, "html_url": "https://github.com/candacelabs/project/issues/3"})
+				Expect(err).NotTo(HaveOccurred())
+				return http.StatusCreated, string(created)
 			case 4, 5:
-				Expect(args).To(Equal([]string{"api", "repos/" + repository + "/issues/3/dependencies/blocked_by", "--method", "POST", "--field", fmt.Sprintf("issue_id=%d", calls+97)}))
-				return []byte(`{}`), nil
+				Expect(call.Method + " " + call.Path).To(Equal("POST /repos/" + repository + "/issues/3/dependencies/blocked_by"))
+				Expect(call.Body).To(MatchJSON(fmt.Sprintf(`{"issue_id":%d}`, calls+97)))
+				return http.StatusCreated, `{}`
 			default:
 				Fail("unexpected request")
-				return nil, nil
+				return 0, ""
 			}
 		})
 		receipt, err := source.CreateTicket(context.Background(), spec)
 		Expect(err).NotTo(HaveOccurred())
-		Expect(receipt.Issue.HtmlUrl).To(Equal("https://github.com/example/project/issues/3"))
+		Expect(receipt.Issue.HtmlUrl).To(Equal("https://github.com/candacelabs/project/issues/3"))
 		Expect(receipt.LinkedDependencies).To(HaveLen(2))
 		Expect(calls).To(Equal(5))
-	}, Entry("canonical spelling", "example/project", "https://github.com/example/project/issues/1"),
-		Entry("noncanonical capitalization", "EXample/PROject", "https://github.com/EXample/PROject/issues/1"))
+	}, Entry("canonical spelling", "candacelabs/project", "https://github.com/candacelabs/project/issues/1"),
+		Entry("noncanonical capitalization", "candacelabs/PROject", "https://github.com/candacelabs/PROject/issues/1"))
 
 	DescribeTable("enforces the native blocker limit independently of stackable prerequisites", func(strict, stackable int, valid bool) {
 		spec := workcontinuity.TicketTemplate()
@@ -124,7 +128,7 @@ var _ = Describe("typed ticket publication", func() {
 				condition = workv1.DependencyCondition_DEPENDENCY_CONDITION_STACKED_OR_MERGED
 			}
 			spec.Dependencies = append(spec.Dependencies, &workv1.TicketDependency{
-				IssueUrl:  fmt.Sprintf("https://github.com/example/project/issues/%d", index+1),
+				IssueUrl:  fmt.Sprintf("https://github.com/candacelabs/project/issues/%d", index+1),
 				Condition: condition,
 			})
 		}
@@ -133,32 +137,29 @@ var _ = Describe("typed ticket publication", func() {
 			Expect(err).NotTo(HaveOccurred())
 			return
 		}
-		source := workcontinuity.NewGitHubSource(func(ctx context.Context, args ...string) ([]byte, error) {
-			Fail("oversized blocker lists must fail before any GitHub call")
-			return nil, nil
-		})
+		source := githubSource(unreachable("oversized blocker lists must fail before any GitHub call"))
 		receipt, err := source.CreateTicket(context.Background(), spec)
 		Expect(err).To(MatchError(ContainSubstring("limit of 50 native blockers")))
 		Expect(receipt).To(BeNil())
 	}, Entry("50 strict", 50, 0, true), Entry("51 strict", 51, 0, false),
 		Entry("50 strict plus stackable", 50, 1, true), Entry("51 stackable", 0, 51, true))
 
-	DescribeTable("does not create after failed dependency resolution", func(response string, failure error) {
+	DescribeTable("does not create after failed dependency resolution", func(status int, response string) {
 		calls := 0
-		source := workcontinuity.NewGitHubSource(func(ctx context.Context, args ...string) ([]byte, error) {
+		source := githubSource(func(call githubCall) (int, string) {
 			calls++
-			Expect(args).To(Equal([]string{"api", "repos/example/project/issues/1"}))
-			return []byte(response), failure
+			Expect(call.Method + " " + call.Path).To(Equal("GET /repos/candacelabs/project/issues/1"))
+			return status, response
 		})
 		receipt, err := source.CreateTicket(context.Background(), workcontinuity.TicketTemplate())
 		Expect(err).To(HaveOccurred())
 		Expect(receipt).To(BeNil())
 		Expect(calls).To(Equal(1))
 	},
-		Entry("missing permission", "", fmt.Errorf("forbidden")),
-		Entry("malformed response", "not-json", nil),
-		Entry("pull request URL", `{"id":101,"number":1,"state":"open","html_url":"https://github.com/example/project/pull/1"}`, nil),
-		Entry("missing source ID", `{"number":1,"state":"open","html_url":"https://github.com/example/project/issues/1"}`, nil),
+		Entry("missing permission", http.StatusForbidden, `{"message":"Resource not accessible by integration"}`),
+		Entry("malformed response", http.StatusOK, "not-json"),
+		Entry("pull request URL", http.StatusOK, `{"id":101,"number":1,"state":"open","html_url":"https://github.com/candacelabs/project/pull/1"}`),
+		Entry("missing source ID", http.StatusOK, `{"number":1,"state":"open","html_url":"https://github.com/candacelabs/project/issues/1"}`),
 	)
 
 	It("returns the created issue in a partial receipt when dependency attachment fails", func() {
@@ -167,19 +168,21 @@ var _ = Describe("typed ticket publication", func() {
 		body, err := workcontinuity.RenderTicket(spec)
 		Expect(err).NotTo(HaveOccurred())
 		calls := 0
-		source := workcontinuity.NewGitHubSource(func(ctx context.Context, args ...string) ([]byte, error) {
+		source := githubSource(func(call githubCall) (int, string) {
 			calls++
 			switch calls {
 			case 1:
-				return []byte(`{"id":101,"number":1,"state":"open","html_url":"https://github.com/example/project/issues/1"}`), nil
+				return http.StatusOK, `{"id":101,"number":1,"state":"open","html_url":"https://github.com/candacelabs/project/issues/1"}`
 			case 2:
-				return json.Marshal(map[string]any{"number": 3, "title": spec.Title, "body": body, "html_url": "https://github.com/example/project/issues/3"})
+				created, err := json.Marshal(map[string]any{"number": 3, "title": spec.Title, "body": body, "html_url": "https://github.com/candacelabs/project/issues/3"})
+				Expect(err).NotTo(HaveOccurred())
+				return http.StatusCreated, string(created)
 			default:
-				return nil, fmt.Errorf("dependency API unavailable")
+				return http.StatusServiceUnavailable, `{"message":"dependency API unavailable"}`
 			}
 		})
 		receipt, err := source.CreateTicket(context.Background(), spec)
-		Expect(err).To(MatchError(ContainSubstring("ticket created at https://github.com/example/project/issues/3")))
+		Expect(err).To(MatchError(ContainSubstring("ticket created at https://github.com/candacelabs/project/issues/3")))
 		Expect(receipt.Issue.Number).To(Equal(int64(3)))
 		Expect(receipt.LinkedDependencies).To(BeEmpty())
 		Expect(calls).To(Equal(3))
@@ -189,7 +192,7 @@ var _ = Describe("typed ticket publication", func() {
 		spec := workcontinuity.TicketTemplate()
 		if includeStrict {
 			spec.Dependencies = append(spec.Dependencies, &workv1.TicketDependency{
-				IssueUrl:  "https://github.com/example/project/issues/2",
+				IssueUrl:  "https://github.com/candacelabs/project/issues/2",
 				Condition: workv1.DependencyCondition_DEPENDENCY_CONDITION_COMPLETED,
 			})
 		}
@@ -198,27 +201,28 @@ var _ = Describe("typed ticket publication", func() {
 		Expect(body).To(ContainSubstring("stack these changes on top"))
 		created := false
 		linked := false
-		source := workcontinuity.NewGitHubSource(func(ctx context.Context, args ...string) ([]byte, error) {
-			switch args[1] {
-			case "repos/example/project/issues/1":
+		source := githubSource(func(call githubCall) (int, string) {
+			switch call.Path {
+			case "/repos/candacelabs/project/issues/1":
 				Expect(created).To(BeFalse())
-				return []byte(`{"id":101,"number":1,"state":"open","html_url":"https://github.com/example/project/issues/1"}`), nil
-			case "repos/example/project/issues/2":
+				return http.StatusOK, `{"id":101,"number":1,"state":"open","html_url":"https://github.com/candacelabs/project/issues/1"}`
+			case "/repos/candacelabs/project/issues/2":
 				Expect(created).To(BeFalse())
-				return []byte(`{"id":102,"number":2,"state":"open","html_url":"https://github.com/example/project/issues/2"}`), nil
-			case "repos/example/project/issues":
+				return http.StatusOK, `{"id":102,"number":2,"state":"open","html_url":"https://github.com/candacelabs/project/issues/2"}`
+			case "/repos/candacelabs/project/issues":
 				created = true
-				Expect(args).To(ContainElement("body=" + body))
-				return json.Marshal(map[string]any{"number": 3, "title": spec.Title, "body": body, "html_url": "https://github.com/example/project/issues/3"})
-			case "repos/example/project/issues/3/dependencies/blocked_by":
+				Expect(call.Body).To(ContainSubstring(`"body":`))
+				issue, err := json.Marshal(map[string]any{"number": 3, "title": spec.Title, "body": body, "html_url": "https://github.com/candacelabs/project/issues/3"})
+				Expect(err).NotTo(HaveOccurred())
+				return http.StatusCreated, string(issue)
+			case "/repos/candacelabs/project/issues/3/dependencies/blocked_by":
 				Expect(includeStrict).To(BeTrue(), "a stackable dependency must not create a native blocker")
-				Expect(args).To(ContainElement("issue_id=102"))
-				Expect(args).NotTo(ContainElement("issue_id=101"))
+				Expect(call.Body).To(MatchJSON(`{"issue_id":102}`))
 				linked = true
-				return []byte(`{}`), nil
+				return http.StatusCreated, `{}`
 			default:
-				Fail("unexpected request")
-				return nil, nil
+				Fail("unexpected request " + call.Path)
+				return 0, ""
 			}
 		})
 		receipt, err := source.CreateTicket(context.Background(), spec)

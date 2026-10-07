@@ -9,7 +9,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/dispatch/mocks",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
+        "//io/ipc/db/csfpg",
         "//proto/candace/harness/v1:harness",
         "//services/dispatch",
         "@org_uber_go_mock//gomock",

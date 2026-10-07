@@ -77,8 +77,8 @@ The server creates the bare repository the first time it is asked for it, so
 this clones an empty repo, tracks a pattern, and pushes:
 
 ```
-$ git clone http://xetcasd:8080/git/models/demo.git /home/xet/work/demo
-Cloning into '/home/xet/work/demo'...
+$ git clone http://xetcasd:8080/git/models/demo.git /var/lib/xet/work/demo
+Cloning into '/var/lib/xet/work/demo'...
 warning: You appear to have cloned an empty repository.
 
 $ git lfs track "*.safetensors"
@@ -159,7 +159,7 @@ came off the server in that moment, and it came through git-lfs's *basic*
 transfer — meaning the server reconstructed each file from its chunks:
 
 ```
-$ git clone http://xetcasd:8080/git/models/demo.git /home/xet/work/verify
+$ git clone http://xetcasd:8080/git/models/demo.git /var/lib/xet/work/verify
 $ git checkout --quiet <v2 commit> && git lfs pull
   PASS v2 sha256 … matches
 $ git checkout --quiet <v1 commit> && git lfs pull

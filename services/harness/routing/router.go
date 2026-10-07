@@ -29,6 +29,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/services/harness/session"
 )
 
@@ -288,6 +289,12 @@ func (router *Router) closed(holder string) bool {
 	return last
 }
 
+// TitleOverlap is how well two pull request titles fit, as the router
+// scores them: the Jaccard index of their words.
+func TitleOverlap(left string, right string) float64 {
+	return overlap(titleWords(left), titleWords(right))
+}
+
 // titleWords is a title's distinct lower-case words.
 func titleWords(title string) map[string]bool {
 	words := map[string]bool{}
@@ -349,8 +356,7 @@ func (router *Router) readTable() (map[string]RealSession, error) {
 	return table, nil
 }
 
-// writeTable replaces the table through a temporary file, so a reader never
-// sees half of it.
+// writeTable replaces the table whole, so a reader never sees half of it.
 func (router *Router) writeTable(table map[string]RealSession) error {
 	directory := filepath.Join(router.state, Directory)
 	if err := os.MkdirAll(directory, directoryMode); err != nil {
@@ -361,11 +367,10 @@ func (router *Router) writeTable(table map[string]RealSession) error {
 		return err
 	}
 	path := filepath.Join(directory, RealSessionsFile)
-	temporary := path + ".tmp"
-	if err := os.WriteFile(temporary, content, fileMode); err != nil {
+	if err := atomicfile.WriteFile(path, content, fileMode); err != nil {
 		return fmt.Errorf("harness routing: write real sessions: %w", err)
 	}
-	return os.Rename(temporary, path)
+	return nil
 }
 
 func (router *Router) record(decision Decision) error {

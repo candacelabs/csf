@@ -62,20 +62,27 @@ func TraceFromContext(ctx context.Context) (*telemetryv1.TraceContext, bool) {
 	return protoFromSpanContext(spanContext), true
 }
 
+// ChildSpan is the compound result of ContextWithChildSpan: the derived child
+// context and the trace context it carries.
+type ChildSpan struct {
+	Context context.Context
+	Trace   *telemetryv1.TraceContext
+}
+
 // ContextWithChildSpan derives a child of the span in ctx and returns a new
 // context carrying it.
-func ContextWithChildSpan(ctx context.Context) (context.Context, *telemetryv1.TraceContext, error) {
+func ContextWithChildSpan(ctx context.Context) (ChildSpan, error) {
 	if ctx == nil {
-		return nil, nil, ErrNilContext
+		return ChildSpan{}, ErrNilContext
 	}
 	parent := oteltrace.SpanContextFromContext(ctx)
 	if !parent.IsValid() {
-		return nil, nil, ErrTraceContextNotFound
+		return ChildSpan{}, ErrTraceContextNotFound
 	}
 	childContext, span := tracer.Start(ctx, "candace.child")
 	child := span.SpanContext()
 	span.End()
-	return childContext, protoFromSpanContext(child), nil
+	return ChildSpan{Context: childContext, Trace: protoFromSpanContext(child)}, nil
 }
 
 func spanContextFromProto(trace *telemetryv1.TraceContext) (oteltrace.SpanContext, error) {

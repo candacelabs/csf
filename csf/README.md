@@ -3,7 +3,7 @@
   <p><b>One Go runtime. Agent work, typed tools, shared knowledge, observable experiments.</b></p>
   <p>
     <a href="../LICENSE"><img src="../docs/assets/badge-license.svg" alt="license: Apache-2.0"></a>
-    <a href="#10-contracts-and-release-evidence"><img src="../docs/assets/badge-version.svg" alt="version: 0.2.9"></a>
+    <a href="#10-contracts-and-release-evidence"><img src="../docs/assets/badge-version.svg" alt="version: 0.3.0"></a>
     <a href="#7-try-the-library"><img src="../docs/assets/badge-go.svg" alt="Go: 1.26"></a>
     <a href="https://arxiv.org/abs/2603.07442"><img src="../docs/assets/badge-lithe.svg" alt="arXiv: LITHE 2603.07442"></a>
     <a href="#1-introduction"><img src="../docs/assets/badge-status.svg" alt="status: developer preview"></a>
@@ -33,7 +33,7 @@ this repository: one Go process that composes [agent](docs/generated/ontology_cg
 [repository front page](../README.md) is the overview; this page is the
 library's own technical guide.
 
-**CSF's current release, v0.2.9, is a developer preview.** It makes no stability
+**CSF's current release, v0.3.0, is a developer preview.** It makes no stability
 or compatibility promise beyond what this page states.
 This is a breaking integration baseline. Pin a reviewed snapshot and use the
 examples shipped with it. The public Go module is `github.com/candacelabs/csf`;
@@ -74,7 +74,7 @@ explicit ownership give each operation a cancellation and cleanup path.
 The [consumer example](../examples/csf-consumer/main.go) shows that composition.
 
 PostgreSQL, [OpenSearch](docs/generated/ontology_cgen.md#term-opensearch), Langfuse and external model or simulator processes keep
-their protocol boundaries. LITHE's [Brain](docs/generated/ontology_cgen.md#term-brain)–[Spine](docs/generated/ontology_cgen.md#term-spine) shared-memory [IPC](docs/generated/ontology_cgen.md#term-ipc) remains a
+their [protocol](docs/generated/ontology_cgen.md#term-protocol) boundaries. LITHE's [Brain](docs/generated/ontology_cgen.md#term-brain)–[Spine](docs/generated/ontology_cgen.md#term-spine) shared-memory [IPC](docs/generated/ontology_cgen.md#term-ipc) remains a
 separate integration boundary. The CPU 0 mapping describes CSF's role; CPU
 affinity and isolation require deployment configuration.
 
@@ -269,7 +269,7 @@ flowchart LR
   n_execute["Execute (existing)"]:::csf_existing
   n_evaluate["Evaluate (existing)"]:::csf_existing
   n_save_evidence["Save evidence (existing)"]:::csf_existing
-  n_ouroboros["Ouroboros (planned)"]:::csf_planned
+  n_ouroboros["Ouroboros (existing)"]:::csf_existing
   n_select_controller["Select a controller between episodes (planned)"]:::csf_planned
   n_observe -.-> n_retrieve
   n_retrieve -.-> n_choose
@@ -279,8 +279,8 @@ flowchart LR
   n_evaluate --> n_save_evidence
   n_evaluate -.-> n_select_controller
   n_select_controller -.->|"next agent iteration"| n_choose
-  n_save_evidence -.-> n_ouroboros
-  n_ouroboros -.->|"next iteration"| n_observe
+  n_save_evidence --> n_ouroboros
+  n_ouroboros -->|"next iteration"| n_observe
   linkStyle 0 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 1 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
@@ -289,8 +289,8 @@ flowchart LR
   linkStyle 5 stroke:#0F766E,stroke-width:2px
   linkStyle 6 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
   linkStyle 7 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
-  linkStyle 8 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
-  linkStyle 9 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 8 stroke:#0F766E,stroke-width:2px
+  linkStyle 9 stroke:#0F766E,stroke-width:2px
 ```
 <!-- /csf:diagram improvement -->
 
@@ -324,6 +324,125 @@ flowchart LR
   linkStyle 6 stroke:#0F766E,stroke-width:2px
 ```
 <!-- /csf:diagram simulation -->
+
+<!-- csf:diagram bootstrap -->
+```mermaid
+%% Generated from csf/compiler/language/architecture.csf; do not edit.
+%% Documentation model only; status labels do not establish runtime verification.
+flowchart LR
+  classDef csf_existing fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#FFFFFF;
+  classDef csf_planned fill:#FEF3C7,stroke:#B45309,stroke-width:2px,color:#78350F;
+  n_archive_in["Hugging Face Jobs provider (existing)"]:::csf_existing
+  n_archive_out["Hugging Face Jobs provider (planned)"]:::csf_planned
+  subgraph g_job["Bootstrap job"]
+    n_mine["Miner (existing)"]:::csf_existing
+    n_csfc["Compiler (existing)"]:::csf_existing
+    n_ask["Typed question (planned)"]:::csf_planned
+    n_decide["JEV System 1 (planned)"]:::csf_planned
+    n_hole["Decision hole (planned)"]:::csf_planned
+    n_executor["Turn executor (existing)"]:::csf_existing
+    n_generate["JEV System 2 (planned)"]:::csf_planned
+    n_checks["Check (existing)"]:::csf_existing
+  end
+  style g_job fill:#EEF2FF,stroke:#4338CA,stroke-width:2px,color:#1E1B4B
+  n_archive_in -.->|"repository archive in"| n_mine
+  n_mine -->|"facts"| n_csfc
+  n_csfc -.-> n_ask
+  n_ask -.->|"batched#44; one forward pass"| n_decide
+  n_decide -.->|"p above the knee#58; csfc writes"| n_csfc
+  n_decide -.->|"p below the knee#44; or no option fits"| n_hole
+  n_hole -.-> n_executor
+  n_executor -.->|"Copilot#44; own provider"| n_generate
+  n_generate -.-> n_checks
+  n_csfc -.-> n_checks
+  n_checks -.->|"a rule fails"| n_ask
+  n_checks -.->|"every rule holds"| n_archive_out
+  linkStyle 0 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 1 stroke:#0F766E,stroke-width:2px
+  linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 3 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 4 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 5 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 6 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 7 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 8 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 9 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 10 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 11 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+```
+<!-- /csf:diagram bootstrap -->
+
+<!-- csf:diagram code_workflow -->
+```mermaid
+%% Generated from csf/compiler/language/architecture.csf; do not edit.
+%% Documentation model only; status labels do not establish runtime verification.
+flowchart LR
+  classDef csf_existing fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#FFFFFF;
+  classDef csf_planned fill:#FEF3C7,stroke:#B45309,stroke-width:2px,color:#78350F;
+  n_declare["CSF declaration (existing)"]:::csf_existing
+  n_emit["Generate from declarations (existing)"]:::csf_existing
+  n_gate["Merge gate (planned)"]:::csf_planned
+  n_propose["Pull request (existing)"]:::csf_existing
+  n_merge["Merge train (existing)"]:::csf_existing
+  n_record["Change record (planned)"]:::csf_planned
+  n_declare --> n_emit
+  n_emit --> n_gate
+  n_gate -.->|"a rule fails#58; change the declaration#44; never the output"| n_declare
+  n_gate -.->|"every check passes"| n_propose
+  n_propose --> n_merge
+  n_merge -.-> n_record
+  linkStyle 0 stroke:#0F766E,stroke-width:2px
+  linkStyle 1 stroke:#0F766E,stroke-width:2px
+  linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 3 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 4 stroke:#0F766E,stroke-width:2px
+  linkStyle 5 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+```
+<!-- /csf:diagram code_workflow -->
+
+<!-- csf:diagram concurrency -->
+```mermaid
+%% Generated from csf/compiler/language/architecture.csf; do not edit.
+%% Documentation model only; status labels do not establish runtime verification.
+flowchart LR
+  classDef csf_existing fill:#0F766E,stroke:#115E59,stroke-width:2px,color:#FFFFFF;
+  classDef csf_planned fill:#FEF3C7,stroke:#B45309,stroke-width:2px,color:#78350F;
+  n_agent_a["Agent (existing)"]:::csf_existing
+  n_agent_b["Agent (existing)"]:::csf_existing
+  n_snap["MVCC snapshot (planned)"]:::csf_planned
+  n_txn["Serializable transaction (planned)"]:::csf_planned
+  n_trig["Row trigger (planned)"]:::csf_planned
+  n_rules["Schema constraint (planned)"]:::csf_planned
+  n_good["Representable state (planned)"]:::csf_planned
+  n_bell["Commit bell (planned)"]:::csf_planned
+  n_worker["River worker (planned)"]:::csf_planned
+  n_decide["JEV System 1 (planned)"]:::csf_planned
+  n_agent_a -.->|"a csf word#58; one SQL template"| n_snap
+  n_agent_b -.->|"at the same moment"| n_snap
+  n_snap -.->|"write rows"| n_txn
+  n_txn -.->|"each changed row"| n_trig
+  n_txn -.->|"at commit"| n_rules
+  n_rules -.->|"write skew#58; one gets 40001 and reruns"| n_snap
+  n_rules -.->|"every rule holds"| n_good
+  n_good -.->|"the next snapshot"| n_snap
+  n_trig -.->|"rings only if it commits"| n_bell
+  n_bell -.-> n_worker
+  n_worker -.->|"open asks#44; one batch"| n_decide
+  n_worker -.->|"result in a new transaction"| n_txn
+  linkStyle 0 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 1 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 2 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 3 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 4 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 5 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 6 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 7 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 8 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 9 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 10 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+  linkStyle 11 stroke:#B45309,stroke-width:2px,stroke-dasharray:5 5
+```
+<!-- /csf:diagram concurrency -->
 
 ## 6. The architecture for self-improving autonomy
 
@@ -547,7 +666,7 @@ exact release tag you used:
 @software{csf2026,
   title   = {CSF — The Cerebrospinal Fluid},
   author  = {{Candace Labs}},
-  version = {0.2.9},
+  version = {0.3.0},
   year    = {2026},
   url     = {https://github.com/candacelabs/csf}
 }

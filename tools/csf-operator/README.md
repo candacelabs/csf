@@ -2,13 +2,13 @@
 
 From the repository root of a fresh checkout, run `./install.sh`. It uses Docker-backed Bazel to build the locked Rust operator
 and installs the `csf` launcher. `csf` is the same as
-`csf up --dry`: it validates the checked-out runtime and prints the
+`csf up --dry`: it validates the checked-out [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) and prints the
 startup plan without calling Docker or HTTP. `csf --help` prints the
 command reference. `csf up` creates private
 local credentials and evidence state, starts the pinned
 Langfuse/OpenSearch/PostgreSQL dependency set in one `csf` Compose project,
 provisions native search tools and the local embedding model, builds the CSF Go
-runtime inside the pinned Go container, initializes its database schema once,
+[runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) inside the pinned Go container, initializes its database schema once,
 waits for HTTP readiness, and prints the loopback URL.
 
 ```sh
@@ -35,7 +35,7 @@ renderer including Go and CLI generation, and verifies the resulting pages,
 source/build provenance, and actual CSF keyword highlighting. It fails explicitly
 when the renderer is absent; the standalone source snapshot does not include
 the private documentation site. Work and site directories must be separate
-and outside the checkout. This command starts no CSF runtime or containers.
+and outside the checkout. This command starts no CSF [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) or containers.
 
 The default private state is `~/.local/state/csf`; set
 `CANDACE_CSF_STATE_DIR` to keep it elsewhere. Credentials and database URLs are
@@ -44,27 +44,27 @@ Startup does not require a prebuilt binary, an evidence path, service
 credentials, or a pre-created Docker network. MLflow remains available as an
 opt-in Compose service and does not start with CSF.
 
-The runtime, Langfuse UI, OpenSearch API, and PostgreSQL host port bind to
+The [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime), Langfuse UI, [OpenSearch](../../csf/docs/generated/ontology_cgen.md#term-opensearch) API, and PostgreSQL host port bind to
 loopback. The generated Compose network belongs to `csf`; it does not
 join another project. First startup pulls pinned images and registers the
 MiniLM model, which needs internet access and can take several minutes. The
-configured memory limits total about 16 GiB.
+configured [memory](../../csf/docs/generated/ontology_cgen.md#term-memory) limits total about 16 GiB.
 
-The runtime image includes the pinned Copilot CLI. Persistent Workbench agents
+The [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) image includes the pinned Copilot CLI. Persistent [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) [agents](../../csf/docs/generated/ontology_cgen.md#term-agent)
 and scheduled sessions need an authorized GitHub Copilot credential supplied
 through `COPILOT_GITHUB_TOKEN`, `GH_TOKEN`, or `GITHUB_TOKEN`. The operator
 copies that credential into private mode-0600 state and does not claim
 scheduled execution when no token is available.
 
-Workbench preparation uses Git from the built runtime image, so the operator
+[Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) preparation uses Git from the built [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) image, so the operator
 does not require Git on the host. A source archive becomes a new private Git
 snapshot containing its `.candace-source.json` provenance; its local commit is
 an import, not the upstream source commit. Installer build outputs and Bazel
 convenience links are excluded, and no remote is added. A standalone Git
-checkout is cloned locally instead. Existing private Workbench repositories
+checkout is cloned locally instead. Existing private [Workbench](../../csf/docs/generated/ontology_cgen.md#term-bench) repositories
 and edits are retained; failed preparation never publishes a partial repository.
 
-The existing `brainspine` protobuf package and `brain-knowledge` OpenSearch
+The existing `brainspine` protobuf package and `brain-knowledge` [OpenSearch](../../csf/docs/generated/ontology_cgen.md#term-opensearch)
 index remain compatibility identifiers. They are internal storage/wire names,
 not the standalone operator name.
 

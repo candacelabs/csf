@@ -19,9 +19,9 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/eventually"
 	"github.com/candacelabs/csf/pkg/gotth/live/livetest"
 	"github.com/candacelabs/csf/pkg/httpserver"
@@ -66,7 +66,7 @@ const (
 	overflowEntries = 24
 	statusLive      = "live"
 	mobileMessage   = "Also push the fix."
-	queuedNotice    = "Queued as turn"
+	queuedRow       = `[data-chat="queued"]`
 	readableFont    = 16.0
 	tapTarget       = 44.0
 	scrollSlack     = 2.0
@@ -116,7 +116,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	wentLive();
 	new MutationObserver(wentLive).observe(document.documentElement, {attributes: true, attributeFilter: ["data-gotth-status"]});
 	new MutationObserver(() => {
-		const count = document.querySelectorAll('[data-gotth-region="chat.transcript"] li').length;
+		const count = document.querySelectorAll('[data-gotth-region="chat.transcript"] > li').length;
 		requestAnimationFrame(() => requestAnimationFrame(() => {
 			window.__chat.paints.push({count: count, at: performance.now()});
 		}));
@@ -142,9 +142,11 @@ func newMobileHarness(executable string) *mobileHarness {
 	launcher := NewMockILauncher(controller)
 	launcher.EXPECT().Run(gomock.Any(), gomock.Any()).Return(proc.Result{}, nil).AnyTimes()
 	harnessSpec := &mobileHarness{logger: make(chan *slog.Logger, 1), release: make(chan struct{})}
+	mobileState := GinkgoT().TempDir()
+	Expect(harness.RecordModelPolicy(mobileState, harness.ModelPolicy{Allowed: []harness.AllowedModel{{Model: "sonnet", Ruling: "spec", RuledBy: "spec", RuledOn: "2026-10-05"}}})).To(Succeed())
 	runner, err := session.NewAgentSessionRunner(
 		session.WithLauncher(launcher),
-		session.WithStateDirectory(GinkgoT().TempDir()),
+		session.WithStateDirectory(mobileState),
 		session.WithGateCommand(gateExecutable, gateVerb),
 		session.WithOpenTurnExecutors(func(_ context.Context, spec session.TurnExecutorSpec) (session.IOpenTurnExecutor, error) {
 			executor := sessionmocks.NewMockIOpenTurnExecutor(controller)
@@ -252,7 +254,7 @@ func (harnessSpec *mobileHarness) paintedAt(count int) time.Time {
 
 func (harnessSpec *mobileHarness) entries() int {
 	var count float64
-	harnessSpec.browser.EvalJSON(`document.querySelectorAll('[data-gotth-region="chat.transcript"] li').length`, &count)
+	harnessSpec.browser.EvalJSON(`document.querySelectorAll('[data-gotth-region="chat.transcript"] > li').length`, &count)
 	return int(count)
 }
 
@@ -324,7 +326,7 @@ func (harnessSpec *mobileHarness) measure() timings {
 		const t0 = performance.now();
 		const settled = new Promise(resolve => {
 			const observer = new MutationObserver(() => {
-				if (document.body.textContent.includes(`+livetest.JSString(queuedNotice)+`)) { observer.disconnect(); resolve(performance.now() - t0); }
+				if (document.querySelector(`+livetest.JSString(queuedRow)+`)) { observer.disconnect(); resolve(performance.now() - t0); }
 			});
 			observer.observe(document.body, {subtree: true, childList: true, characterData: true});
 			setTimeout(() => { observer.disconnect(); resolve(-1); }, 15000);
@@ -415,6 +417,10 @@ var _ = Describe("The chat page on a phone", Label("browser"), func() {
 			func() bool {
 				return harnessSpec.browser.EvalBool(`(() => { const r = document.querySelector('textarea[name="message"]').getBoundingClientRect(); return r.bottom <= window.innerHeight && r.top >= 0; })()`)
 			}, func(inside bool) bool { return inside })
+		// A phone renders a frame after its keyboard opens, and the page keeps
+		// the reader on the newest message in it; headless Chromium renders one
+		// only when asked, and a screenshot asks.
+		harnessSpec.browser.Screenshot()
 		harnessSpec.browser.EvalJSON(atBottom, &gap)
 		Expect(gap).To(BeNumerically("<=", scrollSlack), "the newest message stayed in view above the keyboard")
 		harnessSpec.screenshot("chat-mobile-keyboard.png")

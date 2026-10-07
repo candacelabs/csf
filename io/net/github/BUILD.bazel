@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "github",
+    srcs = [
+        "client.gen.go",
+        "description.go",
+        "git_hub_client_hooks.go",
+        "github.go",
+        "repository.go",
+        "token.go",
+    ],
+    embedsrcs = ["api.github.com.json"],
+    importpath = "github.com/candacelabs/csf/io/net/github",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/net/http",
+        "@com_github_oapi_codegen_runtime//:runtime",
+        "@in_gopkg_yaml_v3//:yaml_v3",
+    ],
+)
+
+go_test(
+    name = "github_test",
+    srcs = [
+        "github_suite_test.go",
+        "github_test.go",
+        "hooks_test.go",
+        "mock_client_test.go",
+        "mock_generate_test.go",
+    ],
+    deps = [
+        ":github",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

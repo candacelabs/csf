@@ -176,7 +176,7 @@ var _ = Describe("schedule patches", func() {
 			Status: string(api.ChatScheduleStatusPaused), CreatedAt: now, UpdatedAt: now,
 		}}
 		adapter = &CopilotAdapter{
-			store: persisted, scheduleStore: crontest.OpenStore(GinkgoT()), logger: slog.Default(), config: DefaultAdapterConfig(),
+			store: persisted, scheduleStore: crontest.OpenStore(GinkgoT()).Store, logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
 		}
@@ -230,7 +230,7 @@ var _ = Describe("schedule patches", func() {
 			continueScheduled:      make(chan struct{}),
 		}
 		adapter := &CopilotAdapter{
-			store: raceStore, scheduleStore: crontest.OpenStore(GinkgoT()), logger: slog.Default(), config: DefaultAdapterConfig(),
+			store: raceStore, scheduleStore: crontest.OpenStore(GinkgoT()).Store, logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
 		}
@@ -289,7 +289,7 @@ var _ = Describe("schedule patches", func() {
 			continueScheduled:      make(chan struct{}),
 		}
 		adapter := &CopilotAdapter{
-			store: raceStore, scheduleStore: &dueScheduleStore{IStore: crontest.OpenStore(GinkgoT())},
+			store: raceStore, scheduleStore: &dueScheduleStore{IStore: crontest.OpenStore(GinkgoT()).Store},
 			logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
@@ -351,7 +351,7 @@ var _ = Describe("schedule patches", func() {
 		}
 		raceStore := &schedulePauseRaceStore{row: current}
 		adapter := &CopilotAdapter{
-			store: raceStore, scheduleStore: crontest.OpenStore(GinkgoT()), logger: slog.Default(), config: DefaultAdapterConfig(),
+			store: raceStore, scheduleStore: crontest.OpenStore(GinkgoT()).Store, logger: slog.Default(), config: DefaultAdapterConfig(),
 			scheduleReload: make(chan scheduleReloadRequest, 1), mutations: newMutationRegistry[uuid.UUID](),
 			scheduleControls: newMutationRegistry[uuid.UUID](),
 		}

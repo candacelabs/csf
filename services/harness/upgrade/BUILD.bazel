@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "upgrade",
+    srcs = [
+        "binary.go",
+        "restart.go",
+        "upgrade.go",
+    ],
+    importpath = "github.com/candacelabs/csf/services/harness/upgrade",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/kernel/clock",
+        "//pkg/atomicfile",
+        "//pkg/eventually",
+    ],
+)
+
+go_test(
+    name = "upgrade_test",
+    srcs = [
+        "binary_test.go",
+        "restart_test.go",
+        "upgrade_suite_test.go",
+        "upgrade_test.go",
+    ],
+    deps = [
+        ":upgrade",
+        "//pkg/eventually",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -7,7 +7,7 @@ go_library(
     visibility = ["//visibility:private"],
     deps = [
         "//app/nodeexec/internal/config",
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//pkg/telemetry",
         "//proto/candace/deploy/v1:deploy",
         "//proto/candace/telemetry/v1:telemetry",

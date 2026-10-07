@@ -65,6 +65,7 @@ let fixture : Model.resolved = {
     connections = List.map (fun (value : Model.resolved_connection) -> value.connection) connections;
     scan_roots = [{ Model.path = "source/\"\\\n"; path_at = at }];
     generated_roots = [{ Model.path = "generated/"; path_at = at }];
+    directories = [{ Model.path = "source"; allowed = ["go"; "csf"]; tier = None; directory_at = at }];
   };
   scopes = [root_scope; child_scope; peer_scope]; components; connections;
   start_order = [gateway; service; manager; adapter]; stop_order = [adapter; manager; service; gateway];
@@ -89,7 +90,9 @@ let test_typed_output () =
   expect "missing optional entrypoint lost" (contains output "entrypoint = None");
   expect "missing optional source lost" (contains output "source = None");
   expect "missing optional boundary lost" (contains output "boundary = None");
-  expect "present boundary lost" (contains output "boundary = Some (\"gateway\")")
+  expect "present boundary lost" (contains output "boundary = Some (\"gateway\")");
+  expect "directory declaration lost" (contains output "allowed = [\"go\"; \"csf\"]");
+  expect "directory path lost" (contains output "Model.path = \"source\"")
 
 let test_diagram () =
   let output = Emit.mermaid fixture in
@@ -129,7 +132,7 @@ let test_review () =
 let test_empty_optionals () =
   let empty : Model.resolved = {
     architecture = { fixture.architecture with processes = []; scopes = []; components = [];
-      dependencies = []; connections = []; scan_roots = []; generated_roots = [] };
+      dependencies = []; connections = []; scan_roots = []; generated_roots = []; directories = [] };
     scopes = []; components = []; connections = []; start_order = []; stop_order = []; obligations = [];
   } in
   expect "empty declaration cannot be emitted" (contains (Emit.ocaml empty) "components = []");
@@ -137,7 +140,9 @@ let test_empty_optionals () =
   expect "empty review invents obligations" (contains (Emit.review empty) "No pending obligations");
   expect "empty lifecycle invents an order" (contains (Emit.review empty) "None declared");
   expect "empty JSON invents components"
-    (Yojson.Safe.Util.member "components" (Yojson.Safe.from_string (Emit.json empty)) = `List [])
+    (Yojson.Safe.Util.member "components" (Yojson.Safe.from_string (Emit.json empty)) = `List []);
+  expect "empty JSON invents directories"
+    (Yojson.Safe.Util.member "directories" (Yojson.Safe.from_string (Emit.json empty)) = `List [])
 
 (* Parse the JSON with Yojson rather than matching text, so escaping and
    structure are checked as a consumer in another language would read them. *)
@@ -180,6 +185,10 @@ let test_json () =
     (field "scan_roots" document |> to_list |> strings "path" = ["source/\"\\\n"]);
   expect "generated roots lost"
     (field "generated_roots" document |> to_list |> strings "path" = ["generated/"]);
+  expect "directories lost"
+    (field "directories" document |> to_list |> strings "path" = ["source"]);
+  expect "directory allowed kinds lost"
+    (field "directories" document |> to_list |> List.hd |> field "allowed" = `List [`String "go"; `String "csf"]);
   let obligations = field "obligations" document |> to_list in
   expect "obligation evidence lost" (List.map (field "evidence") obligations
     = [`Null; `String "test|`<tag>\nnext"]);

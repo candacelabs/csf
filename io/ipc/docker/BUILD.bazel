@@ -1,0 +1,59 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "docker",
+    srcs = [
+        "container_host_service.go",
+        "containers.go",
+        "owned.go",
+        "owned_record.go",
+    ],
+    importpath = "github.com/candacelabs/csf/io/ipc/docker",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/kernel/clock",
+        "//io/kernel/sandbox",
+        "//io/net",
+        "//pkg/atomicfile",
+        "//pkg/boundedbuffer",
+        "//pkg/boundedbuffer/v1:boundedbuffer",
+        "@com_github_containerd_errdefs//:errdefs",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_moby_moby_api//pkg/stdcopy",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_api//types/mount",
+        "@com_github_moby_moby_api//types/network",
+        "@com_github_moby_moby_client//:client",
+    ],
+)
+
+go_test(
+    name = "docker_test",
+    srcs = [
+        "containers_test.go",
+        "docker_suite_test.go",
+        "engine_unit_test.go",
+        "mock_container_api_test.go",
+        "mock_generate_test.go",
+        "mock_listener_test.go",
+        "owned_record_test.go",
+        "owned_test.go",
+        "service_test.go",
+    ],
+    embed = [":docker"],
+    deps = [
+        "//io/ipc/docker/mocks",
+        "//io/kernel/clock",
+        "@com_github_containerd_errdefs//:errdefs",
+        "@com_github_moby_moby_api//pkg/stdcopy",
+        "@com_github_moby_moby_api//types/container",
+        "@com_github_moby_moby_api//types/jsonstream",
+        "@com_github_moby_moby_api//types/mount",
+        "@com_github_moby_moby_api//types/network",
+        "@com_github_moby_moby_client//:client",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

@@ -1,3 +1,5 @@
+# Layout: sqlc emits one role-named file per concern (models.go, queries.sql.go)
+# because a table's row and its queries belong together beside the schema.
 version: "2"
 sql:
   - engine: "postgresql"

@@ -81,11 +81,34 @@ if [[ "$mode" == score ]]; then
   exit
 fi
 # Both sides are measured by this checkout's checkers, so the comparison holds
-# the method fixed and only the measured tree changes.
+# the method fixed and only the measured tree changes. Cache the base measurement
+# by merge-base sha to avoid recomputing on repeated --ratchet calls for the same base.
 merge_base=$(git -C "$root" merge-base "${base:-origin/main}" HEAD)
-base_tree="$stage/base"
-git -C "$root" worktree add --quiet --detach "$base_tree" "$merge_base" >&2
-measure "$base_tree" json "${receipt:+$receipt/base}" > "$stage/base.json"
+merge_base_sha=$(git -C "$root" rev-parse "$merge_base")
+# Use .git/ontology-score-cache for storing measurements by merge-base sha (if .git is a directory)
+cache_dir=
+git_dir=$(git -C "$root" rev-parse --git-dir 2>/dev/null || echo ".git")
+if [[ -d "$root/$git_dir" ]]; then
+  cache_dir="$root/$git_dir/ontology-score-cache"
+  mkdir -p "$cache_dir" 2>/dev/null || true
+fi
+cached_base=
+if [[ -n "$cache_dir" && -f "$cache_dir/$merge_base_sha.json" ]]; then
+  cached_base="$cache_dir/$merge_base_sha.json"
+fi
+if [[ -n "$cached_base" ]]; then
+  # Use cached measurement
+  cp "$cached_base" "$stage/base.json"
+else
+  # Measure without caching if directory creation fails
+  base_tree="$stage/base"
+  git -C "$root" worktree add --quiet --detach "$base_tree" "$merge_base" >&2
+  measure "$base_tree" json "${receipt:+$receipt/base}" > "$stage/base.json"
+  # Try to cache the result if cache dir is available
+  if [[ -n "$cache_dir" ]]; then
+    cp "$stage/base.json" "$cache_dir/$merge_base_sha.json" 2>/dev/null || true
+  fi
+fi
 measure "$root" json "${receipt:+$receipt/head}" > "$stage/head.json"
 if [[ "$mode" == pr-spec ]]; then
   "$stage/house-lint" --ontology-compare "$stage/base.json" "$stage/head.json" --format pr-spec

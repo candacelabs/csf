@@ -1,0 +1,49 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cloud",
+    srcs = [
+        "cloud.go",
+        "cloud_jobs_burst.go",
+        "cloud_jobs_operations.go",
+        "cloud_jobs_probe.go",
+        "dryrun.go",
+        "metrics.go",
+    ],
+    embedsrcs = ["burst.sh"],
+    importpath = "github.com/candacelabs/csf/services/cloud",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//csf",
+        "//io/kernel/clock",
+        "//io/net/hfjobs",
+        "//pkg/atomicfile",
+        "//pkg/privatefile",
+        "//runtime",
+        "//services/dispatch",
+        "@com_github_gin_gonic_gin//:gin",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_test(
+    name = "cloud_test",
+    srcs = [
+        "cloud_suite_test.go",
+        "cloud_test.go",
+        "mock_cloud_test.go",
+    ],
+    deps = [
+        ":cloud",
+        "//io/kernel/clock",
+        "//io/net/hfjobs",
+        "//pkg/eventually",
+        "//proto/candace/brainspine/v1:brainspine",
+        "//runtime",
+        "//services/dispatch",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

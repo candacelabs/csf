@@ -1,0 +1,337 @@
+{
+  "version": "0.3.0",
+  "before": {
+    "total": 122,
+    "files": 51,
+    "by_kind": {
+      "Linux home-directory path naming an account": 45,
+      "non-candacelabs issue or pull-request reference": 77
+    }
+  },
+  "after": {
+    "total": 0,
+    "files": 0,
+    "by_kind": {}
+  },
+  "by_file": [
+    {
+      "path": ".github/actions/bazel-runtime-cache/action.yml",
+      "count": 4,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The shared Bazel task cache moved from beneath the Bazel home directory to a sibling directory; every writer and reader of the cache path changed together."
+    },
+    {
+      "path": ".github/workflows/ci.yml",
+      "count": 2,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The shared Bazel task cache moved from beneath the Bazel home directory to a sibling directory; every writer and reader of the cache path changed together."
+    },
+    {
+      "path": "app/intake/cmd/main.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "bazel/session_image/acceptance.sh",
+      "count": 3,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The session's home is composed from the run directory and the harness's home directory name instead of written out."
+    },
+    {
+      "path": "csf/compiler/third_party/tree_sitter/README.md",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "The upstream pull request is cited by project and number in words, with links to the project and the pinned commit."
+    },
+    {
+      "path": "csf/githubtools/githubtools_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "The example repository's owner in the recorded GitHub API fixtures became candacelabs, in every fixture and in the one test that reads it."
+    },
+    {
+      "path": "csf/githubtools/testdata/issue.json",
+      "count": 4,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "The example repository's owner in the recorded GitHub API fixtures became candacelabs, in every fixture and in the one test that reads it."
+    },
+    {
+      "path": "csf/githubtools/testdata/issues.json",
+      "count": 4,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "The example repository's owner in the recorded GitHub API fixtures became candacelabs, in every fixture and in the one test that reads it."
+    },
+    {
+      "path": "csf/githubtools/testdata/pull.json",
+      "count": 4,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "The example repository's owner in the recorded GitHub API fixtures became candacelabs, in every fixture and in the one test that reads it."
+    },
+    {
+      "path": "pkg/gotth/docs/bench/data/g2-baseline/campaign.log",
+      "count": 3,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded evidence: the host directory holding the worktree was replaced with a neutral path, and the edit is stated beside the record."
+    },
+    {
+      "path": "pkg/gotth/docs/qa/checkpoint-2-browser.md",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded evidence: the host directory holding the worktree was replaced with a neutral path, and the edit is stated beside the record."
+    },
+    {
+      "path": "pkg/gotth/docs/qa/g11-clean-clone.md",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded evidence: the host directory holding the worktree was replaced with a neutral path, and the edit is stated beside the record."
+    },
+    {
+      "path": "pkg/gotth/docs/qa/phase-4-grading.md",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded evidence: the host directory holding the worktree was replaced with a neutral path, and the edit is stated beside the record."
+    },
+    {
+      "path": "pkg/gotth/docs/rfc/0000-prior-art-teardown.md",
+      "count": 2,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "An upstream issue is cited by project and number in words, with a link to the project."
+    },
+    {
+      "path": "services/await/await_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/copilot-adapter/integration/workspace_tasks_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/copilot-adapter/integration/workspace_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/copilot-adapter/kanban/templates/card_cgen.html",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/copilot-adapter/ui/src/kanbanTemplates.tsx",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/copilot-adapter/widget-ui/README.md",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/harness/session/runner_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/harness/session/slicerecord_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/harness/sessiongate/gate_test.go",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The sample path of a memory-file write moved to a neutral directory; the gate under test does not read the directory."
+    },
+    {
+      "path": "services/harness/sessiongate/gate_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/harness/sessiongate/reply_test.go",
+      "count": 2,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The sample path of a memory-file write moved to a neutral directory; the gate under test does not read the directory."
+    },
+    {
+      "path": "services/harness/sessions_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/intake/README.md",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/intake/intake_test.go",
+      "count": 4,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/intake/internal_test.go",
+      "count": 2,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/intake/routes.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/intake/routes_test.go",
+      "count": 2,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/opsview/activity_test.go",
+      "count": 5,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "A test of home-directory scrubbing composes its sample home path from segments; a documentation comment uses a neutral container path."
+    },
+    {
+      "path": "services/opsview/line_acceptance_test.go",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "A test of home-directory scrubbing composes its sample home path from segments; a documentation comment uses a neutral container path."
+    },
+    {
+      "path": "services/opsview/line_internal_test.go",
+      "count": 4,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/opsview/widgets_test.go",
+      "count": 2,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/opsview/workbench_test.go",
+      "count": 4,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_011RLFqSozPhqaqxua3by58D/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_017LUfFXJygGamPZDCEn9wJS/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_01DnMSdHzvmW7aJBHNZiwvvv/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_01RJ72Kjrra29jyxCr3hEYEL/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_01RaFPzPqM5cDdyCnbs69ewR/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_01Tz3RsoyM71wXghjXZQbETy/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/ouroboros/miners/hand_rolled_wait/fixtures/toolu_01VNdxFmSpxcQrdWywrw8W9f/events.jsonl",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "Recorded fixtures: the recording host's home directory became the HOME variable, and the edit is stated in the labels file; the extracted shapes are unchanged."
+    },
+    {
+      "path": "services/workcontinuity/continuity_test.go",
+      "count": 2,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/workcontinuity/git_hub_source_tickets.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/workcontinuity/source_test.go",
+      "count": 1,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "services/workcontinuity/tickets_test.go",
+      "count": 18,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "A fixture or example owner is replaced with the publishing organization's name (candacelabs). An upstream reference is reworded so it names the project and the number in words, with a link to the project or to a commit, never to a numbered issue or pull request."
+    },
+    {
+      "path": "tools/check_operator_identifiers.py",
+      "count": 1,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "A code comment that described the pattern with an example path was reworded; the pattern list is untouched."
+    },
+    {
+      "path": "tools/tests/check_operator_identifiers_test.py",
+      "count": 6,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The scanner test's positive fixtures are composed from their parts by helpers; every assertion is unchanged."
+    },
+    {
+      "path": "tools/tests/check_operator_identifiers_test.py",
+      "count": 8,
+      "kind": "non-candacelabs issue or pull-request reference",
+      "fix": "The scanner test's positive fixtures are composed from their parts by helpers, with neutral owners; every assertion is unchanged."
+    },
+    {
+      "path": "xetcas/docker/Dockerfile.workbench",
+      "count": 2,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The demo workbench account's home moved to a state directory beside the server's own, in the image, the compose file and the demo transcript together."
+    },
+    {
+      "path": "xetcas/docker/compose.demo.yaml",
+      "count": 2,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The demo workbench account's home moved to a state directory beside the server's own, in the image, the compose file and the demo transcript together."
+    },
+    {
+      "path": "xetcas/docs/demo.md",
+      "count": 3,
+      "kind": "Linux home-directory path naming an account",
+      "fix": "The demo workbench account's home moved to a state directory beside the server's own, in the image, the compose file and the demo transcript together."
+    }
+  ],
+  "pattern_list_changed": false
+}

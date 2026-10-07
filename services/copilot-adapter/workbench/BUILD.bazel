@@ -9,8 +9,8 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/copilot-adapter/workbench",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
-        "//ipc/proc",
+        "//io/ipc/db/csfpg",
+        "//io/ipc/proc",
         "//pkg/boundedbuffer",
         "//pkg/boundedbuffer/v1:boundedbuffer",
         "//services/copilot-adapter",
@@ -34,7 +34,7 @@ go_test(
     ],
     embed = [":workbench"],
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "//pkg/httpserver",
         "@com_github_gin_gonic_gin//:gin",
         "@com_github_onsi_ginkgo_v2//:ginkgo",

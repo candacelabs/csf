@@ -4,16 +4,15 @@ go_library(
     name = "workcontinuity",
     srcs = [
         "continuity.go",
-        "http_source.go",
+        "git_hub_source_tickets.go",
         "records.go",
         "source.go",
-        "tickets.go",
     ],
     embedsrcs = ["ticket.md.tmpl"],
     importpath = "github.com/candacelabs/csf/services/workcontinuity",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/proc",
+        "//io/net/github",
         "//pkg/telemetry",
         "//proto/candace/telemetry/v1:telemetry",
         "//proto/candace/work/v1:work",
@@ -27,9 +26,8 @@ go_test(
     name = "workcontinuity_test",
     srcs = [
         "continuity_test.go",
-        "http_source_test.go",
+        "mock_client_test.go",
         "mock_generate_test.go",
-        "mock_launcher_test.go",
         "mock_source_test.go",
         "source_test.go",
         "tickets_test.go",
@@ -37,7 +35,7 @@ go_test(
     ],
     deps = [
         ":workcontinuity",
-        "//ipc/proc",
+        "//io/net/github",
         "//pkg/telemetry",
         "//proto/candace/telemetry/v1:telemetry",
         "//proto/candace/work/v1:work",

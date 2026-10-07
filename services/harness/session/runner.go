@@ -27,11 +27,16 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/model"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/net/model"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/net/model/copilotcli"
+	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/kernel/sandbox"
+	"github.com/candacelabs/csf/pkg/affect"
 	"github.com/candacelabs/csf/pkg/telemetry"
+	"github.com/candacelabs/csf/pkg/terms"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
+	"github.com/candacelabs/csf/services/harness/provider"
 )
 
 //go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_turn_executor.go -package=mocks github.com/candacelabs/csf/services/harness/session ITurnExecutor,IOpenTurnExecutor,IRouter
@@ -70,6 +75,13 @@ var (
 // pull request on.
 const PushRemote = "origin"
 
+// A repository pins the Bazel execution image its builds run in at
+// bazel/execution_image.txt, relative to its root.
+const (
+	bazelDirectory = "bazel"
+	bazelImageFile = "execution_image.txt"
+)
+
 // Executables and arguments of the children the runner starts.
 const (
 	gitExecutable = "git"
@@ -93,6 +105,7 @@ const (
 
 	gitConfig           = "config"
 	gitSetCoreHooksPath = "core.hooksPath"
+	gitWorktreeFlag     = "--worktree"
 	gitCommit           = "commit"
 	gitAllowEmptyCommit = "--allow-empty"
 
@@ -101,6 +114,14 @@ const (
 	flagPermissionMode     = "--permission-mode"
 	flagAllowedTools       = "--allowedTools"
 	flagAppendSystemPrompt = "--append-system-prompt"
+	flagMCPConfig          = "--mcp-config"
+	// MCPServerName is the name sessions reach the host's own MCP server by,
+	// so its tools are spelled mcp__csf__<tool> in a recipe's allowed tools.
+	MCPServerName = "csf"
+	// AssignmentHeader carries a session's assignment on every request it
+	// makes to the host's MCP server, so an operation names its actor.
+	AssignmentHeader = "X-CSF-Assignment"
+	mcpTransportHTTP = "http"
 	// permissionDontAsk denies, without asking, every tool call the allow
 	// list and the gates do not approve: nobody answers a prompt in print
 	// mode.
@@ -155,6 +176,7 @@ exit 0
 // executor in production, a double in specs.
 type ITurnExecutor interface {
 	Propose(ctx context.Context, turn *claudecode.Turn) (*model.Proposal[claudecode.Event], error)
+	Inject(ctx context.Context, message string) error
 }
 
 // TurnExecutorSpec is what the runner asks of a turn executor.
@@ -170,6 +192,18 @@ type TurnExecutorSpec struct {
 	// Environment is appended, as NAME=value, to the environment the turn
 	// executor's process inherits: the Bazel cache locations, for one.
 	Environment []string
+	// LaunchPrefix, when set, wraps the turn executor: the process started is
+	// LaunchPrefix[0] with LaunchPrefix[1:] ahead of the executor and its
+	// arguments. The sandbox puts its launcher here.
+	LaunchPrefix []string
+	// TaskNotifications, when set, receives the task notifications an open
+	// turn executor reads between turns: the background completions that wake
+	// the session. It must not block.
+	TaskNotifications func(notification claudecode.TaskNotification)
+	// Executor is the turn executor the recipe chose.
+	Executor Executor
+	// RunDirectory is the run's directory, which holds the worktree.
+	RunDirectory string
 }
 
 // TurnExecutorFactory builds the turn executor for one turn.
@@ -185,6 +219,9 @@ func ClaudeCodeTurnExecutors(launcher proc.ILauncher, executable string) TurnExe
 			claudecode.WithArguments(spec.Arguments...),
 			claudecode.WithLogger(spec.Logger),
 			claudecode.WithEnvironment(spec.Environment...),
+		}
+		if len(spec.LaunchPrefix) > 0 {
+			options = append(options, claudecode.WithLaunchPrefix(spec.LaunchPrefix...))
 		}
 		if spec.Resume {
 			options = append(options, claudecode.WithResumedSession())
@@ -202,6 +239,27 @@ type AgentSessionRunner struct {
 	openExecutors  OpenTurnExecutorFactory
 	claude         string
 	router         IRouter
+	// sandbox, when granted, confines every session it opens; nil leaves
+	// sessions unsandboxed, which is the default until the acceptance passes on
+	// a host.
+	sandbox        *sandbox.Manager
+	dockerUpstream string
+	// containers, when granted, runs every session inside its own container
+	// of the session image; nil runs sessions on the host.
+	containers        ISessionContainers
+	containerSettings ContainerSettings
+	// mcpURL, when set, is the host's own MCP server, which every turn is
+	// given in its executor's configuration shape with the session's
+	// assignment as a header, so a session drives CSF through its typed
+	// operations and each call names its actor.
+	mcpURL string
+	// copilot is the Copilot CLI executable a recipe choosing Copilot runs.
+	copilot string
+	// provider, when granted, is the inference provider every session is
+	// launched through: its environment reaches each turn executor and a
+	// recipe's CSF model name is mapped to the provider's own spelling. Nil
+	// launches sessions on the executor's own configured provider.
+	provider *provider.Router
 }
 
 // AgentSessionRunnerOption configures an [AgentSessionRunner].
@@ -254,6 +312,29 @@ func WithTurnExecutors(factory TurnExecutorFactory) AgentSessionRunnerOption {
 	}
 }
 
+// mcpConfigFile is Claude Code's --mcp-config document.
+type mcpConfigFile struct {
+	Servers map[string]mcpServerConfig `json:"mcpServers"`
+}
+
+type mcpServerConfig struct {
+	Type    string            `json:"type"`
+	URL     string            `json:"url"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
+
+// WithMCPServer gives every session the host's MCP server at url, under the
+// name [MCPServerName]. A recipe still allows each tool it may call.
+func WithMCPServer(url string) AgentSessionRunnerOption {
+	return func(runner *AgentSessionRunner) error {
+		if url == "" {
+			return fmt.Errorf("%w: empty MCP server URL", ErrInvalidOption)
+		}
+		runner.mcpURL = url
+		return nil
+	}
+}
+
 // WithClaudeExecutable runs Claude Code from executable instead of the name
 // claude on PATH.
 func WithClaudeExecutable(executable string) AgentSessionRunnerOption {
@@ -266,10 +347,22 @@ func WithClaudeExecutable(executable string) AgentSessionRunnerOption {
 	}
 }
 
+// WithCopilotExecutable runs the Copilot CLI from executable instead of the
+// name copilot on PATH, for a recipe that chooses Copilot.
+func WithCopilotExecutable(executable string) AgentSessionRunnerOption {
+	return func(runner *AgentSessionRunner) error {
+		if executable == "" {
+			return fmt.Errorf("%w: empty Copilot CLI executable", ErrInvalidOption)
+		}
+		runner.copilot = executable
+		return nil
+	}
+}
+
 // NewAgentSessionRunner validates the whole option set before building the
 // runner.
 func NewAgentSessionRunner(options ...AgentSessionRunnerOption) (*AgentSessionRunner, error) {
-	runner := &AgentSessionRunner{claude: claudecode.DefaultExecutable}
+	runner := &AgentSessionRunner{claude: claudecode.DefaultExecutable, copilot: copilotcli.DefaultExecutable}
 	for _, option := range options {
 		if option == nil {
 			return nil, fmt.Errorf("%w: nil option", ErrInvalidOption)
@@ -285,12 +378,14 @@ func NewAgentSessionRunner(options ...AgentSessionRunnerOption) (*AgentSessionRu
 		return nil, ErrNoStateDirectory
 	case len(runner.gateCommand) == 0:
 		return nil, ErrNoGateCommand
+	case runner.sandbox != nil && runner.containers != nil:
+		return nil, fmt.Errorf("%w: WithSandbox confines host sessions; WithContainerSessions replaces them", ErrInvalidOption)
 	}
 	if runner.executors == nil {
-		runner.executors = ClaudeCodeTurnExecutors(runner.launcher, runner.claude)
+		runner.executors = TurnExecutorsByRecipe(runner.launcher, runner.claude, runner.copilot)
 	}
 	if runner.openExecutors == nil {
-		runner.openExecutors = ClaudeCodeOpenTurnExecutors(runner.launcher, runner.claude)
+		runner.openExecutors = OpenTurnExecutorsByRecipe(runner.launcher, runner.claude, runner.copilot)
 	}
 	return runner, nil
 }
@@ -307,7 +402,13 @@ func (runner *AgentSessionRunner) Run(ctx context.Context, recipe *pb.AgentAssig
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = log.Close() }()
+	defer func() {
+		_ = log.Close()
+		runner.removeBuildContainer(state)
+	}()
+	if err := runner.startBuildContainer(ctx, log, state); err != nil {
+		return nil, err
+	}
 	return runner.turn(ctx, log, plan, state, firstPrompt(plan, state), false)
 }
 
@@ -350,7 +451,7 @@ func (runner *AgentSessionRunner) openRun(ctx context.Context, recipe *pb.AgentA
 		return nil, nil, nil, nil, err
 	}
 	log.Record(ctx, state.SessionID, 0, EventTypeRunStarted, "harness run started",
-		slog.String(keyAssignmentID, state.AssignmentID), slog.String(keyAgentID, state.AgentID),
+		slog.String(keyAssignmentID, state.AssignmentID), slog.String(keyAgentID, state.AgentID), slog.String(KeyExecutor, string(state.Executor)),
 		slog.String(keyRecipeSHA256, plan.GetRecipeSha256()), slog.String(keyWorktree, worktree), slog.String(keyBranch, state.Branch))
 	if err := runner.createWorktree(ctx, state); err != nil {
 		log.Failure(ctx, state.SessionID, 0, EventTypeWorktreeReady, "worktree not created", err)
@@ -398,33 +499,92 @@ func (runner *AgentSessionRunner) turn(ctx context.Context, log *EventLog, plan 
 	if err != nil {
 		return nil, err
 	}
+	arguments, environment, err := runner.launch(plan, directory, settings)
+	if err != nil {
+		return nil, err
+	}
 	state.Turns++
 	if err := WriteRunState(directory, state); err != nil {
 		return nil, err
 	}
 	session := uuid.MustParse(state.SessionID)
+	if state.BuildContainerID != "" {
+		environment = append(environment, fmt.Sprintf("CANDACE_BUILD_CONTAINER_ID=%s", state.BuildContainerID))
+	}
 	executor, err := runner.executors(TurnExecutorSpec{
-		Session:   session,
-		Directory: state.Worktree,
-		Arguments: turnArguments(plan, settings),
-		Logger:    log.Logger(),
-		Resume:    resume,
+		Session:      session,
+		Directory:    state.Worktree,
+		Arguments:    arguments,
+		Logger:       log.Logger(),
+		Resume:       resume,
+		Environment:  environment,
+		Executor:     ExecutorOf(plan.GetRecipe()),
+		RunDirectory: directory,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("harness session: turn executor: %w", err)
 	}
-	return runner.executeTurn(ctx, log, plan, state, executor, prompt, resume)
+	return runner.executeTurn(ctx, log, plan, state, executor, turnInput{prompt: prompt, resume: resume})
 }
 
-// executeTurn runs prompt as one turn on executor, records it and returns the
+// turnInput is the message one turn carries and what the harness knows about
+// it.
+type turnInput struct {
+	prompt string
+	resume bool
+	// operator is true when the prompt is the operator's own words; novel are
+	// then its unvetted terms, extracted how many terms it carried in all,
+	// vocabulary how many stems the operator's vocabulary held, and affect
+	// the message's operator affect.
+	operator   bool
+	novel      []terms.Term
+	extracted  int
+	vocabulary int
+	affect     affect.Reading
+}
+
+// vetAgainst computes the operator's unvetted terms in the prompt against the
+// vocabulary recorded under stateDirectory and appends the notice naming them
+// to the prompt.
+func (input *turnInput) vetAgainst(stateDirectory string) error {
+	vocabulary, err := OperatorVocabulary(stateDirectory)
+	if err != nil {
+		return err
+	}
+	input.novel = vocabulary.Novel(input.prompt)
+	input.extracted = len(terms.Extract(input.prompt))
+	input.vocabulary = vocabulary.Len()
+	if len(input.novel) > 0 {
+		input.prompt += unvettedNotice(input.novel)
+	}
+	return nil
+}
+
+// executeTurn runs input as one turn on executor, records it and returns the
 // receipt. The caller has already counted the turn in state and written it.
-func (runner *AgentSessionRunner) executeTurn(ctx context.Context, log *EventLog, plan *pb.AgentAssignmentPlan, state *RunState, executor ITurnExecutor, prompt string, resume bool) (*pb.AgentAssignmentReceipt, error) {
-	message, err := userMessage(prompt)
+func (runner *AgentSessionRunner) executeTurn(ctx context.Context, log *EventLog, plan *pb.AgentAssignmentPlan, state *RunState, executor ITurnExecutor, input turnInput) (*pb.AgentAssignmentReceipt, error) {
+	message, err := userMessage(input.prompt)
 	if err != nil {
 		return nil, err
 	}
-	log.Record(ctx, state.SessionID, state.Turns, EventTypeTurnRequested, "turn requested", slog.Bool(keyResume, resume))
-	_, turnErr := executor.Propose(ctx, &claudecode.Turn{Messages: []json.RawMessage{message}})
+	log.Record(ctx, state.SessionID, state.Turns, EventTypeTurnRequested, "turn requested", slog.Bool(keyResume, input.resume))
+	rulings, err := RulingsInForce(runner.stateDirectory)
+	if err != nil {
+		log.Failure(ctx, state.SessionID, state.Turns, EventTypeRulings, "rulings unreadable; the turn's questions are checked against none", err)
+	}
+	if len(rulings) > 0 {
+		log.Record(ctx, state.SessionID, state.Turns, EventTypeRulings, "rulings in force", slog.Any(KeyRulings, rulings))
+	}
+	if input.operator {
+		log.Record(ctx, state.SessionID, state.Turns, EventTypeUnvettedTerms, "unvetted terms",
+			slog.Any(KeyTerms, input.novel), slog.Int(keyMessageTerms, input.extracted), slog.Int(keyVocabulary, input.vocabulary))
+		log.Record(ctx, state.SessionID, state.Turns, EventTypeOperatorAffect, "operator affect",
+			slog.Any(KeyAffect, input.affect), slog.Int(KeyTargetTurn, state.Turns-1))
+	}
+	proposal, turnErr := executor.Propose(ctx, &claudecode.Turn{Messages: []json.RawMessage{message}})
+	if reason, unavailable := ProviderUnavailable(proposal, turnErr); unavailable {
+		turnErr = fmt.Errorf("%w: %s", ErrProviderUnavailable, reason)
+	}
 	receipt := &pb.AgentAssignmentReceipt{
 		Plan:           plan,
 		SessionId:      state.SessionID,
@@ -433,6 +593,7 @@ func (runner *AgentSessionRunner) executeTurn(ctx context.Context, log *EventLog
 		Branch:         state.Branch,
 		PullRequestUrl: runner.pullRequestURL(ctx, log, state),
 		TraceId:        state.TraceID,
+		Executor:       string(ExecutorOf(plan.GetRecipe())),
 	}
 	if turnErr != nil {
 		log.Failure(ctx, state.SessionID, state.Turns, EventTypeRunFinished, "turn failed", turnErr)
@@ -462,6 +623,11 @@ func prepare(recipe *pb.AgentAssignmentRecipe) (*pb.AgentAssignmentPlan, error) 
 	if workspace.GetBranch() == workspace.GetBaseBranch() {
 		return nil, fmt.Errorf("%w: workspace.branch must differ from base_branch", ErrInvalidRecipe)
 	}
+	if ExecutorOf(plan.GetRecipe()) == ExecutorCopilot {
+		if _, err := copilotcli.TranslateToolRules(workspace.GetAllowedTools()); err != nil {
+			return nil, fmt.Errorf("%w: %w", ErrInvalidRecipe, err)
+		}
+	}
 	return plan, nil
 }
 
@@ -474,6 +640,10 @@ func isInvalidTool(tool string) bool {
 func newRunState(plan *pb.AgentAssignmentPlan, traceID string, spanID string, worktree string) *RunState {
 	recipe := plan.GetRecipe()
 	workspace := recipe.GetWorkspace()
+	mode := workspace.GetMode()
+	if mode == "" {
+		mode = "normal"
+	}
 	return &RunState{
 		AssignmentID:     recipe.GetAssignmentId(),
 		AgentID:          recipe.GetAgent().GetId(),
@@ -486,7 +656,9 @@ func newRunState(plan *pb.AgentAssignmentPlan, traceID string, spanID string, wo
 		Branch:           workspace.GetBranch(),
 		BaseBranch:       workspace.GetBaseBranch(),
 		PullRequestTitle: workspace.GetPullRequestTitle(),
+		WorkspaceMode:    mode,
 		Model:            recipe.GetModel(),
+		Executor:         ExecutorOf(recipe),
 		LastPushTime:     0,
 	}
 }
@@ -503,6 +675,9 @@ func (runner *AgentSessionRunner) createWorktree(ctx context.Context, state *Run
 	if err != nil {
 		return fmt.Errorf("%w: %w", ErrWorktree, err)
 	}
+	if err := runner.enableWorktreeConfig(ctx, state.Repository); err != nil {
+		return err
+	}
 	if err := runner.installCommitMsgHook(ctx, state); err != nil {
 		return err
 	}
@@ -510,6 +685,20 @@ func (runner *AgentSessionRunner) createWorktree(ctx context.Context, state *Run
 		return err
 	}
 	state.LastPushTime = int64(time.Now().Unix())
+	return nil
+}
+
+// enableWorktreeConfig enables per-worktree config in the repository,
+// so that each worktree's core.hooksPath can be set independently.
+func (runner *AgentSessionRunner) enableWorktreeConfig(ctx context.Context, repository string) error {
+	_, err := runner.launcher.Run(ctx, proc.Command{
+		Executable: gitExecutable,
+		Arguments:  []string{gitDirectory, repository, gitConfig, "extensions.worktreeConfig", "true"},
+		Directory:  repository,
+	})
+	if err != nil {
+		return fmt.Errorf("harness session: enable worktree config: %w", err)
+	}
 	return nil
 }
 
@@ -528,7 +717,7 @@ func (runner *AgentSessionRunner) installCommitMsgHook(ctx context.Context, stat
 	}
 	_, err := runner.launcher.Run(ctx, proc.Command{
 		Executable: gitExecutable,
-		Arguments:  []string{gitDirectory, state.Worktree, gitConfig, gitSetCoreHooksPath, hooksDir},
+		Arguments:  []string{gitDirectory, state.Worktree, gitConfig, gitWorktreeFlag, gitSetCoreHooksPath, hooksDir},
 		Directory:  state.Worktree,
 	})
 	if err != nil {
@@ -549,6 +738,50 @@ func (runner *AgentSessionRunner) createInitialCommit(ctx context.Context, state
 		return fmt.Errorf("harness session: create initial commit: %w", err)
 	}
 	return nil
+}
+
+// startBuildContainer starts the long-lived build container of a one-shot
+// [AgentSessionRunner.Run] when the worktree pins a Bazel execution image,
+// and records it in state so every turn is handed its ID. A worktree that
+// pins none gets no container, and its builds start their own. A session
+// opened with [AgentSessionRunner.Open] never gets one: nothing there would
+// remove it when the session closes.
+func (runner *AgentSessionRunner) startBuildContainer(ctx context.Context, log *EventLog, state *RunState) error {
+	imageData, err := os.ReadFile(filepath.Join(state.Worktree, bazelDirectory, bazelImageFile))
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		log.Failure(ctx, state.SessionID, 0, EventTypeBuildContainerReady, "build container not created", err)
+		return fmt.Errorf("harness session: read bazel image: %w", err)
+	}
+	cacheRoot := filepath.Join(os.TempDir(), "candace-bazel-cache")
+	for _, directory := range []string{"home", "output"} {
+		if err := os.MkdirAll(filepath.Join(cacheRoot, directory), 0o700); err != nil {
+			log.Failure(ctx, state.SessionID, 0, EventTypeBuildContainerReady, "build container not created", err)
+			return fmt.Errorf("harness session: create cache directories: %w", err)
+		}
+	}
+	containerID, err := createBuildContainer(ctx, runner.launcher, strings.TrimSpace(string(imageData)), state.Worktree, cacheRoot)
+	if err != nil {
+		log.Failure(ctx, state.SessionID, 0, EventTypeBuildContainerReady, "build container not created", err)
+		return err
+	}
+	state.BuildContainerID = strings.TrimSpace(containerID)
+	log.Record(ctx, state.SessionID, 0, EventTypeBuildContainerReady, "build container created", slog.String(keyBuildContainerID, state.BuildContainerID))
+	return nil
+}
+
+// removeBuildContainer removes the run's build container, if it has one, and
+// forgets it, so a later [AgentSessionRunner.Resume] is not handed the ID of a
+// container that no longer exists.
+func (runner *AgentSessionRunner) removeBuildContainer(state *RunState) {
+	if state.BuildContainerID == "" {
+		return
+	}
+	_ = cleanupBuildContainer(context.Background(), runner.launcher, state.BuildContainerID)
+	state.BuildContainerID = ""
+	_ = WriteRunState(RunDirectory(runner.stateDirectory, state.AssignmentID), state)
 }
 
 // PushRemoteURL is the URL of the worktree's push remote, as git records it:
@@ -588,16 +821,52 @@ func (runner *AgentSessionRunner) pullRequestURL(ctx context.Context, log *Event
 	return strings.TrimSpace(string(result.Stdout))
 }
 
-// turnArguments are the turn executor's extra Claude Code arguments.
-func turnArguments(plan *pb.AgentAssignmentPlan, settings string) []string {
+// launch is the turn executor's extra arguments and environment for the
+// executor the recipe chose, on its first provider spelling. settings is the
+// Claude Code settings file holding the gates; a Copilot session gets the same
+// gates as a plugin.
+func (runner *AgentSessionRunner) launch(plan *pb.AgentAssignmentPlan, runDirectory string, settings string) ([]string, []string, error) {
+	return runner.launchAttempt(plan, runDirectory, settings, 0)
+}
+
+// launchAttempt is launch for one provider attempt, counted from zero: the
+// arguments name the attempt's provider spelling of the recipe's model, and
+// the environment carries the provider's endpoint and its key, read now.
+func (runner *AgentSessionRunner) launchAttempt(plan *pb.AgentAssignmentPlan, runDirectory string, settings string, attempt int) ([]string, []string, error) {
+	if ExecutorOf(plan.GetRecipe()) == ExecutorCopilot {
+		return runner.copilotLaunch(plan, runDirectory)
+	}
+	model, served := runner.providerModel(plan.GetRecipe().GetModel(), attempt)
+	if !served {
+		return nil, nil, fmt.Errorf("%w: the provider has no spelling %d for %q", ErrInvalidRecipe, attempt, plan.GetRecipe().GetModel())
+	}
+	environment, err := runner.providerEnvironment()
+	if err != nil {
+		return nil, nil, err
+	}
+	return runner.turnArguments(plan, settings, model), environment, nil
+}
+
+// turnArguments are the turn executor's extra Claude Code arguments, running
+// the turn on model: the recipe's own model name on a host with no provider,
+// and the provider's spelling of it otherwise.
+func (runner *AgentSessionRunner) turnArguments(plan *pb.AgentAssignmentPlan, settings string, model string) []string {
 	recipe := plan.GetRecipe()
-	return []string{
+	arguments := []string{
 		flagSettings, settings,
-		flagModel, recipe.GetModel(),
+		flagModel, model,
 		flagPermissionMode, permissionDontAsk,
 		flagAppendSystemPrompt, recipe.GetAgent().GetInstructions(),
 		flagAllowedTools, strings.Join(recipe.GetWorkspace().GetAllowedTools(), toolSeparator),
 	}
+	if runner.mcpURL != "" {
+		// Encoding a map of strings cannot fail.
+		config, _ := json.Marshal(mcpConfigFile{Servers: map[string]mcpServerConfig{MCPServerName: {
+			Type: mcpTransportHTTP, URL: runner.mcpURL, Headers: map[string]string{AssignmentHeader: recipe.GetAssignmentId()},
+		}}})
+		arguments = append(arguments, flagMCPConfig, string(config))
+	}
+	return arguments
 }
 
 // firstPrompt is the task as the agent first reads it, with the links that

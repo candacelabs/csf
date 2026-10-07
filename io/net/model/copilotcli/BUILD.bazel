@@ -1,0 +1,37 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "copilotcli",
+    srcs = [
+        "executor.go",
+        "records.go",
+        "tools.go",
+    ],
+    importpath = "github.com/candacelabs/csf/io/net/model/copilotcli",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//io/ipc/proc",
+        "//io/net/model",
+        "@com_github_google_uuid//:uuid",
+    ],
+)
+
+go_test(
+    name = "copilotcli_test",
+    srcs = [
+        "copilotcli_suite_test.go",
+        "executor_test.go",
+        "mock_generate_test.go",
+        "mock_launcher_test.go",
+        "tools_test.go",
+    ],
+    deps = [
+        ":copilotcli",
+        "//io/ipc/proc",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_goleak//:goleak",
+        "@org_uber_go_mock//gomock",
+    ],
+)

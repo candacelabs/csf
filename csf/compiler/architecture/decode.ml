@@ -70,6 +70,13 @@ let choice rule mapping reader =
     | Some value -> value
     | None -> invalid node ("unsupported " ^ Rule.name rule ^ ": " ^ Terminal.name symbol))
 
+(* The [optional] lookahead for a choice clause: an absent introducer leaves the
+   next child, such as the closing semicolon, for its caller. *)
+let optional_choice expected rule mapping reader = match reader.remaining with
+  | node :: _ when node.Typed_tree.rule = Rule.Terminal && node.value = Typed_tree.Keyword expected ->
+      terminal expected reader; Some (choice rule mapping reader)
+  | _ -> None
+
 (* Partial application fixes the rule and mapping; [state] still takes the
    reader, just as a closure can remember two arguments for a later call. *)
 let state = choice Rule.State Syntax_cgen.state
@@ -147,12 +154,38 @@ let source_root rule symbol node = fields rule node (fun reader ->
   terminal Terminal.Semicolon reader;
   { path; path_at = node.Typed_tree.at })
 
+(* Comma-separated string list, possibly empty. The bracket delimiters belong
+   to the caller; this reads every string the list carries. *)
+let string_list reader =
+  match reader.remaining with
+  | node :: _ when node.Typed_tree.rule = Rule.String ->
+      let first = text Rule.String reader in
+      let rec rest reversed = match reader.remaining with
+        | node :: _ when node.Typed_tree.rule = Rule.Terminal
+            && node.value = Typed_tree.Keyword Terminal.Comma ->
+            terminal Terminal.Comma reader;
+            rest (text Rule.String reader :: reversed)
+        | _ -> List.rev reversed in
+      first :: rest []
+  | _ -> []
+
+let directory node = fields Rule.Directory node (fun reader ->
+  terminal Terminal.Dir reader;
+  let path = text Rule.String reader in
+  terminal Terminal.Allowed reader;
+  terminal Terminal.LeftBracket reader;
+  let allowed = string_list reader in
+  terminal Terminal.RightBracket reader;
+  let tier = optional_choice Terminal.Tier Rule.Tier Syntax_cgen.tier reader in
+  terminal Terminal.Semicolon reader;
+  { path; allowed; tier; directory_at = node.Typed_tree.at })
+
 (* Require one recognized declaration beneath its grammar wrapper. Filtering
    unknown children later would accept syntax while discarding its meaning. *)
 let declaration node = fields Rule.Declaration node (fun reader ->
   match reader.remaining with
   | [item] when List.mem item.Typed_tree.rule
-      [Rule.Process; Rule.Scope; Rule.Component; Rule.Dependency; Rule.Connection; Rule.Scan; Rule.Generated] ->
+      [Rule.Process; Rule.Scope; Rule.Component; Rule.Dependency; Rule.Connection; Rule.Scan; Rule.Generated; Rule.Directory] ->
       reader.remaining <- []; item
   | _ -> invalid node "expected one supported declaration")
 
@@ -184,7 +217,8 @@ let decode_architecture node = fields Rule.Architecture node (fun reader ->
     processes = collect Rule.Process process; scopes = collect Rule.Scope scope;
     components = collect Rule.Component component; dependencies = collect Rule.Dependency dependency;
     connections = collect Rule.Connection connection; scan_roots = collect Rule.Scan (source_root Rule.Scan Terminal.Scan);
-    generated_roots = collect Rule.Generated (source_root Rule.Generated Terminal.Generated) })
+    generated_roots = collect Rule.Generated (source_root Rule.Generated Terminal.Generated);
+    directories = collect Rule.Directory directory })
 
 (** Public boundary: convert generic parser labels to typed vocabulary once,
     then assemble the model. Expected decoding errors become [Error diagnostics];

@@ -50,7 +50,7 @@ var _ = Describe("New", func() {
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithConfig(config), copilotadapter.WithBridge(bridge),
 			copilotadapter.WithStore(store), copilotadapter.WithWorktreeManager(worktrees),
-			copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithTerminalManager(terminals), copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -105,7 +105,7 @@ var _ = Describe("New", func() {
 			copilotadapter.WithStore(store),
 			copilotadapter.WithWorktreeManager(worktrees),
 			copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(service).NotTo(BeNil())
@@ -118,7 +118,7 @@ var _ = Describe("New", func() {
 			copilotadapter.WithStore(store),
 			copilotadapter.WithWorktreeManager(worktrees),
 			copilotadapter.WithTerminalManager(terminals),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())),
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store),
 		)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(service.Close)
@@ -144,7 +144,7 @@ var _ = Describe("Handler", func() {
 		worktrees = NewMockIWorktreeManager(controller)
 		terminals = NewMockITerminalManager(controller)
 		terminals.EXPECT().Close().Return(nil).AnyTimes()
-		schedules = crontest.OpenStore(GinkgoT())
+		schedules = crontest.OpenStore(GinkgoT()).Store
 		service, err := copilotadapter.NewCopilotAdapter(
 			copilotadapter.WithBridge(bridge),
 			copilotadapter.WithStore(store),

@@ -31,7 +31,7 @@ func ImportantSourcePaths() []string {
 }
 
 const (
-	spineWatchPath     = "ipc/ros/spine.go"
+	spineWatchPath     = "io/net/ros/spine.go"
 	serviceWatchPath   = "csf/service.go"
 	contractWatchPath  = "proto/candace/brainspine/v1/brainspine.proto"
 	openAPIWatchPath   = "csf/tools/codegen/generated/brainspine.openapi.yaml"

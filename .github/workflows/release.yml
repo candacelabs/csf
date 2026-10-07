@@ -1,0 +1,66 @@
+name: Release csf
+
+# Every merge to main publishes the csf binary and its SHA-256 as a release
+# keyed by the commit, csf-<commit>, and moves the latest-main release to it.
+# csf upgrade downloads from these releases, so deploying CSF needs no
+# checkout, Go toolchain or image build on the operator's machine.
+#
+# The one workflow that runs in private staging: its guard is the inverse of
+# ci.yml's, so the public snapshot, which publishes its own source archives,
+# never runs it.
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    name: Build and publish the csf binary
+    if: ${{ github.event.repository.private == true }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      ASSET: csf-linux-amd64
+      LATEST: latest-main
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Build the csf binary in the pinned Go image
+        run: |
+          docker run --rm -i --user "$(id -u):$(id -g)" \
+            --volume "$PWD:/src" --workdir /src \
+            --env CGO_ENABLED=0 --env GOOS=linux --env GOARCH=amd64 \
+            --env GOCACHE=/tmp/go-cache --env GOMODCACHE=/tmp/go-modules \
+            --env GOTOOLCHAIN=local --env GOFLAGS=-mod=readonly \
+            golang:1.26.5-bookworm@sha256:6c5605ab3a9a9fb3c4eafe5b3d63cdbf3881caf113262b67862547b54a9db599 \
+            go build -trimpath -o "dist/$ASSET" ./app/harness/cmd
+          (cd dist && sha256sum "$ASSET" > "$ASSET.sha256")
+          cat "dist/$ASSET.sha256"
+
+      - name: Publish csf-<commit> and move latest-main
+        run: |
+          gh release create "csf-$GITHUB_SHA" "dist/$ASSET" "dist/$ASSET.sha256" \
+            --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+            --title "csf $GITHUB_SHA" --notes "$GITHUB_SHA"
+          if gh release view "$LATEST" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$LATEST" -f sha="$GITHUB_SHA" -F force=true > /dev/null
+            gh release edit "$LATEST" --repo "$GITHUB_REPOSITORY" --notes "$GITHUB_SHA" --target "$GITHUB_SHA"
+            gh release upload "$LATEST" "dist/$ASSET" "dist/$ASSET.sha256" --repo "$GITHUB_REPOSITORY" --clobber
+          else
+            gh release create "$LATEST" "dist/$ASSET" "dist/$ASSET.sha256" \
+              --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "csf latest main" --notes "$GITHUB_SHA"
+          fi

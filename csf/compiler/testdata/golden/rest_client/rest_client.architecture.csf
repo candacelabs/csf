@@ -1,0 +1,26 @@
+// A REST client composition: one host process reaches a remote API through a
+// gateway. Architecture fixture for slice kinds_declared (#487); the golden_first kind and instance are in rest_client.csf beside it: it parses with the
+// architecture grammar (csf/compiler/architecture/language.ebnf), and every
+// kind it uses is declared in meta.csf. It is a syntax fixture, not a claim
+// about a running client.
+architecture rest_client version 1 {
+  process host kind go entrypoint "cmd/restclient/main.go";
+  process api kind external;
+  scope application under host;
+  scope api_lifetime under api;
+  scope request under application;
+  manager composition in host scope application source "cmd/restclient" state existing lifecycle borrowed verification pending;
+  service client in host scope request source "restclient" state existing lifecycle scoped verification test "restclient/client_test.go";
+  library decode in host scope request source "restclient/decode" state existing lifecycle borrowed verification pending;
+  gateway transport in host scope application source "restclient/transport" state existing lifecycle borrowed verification pending;
+  resource remote_api in api scope api_lifetime state existing lifecycle borrowed verification pending;
+  requires composition -> client;
+  requires client -> transport;
+  requires client -> decode;
+  connect client -> transport via call state existing;
+  connect transport -> remote_api via remote boundary transport state existing;
+  connect client -> decode via call state existing;
+  scan "restclient";
+  generated "restclient/generated";
+  dir "restclient" allowed ["go"];
+}

@@ -56,6 +56,21 @@ func (mr *MockISessionHostMockRecorder) Cancel(ctx, request any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockISessionHost)(nil).Cancel), ctx, request)
 }
 
+// Check mocks base method.
+func (m *MockISessionHost) Check(ctx context.Context) (*harnessv1.LaunchCheck, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Check", ctx)
+	ret0, _ := ret[0].(*harnessv1.LaunchCheck)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Check indicates an expected call of Check.
+func (mr *MockISessionHostMockRecorder) Check(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Check", reflect.TypeOf((*MockISessionHost)(nil).Check), ctx)
+}
+
 // Send mocks base method.
 func (m *MockISessionHost) Send(ctx context.Context, request *harnessv1.SendAgentSessionMessageRequest) (*harnessv1.SendAgentSessionMessageResponse, error) {
 	m.ctrl.T.Helper()

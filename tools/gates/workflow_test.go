@@ -160,7 +160,7 @@ var scoreInputs = []string{
 	"csf/docs/generated/ontology_cgen.md",
 	"docs/GLOSSARY.md",
 	"runtime/host.go",
-	"ipc/tier.go",
+	"io/tier.go",
 	"app/csf/native/assemble.py",
 	"README.md",
 	"csf/README.md",
@@ -217,14 +217,14 @@ var _ = Describe("the house lint workflow", func() {
 		document = readWorkflow(houseLintWorkflow)
 	})
 
-	It("runs on every pull request and main push with no path filter", func() {
+	It("runs on every pull request and every main or release push with no path filter", func() {
 		pull, listens := document.On["pull_request"]
 		Expect(listens).To(BeTrue())
 		Expect(pull.Paths).To(BeEmpty())
 		Expect(pull.PathsIgnore).To(BeEmpty())
 		push, listens := document.On["push"]
 		Expect(listens).To(BeTrue())
-		Expect(push.Branches).To(Equal([]string{"main"}))
+		Expect(push.Branches).To(Equal([]string{"main", "release/**"}))
 		Expect(push.Paths).To(BeEmpty())
 		Expect(push.PathsIgnore).To(BeEmpty())
 	})
@@ -293,9 +293,9 @@ var _ = Describe("the ontology alignment workflow", func() {
 		document = readWorkflow(ontologyWorkflow)
 	})
 
-	It("records every main push with no path filter", func() {
+	It("records every main and release push with no path filter", func() {
 		push := document.On["push"]
-		Expect(push.Branches).To(Equal([]string{"main"}))
+		Expect(push.Branches).To(Equal([]string{"main", "release/**"}))
 		Expect(push.Paths).To(BeEmpty())
 		Expect(push.PathsIgnore).To(BeEmpty())
 		score := document.Jobs["score"]

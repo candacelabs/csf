@@ -6,6 +6,7 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/warden/store",
     visibility = ["//visibility:public"],
     deps = [
+        "//pkg/atomicfile",
         "//services/warden",
         "//services/warden/proto/warden/v1:warden",
         "//services/warden/wireconv",

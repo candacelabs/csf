@@ -54,8 +54,4 @@ var _ = Describe("command words", func() {
 		Expect(gitSubcommand([]string{"-C", "/w", "--no-pager", "commit", "-m", "x"})).To(Equal("commit"))
 		Expect(gitSubcommand([]string{"--version"})).To(BeEmpty())
 	})
-
-	It("reads gh's URL from the last line it printed", func() {
-		Expect(lastLine("Creating draft pull request\nhttps://example.invalid/pull/1\n")).To(Equal("https://example.invalid/pull/1"))
-	})
 })

@@ -60,6 +60,36 @@ ocaml_module(
 )
 
 ocaml_module(
+    name = "CS19",
+    struct = "cs19.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "CS20",
+    struct = "cs20.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
+    name = "CS21",
+    struct = "cs21.ml",
+    deps = [
+        ":Source",
+        "//csf/compiler/third_party/tree_sitter:Tree_sitter",
+        "//tools/gorilla_mux_lint:Checker",
+    ],
+)
+
+ocaml_module(
     name = "Test_layout",
     struct = "test_layout.ml",
     deps = [
@@ -80,10 +110,33 @@ ocaml_module(
 )
 
 ocaml_module(
+    name = "Doc",
+    struct = "doc.ml",
+    deps = [
+        ":Source",
+        "@opam.ocamlsdk//unix/lib",
+    ],
+)
+
+ocaml_module(
+    name = "Doc_test",
+    struct = "doc_test.ml",
+)
+
+ocaml_test(
+    name = "doc_test",
+    size = "small",
+    main = ":Doc_test",
+)
+
+ocaml_module(
     name = "Runner",
     struct = "runner.ml",
     deps = [
         ":Advisory",
+        ":CS19",
+        ":CS20",
+        ":CS21",
         ":Mandatory",
         ":Placement",
         ":Policy",
@@ -208,6 +261,51 @@ ocaml_test(
     name = "advisory_test",
     size = "small",
     main = ":Advisory_test",
+)
+
+ocaml_module(
+    name = "CS19_test",
+    struct = "cs19_test.ml",
+    deps = [
+        ":CS19",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "cs19_test",
+    size = "small",
+    main = ":CS19_test",
+)
+
+ocaml_module(
+    name = "CS20_test",
+    struct = "cs20_test.ml",
+    deps = [
+        ":CS20",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "cs20_test",
+    size = "small",
+    main = ":CS20_test",
+)
+
+ocaml_module(
+    name = "CS21_test",
+    struct = "cs21_test.ml",
+    deps = [
+        ":CS21",
+        ":Source",
+    ],
+)
+
+ocaml_test(
+    name = "cs21_test",
+    size = "small",
+    main = ":CS21_test",
 )
 
 ocaml_module(

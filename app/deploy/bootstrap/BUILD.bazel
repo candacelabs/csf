@@ -4,15 +4,15 @@ go_library(
     name = "bootstrap",
     srcs = [
         "bootstrap.go",
-        "components.go",
         "core.go",
+        "core_assembly_components.go",
         "reporter.go",
     ],
     importpath = "github.com/candacelabs/csf/app/deploy/bootstrap",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
-        "//ipc/proc",
+        "//io/ipc/db/csfpg",
+        "//io/ipc/proc",
         "//pkg/redact",
         "//pkg/telemetry",
         "//proto/candace/deploy/v1:deploy",

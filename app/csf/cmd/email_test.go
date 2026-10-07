@@ -8,6 +8,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/prometheus/client_golang/prometheus"
+
+	"github.com/candacelabs/csf/services/email"
 )
 
 var _ = Describe("operator email startup", func() {
@@ -27,7 +29,7 @@ var _ = Describe("operator email startup", func() {
 		_, err := configuredOperatorEmail(path, prometheus.NewRegistry())
 		Expect(err).To(HaveOccurred())
 		Expect(err.Error()).NotTo(ContainSubstring("secret"))
-		Expect(os.WriteFile(path, []byte(strings.Repeat("x", maxEmailConfigurationBytes+1)), 0600)).To(Succeed())
+		Expect(os.WriteFile(path, []byte(strings.Repeat("x", email.MaxOperatorConfigurationBytes+1)), 0600)).To(Succeed())
 		_, err = configuredOperatorEmail(path, prometheus.NewRegistry())
 		Expect(err).To(HaveOccurred())
 		Expect(os.Chmod(path, 0644)).To(Succeed())

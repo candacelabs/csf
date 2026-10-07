@@ -175,7 +175,7 @@ body, header spelling and hash encoding on the wire.
 Two consequences worth knowing:
 
 - **Uploads are chunked and deduplicated; downloads are whole files.** git-xet
-  implements the upload half of the LFS transfer protocol only — it explicitly
+  implements the upload half of the LFS transfer [protocol](../csf/docs/generated/ontology_cgen.md#term-protocol) only — it explicitly
   refuses download and tells git-lfs to use its standard basic transfer. So the
   *server* does the reconstruction work on the way out. That is why the demo's
   verification clone is a genuine test of the storage layer.
@@ -217,7 +217,7 @@ reconstruction query, and multipart range responses. Only http(s) remotes are
 supported, which also sidesteps git-xet's one Hugging Face-ism (a non-http
 remote *with an explicit port* requires `HF_ENDPOINT` to be set to something).
 
-The reverse-engineered protocol notes this implementation is built from live in
+The reverse-engineered [protocol](../csf/docs/generated/ontology_cgen.md#term-protocol) notes this implementation is built from live in
 [`docs/research/`](docs/research): the CAS HTTP contract
 ([api-surface.md](docs/research/api-surface.md)), the xorb/shard binary formats
 ([binary-formats.md](docs/research/binary-formats.md)), the upload/download
@@ -236,7 +236,7 @@ integration ([git-xet.md](docs/research/git-xet.md)).
 | `go/` | generated Go types and their validators (packages of `github.com/candacelabs/csf`) |
 | `docker/` | [server image](docker/Dockerfile.server), [workbench image](docker/Dockerfile.workbench), [demo stack](docker/compose.demo.yaml) |
 | `demo/` | [the demo](demo/demo.sh), the [narrated steps](demo/steps.sh), the synthetic model generator |
-| `docs/research/` | protocol dossiers, with citations into xet-core |
+| `docs/research/` | [protocol](../csf/docs/generated/ontology_cgen.md#term-protocol) dossiers, with citations into xet-core |
 | `.dis/` | dev container definition (Rust 1.91 + just) |
 
 ## Development
@@ -292,7 +292,7 @@ exported from, before a snapshot is ever published.
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE) and [NOTICE](NOTICE). This project
-implements the storage and transfer protocol defined by
+implements the storage and transfer [protocol](../csf/docs/generated/ontology_cgen.md#term-protocol) defined by
 [xet-core](https://github.com/huggingface/xet-core) (Copyright Hugging Face,
 Inc., Apache 2.0); the workbench image links against xet-core crates fetched at
 a pinned revision.

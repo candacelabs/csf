@@ -6,8 +6,9 @@ type span = { source : string; line : int }
 type fact = { relation : string; args : value list; span : span }
 type severity = S0 | S1 | S2 | S3
 type verdict = { name : string; arity : int; severity : severity }
-type finding = { miner : string; rule : string; subject : value list; severity : severity; proof : fact list }
-type miner = { name : string; package : string; rules : string; verdicts : verdict list; extract : string -> fact list }
+type scope = Generic | Tenant
+type finding = { miner : string; rule : string; subject : value list; severity : severity; scope : scope; proof : fact list }
+type miner = { name : string; package : string; rules : string; verdicts : verdict list; scope : scope; extract : string -> fact list }
 type label = { instance : string; positive : bool; at : int; flagged : int option; source : string }
 type backtest = {
   labels : label list; split : int; knee : int option; families : int;
@@ -60,7 +61,9 @@ let unstratified clauses =
   ];
   Datalog.ask db (Datalog.term_of_string "unstratified(H, P)") |> List.map T.to_string
 
-let parse rules = match Datalog.parse_string rules with
+(* The grammar wants one clause at least; a program a mutation emptied is
+   valid and derives nothing. *)
+let parse rules = match if String.trim rules = "" then `Ok [] else Datalog.parse_string rules with
   | `Error message -> raise (Invalid_rules ("rules do not parse: " ^ message))
   | `Ok clauses ->
       List.iter (fun clause -> match unsafe clause with
@@ -72,6 +75,7 @@ let parse rules = match Datalog.parse_string rules with
       clauses
 
 let check_rules rules = ignore (parse rules)
+let builtin_name name = Datalog.DB.is_interpreted (Lazy.force builtins) (Datalog_top_down.String name)
 
 let rec ground binding term = match term with
   | T.Var var -> (match List.assoc_opt var binding with Some value -> value | None -> term)
@@ -121,11 +125,15 @@ let findings ?knee (miner : miner) facts =
     let derived = List.filter (fun (clause : Datalog.C.t) -> symbol clause.head = verdict.name) clauses in
     Datalog.ask db query
     |> List.map (fun answer -> { miner = miner.name; rule = verdict.name; subject = arguments answer;
-         severity = verdict.severity; proof = proof db derived read miner answer })
+         severity = verdict.severity; scope = miner.scope; proof = proof db derived read miner answer })
     |> List.sort compare) miner.verdicts
 
 let text = function Text text -> text | Number number -> string_of_int number
 let instance (finding : finding) = match finding.subject with first :: _ -> text first | [] -> ""
+
+let candidates facts = List.filter_map (fun (fact : fact) -> match fact.relation, fact.args with
+  | "score", [_; Number score] -> Some score
+  | _ -> None) facts |> List.sort_uniq compare
 
 let backtest miner facts labels =
   let labels = List.stable_sort (fun (a : label) b -> compare a.at b.at) labels in
@@ -138,9 +146,7 @@ let backtest miner facts labels =
     named (fun label -> label.positive && List.mem label.instance fired),
     named (fun label -> not label.positive && List.mem label.instance fired),
     named (fun label -> label.positive && not (List.mem label.instance fired)) in
-  let candidates = List.filter_map (fun (fact : fact) -> match fact.relation, fact.args with
-    | "score", [_; Number score] -> Some score
-    | _ -> None) facts |> List.sort_uniq compare in
+  let candidates = candidates facts in
   (* κ⋆ maximizes precision on the fitted labels among the knees with no
      false negative there; ties keep the smallest knee, which fires earliest. *)
   let precision (tp, fp, _) = match List.length tp + List.length fp with
@@ -174,11 +180,14 @@ let fact_json (fact : fact) = `Assoc [
   "span", `Assoc ["source", `String fact.span.source; "line", `Int fact.span.line];
 ]
 
+let scope_name = function Generic -> "SCOPE_GENERIC" | Tenant -> "SCOPE_TENANT"
+
 let finding_json (finding : finding) = `Assoc [
   "miner", `String finding.miner;
   "rule", `String finding.rule;
   "subject", `List (List.map value_json finding.subject);
   "severity", severity_json finding.severity;
+  "scope", `String (scope_name finding.scope);
   "proof", `List (List.map fact_json finding.proof);
 ]
 
@@ -230,6 +239,40 @@ let labels path =
           flagged = if flagged = "-" then None else Some (Corpus.seconds flagged) }
     | _ -> failwith (path ^ ": a label is instance, +/-, start, flag time or -, source: " ^ line))
 
+type committed = { reproduce : string; block : string }
+
+let safety_check = "the rules are safe and stratified"
+
+(* A miner emits score facts for its knee and nothing else, so when they
+   exist the knee must bind: a knee below every score and one above fire
+   different instances. A threshold written into the rules fires the same
+   instances at both, whether knee(K) is still read or not. *)
+let checks ?committed (miner : miner) facts labels =
+  let check condition message = if not condition then failwith message in
+  let result = lazy (backtest miner facts labels) in
+  let fired knee = findings ?knee miner facts |> List.map instance |> List.sort_uniq compare in
+  [
+    safety_check, (fun () -> check_rules miner.rules);
+    "the labeled positives fire and the negatives do not", (fun () ->
+      let fired = fired (Lazy.force result).knee in
+      List.iter (fun (label : label) ->
+        check (List.mem label.instance fired = label.positive)
+          (label.instance ^ (if label.positive then " should fire" else " should not fire"))) labels);
+    "the walk-forward backtest has no false negative", (fun () ->
+      let result = Lazy.force result in
+      check (result.fn = []) ("false negatives: " ^ String.concat ", " result.fn);
+      check (result.tp <> []) "the accepted labels must include a fired positive");
+    "the knee binds", (fun () -> match candidates facts with
+      | [] -> ()
+      | lowest :: _ as scores ->
+          check (fired (Some (lowest - 1)) <> fired (Some (List.fold_left max lowest scores + 1)))
+            "the verdicts do not depend on the knee: the same instances fire at a knee below every score and at one above");
+  ] @ (match committed with
+    | None -> []
+    | Some committed -> ["backtest.md is the generated block", (fun () ->
+        let block = backtest_block ~command:committed.reproduce (Lazy.force result) in
+        check (block = committed.block) ("backtest.md is stale; it should read:\n" ^ block))])
+
 let shell argument =
   let plain = function 'A'..'Z' | 'a'..'z' | '0'..'9' | '_' | '.' | '/' | '-' -> true | _ -> false in
   if argument <> "" && String.for_all plain argument then argument else Filename.quote argument
@@ -253,8 +296,10 @@ let expand item =
       |> List.map (fun entry -> String.concat "/" [directory; entry; rest])
       |> List.filter Sys.file_exists
 
+let facts (miner : miner) items = List.concat_map expand items |> List.concat_map miner.extract
+
 let main (miner : miner) =
-  let facts items = List.concat_map expand items |> List.concat_map miner.extract in
+  let facts items = facts miner items in
   let lines encode values = List.iter (fun value -> print_endline (Yojson.Safe.to_string (encode value))) values in
   match List.tl (Array.to_list Sys.argv) with
   | "facts" :: items -> lines fact_json (facts items)
@@ -265,6 +310,7 @@ let main (miner : miner) =
   | "backtest" :: path :: items as arguments ->
       print_string (backtest_block ~command:(command miner arguments)
         (backtest miner (facts items) (labels path)))
+  | ["scope"] -> print_endline (scope_name miner.scope)
   | _ ->
-      prerr_endline "usage: miner.exe facts ITEM... | findings [--knee K] ITEM... | backtest [--json] LABELS ITEM...";
+      prerr_endline "usage: miner.exe facts ITEM... | findings [--knee K] ITEM... | backtest [--json] LABELS ITEM... | scope";
       exit 2

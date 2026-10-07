@@ -1,0 +1,8 @@
+# instance	label	start	flagged	source
+# Walk-forward split: fit on 2026-10-01T23:59:59Z, accept on 2026-10-02T00:00:00Z and later
+# PR #226: orchestrator-authored, self-merged, no independent verdict (positive, fits)
+226	+	2026-10-01T10:00:00Z	2026-10-01T10:05:00Z	#249 orchestrator self-merge
+# PR #250: orchestrator-authored, self-merged, with independent verdict from different reviewer (negative, fits)
+250	-	2026-10-01T14:00:00Z	-	#249 orchestrator with external review
+# PR #245: orchestrator-authored, self-merged, no independent verdict (positive, accepts)
+245	+	2026-10-02T15:00:00Z	2026-10-02T15:05:00Z	#249 orchestrator self-merge

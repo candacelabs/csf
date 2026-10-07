@@ -14,6 +14,7 @@
 (identifier) @variable
 [
   "adapter"
+  "allowed"
   "architecture"
   "borrowed"
   "boundary"
@@ -21,6 +22,7 @@
   "channel"
   "connect"
   "device"
+  "dir"
   "entrypoint"
   "existing"
   "external"
@@ -28,11 +30,15 @@
   "generated"
   "go"
   "in"
+  "in_process"
+  "ipc"
+  "kernel"
   "kind"
   "lazy"
   "library"
   "lifecycle"
   "manager"
+  "net"
   "pending"
   "planned"
   "process"
@@ -47,16 +53,20 @@
   "state"
   "subprocess"
   "test"
+  "tier"
   "under"
   "verification"
   "version"
   "via"
 ] @keyword
 [
+  "["
+  "]"
   "{"
   "}"
 ] @punctuation.bracket
 [
+  ","
   ";"
 ] @punctuation.delimiter
 [

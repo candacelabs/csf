@@ -2,156 +2,278 @@
 # This describes the documented architecture; it does not execute a controller.
 # A term's optional forms are the other exact spellings that linked documents
 # must link to it; see the vocabulary rules in compiler.ml.
-term observe "Observe" "Read the available measurements, logs and outputs from an execution.";
-term retrieve "Retrieve" "Find relevant saved sources, earlier results and relationships.";
-term choose "Choose" "Select a proposed action or candidate controller from the allowed choices.";
-term check "Check" "Apply the configured contract, bounds and admission rules before execution. Passing these checks does not establish physical safety.";
-term execute "Execute" "Run an admitted action in its configured environment.";
-term evaluate "Evaluate" "Compare the result with criteria chosen independently of the candidate being evaluated.";
-term save_evidence "Save evidence" "Keep the candidate, observed result and source references so the result can be inspected and reused. This was previously called retain; it does not mean retrain.";
-term ouroboros "Ouroboros" "Use evaluated results to propose the next version of an agent's instructions or an allowed workflow. RRSI is its method. Every accepted change is an operator-approved pull request; the grader and held-out evaluations stay outside what it may change. Planned.";
-term select_controller "Select a controller between episodes" "Compare candidate controllers' evaluated results and keep or reject them between episodes. Planned: the low-level controller is external and ROS-side, so CSF's in-Go bounded CPU search was removed with its controller interpreter.";
-term retrain "Retrain" "Update a model's learned parameters using training data. This is one possible improvement method, not a required step of every iteration.";
-term human "Human or agent client" "The caller that supplies a task and policy and uses CSF's exposed operations.";
+term observe "Observe" "Read the available measurements, logs and outputs from an execution." kind concept;
+term retrieve "Retrieve" "Find relevant saved sources, earlier results and relationships." kind concept;
+term choose "Choose" "Select a proposed action or candidate controller from the allowed choices." kind concept;
+term check "Check" "Apply the configured contract, bounds and admission rules before execution. Passing these checks does not establish physical safety." kind concept;
+term execute "Execute" "Run an admitted action in its configured environment." kind concept;
+term evaluate "Evaluate" "Compare the result with criteria chosen independently of the candidate being evaluated." kind concept;
+term save_evidence "Save evidence" "Keep the candidate, observed result and source references so the result can be inspected and reused. This was previously called retain; it does not mean retrain." kind concept;
+term ouroboros "Ouroboros" "Use evaluated results to propose the next version of an agent's instructions or an allowed workflow. RRSI is its method. Every accepted change is an operator-approved pull request; the grader and held-out evaluations stay outside what it may change. In source it is the mining loop, candace/services/ouroboros: a service mounted into the harness host app that runs every accepted miner over the harness corpus the moment a log changes, pre-checks every mining ticket's proposal at no model cost, launches one fixer per ticket through the harness under a daily budget, runs the merge train and measures the struggle rate and its compounding rate; its ledger is the csf_ouroboros tables in csfpg and its four cron triggers run on the host's cron service. Fixers launch unattended only when sandboxed launch is available; until then the host turns them on by an explicit flag."
+  forms "ouroboros loop" "mining loop" kind component home planned 355;
+term miner "Miner" "An accepted extractor and Datalog rule under candace/services/ouroboros/miners: one directory holding extract.ml, rules.dl, labeled fixtures and the backtest its acceptance test regenerates. A miner reads one corpus item (a harness event log, a ticket, a pull request or a file at a revision) into typed facts and derives verdict rows, each carried with its proof. The loop runs every built miner's executable at the knee its own backtest fits and records the findings in the ledger."
+  forms "miner" "miners";
+term precheck "Pre-check" "The free check the loop makes before it pays a model for a mining ticket: the ticket's latest proposal must label at least one instance that exists in the corpus and is of a kind the proposed miner's extractor reads (a run directory, an existing issue or pull request other than the ticket itself, or a commit). A proposal that names none is queued for the labeler with the verdict needs_labels; one that does gets the verdict launch. The csf ouroboros precheck verb runs it by hand."
+  forms "pre-check" "pre-checks";
+term fixer "Fixer" "One harness session the loop launches for one mining ticket whose proposal passed the pre-check: a typed recipe on the fixer model (Haiku), run with the session gates on in a worktree of its own, briefed to finish the ticket's miner and open a draft pull request. The ledger records each fixer's cost, tokens, seconds and outcome; the loop launches at most one per ticket, within the harness's admission and the daily budget, and closes a fixer once its one turn is done."
+  forms "fixer" "fixers";
+term merge_train "Merge train" "The loop's trigger that runs the merge path (tools/merge-pr.sh) over every ready, non-language pull request, oldest first, once per head: a refused head is commented on with the refusal and retried only after its author pushes a new one. It honors NO-SELF-MERGE: the merger is never an author session, and a pull request whose commits carry the merger's own identity is refused without running the path."
+  forms "merge train";
+term slice_dispatcher "Slice dispatcher" "The pass that runs the slice graph with no orchestrator: candace/services/dispatch's dispatcher, a cron trigger every minute and again after every merge the merge train makes. Each pass marks merged every slice whose recorded pull request has merged, measures three limits from data and records each with its derivation — the harness's launch check (cores minus the one-minute load, and the disk floor), the mining loop's daily budget, and the provider's rate-limit headroom from the latest rate_limit_event in the session logs — and launches the ready frontier (every depends_on slice merged, no contender running, not held) in critical-path then urgency order, up to the minimum of the three. Pause and resume stop and restart every launch; hold and release keep one slice back; each control is recorded with its reason in csfpg and survives a restart. AddSlice, the controls and the snapshot are typed operations served over MCP and HTTP; csf slice is their client, and every pass writes the snapshot to dispatch.json in the state directory."
+  forms "slice dispatcher";
+term struggle_rate "Struggle rate" "Harness-fixable struggle episodes per 1,000 agent tool calls per calendar day, with its 95% Garwood Poisson interval, as candace-server #330 measures it. The loop's deterministic reading of a harness event log keeps three of rrsi-mine's nine signals, tool errors, permission denials and exact retries, merged into episodes at the same gap, and counts every episode, since no labeler marks noise here."
+  forms "struggle rate";
+term compounding_rate "Compounding rate" "The weekly growth factor of the struggle rate with its 95% interval: the exponent of a weighted log-linear fit of the weekly rate on the week index over the weeks with at least one struggle and 200 tool calls, exactly #330's trend. It is the loop's objective (#120): the baseline to beat is ×1.156 per week (×1.135 to ×1.177) at 49.9 per 1,000 in the week of 2026-09-28, and exponential improvement is the factor below 1 and staying there. It is recorded as a series and shown on the ops view with its interval and the baseline; it is not estimable under three active weeks, and the same fit per day is the early read until then."
+  forms "compounding rate";
+term structure_per_intervention "Structure per intervention" "The loop's internal check (#120): merged enforced structure gained on main per week (session gates, accepted miners and ontology terms, counted from git at the week's end; recorded intents live in csfpg and are not counted yet) over the operator interventions of that week. Until the AFFECT miner labels corrections, the operator-authored messages into sessions stand in for interventions, so the series is marked proxy. The slope of log(y) on the week is the compounding exponent, with its interval; it is not estimable under three weeks."
+  forms "structure per intervention";
+term generic_gate "Generic gate" "A miner, and every finding it derives, whose rule holds for any harness user: a draft pull request opened late, a sleep loop, a self-matching pgrep. The scope is decided when the miner is accepted and carried on every finding as SCOPE_GENERIC. A generic finding from an opted-in tenant's sessions may enter the shared miner set once it passes the operator-identifier gate and carries no transcript text, facts and spans only with its instances re-keyed; the tenant record and its opt-in field, default off, are planned."
+  forms "generic gate" "generic gates";
+term tenant_gate "Tenant gate" "A miner, and every finding it derives, that encodes one operator's intents, rulings or vocabulary, carried on every finding as SCOPE_TENANT. A tenant finding never leaves the tenant."
+  forms "tenant gate" "tenant gates";
+term mutation_score "Mutation score" "How well a miner's test tells the miner from its mutants: each mutant is one change to the miner's rules or labels (a body atom dropped, a comparison swapped, the knee written as a score, an atom negated, a rule dropped, two verdict heads exchanged, a label flipped, the split moved); the miner's own checks run on each, a mutant they fail is killed and one they pass has survived; the score is killed over killed plus survived. A mutant the rules check refuses, or one that derives the same verdicts as the original under every knee candidate, is excluded with its reason. The gate holds every miner at or above the floor the template miner measured, rejects a miner whose test lets a surviving mutant change a labeled instance's verdict, and prints the survivor. The ops view shows each miner's score as a series read from the state directory's mutation.jsonl. In source: services/ouroboros/contract/mutate.ml."
+  forms "mutation score" "mutation scores";
+term labeler "Ouroboros labeler" "The service candace/services/ouroboros/labeler: for a mining ticket that names no real instance, it finds candidate spans in the corpus the ticket's miner would read (harness event logs through the file capability; issues, pull requests and commits through the process capability), asks a local model behind the brain contract to label each batch with a verbatim quote, and keeps a positive only when it reproduces: through the ticket's miner when one exists, otherwise by its quote being on the line it names. Every label is a typed ProposedLabel of the ouroboros contract and the run's measurements a LabelerRun, which the ops view's panel shows. It shares the GPU: it yields while another container created with the GPU runs, and each request's keep-alive is derived from the measured gap between batches. The harness binary's label verb composes it."
+  forms "labeler";
+term failure_code "Failure code" "A named, recurring way the agent system fails, declared in this file as a failure_code with its fault edge, its fault side, the MAST mode it refines and, once one exists, the miner whose rule detects it; the generator projects every code to candace/services/ouroboros/codes. MAST's 14 modes are the seed. A complaint, an operator correction that the operator's own message reads as, is coded by the local model behind the brain contract, and the code is kept only when the model's quote from the complaint is in it verbatim. Complaints no code fits are the residual: the model proposes a code for each, proposals with the same name are counted together, and a proposal becomes a code when it is declared here and regenerated, as AdaMAST induces its codes from traces. The harness binary's ouroboros codes verb codes a corpus, counts complaints per code, edge and side, and records each coded complaint; nothing is injected into sessions."
+  forms "failure code" "failure codes";
+term fault_side "Fault side" "Who owns a failure code's repair, from the interaction-centric taxonomy of agent failures: harness, a session gate or a miner; harness_environment, a migration or an infrastructure slice; environment or provider, capacity rather than a gate; model, the turn executor's model choice. The code's fault edge is the pair of components, two ontology terms, between which the failure starts."
+  forms "fault side" "fault sides";
+term select_controller "Select a controller between episodes" "Compare candidate controllers' evaluated results and keep or reject them between episodes. Planned: the low-level controller is external and ROS-side, so CSF's in-Go bounded CPU search was removed with its controller interpreter." kind concept;
+term retrain "Retrain" "Update a model's learned parameters using training data. This is one possible improvement method, not a required step of every iteration." kind concept;
+term human "Human or agent client" "The caller that supplies a task and policy and uses CSF's exposed operations." kind concept;
 term brain "Brain" "An agent loop over a large model, reached through an inference provider or API. Brains are external to CSF: CSF defines the brain contract and ships a minimal stub. A brain's proposal is not permission to execute it."
-  forms "brain";
+  forms "brain" kind component home planned 346;
 term agent "Agent" "A named worker: versioned instructions plus a live conversation session, holding assignments and receiving messages at a typed agent address. A proposal from an agent is never permission to execute. Registrations are in memory behind relay.IRegistry until the durable registry, claims and checkpoints are stored through csfpg."
-  forms "agent" "agents" "Agents";
+  forms "agent" "agents" "Agents" kind component home planned 346;
 term assignment "Assignment" "One task given to an agent definition, with its own identifier and ticket reference."
-  forms "assignment" "assignments";
+  forms "assignment" "assignments" kind concept;
 term checkpoint "Task checkpoint" "A saved typed task record containing its owner, status, next action, evidence and preceding checkpoint identifier, so another agent can resume the work."
-  forms "checkpoint" "checkpoints";
-term work_continuity "Work continuity" "The task checkpoint service at candace/services/workcontinuity. It reads, validates and records checkpoints against a caller-supplied issue source: the HTTP source, or the gh CLI run through the process capability it is granted. It owns no background workers or service lifetime; the Workbench calls it within the existing CSF runtime.";
-term session "Workbench conversation session" "A conversation and its execution records under a stable identifier. CSF stores Workbench sessions; the current Copilot backend still manages its working context, and a Claude Code turn executor still holds its own transcript: that is the gap the turn executor term names, since CSF is to own the session, its record, its context and its tools. This is distinct from a gotth-live UI connection.";
-term ui_session "Live UI session" "One accepted gotth-live WebSocket connection and the server-side state maintained for that connection. Each connection initializes its own widget state values; a reconnect creates a new session. Separate values can still refer to shared mutable objects. This is not a stored agent conversation or a memory-isolation boundary.";
-term context "Context" "The information supplied to a model for a particular decision. CSF-owned snapshots and compression remain planned.";
-term contracts "Shared typed contracts" "Protobuf messages, Liquid Proto predicates and OpenAPI operations that define data shapes and allowed calls. Their generators produce bindings and transport code.";
+  forms "checkpoint" "checkpoints" kind concept;
+term work_continuity "Work continuity" "The task checkpoint service at candace/services/workcontinuity. It reads, validates and records checkpoints against a caller-supplied issue source: the HTTP source, or the gh CLI run through the process capability it is granted. It owns no background workers or service lifetime; the Workbench calls it within the existing CSF runtime." kind component home "candace/services/workcontinuity";
+term session "Workbench conversation session" "A conversation and its execution records under a stable identifier. CSF stores Workbench sessions; the current Copilot backend still manages its working context, and a Claude Code turn executor still holds its own transcript: that is the gap the turn executor term names, since CSF is to own the session, its record, its context and its tools. This is distinct from a gotth-live UI connection." kind component home "candace/services/harness";
+term session_suspend "Session suspend" "The session hypervisor's suspend and resume of a virtual session: suspend ends the session's turn executor process while the session stays open on its recorded real session, and resume opens the executor again on that conversation for the next message, the way a restarted harness resumes a run. Today the agent harness is the hypervisor and suspends a session once it has sat between turns past the idle bound with no turn in flight, nothing queued and no live child in the executor's process group; a session whose executor the process table does not show is kept. The first turn after a resume carries the time to its first token and how long the session was suspended on its receipt, and the session reports suspended while it is. The bound is derived, never set by hand: the knee of the measured gaps between turns in the state directory's run records, reported with its quantile beside every use, with the prompt cache lifetime standing in until two gaps exist. The resident memory of the harness and its executors, the open sessions, the executors alive, the resumes and the time to first token after a resume are one series the harness samples into the state directory's resident.jsonl and the ops view shows. In source: OpenSession.Suspend and Resume in services/harness/session, and services/harness/idle.go and resident.go."
+  forms "suspend" "suspends" "suspended" "suspending";
+term ui_session "Live UI session" "One accepted gotth-live WebSocket connection and the server-side state maintained for that connection. Each connection initializes its own widget state values; a reconnect creates a new session. Separate values can still refer to shared mutable objects. This is not a stored agent conversation or a memory-isolation boundary." kind concept;
+term context "Context" "The information supplied to a model for a particular decision. CSF-owned snapshots and compression remain planned." kind concept;
+term contracts "Shared typed contracts" "Protobuf messages, Liquid Proto predicates and OpenAPI operations that define data shapes and allowed calls. Their generators produce bindings and transport code." kind concept;
 term application "Application" "Reserved for a runnable composition whose execution owns a process and runtime. A widget, service, page or web layer mounted inside that process is not another application."
-  forms "application" "applications";
+  forms "application" "applications" kind concept;
 term runtime "Runtime" "The execution environment of one application process. It owns the root lifetime and starts and stops the services mounted into it, giving each a scope. Services mount into it; mounting a service adds no runtime. Deployment rule: one runtime per machine; scale by adding machines."
-  forms "runtime" "runtimes";
-term host_runtime "Host runtime" "The runtime in source: candace/runtime.HostRuntime, one per process. The binary's main function builds it, grants capabilities to the services it constructs, mounts them and owns the root lifetime. Services start in mount order. By default they stop in the reverse order, each scope canceled and joined in turn; the Concurrent shutdown order instead cancels every scope at once and joins them together. A failing service cancels the runtime with its error as the cause. Readiness is true only between the last start and the first stop.";
+  forms "runtime" "runtimes" kind concept;
+term host_runtime "Host runtime" "The runtime in source: candace/runtime.HostRuntime, one per process. The binary's main function builds it, grants capabilities to the services it constructs, mounts them and owns the root lifetime. Services start in mount order. By default they stop in the reverse order, each scope canceled and joined in turn; the Concurrent shutdown order instead cancels every scope at once and joins them together. A failing service cancels the runtime with its error as the cause. Readiness is true only between the last start and the first stop." kind component home "candace/runtime";
 term widget "Widget" "A component of gotth-live that presents typed state and accepts events. Widgets exist within gotth-live; they are not independent components mounted directly into an application. A widget does not own a process or runtime."
-  forms "widget" "widgets" "Widgets";
-term gotth_live "gotth-live" "The required owner of widgets and their web interaction. It belongs to CSF's web layer and runs within the application's existing process/runtime.";
+  forms "widget" "widgets" "Widgets" kind concept;
+term widget_definition "Widget definition" "One widget as data: a directory widgets/<name>/ holding a dialect document, a binding from one of its streams to the fields of a source the host has, and fixtures. The host checks it (the dialect validates, its refinements hold, an interpreted widget draws all of it, every bound field exists in the source's schema, every fixture renders) and draws it through the dialect interpreter, so it is installed and removed while the host runs and loads no code. A definition that fails a check is refused with every reason and never drawn."
+  forms "widget definition" "widget definitions";
+term gotth_live "gotth-live" "The required owner of widgets and their web interaction. It belongs to CSF's web layer and runs within the application's existing process/runtime." kind component home "candace/pkg/gotth";
 term app "App" "A runnable composition of services. Launching an app instance creates an application process; a Go app has its own Go runtime. Mounting another service inside that app does not create another process or runtime. The app owns the root lifetime."
-  forms "app" "apps";
-term process "CSF: one Go application process" "One running application with a shared address space. Its host owns listeners, startup, shutdown and any configured worker goroutines.";
+  forms "app" "apps" kind concept;
+term process "CSF: one Go application process" "One running application with a shared address space. Its host owns listeners, startup, shutdown and any configured worker goroutines." kind concept;
 term service "Service" "The required lifecycle contract for an SDK capability mounted into the caller's process. A service may share its host's lifetime without another scope, goroutine or process, or declare a shorter child lifetime. A service may start goroutines; it owns them and performs its own cleanup: release its resources, stop and join its goroutines, and report failures. Its host triggers shutdown and waits for it; the host does not reimplement the child's cleanup. Whoever composes services owns the lifecycle between them. Borrowed resources keep their declared owner. Common enforcement and migration are pending."
-  forms "service" "services" "Services";
-term http_service "HTTP service" "In the proposed recursive lifecycle contract, a service that manages an HTTP server and mounted child services. It participates in its parent's startup and shutdown, performs its own server cleanup, and asks its children to perform theirs. The application main function owns the root service's lifetime. Registering routes alone does not implement this contract.";
-term live_ui_service "gotth-live service" "The in-process capability that manages live UI connections and their goroutines for a host app. Its lifetime can span many shorter connections. The current Go type is live.App, a runtime service: each connection's read pump, actor and effects start in a child of its own sessions scope, and its stop sends every connection the going-away close and joins every one of those goroutines with no deadline. It does not require another application process.";
-term database_io "Database I/O capability" "Database access granted to a service. The application opens the pool through csfpg (candace/ipc/db/csfpg), the only pool owner; services receive it in their constructors and never close it; the application closes it after the services stop.";
+  forms "service" "services" "Services" kind concept;
+term http_service "HTTP service" "In the proposed recursive lifecycle contract, a service that manages an HTTP server and mounted child services. It participates in its parent's startup and shutdown, performs its own server cleanup, and asks its children to perform theirs. The application main function owns the root service's lifetime. Registering routes alone does not implement this contract." kind concept;
+term live_ui_service "gotth-live service" "The in-process capability that manages live UI connections and their goroutines for a host app. Its lifetime can span many shorter connections. The current Go type is live.App, a runtime service: each connection's read pump, actor and effects start in a child of its own sessions scope, and its stop sends every connection the going-away close and joins every one of those goroutines with no deadline. It does not require another application process." kind component home "candace/pkg/gotth";
+term database_io "Database I/O capability" "Database access granted to a service. The application opens the pool through csfpg (candace/ipc/db/csfpg), the only pool owner; services receive it in their constructors and never close it; the application closes it after the services stop." kind concept;
 term mount "Mount" "In the proposed ginService.Mount(child) API, attach a child service to the parent's lifecycle: startup, shutdown signaling and waiting for the child to finish its own cleanup. Existing Register(router) only registers HTTP routes and does not supply these guarantees."
-  forms "mount" "mounts" "mounted" "mounting";
-term manager "Manager" "Policy that selects or coordinates services when that decision is dynamic. The name does not create a process or a separate lifetime.";
+  forms "mount" "mounts" "mounted" "mounting" kind concept;
+term manager "Manager" "Policy that selects or coordinates services when that decision is dynamic. The name does not create a process or a separate lifetime." kind concept;
 term scope "Scope" "An explicit lifetime with one owner, cancellation and completion. Cancellation requests shutdown; joining waits until children have exited. In source, candace/runtime.Scope starts goroutines on a service's behalf (Go for a task, GoOwner for a goroutine that must last the scope), nests child scopes, and on join returns every collected error. A goroutine error cancels its scope and is reported to the scope's owner."
-  forms "scope" "scopes";
+  forms "scope" "scopes" kind concept;
 term lazy_service "Lazy service" "An opt-in service lifecycle chosen by the composer: candace/runtime.NewLazyService wraps a service so mounting it starts nothing. The first Use starts it on a child scope and holds a lease for the call. Once no lease is held and the idle timeout has passed, the child scope is canceled and joined, unless the service reports work in hand through IIdleReporter. The next Use starts it again on a new scope. Start errors surface at use time. In architecture declarations, lifecycle lazy is the one case where a call may reach a shorter-lived provider, because the call restarts it. Relay inboxes are the first consumer."
-  forms "lazy service" "lazy services";
-term ownership_transfer "Ownership transfer" "An explicit API agreement that hands responsibility for a specified mutable payload from sender to receiver. After a successful handoff, the sender stops accessing it through retained aliases until ownership is returned. Go channel sends copy values and do not invalidate pointers or deep-copy referenced data. Borrowed dependencies keep their owners; cancellation and submission acknowledgement do not establish completion or return of ownership.";
+  forms "lazy service" "lazy services" kind concept;
+term ownership_transfer "Ownership transfer" "An explicit API agreement that hands responsibility for a specified mutable payload from sender to receiver. After a successful handoff, the sender stops accessing it through retained aliases until ownership is returned. Go channel sends copy values and do not invalidate pointers or deep-copy referenced data. Borrowed dependencies keep their owners; cancellation and submission acknowledgement do not establish completion or return of ownership." kind concept;
 term process_boundary "Process boundary" "The edge of one process's address space, and the line the tier enum needs between its two same-process tiers (in_process, kernel_io) and its two cross-process tiers (host, network). Information that crosses it to another process on the same machine is IPC, the host tier; to another machine, the network tier. A system call that returns to the same process, such as reading a file or the clock, is kernel_io and crosses no process boundary. Launching a child process goes through proc. The architecture checker checks selected process boundaries in source."
-  forms "process boundary" "process boundaries";
-term io "I/O crossing" "Information moving between owners, or state that more than one goroutine can reach and so needs mutual exclusion: both are communication. Data owned by exactly one goroutine, with no lock and no channel, is owned data, not io. The tree that holds io is sorted by tier, one directory per crossing tier: io/inproc (in_process), io/kernel (kernel_io), io/ipc (host) and io/net (network), plus io/proto for protocol clients that run over either ipc or net. In-process code never lives under io/ipc or io/net, and an implementation under io/kernel, io/ipc or io/net must reach a real crossing primitive. Planned home candace/io: today the tree is candace/ipc, and slice X2 (#264) moves it once in-flight pull requests drain.";
-term tier "Crossing tier" "How far information travels between owners: one ordered enum, narrowest first, in_process, kernel_io, host, network. A crossing that touches two tiers reaches the wider one. Agent addresses, the relay's counters, stores and the io directories use this same enum. In source it is candace/ipc.Tier, which names in_process, host and network today; kernel_io joins it in slice X2 (#264).";
-term capability "Capability" "A value, granted to a service through its constructor, that permits one kind of io crossing; the io directory that holds it names its tier. A service that takes no capability crosses nothing wider than in_process.";
-term ipc "IPC" "Interprocess communication, in this ontology only: information crossing to another process on the same machine, the host tier. Its home io/ipc holds unix sockets, proc (os/exec) and docker (the Docker Engine socket). Another machine is net, never IPC, and in-process code never lives under io/ipc. The glossary records the broader textbook reading. The directory candace/ipc predates this meaning and still holds every capability until slice X2 (#264) renames it to candace/io and sorts its children by tier.";
-term in_process "In-process tier" "Tier in_process, the narrowest: anything two goroutines in one process touch, by message passing (a channel, the relay) or by shared memory behind a lock, the shared-memory model of communication. Its io home is io/inproc. The runtime owns this tier: locks and raw sync primitives are permitted only in io/inproc and the runtime. A leaf critical section is in-process io; a lock elsewhere becomes a house-lint finding when slice X2 (#264) lands the gate.";
-term kernel_io "Kernel I/O tier" "Tier kernel_io: a system call whose far side is the kernel, not another process: files and the clock. A file is a kernel store. Its io home is io/kernel (fs and clock).";
-term inproc "In-process I/O" "io/inproc, the home of the in_process tier: message passing between goroutines (the relay, PipeNetwork); the leaf primitives Cell[T] (Load, Store, and Update with a pure func(T) T), Counter, Map[K,V] and Snapshot[T] (copy-on-write through atomic.Pointer); in-process substitutes for io capabilities and out-of-process stores (pgmem's csfpg.IDB, the model stub, ros's DisconnectedSpine); and the gomock mocks of io interfaces, today in mocks directories beside their packages. Planned: the leaf primitives do not exist yet, and the rest live in their owners' directories until slice X2 (#264).";
-term kernel "Kernel I/O capabilities" "io/kernel, the home of the kernel_io tier: fs and clock. Today fs is candace/ipc/fs and clock is candace/ipc/clock; slice X2 (#264) creates the directory.";
-term leaf "Leaf critical section" "A lock-guarded section is a leaf only when all three hold. First, while held it acquires no other lock, performs no channel operation and no io, and calls nothing it does not control, so it adds no edge to the lock-order graph. Second, it covers one datum and each operation is a single step, such as a read, a write, an increment or a map get or put, with no invariant spanning two operations. Third, nobody waits on it: no condition variable and no wait for a change. Failing any one makes it a protocol: give the state one owning goroutine and send it messages (house rule CS-5). A leaf is in_process io and uses the io/inproc leaf primitives (planned, slice X2 #264); raw sync appears only inside io/inproc and the runtime.";
-term net "Network capabilities" "io/net, the home of the network tier: information crossing to another machine through TCP and UDP dialers and listeners, http and grpc. Today the directory is candace/ipc/net, which grants IListener and IDialer over the host network stack, so a test can replace the kernel with an in-memory pipe; its loopback and unix-socket uses are the host tier. Slice X2 (#264) moves it to io/net.";
-term proto "Protocol clients" "io/proto: clients of a protocol that runs over either ipc or net, such as csfpg, the model providers copilot and claudecode, and ros. A protocol client is granted a dialer and never dials itself; its tier is the tier of the dialer it was granted. Planned: these live under candace/ipc until slice X2 (#264).";
-term proc "Process capability" "io/ipc/proc, host tier: the one subprocess gateway and the only importer of os/exec. It owns launch, input and output, cancellation, waiting and cleanup of child processes. Today it is candace/ipc/proc: ILauncher runs or starts a program from an argument vector with an explicit directory, environment and streams, returning a structured result. Each child gets its own process group, or for a terminal its own session; cancellation or Kill ends the whole group or session, and Run and Process.Wait always reap the child. Slice X2 (#264) moves it to io/ipc/proc.";
-term docker "Container capability" "io/ipc/docker, host tier: the Docker Engine reached through its SDK client over the Engine socket on the same machine. Today it is candace/ipc/docker: ContainerHost, whose RunSandboxed runs one container to completion with no network, no capabilities, no privilege escalation, a read-only root and a pids limit, collects bounded output, and removes the container on every path, cancellation included. Slice X2 (#264) moves it to io/ipc/docker.";
-term clock "Clock capability" "candace/ipc/clock, kernel_io tier: the time source granted to a service as IClock, the current instant and a wait that delivers once a duration has elapsed, so a test can grant a controllable clock. SystemClock is the host's clock; ManualClock moves only when a spec advances it and fires the armed waits in deadline order. The cron service is its first consumer; warden's and the harness's clocks are still service-local. Slice X2 (#264) moves it to io/kernel/clock.";
-term http "HTTP capability" "candace/ipc/net/http, network tier: one HTTP server bound to one address and mounted into the host runtime as a service, and the outbound IHTTPClient whose every connection is dialed through a granted socket capability. The listener binds during startup, serves from its scope and drains in-flight requests on shutdown with the shared server shape; the client never reads proxy settings from the environment. Slice X2 (#264) moves it to io/net/http.";
-term grpc "gRPC client capability" "candace/ipc/net/grpc, network tier: an IClientConnector that opens lazy gRPC client connections dialed through the socket capability. A service calling a remote gRPC API receives a connector and never calls grpc.NewClient itself. Slice X2 (#264) moves it to io/net/grpc.";
-term fs "File capability" "candace/ipc/fs, kernel_io tier: read-only file access granted as IFiles, the io/fs shape of opening, reading and listing, over one host directory by HostFiles on os.DirFS, and change notification beneath the same directory granted as IWatcher by HostWatcher over the kernel's inotify queue, one bounded subscription per Watch. A service that reads files from the host receives IFiles in its constructor and one that reacts to them changing receives IWatcher too; files compiled into the binary cross no boundary and need no capability, and a test grants an in-memory tree and a gomock watcher whose channel it feeds. Slice X2 (#264) moves it to io/kernel/fs.";
-term config "Config capability" "candace/runtime/config: the only reader of the process environment. The binary reads it once and hands values, or the Environment itself, to what it constructs; the binary declares the names as constants and the defaults in the capability call. candace config envcheck compares each Go-built Compose service's environment with the names its binary reads, reporting dead and missing names. Pure value parsing stays in candace/pkg/config.";
-term pkg "Pure library" "candace/pkg: domain-neutral primitives that start no goroutines and cross no boundaries. Code that needs either belongs in runtime or io (candace/ipc until slice X2).";
-term eventually "Eventually" "candace/pkg/eventually: the typed test wait. Await polls a typed value until a predicate accepts it within a named budget and returns that value; Consistently asserts a predicate keeps holding for the budget. Gomega's Eventually is the polling implementation, erased once inside the package. Test-only: it waits in the caller's goroutine and crosses no boundary.";
-term placement "Placement rules" "Where a responsibility may live, checked by house lint as advisory locators: every goroutine has an owner responsible for its cleanup, a context-driven exit and a join (CS-15); network listen and dial and gRPC client creation only under ipc, and fork or exec only in ipc/proc, tests included (CS-16, with file placement to follow); PostgreSQL pool and connection creation only under ipc/db/csfpg, blocking, tests included (CS-16-DB); environment reads only in runtime/config or a binary's own config package, tests included (CS-17); and every directory under candace names an ontology term, internal being transparent.";
-term ratchet "Ratchet" "A comparison that lets a measured count fall but never rise: a change and its base are measured by the same checkers, so only the tree differs, and the change is refused when a count rises. Ratchet mode is the ontology alignment score's (tools/ontology-score.sh --ratchet): a change regresses when the comparable penalty, or any blocking signal (csfc-check, generated-drift, cs-16), rises above its base, and the merge path refuses a regressed change before it reaches main."
+  forms "process boundary" "process boundaries" kind concept;
+term io "I/O crossing" "Information moving between owners, or state that more than one goroutine can reach and so needs mutual exclusion: both are communication. Data owned by exactly one goroutine, with no lock and no channel, is owned data, not io. The tree that holds io is sorted by tier, one directory per crossing tier: io/inproc (in_process), io/kernel (kernel_io), io/ipc (host) and io/net (network), plus io/proto for protocol clients that run over either ipc or net. In-process code never lives under io/ipc or io/net, and an implementation under io/kernel, io/ipc or io/net must reach a real crossing primitive. Planned home candace/io: today the tree is candace/ipc, and slice X2 (#264) moves it once in-flight pull requests drain." kind concept;
+term tier "Crossing tier" "How far information travels between owners: one ordered enum, narrowest first, in_process, kernel_io, host, network. A crossing that touches two tiers reaches the wider one. Agent addresses, the relay's counters, stores and the io directories use this same enum. In source it is candace/ipc.Tier, which names in_process, host and network today; kernel_io joins it in slice X2 (#264)." kind concept;
+term capability "Capability" "A value, granted to a service through its constructor, that permits one kind of io crossing; the io directory that holds it names its tier. A service that takes no capability crosses nothing wider than in_process." kind concept;
+term ipc "IPC" "Interprocess communication, in this ontology only: information crossing to another process on the same machine, the host tier. Its home io/ipc holds unix sockets, proc (os/exec) and docker (the Docker Engine socket). Another machine is net, never IPC, and in-process code never lives under io/ipc. The glossary records the broader textbook reading. The directory candace/ipc predates this meaning and still holds every capability until slice X2 (#264) renames it to candace/io and sorts its children by tier." kind concept;
+term in_process "In-process tier" "Tier in_process, the narrowest: anything two goroutines in one process touch, by message passing (a channel, the relay) or by shared memory behind a lock, the shared-memory model of communication. Its io home is io/inproc. The runtime owns this tier: locks and raw sync primitives are permitted only in io/inproc and the runtime. A leaf critical section is in-process io; a lock elsewhere becomes a house-lint finding when slice X2 (#264) lands the gate." kind concept;
+term kernel_io "Kernel I/O tier" "Tier kernel_io: a system call whose far side is the kernel, not another process: files and the clock. A file is a kernel store. Its io home is io/kernel (fs and clock)." kind concept;
+term inproc "In-process I/O" "io/inproc, the home of the in_process tier: message passing between goroutines (the relay, PipeNetwork); the leaf primitives Cell[T] (Load, Store, and Update with a pure func(T) T), Counter, Map[K,V] and Snapshot[T] (copy-on-write through atomic.Pointer); in-process substitutes for io capabilities and out-of-process stores (pgmem's csfpg.IDB, the model stub, ros's DisconnectedSpine); and the gomock mocks of io interfaces, today in mocks directories beside their packages. Planned: the leaf primitives do not exist yet, and the rest live in their owners' directories until slice X2 (#264)." kind concept;
+term kernel "Kernel I/O capabilities" "io/kernel, the home of the kernel_io tier: fs and clock. Today fs is candace/ipc/fs and clock is candace/ipc/clock; slice X2 (#264) creates the directory." kind concept;
+term leaf "Leaf critical section" "A lock-guarded section is a leaf only when all three hold. First, while held it acquires no other lock, performs no channel operation and no io, and calls nothing it does not control, so it adds no edge to the lock-order graph. Second, it covers one datum and each operation is a single step, such as a read, a write, an increment or a map get or put, with no invariant spanning two operations. Third, nobody waits on it: no condition variable and no wait for a change. Failing any one makes it a protocol: give the state one owning goroutine and send it messages (house rule CS-5). A leaf is in_process io and uses the io/inproc leaf primitives (planned, slice X2 #264); raw sync appears only inside io/inproc and the runtime." kind concept;
+term net "Network capabilities" "io/net, the home of the network tier: information crossing to another machine through TCP and UDP dialers and listeners, http and grpc. Today the directory is candace/ipc/net, which grants IListener and IDialer over the host network stack, so a test can replace the kernel with an in-memory pipe; its loopback and unix-socket uses are the host tier. Slice X2 (#264) moves it to io/net." kind concept;
+term proto "Protocol clients" "io/proto: clients of a protocol that runs over either ipc or net, such as csfpg, the model providers copilot and claudecode, and ros. A protocol client is granted a dialer and never dials itself; its tier is the tier of the dialer it was granted. Planned: these live under candace/ipc until slice X2 (#264)." kind concept;
+term proc "Process capability" "io/ipc/proc, host tier: the one subprocess gateway and the only importer of os/exec. It owns launch, input and output, cancellation, waiting and cleanup of child processes. Today it is candace/ipc/proc: ILauncher runs or starts a program from an argument vector with an explicit directory, environment and streams, returning a structured result. Each child gets its own process group, or for a terminal its own session; cancellation or Kill ends the whole group or session, and Run and Process.Wait always reap the child. Slice X2 (#264) moves it to io/ipc/proc." kind concept;
+term docker "Container capability" "io/ipc/docker, host tier: the Docker Engine reached through its SDK client over the Engine socket on the same machine. Today it is candace/ipc/docker: ContainerHost, whose RunSandboxed runs one container to completion with no network, no capabilities, no privilege escalation, a read-only root and a pids limit, collects bounded output, and removes the container on every path, cancellation included. Slice X2 (#264) moves it to io/ipc/docker." kind concept;
+term clock "Clock capability" "candace/ipc/clock, kernel_io tier: the time source granted to a service as IClock, the current instant and a wait that delivers once a duration has elapsed, so a test can grant a controllable clock. SystemClock is the host's clock; ManualClock moves only when a spec advances it and fires the armed waits in deadline order. The cron service is its first consumer; warden's and the harness's clocks are still service-local. Slice X2 (#264) moves it to io/kernel/clock." kind concept;
+term http "HTTP capability" "candace/ipc/net/http, network tier: one HTTP server bound to one address and mounted into the host runtime as a service, and the outbound IHTTPClient whose every connection is dialed through a granted socket capability. The listener binds during startup, serves from its scope and drains in-flight requests on shutdown with the shared server shape; the client never reads proxy settings from the environment. Slice X2 (#264) moves it to io/net/http." kind concept;
+term grpc "gRPC client capability" "candace/ipc/net/grpc, network tier: an IClientConnector that opens lazy gRPC client connections dialed through the socket capability. A service calling a remote gRPC API receives a connector and never calls grpc.NewClient itself. Slice X2 (#264) moves it to io/net/grpc." kind concept;
+term fs "File capability" "candace/ipc/fs, kernel_io tier: read-only file access granted as IFiles, the io/fs shape of opening, reading and listing, over one host directory by HostFiles on os.DirFS, and change notification beneath the same directory granted as IWatcher by HostWatcher over the kernel's inotify queue, one bounded subscription per Watch. A service that reads files from the host receives IFiles in its constructor and one that reacts to them changing receives IWatcher too; files compiled into the binary cross no boundary and need no capability, and a test grants an in-memory tree and a gomock watcher whose channel it feeds. Slice X2 (#264) moves it to io/kernel/fs." kind concept;
+term config "Config capability" "candace/runtime/config: the only reader of the process environment. The binary reads it once and hands values, or the Environment itself, to what it constructs; the binary declares the names as constants and the defaults in the capability call. candace config envcheck compares each Go-built Compose service's environment with the names its binary reads, reporting dead and missing names. Pure value parsing stays in candace/pkg/config." kind concept;
+term pkg "Pure library" "candace/pkg: domain-neutral primitives that start no goroutines and cross no boundaries. Code that needs either belongs in runtime or io (candace/ipc until slice X2)." kind concept;
+term eventually "Eventually" "candace/pkg/eventually: the typed test wait. Await polls a typed value until a predicate accepts it within a named budget and returns that value; Consistently asserts a predicate keeps holding for the budget. Gomega's Eventually is the polling implementation, erased once inside the package. Test-only: it waits in the caller's goroutine and crosses no boundary." kind concept;
+term placement "Placement rules" "Where a responsibility may live, checked by house lint as advisory locators: every goroutine has an owner responsible for its cleanup, a context-driven exit and a join (CS-15); network listen and dial and gRPC client creation only under ipc, and fork or exec only in ipc/proc, tests included (CS-16, with file placement to follow); PostgreSQL pool and connection creation only under ipc/db/csfpg, blocking, tests included (CS-16-DB); environment reads only in runtime/config or a binary's own config package, tests included (CS-17); and every directory under candace names an ontology term, internal being transparent." kind concept;
+term ratchet "Ratchet" "A comparison that lets a measured count fall but never rise: a change and its base are measured by the same checkers, so only the tree differs, and the change is refused when a count rises. Ratchet mode is the ontology alignment score's (tools/ontology-score.sh --ratchet): a change regresses when the comparable penalty, or any blocking signal (csfc-check, generated-drift, cs-16, unlinked-terms), rises above its base, and the merge path refuses a regressed change before it reaches main."
   forms "ratchet" "ratchets";
-term deploy "Deploy" "The deployment control plane: desired state, placement, operator approval, reconciliation against Warden's fleet view, receipts and its PostgreSQL store. candace/services/deploy is the service, candace/web/deploy its web layer, and candace/app/deploy the application that composes them. It replaces the retired name CandaceOS.";
-term nodeexec "Node executor" "The service that applies one approved Compose assignment on one machine under a leader fence. It is the only component given the Docker socket. candace/services/nodeexec is the service and its client, candace/web/nodeexec its HTTP API, and candace/app/nodeexec the thin binary.";
-term harness "Agent harness" "The service that runs agent sessions: one process per machine runs every session concurrently, each an owner goroutine on a child scope that opens the agent's session for an assignment on a turn_executor in its own worktree, keeps that executor open across turns, owns the session's record, hooks and event log, and stops at a safepoint when canceled. Its typed operations, generated per api, are SubmitAgentSession, SendAgentSessionMessage, ListAgentSessions, GetAgentSession, CancelAgentSession and StopHarness, plus a live per-session event stream; before a launch it checks a worker cap and a disk floor derived from measured load, free space and run sizes, report-only until sessions have been measured. candace/services/harness is the service (AgentSessionService), candace/services/harness/session prepares and opens one session, candace/services/harness/chat is the Workbench chat over a session, and candace/app/harness is the host app, whose serve verb is the one long-running process and whose other verbs are thin clients of the operations. Deploy's operator turn is one consumer: it runs one conversation backend (Copilot, OpenCode, Ollama or a demo) from a subpackage of candace/services/harness.";
-term infra "Infrastructure kit" "Deployment material that is not Go: Compose files, installers and shell drivers under candace/infra. It contains no service and starts no CSF runtime of its own.";
-term deploy_kit "Deployment kit" "candace/infra/deploy-kit: the Compose files, installer, fleet driver and deploy-updater scripts that run deploy and nodeexec on machines. Its environment is generated from the Candacefile environment named deploy.";
-term httpapi "HTTP API package" "A web-layer package that registers one service's typed HTTP routes on the caller's Gin router. It owns no listener; candace/web/deploy/httpapi and candace/web/nodeexec/httpapi are the deploy and node executor APIs.";
-term webui "Operator web UI" "The web-layer package that renders deploy's operator pages and serves their assets: server-rendered HTML with a small browser script. candace/web/deploy/webui is its only instance.";
-term httpserver "HTTP engine package" "The web-layer package that builds deploy's one configured Gin engine with its middleware. The application binds it to a listener; the package does not open one itself.";
-term browserroutes "Browser route table" "The single source of browser-visible paths shared by deploy's operator pages, their script and the HTTP API, so a route is declared once.";
-term db "Database backends" "ipc/db: one package per database backend CSF reaches, named csf<backend> (csfpg for PostgreSQL; a later backend such as csfduckdb is a sibling with the same shape). Each owns its connections, its schema and migrations, and the queries generated against them; the stores that use them live in services. A backend is a protocol client of an out-of-process store, so slice X2 (#264) moves each to io/proto.";
-term csfpg "CSF PostgreSQL backend" "candace/ipc/db/csfpg: CSF's PostgreSQL backend: the only pool owner, the schema's generated queries and its migrations; migrations are the only schema source. The binary opens a Pool from Settings it read through its configuration, applies the schema with ApplySchema, and closes the pool after its services stop; a service receives the IDB capability, sqlc's DBTX plus transactions and Ping, in its constructor and queries through New. No Go declares DDL; the tables carry the csf_ prefix. It is named csfpg, not postgres, so an importer never mistakes it for a driver or another PostgreSQL package. It is the protocol client of an out-of-process store, so its tier is that of the dialer the composer grants: host for a local socket, network for another machine; until slice X2 (#264) it dials through pgx itself. pgmem's in-memory IDB is its in_process substitute. Slice X2 moves it to io/proto/csfpg.";
-term schema "Schema" "A component's SQL migrations, applied in name order by candace/pkg/sqlmigrate and recorded in the component's own version table. CSF's is ipc/db/csfpg/schema: one file, 001_init.sql, edited in place and assuming a clean database, recorded in csf_schema_version. An application that embeds CSF applies its own migrations afterwards, with any tool and its own version table.";
-term mock "Mock" "Generated gomock test doubles of a package's exported interfaces, in a mocks directory beside the package and regenerated by its go:generate mockgen directive. A double replaces a capability in a test; it is not a boundary crossing. A mock of an io interface is an in_process substitute; slice X2 (#264) moves those to io/inproc.";
+term ontology_alignment "Ontology alignment" "How closely the tree follows the ontology's placement and vocabulary rules, the property the ontology alignment score (tools/ontology-score.sh) measures: a weighted count of findings such as csfc check diagnostics, generated drift, unowned boundary crossings and README terms not linked to their definition, where 0 means every measured signal is clean. The ratchet keeps it from regressing."
+  forms "ontology alignment";
+term deploy "Deploy" "The deployment control plane: desired state, placement, operator approval, reconciliation against Warden's fleet view, receipts and its PostgreSQL store. candace/services/deploy is the service, candace/web/deploy its web layer, and candace/app/deploy the application that composes them. It replaces the retired name CandaceOS." kind component home "candace/services/deploy";
+term nodeexec "Node executor" "The service that applies one approved Compose assignment on one machine under a leader fence. It is the only component given the Docker socket. candace/services/nodeexec is the service and its client, candace/web/nodeexec its HTTP API, and candace/app/nodeexec the thin binary." kind component home "candace/app/nodeexec";
+term harness "Agent harness" "The service that runs agent sessions: one process per machine runs every session concurrently, each an owner goroutine on a child scope that opens the agent's session for an assignment on a turn_executor in its own worktree, keeps that executor open across turns, owns the session's record, hooks and event log, and stops at a safepoint when canceled. Its typed operations, generated per api, are SubmitAgentSession, SendAgentSessionMessage, ListAgentSessions, GetAgentSession, CancelAgentSession and StopHarness, plus a live per-session event stream; before a launch it checks a worker cap and a disk floor derived from measured load, free space and run sizes, report-only until sessions have been measured. candace/services/harness is the service (AgentSessionService), candace/services/harness/session prepares and opens one session, candace/services/harness/chat is the Workbench chat over a session, and candace/app/harness is the host app, whose serve verb is the one long-running process and whose other verbs are thin clients of the operations. Deploy's operator turn is one consumer: it runs one conversation backend (Copilot, OpenCode, Ollama or a demo) from a subpackage of candace/services/harness." kind component home "candace/services/harness";
+term infra "Infrastructure kit" "Deployment material that is not Go: Compose files, installers and shell drivers under candace/infra. It contains no service and starts no CSF runtime of its own." kind component home "candace/infra";
+term deploy_kit "Deployment kit" "candace/infra/deploy-kit: the Compose files, installer, fleet driver and deploy-updater scripts that run deploy and nodeexec on machines. Its environment is generated from the Candacefile environment named deploy." kind component home "candace/infra/deploy-kit";
+term httpapi "HTTP API package" "A web-layer package that registers one service's typed HTTP routes on the caller's Gin router. It owns no listener; candace/web/deploy/httpapi and candace/web/nodeexec/httpapi are the deploy and node executor APIs." kind concept;
+term webui "Operator web UI" "The web-layer package that renders deploy's operator pages and serves their assets: server-rendered HTML with a small browser script. candace/web/deploy/webui is its only instance." kind concept;
+term httpserver "HTTP engine package" "The web-layer package that builds deploy's one configured Gin engine with its middleware. The application binds it to a listener; the package does not open one itself." kind concept;
+term browserroutes "Browser route table" "The single source of browser-visible paths shared by deploy's operator pages, their script and the HTTP API, so a route is declared once." kind concept;
+term db "Database backends" "ipc/db: one package per database backend CSF reaches, named csf<backend> (csfpg for PostgreSQL; a later backend such as csfduckdb is a sibling with the same shape). Each owns its connections, its schema and migrations, and the queries generated against them; the stores that use them live in services. A backend is a protocol client of an out-of-process store, so slice X2 (#264) moves each to io/proto." kind component home "candace/ipc/db";
+term csfpg "CSF PostgreSQL backend" "candace/ipc/db/csfpg: CSF's PostgreSQL backend: the only pool owner, the schema's generated queries and its migrations; migrations are the only schema source. The binary opens a Pool from Settings it read through its configuration, applies the schema with ApplySchema, and closes the pool after its services stop; a service receives the IDB capability, sqlc's DBTX plus transactions and Ping, in its constructor and queries through New. No Go declares DDL; the tables carry the csf_ prefix. It is named csfpg, not postgres, so an importer never mistakes it for a driver or another PostgreSQL package. It is the protocol client of an out-of-process store, so its tier is that of the dialer the composer grants: host for a local socket, network for another machine; until slice X2 (#264) it dials through pgx itself. pgmem's in-memory IDB is its in_process substitute. Slice X2 moves it to io/proto/csfpg." kind component home "candace/ipc/db/csfpg";
+term database "Own database" "candace/services/database: the PostgreSQL container a csf serve host provisions and owns when it is given no -database-config, so CSF's state lives with CSF and never in another project's database. Ensure creates it once through the container capability (a pinned image digest, a named volume, a loopback port probed once and kept, a generated password), records it in <state>/database.json with mode 0600 and returns once its health check passes; later starts reuse it, csf stop leaves it running, and csf db status|start|stop manage it. The housekeeping trigger database_backup dumps it hourly with pg_dump into <state>/backups and keeps as many dumps as fit in a quarter of the space above the disk floor, recording that derivation.";
+term schema "Schema" "A component's SQL migrations, applied in name order by candace/pkg/sqlmigrate and recorded in the component's own version table. CSF's is ipc/db/csfpg/schema: one file, 001_init.sql, edited in place and assuming a clean database, recorded in csf_schema_version. An application that embeds CSF applies its own migrations afterwards, with any tool and its own version table." kind concept;
+term snapshot "MVCC snapshot" "The committed state a transaction reads: PostgreSQL's multiversion concurrency control gives every transaction its own consistent view, unchanged by writers that commit after it began. Planned: today the harness's state is files in its state directory and Go structures in memory (#620)." kind concept;
+term serializable_transaction "Serializable transaction" "The only way state changes once all of it lives in PostgreSQL (#620): read a snapshot, write rows, commit. At the serializable isolation level PostgreSQL commits only results equal to some one-at-a-time order. When two transactions would together break a rule each alone keeps (write skew: each sees 15 children and adds one), one is aborted with SQLSTATE 40001 and rerun on a new snapshot. Snapshot isolation, and read committed, PostgreSQL's default, both let write skew commit. A rerun repeats the transaction's body, so nothing with an outside effect, a model call included, runs inside one." kind concept;
+term schema_constraint "Schema constraint" "A rule compiled into the schema so no commit can leave a state that breaks it: a CHECK, a foreign key, a unique constraint, or a constraint trigger compiled from a Datalog rule. If every transaction keeps every constraint and the schedule is serializable, every committed state keeps them all. A rule PostgreSQL cannot decide, such as a Lean proof or a build, is checked outside and recorded as a row the constraint requires." kind concept;
+term row_trigger "Row trigger" "SQL a table runs inside the writing transaction when one of its rows changes: it answers a typed question the rules already decide, refuses an answer only the operator may give, and rings the commit bell. It never calls a model: per row it batches nothing, a model outage would roll back every write that asks, and a serializable rerun would call it again. Distinct from a cron trigger." kind concept;
+term commit_bell "Commit bell" "PostgreSQL's NOTIFY, sent by a row trigger and delivered only if its transaction commits, so no listener wakes for state that was rolled back. It carries a row's key, never its content; csf wait listens on it and River workers wake on it." kind concept;
+term river_worker "River worker" "A Go worker of River, the PostgreSQL job queue built on pgx (riverqueue/river): it claims a queued job and does the one thing with an outside effect, a JEV batch, an agent turn, a build, a GitHub call or a git push, outside any transaction, then writes the result back in a new one. A job is inserted in the same transaction as the row it acts on. Planned (#620, #622)." kind concept;
+term representable_state "Representable state" "A committed state in which every schema constraint holds. The runtime's whole concurrency contract is that state moves only from one representable state to the next, through serializable transactions." kind concept;
+term mock "Mock" "Generated gomock test doubles of a package's exported interfaces, in a mocks directory beside the package and regenerated by its go:generate mockgen directive. A double replaces a capability in a test; it is not a boundary crossing. A mock of an io interface is an in_process substitute; slice X2 (#264) moves those to io/inproc." kind concept;
 term agent_address "Agent address" "Where an agent is reached, as a crossing tier: in_process (the same runtime), host (another process on the same machine) or network (another machine). kernel_io reaches no agent, so no address carries it. Provider-specific detail is nested inside each."
-  forms "agent address" "agent addresses";
-term model "Model providers" "The ipc subtree ipc/model: the brain contract IBrain and the brain providers behind it, one subpackage per provider, each crossing to its inference provider through a capability its constructor receives. Each real provider is a protocol client: slice X2 (#264) moves copilot and claudecode to io/proto and the stub to io/inproc.";
-term stub "Stub brain" "The brain provider ipc/model/stub: canned, deterministic proposals with no model, network or credential, so the harness runs and its specs pass without an inference provider. It is an in_process substitute; slice X2 (#264) moves it to io/inproc.";
-term copilot "Copilot provider package" "The package ipc/model/copilot that implements the brain contract over the Copilot brain provider (vendor): it proposes Copilot agent turns through the existing Copilot adapter's generated Workbench client. A protocol client; slice X2 (#264) moves it to io/proto/copilot.";
-term host "Host tier" "Tier host: information crossing to another process on the same machine, which is IPC: a unix socket, loopback, a child process through proc or the Docker Engine socket through docker. Its io home is io/ipc. A host agent, such as a Claude Code session, pulls its inbox through the authenticated agent MCP endpoint. Every address type carrying the host tier embeds model.HostTier.";
-term network "Network tier" "Tier network, the widest: information crossing to another machine; on this fleet, over the tailnet. Its io home is io/net. A network agent pulls its inbox through the authenticated agent MCP endpoint. Every address type carrying the network tier embeds model.NetworkTier.";
-term claudecode "Claude Code provider" "The ipc/model provider for Claude Code sessions, each an agent loop in its own process on the same machine, addressed at the host tier by session and local socket. ClaudeCodeBrain makes Claude Code a turn executor: each turn is one Claude Code process started through ipc/proc on a session CSF names, with every input and stream-json event forwarded unchanged and logged under the turn trace. A brain opened as a ClaudeCodeSession keeps one process across turns instead: its stream-json input stays open, each Propose writes a turn and reads to its result, an interrupt control request ends a running turn at the executor's next safepoint, and Close ends the input and joins the process. A protocol client; slice X2 (#264) moves it to io/proto/claudecode.";
-term turn_executor "Turn executor" "A turn executor is the external agent loop that carries out one turn: Claude Code, Codex, Copilot, whatever the operator picks. It is a decision boundary: which executor runs is the deployer's choice, and CSF is indifferent to it. CSF owns the session, its record, its context and its tools; the executor only executes the turn and reports every event back. Executors are interchangeable behind model.IBrain, as model providers: claudecode is the first, the copilot provider is to move behind the same seam, and the stub stands in for one in specs. Until CSF stores the session record and owns context and tools, the executor still holds them."
-  forms "turn executor" "turn executors";
-term relay "Relay" "The agent messaging service: it delivers typed envelopes from one agent address to another agent's in-memory inbox and counts each envelope by the widest tier it crossed. Delivery between goroutine owners is in_process io: today candace/services/relay, target io/inproc/relay in slice X2 (#264).";
-term intake "Event intake" "The service candace/services/intake: a tailnet-side poller of the GitHub REST API (conditional requests, X-Poll-Interval, rate-limit backoff) that normalizes comments, reviews, review comments and CI failures into the typed candace.intake.v1.Event, deduplicates them in a queue, and delivers each through the relay to the agent that owns the pull request or issue. It needs no public ingress; the queue is in memory and routing is a static table until durable queueing and ownership claims are stored through csfpg.";
+  forms "agent address" "agent addresses" kind concept;
+term model "Model providers" "The ipc subtree ipc/model: the brain contract IBrain and the brain providers behind it, one subpackage per provider, each crossing to its inference provider through a capability its constructor receives. Each real provider is a protocol client: slice X2 (#264) moves copilot and claudecode to io/proto and the stub to io/inproc." kind component home "candace/ipc/model";
+term stub "Stub brain" "The brain provider ipc/model/stub: canned, deterministic proposals with no model, network or credential, so the harness runs and its specs pass without an inference provider. It is an in_process substitute; slice X2 (#264) moves it to io/inproc." kind concept;
+term copilot "Copilot provider package" "The package ipc/model/copilot that implements the brain contract over the Copilot brain provider (vendor): it proposes Copilot agent turns through the existing Copilot adapter's generated Workbench client. A protocol client; slice X2 (#264) moves it to io/proto/copilot." kind component home "candace/ipc/model/copilot";
+term host "Host tier" "Tier host: information crossing to another process on the same machine, which is IPC: a unix socket, loopback, a child process through proc or the Docker Engine socket through docker. Its io home is io/ipc. A host agent, such as a Claude Code session, pulls its inbox through the authenticated agent MCP endpoint. Every address type carrying the host tier embeds model.HostTier." kind concept;
+term network "Network tier" "Tier network, the widest: information crossing to another machine; on this fleet, over the tailnet. Its io home is io/net. A network agent pulls its inbox through the authenticated agent MCP endpoint. Every address type carrying the network tier embeds model.NetworkTier." kind concept;
+term claudecode "Claude Code provider" "The ipc/model provider for Claude Code sessions, each an agent loop in its own process on the same machine, addressed at the host tier by session and local socket. ClaudeCodeBrain makes Claude Code a turn executor: each turn is one Claude Code process started through ipc/proc on a session CSF names, with every input and stream-json event forwarded unchanged and logged under the turn trace. A brain opened as a ClaudeCodeSession keeps one process across turns instead: its stream-json input stays open, each Propose writes a turn and reads to its result, an interrupt control request ends a running turn at the executor's next safepoint, and Close ends the input and joins the process. A protocol client; slice X2 (#264) moves it to io/proto/claudecode." kind component home "candace/ipc/model/claudecode";
+term ollama "Ollama provider" "The ipc/model provider for a local Ollama server, reached over its HTTP API through the http capability its constructor receives, on this host or a neighbour. OllamaBrain proposes one answer per prompt: a system and a user message and, for a typed answer, the JSON schema the server constrains the model to; the answer carries the server's own load, prompt and generation measurements, and every request carries a keep-alive that says how long the model may stay loaded, because sharing the GPU is the caller's decision. It is the provider that costs nothing per token; the ouroboros labeler is its first consumer. A protocol client; slice X2 (#264) moves it to io/proto/ollama.";
+term copilotcli "Copilot CLI provider" "The ipc/model provider for GitHub Copilot CLI sessions, pinned to one Copilot CLI version. CopilotCLIExecutor makes the Copilot CLI a turn executor: each turn is one Copilot process started through ipc/proc on a session CSF names, which Copilot creates on the first turn and resumes on every later one, with the prompt on its standard input. Its assistant messages and turn result are reported in Claude Code's stream-json shape, the result carrying the token and cache usage of Copilot's usage file, so one event log reads the same whichever executor ran. A recipe's Claude Code tool rules are translated to Copilot's tools and permissions, and a rule with no Copilot equivalent refuses the recipe. A protocol client; slice X2 (#264) moves it to io/proto/copilotcli.";
+term hfjobs "Hugging Face Jobs provider" "candace/ipc/hfjobs: the client of the Hugging Face Jobs API, reached over HTTPS through the http capability its constructor receives, for one namespace and one token: run a container on Hugging Face's machines, list, inspect and cancel the namespace's jobs, and read each flavor's per-minute price. It is the provider services/cloud launches burst and probe jobs through; the provider's own timeout is not a stop CSF relies on, since a measured job outlived it (BURST-SESSIONS, #373). A protocol client; slice X2 (#264) moves it to io/proto/hfjobs.";
+term declaration "CSF declaration" "The only source a person or agent edits: CSF declarations (terms, kinds, rules, directories, diagrams) and Datalog rules. Everything else in the tree is generated from it or is evidence a run wrote; a change starts here and nowhere else.";
+term generate "Generate from declarations" "Write every derived file from the declarations: csfc emit, the documentation generator and the decision tree projection. A generated file is never edited by hand; a wrong output is fixed in its declaration and generated again." kind concept;
+term merge_gate "Merge gate" "The checks a change passes before main: csfc refuses nothing new, regeneration changes nothing, the build and tests pass, and no golden metric falls (seed files, chief violations, derived share).";
+term pull_request "Pull request" "One proposed change on its own branch, opened ready for the merge train once it passes the merge gate locally; never a draft left waiting and never merged by hand.";
+term change_record "Change record" "The typed record of one run of the code workflow: the declaration diff, the generated files, each merge gate result, the pull request, the merge commit and the golden metrics before and after. It is how a reused workflow is measured.";
+term jev "JEV" "A typed judge: one open-weights model (autotrust/JEV-27B-VL on Hugging Face, Qwen3.8-27B with a decision adapter) that answers typed decisions with a calibrated probability for every option, and is the same weights unmodified for free text. One vLLM process serves both, so every decision and every generation shares one cache.";
+term system_one "JEV System 1" "A JEV decision: a kind, a state, a question and its options in (yes or no, one of 2 to 256 options, or a rating 0 to 5), a calibrated probability for every option out, in one forward pass (POST /v1/decide). Decisions from many sessions batch on the same GPUs.";
+term system_two "JEV System 2" "JEV's base weights generating text, optionally reasoning step by step. A turn executor reaches it as its own model provider (Copilot's custom provider), so filling a decision hole needs no outside model and no outside credits.";
+term typed_question "Typed question" "One decision csfc projects from a declaration for JEV System 1: the kind, the state it is asked in, the question and at most 16 options, each option one thing csfc can then write.";
+term decision_hole "Decision hole" "A typed question no option fits, or one JEV System 1 answered below the measured knee of its calibration: a session fills it on JEV System 2, and what it writes is checked like anything csfc writes.";
+term bootstrap_job "Bootstrap job" "One cloud job (Hugging Face Jobs) that takes a repository archive in and returns an archive whose tree holds every rule: csf mines the repository, csfc asks typed questions, JEV answers, csfc writes, the checks run, and the loop repeats until every rule holds or the job's cap is reached.";
+term turn_executor "Turn executor" "A turn executor is the external agent loop that carries out one turn: Claude Code, Codex, Copilot, whatever the operator picks. It is a decision boundary: which executor runs is the deployer's choice, and CSF is indifferent to it. CSF owns the session, its record, its context and its tools; the executor only executes the turn and reports every event back. Executors are interchangeable behind model.IBrain, as model providers: claudecode is the first and copilotcli the second, a recipe's executor field chooses between them, both run under the same session gates and report into the same event log, and the stub stands in for one in specs. Until CSF stores the session record and owns context and tools, the executor still holds them."
+  forms "turn executor" "turn executors" kind component home planned 346;
+term cost_event "Cost event" "One typed record of one operation in a virtual session's life on real sessions and what it cost: a turn on a warm real session or after the prompt cache expired, a bind, a rebind, a model flip, an idle close, a reopen or a keep-alive, with its tokens by kind (uncached input, cache write, cache read, output), dollars, time to first token and the turn executor memory it released. The session cost model derives them from each run's events.jsonl and names every field it inferred rather than read. In source: CostEvent in proto/candace/harness/v1/costs.proto."
+  forms "cost event" "cost events";
+term cost_model "Session cost model" "The package candace/services/harness/costs and the harness binary's costs verb. It derives the cost events of every recorded run; measures its inputs (gaps between turns, rebuild cost, the cache lifetime, turn executor memory, price per token kind per model, success per model and task kind), each with its count and 95% interval; and replays each decision over the record with a deterministic simulator: cache keep-alive and idle close as ski rental, a model flip as a metrical task system, placement by shared prefix and by area signature. The chosen parameters, each with its derivation, and the daily series go to costs.json under the state directory, which the Workbench shows.";
+term fleet_hit_ratio "Fleet hit ratio" "h_fleet: the share of every input token the fleet's turns submitted that the endpoint read from its prompt cache rather than wrote or took uncached. The session cost model reports it per day and under each placement policy."
+  forms "fleet hit ratio";
+term area_signature "Area signature" "The exact set of repository paths a real session read, edited or searched, and the ontology terms that name a directory on them, taken from its events. A request's area is the paths and terms its prompt names. Area affinity routes a request to the warm real session whose signature covers it best; the session cost model replays that against the router's title overlap and against always opening a new real session, and derives the carried context beyond which a warm session costs more than the exploration it saves."
+  forms "area signature" "area signatures";
+term relay "Relay" "The agent messaging service: it delivers typed envelopes from one agent address to another agent's in-memory inbox and counts each envelope by the widest tier it crossed. Delivery between goroutine owners is in_process io: today candace/services/relay, target io/inproc/relay in slice X2 (#264)." kind component home "candace/services/relay";
+term intake "Event intake" "The service candace/services/intake: GitHub activity as the typed candace.intake.v1.Event. Its webhook receiver, mounted in csf serve, verifies each delivery's X-Hub-Signature-256 against github.webhook_secret, keeps each delivery once by its X-GitHub-Delivery, records every delivery and event on the GitHub event stream (a run directory's events.jsonl that csf events and the mining loop read), queues pull request feedback in the session that owns the branch, marks merges into main on the slice dispatcher, and after an outage asks GitHub to redeliver what it missed; it needs public ingress to the one webhook route. Its poller, the tailnet-side alternative needing none, reads the REST API with conditional requests and delivers through the relay to the agent a static table names." kind component home "candace/services/intake";
 term goroutine "Goroutine" "A Go function executing concurrently inside its application's process. It shares memory with other goroutines; its owner must arrange cancellation and completion."
-  forms "goroutine" "goroutines";
+  forms "goroutine" "goroutines" kind concept;
 term thread "OS thread" "An execution context scheduled by the operating system. Go schedules runnable goroutines onto OS threads; a package name does not assign either one to a CPU core."
-  forms "OS threads";
+  forms "OS threads" kind concept;
 term core "CPU core" "A hardware execution resource on which the operating system schedules threads. Placement and latency require observation or explicit configuration."
-  forms "core" "cores";
-term bench "Workbench" "The user entry point for sessions, tools and inspection. Chat, inspection and keyed Kanban widgets exist; further widget composition remains planned.";
-term ops_view "Ops view" "The operator's live page of every harness session on a machine: candace/services/opsview, a gotth-live service whose cards are widget SDK widgets in one keyed collection, each read from a run directory's run record and event log through the file capability and kept current through its watch capability, so a card changes the instant a line lands and nothing polls. candace/app/harness's view verb is the host app that grants the two capabilities over the state directory and binds the listener. It is read-only; operator actions, the fleet panel and the compounding chart are later slices. The name is provisional until the view term lands."
-  forms "ops view";
-term api "Generated HTTP, CLI and MCP operations" "The generated ways to invoke the same CSF operation contracts. Go callers can also compose libraries directly.";
-term transport_adapter "HTTP/MCP adapter" "The CSF Service registers generated HTTP routes with the caller's Gin router and exposes MCP handlers. It owns no listener, process or independent service lifetime.";
-term mcp "MCP" "Model Context Protocol: the tool-discovery and invocation protocol used by agent clients. Registration does not start another service inside an already running CSF host.";
+  forms "core" "cores" kind concept;
+term bench "Workbench" "The Copilot-era Workbench: the user entry point for the Copilot adapter's sessions, tools and inspection, with chat, inspection and keyed Kanban widgets. The operator's control plane for harness sessions is the workbench term, which stands beside it; this Kanban is unchanged and stays the Copilot adapter's board." kind concept;
+term ops_view "Ops view" "The page package candace/services/opsview: a gotth-live service whose cards are widget SDK widgets in one keyed collection, each read from a run directory's run record and event log through the file capability and kept current through its watch capability, so a card changes the instant a line lands and nothing polls. Granted the CSF service's operations it is the workbench, which csf serve mounts on its own listeners; without them it is a read-only view. The csf view verb that served it as a second process is retired."
+  forms "ops view" kind concept;
+term host_profile "Host profile" "A typed record the operator edits on the workbench's host panel: a named set of containers to keep running, started when stopped, whether CSF work (the harness's sessions and their build containers, recognized from its run directories) is kept, and whether every other running container stops. Containers the operator protected never stop. Applying one shows its diff, what stops and what starts, before one confirm naming exactly those containers, and records the change set in the state directory's ledger so one tap undoes it. It never removes a container or touches a volume. The host operations in candace/services/opsview apply it, over HTTP and over MCP at csf serve's /mcp."
+  forms "host profile" "host profiles";
+term verified_action "Verified action" "A button whose operation carries its acceptance check: a dry run of the exact operation against the live system and the result it is expected to produce, plus the names a destructive one lists before one confirm. The check runs when the button is installed and again before each render; a button whose check fails is drawn disabled with the reason, so a page never offers a button that might not work. It is the widget SDK's generic primitive in candace/pkg/widget, which every button on the workbench's host panel uses."
+  forms "verified action" "verified actions";
+term workbench "Workbench control plane" "The operator's control plane: the gotth-live page csf serve mounts at / on its own listeners, built from the ops view package. Its first screen is phone-first: every harness session as a live card with running ones first, merges and spend today against the mining loop's daily cap, the loop and miner panels, and the dispatch queue. It acts: send a session a message, recorded as the operator's own words; cancel it; mark its pull request ready; merge it through the repository's merge path; and launch a session from a ticket and a recipe template after showing its admission check. Every action is one generated operation of the CSF service, the same one the csf CLI calls over HTTP and an agent calls over MCP at serve's /mcp, so no action exists only in the page, and each is recorded in the session's event log as a typed control action. It succeeds the Copilot-era Workbench Kanban as the operator's entry point without replacing it.";
+term api "Generated HTTP, CLI and MCP operations" "The generated ways to invoke the same CSF operation contracts. Go callers can also compose libraries directly." kind concept;
+term transport_adapter "HTTP/MCP adapter" "The CSF Service registers generated HTTP routes with the caller's Gin router and exposes MCP handlers. It owns no listener, process or independent service lifetime." kind concept;
+term mcp "MCP" "Model Context Protocol: the tool-discovery and invocation protocol used by agent clients. Registration does not start another service inside an already running CSF host." kind concept;
 term knowledge "Knowledge and retrieval" "Saved documents, source references and explicit relationships exposed through search and graph operations. Coverage depends on what was actually ingested."
-  forms "knowledge" "Knowledge";
-term symbolic "Symbolic relationship" "An explicit named connection between identified records, such as a source and an artifact derived from it. It is distinct from similarity in an embedding search.";
-term compiler "Compiler" "The CSF OCaml compilers under csf/compiler: the documentation language, the architecture checker and the API code generator. None compiles a robot controller; the in-Go controller compiler and interpreter were removed because the low-level controller is external and ROS-side. The Lean model in examples/proof covers arithmetic only.";
-term ros "ROS spine capability" "candace/ipc/ros: the ISpine boundary through which CSF submits an Action to the external ROS-side spine and observes it, over the network. Only the stub ships: DisconnectedSpine answers every call with a typed not-connected error, and views render no spine connected instead of failing. Slice X2 (#264) moves the client to io/proto/ros and DisconnectedSpine, an in_process substitute, to io/inproc.";
-term compile "Compile" "Translate a source representation into another representation while checking its declared rules. Each compiler names its input, output and guarantees; translating documentation does not prove a robot controller.";
-term workers "Configured worker goroutines" "Concurrent workers in the shared Go process that call the job ledger's bounded Reconcile pass to submit, inspect and cancel configured jobs. They drive no controller; the spine is reached only through ros. Current durable job dispatch uses PostgreSQL; memory-first dispatch remains planned.";
+  forms "knowledge" "Knowledge" kind concept;
+term symbolic "Symbolic relationship" "An explicit named connection between identified records, such as a source and an artifact derived from it. It is distinct from similarity in an embedding search." kind concept;
+term compiler "Compiler" "The CSF OCaml compilers under csf/compiler: the documentation language, the architecture checker and the API code generator. None compiles a robot controller; the in-Go controller compiler and interpreter were removed because the low-level controller is external and ROS-side. The Lean model in examples/proof covers arithmetic only." kind component home "candace/csf/compiler";
+term github "GitHub protocol client" "The protocol client ipc/github: a library compiled into the binary that uses it, not a service, granted the http capability, so it never dials on its own, starts no goroutine and owns no process. Its client is generated by oapi-codegen from GitHub's own OpenAPI description, pinned by commit and digest and filtered to the operations its allowlist names, one per line; the token comes through the config capability or gh's own hosts file. csf/githubtools registers the same operations as MCP tools on the endpoint csf serve already has, generated from the same filtered description, so a tool and the call behind it cannot drift; the commit gate, work continuity and the csf github verb call the client directly. Slice X2 (#264) moves it to io/proto/github.";
+term ros "ROS spine capability" "candace/ipc/ros: the ISpine boundary through which CSF submits an Action to the external ROS-side spine and observes it, over the network. Only the stub ships: DisconnectedSpine answers every call with a typed not-connected error, and views render no spine connected instead of failing. Slice X2 (#264) moves the client to io/proto/ros and DisconnectedSpine, an in_process substitute, to io/inproc." kind component home "candace/ipc/ros";
+term compile "Compile" "Translate a source representation into another representation while checking its declared rules. Each compiler names its input, output and guarantees; translating documentation does not prove a robot controller." kind concept;
+term workers "Configured worker goroutines" "Concurrent workers in the shared Go process that call the job ledger's bounded Reconcile pass to submit, inspect and cancel configured jobs. They drive no controller; the spine is reached only through ros. Current durable job dispatch uses PostgreSQL; memory-first dispatch remains planned." kind concept;
 term inspect "Inspection" "Operations that expose available usage, duration, job state and saved receipts. Missing data is reported as missing, not measured zero."
-  forms "inspection";
-term store "Store" "State that more than one owner can reach. A goroutine's own data is owned data, not a store. Every store is io, and its tier is its io tier: an in-process store (io/inproc: Cell, Map, Counter, Snapshot) dies with the process; a kernel store (io/kernel: files) survives a process restart; an out-of-process store, reached through an io/proto client over ipc or net as chosen by the dialer the composer grants (csfpg and PostgreSQL, Redis, artifact storage), survives the process, and the host too when remote. Say out-of-process store, never IPC store. In-process substitutes for out-of-process stores, such as pgmem's csfpg.IDB, live in io/inproc. CSF's configured out-of-process stores are PostgreSQL for records and artifact storage for original bytes; OpenSearch provides searchable document and log views of those sources.";
-term opensearch "OpenSearch" "The configured search and aggregated-log system. Saved source records can also be used to reconstruct trace observations.";
-term jobs "Job ledger" "candace/services/jobs: the durable record of requests admitted to external executors. The ledger is an out-of-process store: its csf_jobs tables live in CSF's PostgreSQL schema, reached through the csfpg backend's IDB capability, and pgmem's IDB is its in-process substitute in specs. A job has a kind, an executor, a typed request, a budget reservation, progress in admitted units, a log cursor, cancellation and cleanup evidence, measurements with evidence hashes and trace delivery state. JobLedger[Spec] is generic over the request type; executors are capabilities granted through its constructor: AWS Batch as a remote executor submitted at most once, local Docker as a host executor reconciled under an advisory lock. Simulations are one consumer. Real AWS execution still needs configuration and acceptance.";
-term cron "Cron" "The cron service, candace/services/cron: the durable in-process scheduler that mounts into the host runtime, fires each declared trigger on its schedule and records every occurrence through csfpg. It is granted its store, its clock and its triggers through options. Start reconciles the declared triggers with the store and starts the scheduling goroutine on the service's scope; every occurrence runs on a goroutine of that scope under a fenced lease; and the scope's join is its cleanup, so shutdown waits for the occurrence in flight and records it canceled. Execution is at least once: an operation uses the occurrence identifier as its idempotency key. The schedule grammar is the pure library candace/pkg/cron. The Workbench's chat schedules are its first consumer; the ouroboros loop's schedule is planned.";
-term trigger "Cron trigger" "A named, human-readable schedule with a catch-up policy (none, latest or all) and an overlap policy (skip or allow) that invokes one operation of a mounted service. Its cursor, the next instant it fires at, is a row of csf_cron_triggers. A trigger may submit a job; it is not one: jobs is the ledger of requests admitted to external executors.";
-term occurrence "Occurrence" "One firing of a cron trigger at one scheduled instant, identified by the trigger name and that instant, so the identifier is stable across restarts and retries. It is claimed under a lease the running operation renews, and it ends succeeded, failed or canceled, or is skipped by a catch-up or overlap policy; every state is a row of csf_cron_occurrences.";
-term views "Prometheus, Grafana and Langfuse" "Configured systems for measurements, dashboards and agent traces. They display available observations; their existence does not imply every operation was traced.";
-term experiments "Training results and optional MLflow" "Saved experiment artifacts and evaluation results, optionally associated with an MLflow run. Autonomous neural training is not demonstrated, and CSF runs no controller search.";
-term vendor "Copilot brain provider" "The existing Copilot model access and file/tool execution loop, reached as one provider of the brain contract.";
+  forms "inspection" kind concept;
+term store "Store" "State that more than one owner can reach. A goroutine's own data is owned data, not a store. Every store is io, and its tier is its io tier: an in-process store (io/inproc: Cell, Map, Counter, Snapshot) dies with the process; a kernel store (io/kernel: files) survives a process restart; an out-of-process store, reached through an io/proto client over ipc or net as chosen by the dialer the composer grants (csfpg and PostgreSQL, Redis, artifact storage), survives the process, and the host too when remote. Say out-of-process store, never IPC store. In-process substitutes for out-of-process stores, such as pgmem's csfpg.IDB, live in io/inproc. CSF's configured out-of-process stores are PostgreSQL for records and artifact storage for original bytes; OpenSearch provides searchable document and log views of those sources." kind concept;
+term opensearch "OpenSearch" "The configured search and aggregated-log system. Saved source records can also be used to reconstruct trace observations." kind concept;
+term jobs "Job ledger" "candace/services/jobs: the durable record of requests admitted to external executors. The ledger is an out-of-process store: its csf_jobs tables live in CSF's PostgreSQL schema, reached through the csfpg backend's IDB capability, and pgmem's IDB is its in-process substitute in specs. A job has a kind, an executor, a typed request, a budget reservation, progress in admitted units, a log cursor, cancellation and cleanup evidence, measurements with evidence hashes and trace delivery state. JobLedger[Spec] is generic over the request type; executors are capabilities granted through its constructor: AWS Batch as a remote executor submitted at most once, local Docker as a host executor reconciled under an advisory lock. Simulations are one consumer. Real AWS execution still needs configuration and acceptance." kind component home "candace/services/jobs";
+term cron "Cron" "The cron service, candace/services/cron: the durable in-process scheduler that mounts into the host runtime, fires each declared trigger on its schedule and records every occurrence through csfpg. It is granted its store, its clock and its triggers through options. Start reconciles the declared triggers with the store and starts the scheduling goroutine on the service's scope; every occurrence runs on a goroutine of that scope under a fenced lease; and the scope's join is its cleanup, so shutdown waits for the occurrence in flight and records it canceled. Execution is at least once: an operation uses the occurrence identifier as its idempotency key. The schedule grammar is the pure library candace/pkg/cron. The Workbench's chat schedules are its first consumer; the harness host app mounts it with the housekeeping triggers and the ouroboros loop's four." kind component home "candace/services/cron";
+term trigger "Cron trigger" "A named, human-readable schedule with a catch-up policy (none, latest or all) and an overlap policy (skip or allow) that invokes one operation of a mounted service. Its cursor, the next instant it fires at, is a row of csf_cron_triggers. A trigger may submit a job; it is not one: jobs is the ledger of requests admitted to external executors." kind concept;
+term occurrence "Occurrence" "One firing of a cron trigger at one scheduled instant, identified by the trigger name and that instant, so the identifier is stable across restarts and retries. It is claimed under a lease the running operation renews, and it ends succeeded, failed or canceled, or is skipped by a catch-up or overlap policy; every state is a row of csf_cron_occurrences." kind concept;
+term views "Prometheus, Grafana and Langfuse" "Configured systems for measurements, dashboards and agent traces. CSF owns its Prometheus and Grafana and uses no other project's: csf serve exports every family of services/views's catalog at /metrics and provisions both as containers it owns, with the CSF dashboard as code, where every family has a panel and every panel queries a family. They display available observations; their existence does not imply every operation was traced." kind concept;
+term experiments "Training results and optional MLflow" "Saved experiment artifacts and evaluation results, optionally associated with an MLflow run. Autonomous neural training is not demonstrated, and CSF runs no controller search." kind concept;
+term vendor "Copilot brain provider" "The existing Copilot model access and file/tool execution loop, reached as one provider of the brain contract." kind concept;
 term web "Web layer" "HTTP routing, typed APIs, browser connections, event delivery, server rendering and browser updates in the shared host. Workbench uses this layer; widget interaction belongs to gotth-live within it."
-  forms "web layer";
-term widgets "Widget SDK and gotth-live" "The SDK defines typed widgets within gotth-live. The Workbench Kanban uses gotth-live-owned card instances in the shared host; live WDL installation remains planned. Widgets share host memory, without private heaps or a required goroutine per widget. Shared mutable state needs explicit ownership and synchronization. Every widget effect is joined before its session's teardown runs.";
+  forms "web layer" kind concept;
+term widgets "Widget SDK and gotth-live" "The SDK defines typed widgets within gotth-live. The Workbench Kanban uses gotth-live-owned card instances in the shared host, and the ops view installs widget definitions live from its checkout's widgets directory. Widgets share host memory, without private heaps or a required goroutine per widget. Shared mutable state needs explicit ownership and synchronization. Every widget effect is joined before its session's teardown runs." kind concept;
 term spine "Low-level spine controller" "The fast controller that drives hardware. It is external and ROS-side, not part of CSF; CSF reaches it only through the ros capability, whose ROS transport is planned. Until one is granted, CSF reports no spine connected."
-  forms "spine" "Spine";
-term hardware "Consumer sensors and actuators" "Physical devices, potentially reached through CAN or other adapters. Simulator success does not establish safe physical operation.";
-term engine "Engine" "Not a CSF lifecycle category. Gin Engine and Docker Engine keep their upstream meanings. Curiosity Engine is a tentative product name for the planned improvement loop, not an implemented runtime component.";
-term source_recipe "Agent definition and assignment file" "The typed agent.json input, naming the worker, task, ticket, model and repository. Its optional workspace names what the harness needs to run the session itself: the local repository, base and work branch, brief file, allowed tools and pull request title.";
-term prepare "PrepareAgentAssignment" "The generated HTTP/MCP operation and pure Go preparation function that validate a recipe and calculate stable assignment identities without submitting work.";
-term plan "Prepared assignment" "An immutable recipe snapshot with content hashes and retry identities. Preparation does not create a session or establish task success.";
-term requests "Generated Workbench requests" "Existing generated session and prompt request types populated from the prepared assignment.";
-term worktree "Session and worktree records" "The conversation and isolated repository checkout associated with the submitted assignment: a Workbench worktree, or the git worktree the harness creates at a path derived from the assignment identifier.";
-term receipt "Assignment receipt" "The returned links among agent, ticket, session, turn and worktree, and for a harness run its branch, pull request and trace. A turn identifier acknowledges prompt acceptance; it does not prove completion.";
-term session_gate "Session gate" "A structural check the harness installs into every session it runs, as a hook the turn executor calls before or after a tool: it rejects a forbidden call, such as a shell poll loop, or completes a required step, such as opening a draft pull request after the first commit. Every decision is logged under the session's trace; a rejected call is never executed."
-  forms "session gate" "session gates";
-term local_job "Simulator container" "A configured local CARLA or Isaac container outside the CSF process. Its output bytes stay in the configured artifact volume.";
-term submit "SubmitSimulation" "Admit a bounded request and record a simulation job for a configured worker.";
-term admitted "Recorded simulation job" "The persisted identity, requested configuration and current state of an admitted job.";
-term start_job "Start configured local profile" "The worker asks the external container platform to start the selected simulator configuration.";
-term poll_job "Read simulator status, progress and logs" "The existing worker observes its configured job and records available simulation steps and output references.";
-term observations "Saved simulation observations" "Persisted job state, measurements, log records and references to original output artifacts.";
-term inspect_job "InspectSimulation" "Read a simulation job's retained state, measurements and artifact references through the generated operation.";
+  forms "spine" "Spine" kind concept;
+term hardware "Consumer sensors and actuators" "Physical devices, potentially reached through CAN or other adapters. Simulator success does not establish safe physical operation." kind concept;
+term engine "Engine" "Not a CSF lifecycle category. Gin Engine and Docker Engine keep their upstream meanings. Curiosity Engine is a tentative product name for the planned improvement loop, not an implemented runtime component." kind concept;
+term source_recipe "Agent definition and assignment file" "The typed agent.json input, naming the worker, task, ticket, model and repository. Its optional workspace names what the harness needs to run the session itself: the local repository, base and work branch, brief file, allowed tools and pull request title." kind concept;
+term prepare "PrepareAgentAssignment" "The generated HTTP/MCP operation and pure Go preparation function that validate a recipe and calculate stable assignment identities without submitting work." kind concept;
+term plan "Prepared assignment" "An immutable recipe snapshot with content hashes and retry identities. Preparation does not create a session or establish task success." kind concept;
+term requests "Generated Workbench requests" "Existing generated session and prompt request types populated from the prepared assignment." kind concept;
+term worktree "Session and worktree records" "The conversation and isolated repository checkout associated with the submitted assignment: a Workbench worktree, or the git worktree the harness creates at a path derived from the assignment identifier." kind concept;
+term receipt "Assignment receipt" "The returned links among agent, ticket, session, turn and worktree, and for a harness run its branch, pull request and trace. A turn identifier acknowledges prompt acceptance; it does not prove completion." kind concept;
+term session_gate "Session gate" "A structural check the harness installs into every session it runs, as a hook the turn executor calls before or after a tool or when it ends a turn: it rejects a forbidden call, such as a shell poll loop, completes a required step, such as opening a draft pull request after the first commit, or refuses a reply, as the reply gate does. Every decision is logged under the session's trace; a rejected call is never executed."
+  forms "session gate" "session gates" kind component home "candace/services/harness/sessiongate";
+term reply_gate "Reply gate" "The session gate on the turn executor's end-of-turn event. It reads the turn's reply back from the session's event log with the turn's unvetted terms and tool calls, and refuses the reply with a typed reason the turn continues from when a reply to a message with unvetted terms lacks a complete research check per term, when the reply ends on a question the question_gate refuses, when it reports a number to an operator who asked for a measurement without a measured_quantity, or when the reply carries a first-person future commitment (I'll, from now on, going forward, until then I will, every time) with no enforcing artifact produced in the same turn: a commit, a gate or hook change, or a ticket item with an owner, or when the reply waits on a background result (waiting on, will follow, once the run finishes) while the turn executor reports no background task running, so no completion can wake the session, or when the turn's operator affect reads high strain and the reply runs past the measured word bound. Its refusals of one turn are bounded, and a reply it cannot read passes and is recorded. candace/services/harness/sessiongate holds it beside the wait, ready and commit gates."
+  forms "reply gate";
+term background_result "Background result" "The typed record of a turn a background completion started: when a task the turn executor ran in the background ends between turns, the executor starts a turn of its own with no Send, and the harness counts it as the session's next turn and records the task, how it ended, its exit code when the output names one, how long it ran and the bounded tail of its output on the session's event stream. A session whose turn has ended while its executor still runs background tasks is waiting, not stranded: the completion wakes it."
+  forms "background result" "background results";
+term unvetted_term "Unvetted term" "A term of an operator-authored message, a chat turn the operator sent or a relayed message marked as the operator's verbatim words, that appears in none of the operator's earlier messages the harness has recorded. A term is a word of the message after code, identifiers, short words and common English are set aside and inflections are folded to one stem; candace/pkg/terms is the extraction, and its parameters were fit on the operator's history with the false-positive rate recorded beside them. The harness computes a message's unvetted terms when the turn is sent, records them as a typed event and puts them into the turn with the research check each requires."
+  forms "unvetted term" "unvetted terms";
+term research_check "Research check" "The typed record a reply carries for each unvetted term before acting on it: the term, what it is, what it does not do, whether it fits the operator's stated goal (yes, no or partly, with why) and its likely source (agent output, paper, person or unknown). A reply writes it as a fenced block tagged research-check holding one JSON object; the reply gate refuses a reply to unvetted terms that lacks a complete check for each of them."
+  forms "research check" "research checks";
+term endpoint_registry "Endpoint registry" "The typed record, in the harness state directory (endpoints/registry.json), of every operator-facing endpoint csf serve has served: the Workbench, the API and MCP, each with its owner, its users and every address it has been served at, and of every address the operator retired, with the address it moved to, the day and the operator's own acknowledgement, which only the operator records, with csf endpoint retire. An address once registered stays registered: csf serve refuses to start, before detaching, without serving every registered address that has no retirement record, either by listening or by a redirect alias it serves itself that sends every request to the same path on its primary port; the session gate on PreToolUse refuses a command that would stop serving one (csf stop without a csf serve in the same command, a kill of the recorded csf serve process, docker stop or rm of an endpoint's container) and names each endpoint with its users; and the Workbench lists the registry. candace/services/harness/endpoint is the library.";
+term operator_affect "Operator affect" "What an operator-authored message reads as, from a deterministic lexical and structural proxy with no model (candace/pkg/affect): the operator's strain, low or high (shouting, an insult at the agent, or a self-report of strain); the message's kind, a directive, a question or vision; whether it is an operator correction; and whether the operator reports strain in it. The harness records it as a typed event on every operator-authored turn, naming the turn whose reply the message answers, so it labels that turn; a high strain puts a notice into the turn and the reply gate bounds the reply's length. Its rules and bounds were fit on the operator's history and backtested against hand labels and self-reports, with the numbers recorded beside them, and a self-report is the ground truth each refit is backtested against."
+  forms "operator affect";
+term operator_correction "Operator correction" "An operator-authored message that flags a mistake the agent made: an insult or a quality verdict, a mining flag, or a reproach or negation opening the message, and never a vision message; the operator affect reads it. The operator correction series pairs corrections per merged slice with merged slices per hour of operator attention, so it cannot be lowered by merging less or by asking the operator more; csf serve exports the corrections the runs record as csf_operator_corrections_total with source affect, beside the hand-labeled window, and the CSF dashboard draws the pair."
+  forms "operator correction" "operator corrections";
+term question_gate "Question gate" "The session gate on every question an agent puts to the operator: the questions a reply ends on, judged with the reply_gate at the end of the turn, and the questions of an AskUserQuestion call, judged before the operator sees them. Only meaning, trust boundaries and class membership are the operator's to decide, and such a question names its class; a question in another sub-class (a magnitude, a fact one can look up, a permission the assignment already grants, a house convention) is refused with the resolution the agent owes, such as a derivation plan for a magnitude. A question, or an alternative it offers, that names what a recorded_ruling excludes is refused as re-litigation. Every question's class and verdict is recorded and counted, and an operator send marked question_wanted is recorded as an override, the evidence for the gate's false-positive rate. candace/services/harness/sessiongate holds it."
+  forms "question gate";
+term recorded_ruling "Recorded ruling" "An operator ruling recorded through the harness's RecordRuling operation: an identifier, the statement, the alternatives it excludes as phrases, and the ruling it supersedes. The harness keeps them under its state directory and records the ones in force at the start of every turn, so the question_gate checks the turn's questions and offered alternatives against them; an excluded phrase matches word by word after stemming."
+  forms "recorded ruling" "recorded rulings";
+term measured_quantity "Measured quantity" "The typed record a reply carries when it reports a number to an operator who asked for a measurement: the quantity in the operator's own words, what the reply measured, whether the two are the same and how they differ when not. A reply writes it as a fenced block tagged measurement; the reply_gate refuses a reported number with no such block, a quantity the operator did not name, a difference left unsaid, or a term introduced for what was measured with no research_check."
+  forms "measured quantity";
+term sandbox "Session sandbox" "The per-session confinement the harness applies to every session's turn executor, which otherwise runs as the operator's user. One cgroup v2 leaf per session bounds its cpu, memory and pids and lets cancel kill the whole subtree with one write to cgroup.kill; a Landlock view grants only the session's worktree, run directory and caches; a seccomp denylist refuses ptrace, namespace, mount, bpf and the related syscalls; no_new_privs blocks setuid escalation; and the session's Docker access is routed through the docker_proxy. candace/tools/csf-sandbox is the Rust package that holds the sandbox_launcher and the docker_proxy. Landlock does not cover Unix-socket connect, so making the Docker and lxd sockets unreachable is a pending connect wall, a seccomp user-notification filter or a cgroup connect_unix eBPF program; until it lands the proxy is the routed path, not an enforced boundary. Sandboxed launch is per recipe until the acceptance passes on a host and requires the harness to run in a delegated cgroup.";
+term sandbox_launcher "Session sandbox launcher" "The single-threaded Rust binary (csf-session-launcher in candace/tools/csf-sandbox) the harness runs as an argv prefix in front of a session's turn executor, started through proc. Given the session's cgroup and policy it joins the cgroup and writes the derived limits, sets no_new_privs, applies the Landlock view and the seccomp denylist, then execs the executor, so every process the executor forks is born confined and inside the session's cgroup.";
+term session_container "Session container" "The container a harness session runs in by default: one per session, from the session image (bazel/session_image, the pinned build image plus the executor CLI, gh, jq, Go and csf, its digest pinned in bazel/session_image.txt), started and removed by the harness through ipc/docker. It runs as 1000:1000 with every capability dropped, no_new_privs and no Docker socket, on the default network, under cpu, memory and pids limits derived from measured session peaks; it sees only the session's run directory, the main clone's .git, the shared Bazel disk cache and OCaml toolchain, the worktree's directory of the executor's conversation store, shared with host sessions so either resumes the other's conversation, and the executor's and gh's credentials read-only. A worktree that pins no image runs in the image the last session image build tagged. The executor is attached with docker exec, tools/bazel.sh runs Bazel directly inside it, cancel removes it and every process with it, and its receipt records its cpu and peak memory. Host sessions, which the sandbox_launcher confines on hosts without Docker, run only by an explicit csf serve flag and are recorded so on their receipt.";
+term docker_proxy "Session Docker proxy" "The per-session filtering proxy (csf-docker-proxy in candace/tools/csf-sandbox) the sandbox points a session's DOCKER_HOST at: one Unix socket that forwards a fixed allow-list of Docker Engine calls to the host socket and refuses anything that would widen the session's authority. It allows ping, version and image inspect; container create only from the pinned image digests, with binds inside the session's own paths and labelled with the session; and start, wait, attach, logs, inspect and remove only on containers carrying that label. It refuses privilege, host namespaces, devices, foreign volumes and any container that is not its own, so tools/bazel.sh builds through it unchanged.";
+term local_job "Simulator container" "A configured local CARLA or Isaac container outside the CSF process. Its output bytes stay in the configured artifact volume." kind concept;
+term submit "SubmitSimulation" "Admit a bounded request and record a simulation job for a configured worker." kind concept;
+term admitted "Recorded simulation job" "The persisted identity, requested configuration and current state of an admitted job." kind concept;
+term start_job "Start configured local profile" "The worker asks the external container platform to start the selected simulator configuration." kind concept;
+term poll_job "Read simulator status, progress and logs" "The existing worker observes its configured job and records available simulation steps and output references." kind concept;
+term observations "Saved simulation observations" "Persisted job state, measurements, log records and references to original output artifacts." kind concept;
+term inspect_job "InspectSimulation" "Read a simulation job's retained state, measurements and artifact references through the generated operation." kind concept;
+
+# Retired vocabulary: words the ontology no longer defines. Linked documents
+# fail the documentation check while they contain one, outside fenced code.
+term data_structure "Data structure" "A conceptual arrangement of information in a machine or formal language: arrays, trees, graphs, linked lists, hash tables and their abstractions. The physical placement of a data structure in a store is orthogonal to its conceptual shape."
+  forms "data structure" "data structures" kind concept;
+term memory "Memory" "Physical RAM. The instantaneous contents of an application's address space. Volatile: lost when the process stops or crashes. To be clear about what persists, use store or recall instead of memory, never agent memory or long-term memory."
+  forms "memory" kind concept;
+term recall "Recall" "Cross-session agent knowledge: retrieved when a new session resumes an agent's work. A capability separate from physical memory and the in-process store, persisted outside the session's address space and specific to one agent identity."
+  forms "recall" kind component home planned 365;
+term action "Action" "A discrete behavior or operation a system can perform: moving, computing, retrieving, storing, checking. Distinguished from the mechanism (a hook, a service call, a system call) that carries it out and from the decision (choose) that starts it."
+  forms "action" "actions" kind concept;
+term hook "Hook" "Advice on an action: code that runs before or after the action, triggered when the action is taken, modifying behavior without changing the action's own definition. The pointcut specifies which actions carry the hook."
+  forms "hook" "hooks" kind concept;
+term pointcut "Pointcut" "The specification of which actions receive a hook's advice. In an application aspect, a pointcut can name actions at runtime, join points, or patterns like call sites."
+  forms "pointcut" "pointcuts" kind concept;
+term aspect "Aspect" "A set of related hooks and pointcuts bundled together, so they can be deployed, modified and removed as a unit. An aspect cross-cuts multiple concerns: it reaches actions in different services, packages and layers by their pointcuts."
+  forms "aspect" "aspects" kind concept;
+term weaving "Weaving" "Attaching an aspect's hooks to the actions matched by its pointcuts, so the hooks run when those actions are taken. May occur at compile time, load time or runtime depending on the implementation."
+  forms "weaving" kind concept;
+term backtest "Backtest" "Running a simulation or a strategy using historical data that occurred in the past, as if the simulation or strategy were live during that period. Outcomes can differ from forward-testing due to selection bias, overfitting and multiple testing; a proper walk-forward test addresses this by partitioning time into out-of-sample periods the model never saw."
+  forms "backtest" "backtests" "backtesting" kind concept;
+term protocol "Protocol" "A structured conversation or exchange: a sequence of typed messages and responses following a prescribed order. Agents engage through protocols; gates and tool operations have message semantics given by their message kinds."
+  forms "protocol" "protocols" kind concept;
+term message_kind "Message kind" "The semantic category of a message in a protocol: check (a gate's question), predicate (a fact or condition), theorem (a proven consequence), conjecture (an unproven hypothesis), diff (a proposed change), citation (a reference to evidence), or measurement (a value from observation). Different kinds drive different checks at the receiver."
+  forms "message kind" "message kinds" kind concept;
+term provenance_class "Provenance class" "One of three orthogonal sources of data: δ (delta) is user-supplied; σ (sigma) is computed; η (eta) is aggregated from other data. Every data item belongs to one, fixed at creation."
+  forms "provenance class" "provenance classes" kind concept;
+term humans_zone "Human zone" "The operator interface and decisions, separate from CSF's automated runtime. Terms and operations within the human zone serve the operator's needs, not CSF internals."
+  forms "humans zone" "human zone" kind component home "candace/humans";
 
 # Retired vocabulary: words the ontology no longer defines. Linked documents
 # fail the documentation check while they contain one, outside fenced code.
@@ -179,10 +301,79 @@ literature shared_memory_model "Shared-memory model" "One of the two fundamental
   forms "shared-memory model";
 literature refinement_types "Refinement types" "Types narrowed by a logical predicate, such as an integer that must be positive. A checker rejects values that do not satisfy the predicate." "Liquid Proto attaches refinement predicates to protobuf fields and compiles them into the generated Go, with its runtime in pkg/liquidproto." "Tim Freeman and Frank Pfenning. Refinement types for ML. Proceedings of the ACM SIGPLAN 1991 Conference on Programming Language Design and Implementation (PLDI '91), 268-277, 1991." "https://doi.org/10.1145/113445.113468"
   forms "refinement types";
-literature sel4 "seL4" "An operating-system microkernel with a machine-checked proof that its C implementation refines its abstract specification, so what is proven of the specification holds of the running kernel under the proof's stated assumptions about hardware, compiler and boot." "CSF's north star borrows the shape of seL4's claim: correctness proven relative to assumptions that are written down, not hidden. CSF has no such proof today." "Gerwin Klein, Kevin Elphinstone, Gernot Heiser, June Andronick, David Cock, Philip Derrin, Dhammika Elkaduwe, Kai Engelhardt, Rafal Kolanski, Michael Norrish, Thomas Sewell, Harvey Tuch and Simon Winwood. seL4: Formal verification of an OS kernel. Proceedings of the 22nd ACM Symposium on Operating Systems Principles (SOSP '09), 207-220, 2009." "https://sel4.systems/";
-literature compcert "CompCert" "A C compiler written and proven correct in the Coq proof assistant: its proof shows that the generated assembly behaves as the source program prescribes, so a property proven of the source carries to the compiled code." "The direction of csfc: a compiler whose translation is checked, so a guarantee stated about a source carries to its output. csfc checks declared rules and discharges stated obligations today; it has no semantic-preservation proof." "Xavier Leroy. Formal verification of a realistic compiler. Communications of the ACM 52(7):107-115, 2009." "https://compcert.org/";
+literature sel4 "seL4" "An operating-system microkernel with a machine-checked proof that its C implementation refines its abstract specification, so what is proven of the specification holds of the running kernel under the proof's stated assumptions about hardware, compiler and boot." "CSF's north star borrows the shape of seL4's claim: correctness proven relative to assumptions that are written down, not hidden. CSF has no such proof today." "Gerwin Klein, Kevin Elphinstone, Gernot Heiser, June Andronick, David Cock, Philip Derrin, Dhammika Elkaduwe, Kai Engelhardt, Rafal Kolanski, Michael Norrish, Thomas Sewell, Harvey Tuch and Simon Winwood. seL4: Formal verification of an OS kernel. Proceedings of the 22nd ACM Symposium on Operating Systems Principles (SOSP '09), 207-220, 2009." "https://sel4.systems/" next "State csfc's assumptions as a typed list in architecture.csf and discharge one obligation in csf/proofs (#329; proofs session).";
+literature compcert "CompCert" "A C compiler written and proven correct in the Coq proof assistant: its proof shows that the generated assembly behaves as the source program prescribes, so a property proven of the source carries to the compiled code." "The direction of csfc: a compiler whose translation is checked, so a guarantee stated about a source carries to its output. csfc checks declared rules and discharges stated obligations today; it has no semantic-preservation proof." "Xavier Leroy. Formal verification of a realistic compiler. Communications of the ACM 52(7):107-115, 2009." "https://compcert.org/" next "State csfc's translation as a relation and prove one emitter preserves it in csf/proofs; generated-drift is the first obligation.";
 literature keymaera_x "KeYmaera X" "A theorem prover for hybrid systems, programs whose discrete control decisions interleave with continuous physical motion described by differential equations, based on differential dynamic logic." "Where a ROS-side controller's safety envelope can be proven. CSF's north star puts that proof on the ROS side of the ros seam and only the runtime monitor on CSF's side." "Nathan Fulton, Stefan Mitsch, Jan-David Quesel, Marcus Völp and André Platzer. KeYmaera X: An axiomatic tactical theorem prover for hybrid systems. Automated Deduction, CADE-25, LNCS 9195, 527-538, 2015." "https://keymaerax.org/";
 literature veriphy "VeriPhy" "A verified pipeline from a hybrid-systems model proven in KeYmaera X to a controller executable whose runtime monitors check, at every control step, that the real world still matches the model, and switch to a safe fallback action when it does not." "The pattern CSF's north star names: a proven envelope with runtime monitors and a safe fallback around a physical world and models that are not themselves proven." "Brandon Bohrer, Yong Kiam Tan, Stefan Mitsch, Magnus O. Myreen and André Platzer. VeriPhy: Verified controller executables from verified cyber-physical system models. Proceedings of the 39th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI 2018), 617-630, 2018." "https://doi.org/10.1145/3192366.3192406";
+literature ski_rental "Ski rental" "The online problem of renting at a price per period or buying once, without knowing how long the need lasts. Renting until the rent paid equals the purchase price and then buying never pays more than twice what an oracle that knew the duration would; the bound was first proved for snoopy caching." "The session cost model prices cache keep-alive this way (each keep-alive request is one period's rent, writing an expired prefix again is the purchase), and idle close in the same shape, and replays the break-even rule against the threshold with the least expected cost under the measured gaps." "Anna R. Karlin, Mark S. Manasse, Larry Rudolph and Daniel D. Sleator. Competitive snoopy caching. Algorithmica 3:79-119, 1988." "https://doi.org/10.1007/BF01762111";
+literature metrical_task_system "Metrical task system" "An online problem in which a server sits in one of a set of states, every task has a cost in each state, and moving between states costs their distance; the best deterministic online algorithm on n states pays at most 2n-1 times the offline optimum." "The session cost model treats a model flip this way, charging a switch the measured rebuild of the conversation's prefix, and replays it only where the record holds a switch." "Allan Borodin, Nathan Linial and Michael E. Saks. An optimal on-line algorithm for metrical task system. Journal of the ACM 39(4):745-763, 1992." "https://doi.org/10.1145/146585.146588";
+literature neohorse_1 "NeoHorse-1" "A family of agent-native models post-trained on their own routed interaction records: each turn's interleaved reasoning, tool calls and harness context becomes a training example, and evaluation feedback chooses the next training mixture, so the model's weights improve from what the system observed." "Post-training the weights, where CSF improves the harness: CSF changes instructions, gates and tools, not the model, until its harness eval suite can score a post-trained model against the frozen one on the same tickets withheld from training." "NeoHorse Team, Guoliang Cao, Guohao Dai, Tianyu Guo, Kai Han, Hailin Hu, Zihan Jiang, Xiang Kuang, Boxun Li, Yulong Li, Zehua Pei, Yuchuan Tian, Jiamin Wang, Yu Wang, Yunhe Wang, Yihong Wu, Haiyang Xu, Shuo Zhang, Hang Zhou, Siyang Cheng, Jiayu Fan, Wei He, Qingrui Jiao, Hongguang Li, Zhiyuan Li, Runke Liu, Xi Liu, Xinchen Liu, Sinno Jialin Pan, Yi Ren, Liuyang Song, Chenyu Wang, Bei Yu, Quanlu Zhang, Xiangyu Zhang, Mengyu Zheng and Yingjie Zong. NeoHorse-1: Towards Recursive Self-Improvement via Agentic Post-Training with Routing Harness. arXiv preprint arXiv:2609.08183, 2026." "https://arxiv.org/abs/2609.08183";
+literature mast "MAST" "The Multi-Agent System Failure Taxonomy: 14 failure modes in three categories (system design issues, inter-agent misalignment and task verification), built from 150 annotated traces with inter-annotator agreement kappa 0.88, with an LLM annotator for the rest of its 1,600-trace dataset." "Its 14 modes are the seed failure codes, each declared with the fault edge and fault side it has in CSF; a code CSF induces names the mode it refines." "Mert Cemri, Melissa Z. Pan, Shuyi Yang, Lakshya A. Agrawal, Bhavya Chopra, Rishabh Tiwari, Kurt Keutzer, Aditya Parameswaran, Dan Klein, Kannan Ramchandran, Matei Zaharia, Joseph E. Gonzalez and Ion Stoica. Why Do Multi-Agent LLM Systems Fail? arXiv:2503.13657 [cs.AI], 2025." "https://doi.org/10.48550/arXiv.2503.13657";
+literature adamast "AdaMAST" "An adaptive failure taxonomy induced from an agent system's own traces: named failure codes whose names, definitions and evidence patterns are all induced, none hand-authored, reported as compact, closer to expert annotations than a hand-crafted reference vocabulary, and usable as feedback for search, runtime reflection and a best-of-N verifier." "CSF induces failure codes from complaints the seed codes do not fit, and a code's evidence pattern is its miner. CSF rejects the paper's runtime skill: nothing is injected into sessions." "Mert Cemri, Andrei Cojocaru, Melissa Pan, Shu Liu, Shubham Agarwal, Alexander Krentsel, Jay Tang, Kannan Ramchandran, Joseph E. Gonzalez, Matei Zaharia, Alex Dimakis and Ion Stoica. Fantastic Adaptive Taxonomies and How to Use Them. arXiv:2607.16387 [cs.SE], 2026." "https://doi.org/10.48550/arXiv.2607.16387";
+literature interaction_taxonomy "Interaction-centric taxonomy" "A taxonomy that localizes an agent failure to the interaction where it originates: each of its 41 failure modes sits on an edge between two components (model, harness, user, tool, memory, environment) with a fault side saying where the repair belongs; its strongest judge agrees with human category labels at Cohen's kappa 0.76." "Every CSF failure code carries an edge and a fault side in the same shape, and the side routes the repair." "Harsh Raj, Vipul Gupta, Anas Mahmoud, Razvan-Gabriel Dumitru, Darvin Yi, Aakash Sabharwal and Yunzhong He. Model or Harness? An Interaction-Centric Taxonomy for Localizing Agent Failures. arXiv:2607.28802 [cs.AI], 2026." "https://doi.org/10.48550/arXiv.2607.28802"
+  forms "interaction-centric taxonomy";
+
+# Failure codes (#417): MAST's 14 modes as the seed, each with the edge and the
+# fault side it has in CSF. Induced codes follow the seed, each naming the
+# mode it refines when it refines one.
+literature ansi_sparc_architecture "ANSI/SPARC architecture" "The three-level database architecture: the internal level (physical organization and storage), conceptual level (logical schema and data structures), and external level (views for different users). The levels mediate between physical representation and application logic." "CSF uses the ANSI/SPARC levels to distinguish data structures (conceptual) from stores (internal). This relationship and the terms store and data_structure were documented by Tsichritzis & Klug. Codd's relational model is one application of the conceptual level." "Dionysios Tsichritzis and Frederick H. Klug. The ANSI/X3/SPARC DBMS Framework: Report of the Study Group on Database Management Systems. Information Systems 3(3):173-191, 1978." "https://doi.org/10.1016/0306-4379(78)90001-7"
+  same_as codd_relational;
+literature codd_relational "Relational database model" "Relations (tables) as the fundamental data structure; operations work on relations as atomic units. A major application of the ANSI/SPARC conceptual level." "Codd defined the relational model for databases, which remains the standard for structured persistent data. Codd 1970 is foundational; Tsichritzis & Klug 1978 connected it to the three-level architecture." "Edgar F. Codd. A relational model of data for large shared data banks. Communications of the ACM 13(6):377-387, 1970." "https://doi.org/10.1145/362384.362685"
+  same_as ansi_sparc_architecture;
+literature aspect_oriented_programming "Aspect-oriented programming" "A programming style that separates cross-cutting concerns into aspects, each bundling related hooks and pointcuts. Aspects are woven to advise actions at their pointcuts." "CSF's session gates are one application: advice injected at actions (tool calls, turn starts) without modifying the action's code. Kiczales et al. defined the field." "Gregor Kiczales, John Lamping, Anurag Mendhekar, Chris Maeda, Cristina Videira Lopes, Jean-Marc Loingtier and John Irwin. Aspect-oriented programming. In Proceedings of the European Conference on Object-Oriented Programming (ECOOP), LNCS 1241, 220-242, 1997." "https://doi.org/10.1007/BFb0053381"
+  forms "aspect-oriented programming" "AOP";
+literature backtest_pitfalls "Backtest pitfalls and multiple testing" "Systematic errors in backtests: selection bias (choosing strategies after seeing the outcomes), overfitting (tuning to past data that will not repeat), and multiple testing (trying many strategies until one works by chance). A proper walk-forward test partitions time and holds out future data the model never saw." "CSF uses backtests to validate gates; the pitfalls section clarifies the limits of that validation. Neither paper prescribes a CSF-specific backtest; they establish the rules." "Davide Poli, Enrico Ghislandi and Pantamazoglou Demetrios. Walk-Forward Portfolio Analysis of Machine Learning Algorithms. arXiv:1111.5568, 2011. Also: Marcos M. López de Prado and Andrew W. Lo. Pitfalls in Backtesting. Journal of Portfolio Management 42(12):75-88, 2016." "https://doi.org/10.21314/JCF.2016.322"
+  forms "backtest pitfalls";
+literature walk_forward_analysis "Walk-forward analysis" "A time-series validation method that partitions historical data into windows: the model learns from past windows and is tested on future windows it never saw, so overfitting on the test set does not occur." "CSF's backtest gate uses this principle: test on data not in training. The literature recommends it for strategy validation." "Andrea Gaivoronski and Georg Pflug. Value-at-Risk in Portfolio Optimization: Properties and Computational Approach. Journal of Risk 7(2):1-31, 2005. Also: Xiaolin Yang and others. An Improved Method of Dynamic Capital Allocation. Information Sciences 185(1):159-176, 2012." "https://doi.org/10.1016/j.ins.2011.12.028"
+  forms "walk-forward";
+literature kqml "Knowledge Query and Manipulation Language (KQML)" "A message-based communication framework for agents: typed performatives (ask, tell, subscribe, etc.) and content language negotiation. Foundational for agent protocols." "CSF's protocol and message_kind terms apply KQML's insight: agents converse through structured messages with prescribed semantics, not bare strings. CSF's message kinds differ (check, predicate, etc.) but follow the same shape." "Tim Finin, Rich Fritzson, Don McKay and Robin McEntire. KQML as an agent communication language. In Proceedings of the Third International Conference on Information and Knowledge Management (CIKM '94), 456-463, 1994." "https://doi.org/10.1145/191246.191322"
+  forms "KQML";
+literature agent_communication_languages "Agent Communication Language landscape" "Survey of ACL protocols and their designs: message structure, performatives, content languages and semantics. Multiple ACLs emerged (KQML, FIPA ACL, others) with similar aims." "CSF adopts the structured protocol idea from this landscape. The gate protocol, turn executor messages and agent inbox all use typed message kinds. Different CSF messages use different subsets of message kinds." "Christos Papadimitriou and others. A Brief Survey of Agent Communication Metaphors. arXiv:cs/0307128, 2003. Also: Yannis Labrou and Tim Finin. A Proposal for a New KQML Specification. Technical Report CS-TR-97-03, University of Maryland Baltimore County, 1997." "https://doi.org/10.1109/5254.757631"
+  forms "ACL landscape" "agent communication landscape";
+literature session_types "Session types" "A type system for stateful communication protocols: the protocol is a type that specifies the sequence of messages each party must send and receive, so a type checker can verify endpoints respect the protocol at compile time." "CSF's protocol type is untyped today; session types offer a formalization. Combining protocols (several agents or layers) and proving properties (safety, progress) are open." "Nobuko Yoshida, Mariangiola Dezani-Ciancaglini and Luca Padovani. Progress for Free. arXiv:0905.4722, 2009. Also: Vasco T. Vasconcelos. Session types: what do they model? Electronic Notes in Theoretical Computer Science 373:63-75, 2018." "https://doi.org/10.1007/BFb0053567"
+  forms "session types";
+literature proof_carrying_code "Proof-carrying code" "Code bundled with a proof that it satisfies a stated property: a receiver can check the proof without knowing the code's origin or trusting its author. The property is proven; the code is verified to match." "CSF's checker and gates check declared rules; proof-carrying code offers a stronger guarantee when the implementation carries its proof. Slice X2 and beyond." "George C. Necula. Proof-Carrying Code. In Proceedings of the 24th ACM SIGPLAN-SIGACT Symposium on Principles of Programming Languages (POPL '97), 106-119, 1997." "https://doi.org/10.1145/263699.263712"
+  forms "proof-carrying code" "PCC";
+literature cohen_levesque_intentions "Intentions and commitments" "A model of rational agents based on beliefs, goals and intentions. An agent intends an action, commits to its goals and updates beliefs based on results." "CSF's agent model: an assignment is a goal, a session holds beliefs, and a turn is an intention. The architecture does not formalize Intentions or Commitments today." "Philip R. Cohen and Hector J. Levesque. Intention is choice with commitment. Artificial Intelligence 42(3):213-261, 1990." "https://doi.org/10.1016/0004-3702(90)90055-5"
+  forms "Cohen & Levesque";
+literature prov_dm "PROV Data Model" "An ontology for data provenance: three orthogonal sources (entity creation, derivation, attribution) and their relationships. W3C standard for provenance metadata." "CSF's provenance_class (delta, sigma, eta) follows PROV-DM but narrows it: every data item has one source; composition of sources is represented by queries." "PROV-DM: The PROV Data Model, W3C Recommendation, 30 April 2013." "https://www.w3.org/TR/2013/REC-prov-dm-20130430/"
+  forms "PROV" "PROV-DM";
+literature green_provenance_queries "Provenance from queries" "Provenance of data derived through relational queries: three orthogonal query types (selection, projection, union) map to provenance types. Generalizes to all queries." "CSF's σ (sigma: computed) maps to Green et al.'s why- and how-provenance from queries. Complete schema-level provenance remains future work." "Todd J. Green, Grigoris Karvounarakis and Val Tannen. Provenance semirings. In Proceedings of the 26th ACM SIGMOD-SIGACT-SIGART Symposium on Principles of Database Systems (PODS '07), 31-40, 2007." "https://doi.org/10.1145/1265530.1265535"
+  same_as prov_dm;
+literature knuth_literate_programming "The computer scientist as author" "Software as literature: code interspersed with prose, explaining both intention and mechanism. A reaction against programming focused on execution and against documentation as afterthought." "CSF's architecture.csf is all the documentation CSF generates; csfc is a compiler that produces the glossary and diagrams. The source is the authority; the prose is derived. This inverts Knuth's Literate Programming (where prose leads) but shares the spirit: documentation is not separate from the system, and the definitions are checked, not merely written." "Donald E. Knuth. Literate Programming. The Computer Journal 27(2):97-111, 1984." "https://doi.org/10.1093/comjnl/27.2.97"
+  forms "literate programming";
+
+# Jargon candidates: words that look like vocabulary but are not declared as
+# a term or literature entry. Linked documents fail while they use one; declare
+# it (with a citation for literature) or reword. This is a declared list, not a
+# heuristic.
+failure_code mast_disobey_task "Disobey task specification" "The agent does not do what the assignment specifies, or does it under constraints the assignment ruled out." edge assignment agent side model mast "FM-1.1";
+failure_code mast_disobey_role "Disobey role specification" "The agent acts outside the role its recipe gives it, doing another station's work." edge harness agent side model mast "FM-1.2";
+failure_code mast_step_repetition "Step repetition" "The agent repeats a step it already completed." edge agent harness side model mast "FM-1.3";
+failure_code mast_history_loss "Loss of conversation history" "The agent loses earlier context and acts as if it had not been said." edge harness context side harness mast "FM-1.4";
+failure_code mast_termination_unaware "Unaware of termination conditions" "The agent does not know when the work is done and keeps going or stops at the wrong point." edge agent assignment side model mast "FM-1.5";
+failure_code mast_conversation_reset "Conversation reset" "The conversation restarts and progress made in it is lost." edge session agent side harness mast "FM-2.1";
+failure_code mast_no_clarification "Fail to ask for clarification" "The agent proceeds on an ambiguous instruction instead of asking." edge agent human side model mast "FM-2.2";
+failure_code mast_task_derailment "Task derailment" "The agent drifts from the assignment onto other work." edge agent assignment side model mast "FM-2.3";
+failure_code mast_information_withholding "Information withholding" "The agent has information the operator or another agent needs and does not share it." edge agent human side model mast "FM-2.4";
+failure_code mast_ignored_input "Ignored other agent's input" "The agent disregards what another agent or the operator told it." edge relay agent side model mast "FM-2.5";
+failure_code mast_reasoning_action_mismatch "Reasoning-action mismatch" "What the agent does differs from what its own reasoning said it would do." edge model agent side model mast "FM-2.6";
+failure_code mast_premature_termination "Premature termination" "The agent stops before the assignment's outcome is reached." edge agent assignment side model mast "FM-3.1";
+failure_code mast_no_verification "No or incomplete verification" "The work is reported done without checking it, or with checks that miss what matters." edge agent session_gate side harness mast "FM-3.2";
+failure_code mast_incorrect_verification "Incorrect verification" "A check passes work that is wrong." edge session_gate agent side harness mast "FM-3.3";
+# Induced 2026-10-05 by csf ouroboros codes -induce -think (qwen3:8b) from the
+# 28 complaints of the night of 2026-10-04: name, definition, edge and side as
+# the model proposed them, declared unedited.
+failure_code induced_communication_inefficiency "Communication inefficiency" "Inefficient communication between the agent and human due to low information density." edge agent human side harness;
+failure_code induced_configuration_error "Configuration error" "Errors in configuration leading to model switching issues." edge harness model side harness;
+failure_code induced_design_reinvention "Design reinvention" "Unnecessary complexity and reinvention instead of reusing existing components." edge harness host side harness_environment;
+failure_code induced_visibility_loss "Visibility loss" "Missing visibility into system metrics and dashboards." edge harness infra side environment;
+failure_code induced_unexpected_failure "Unexpected failure" "Unexpected failures in session execution or processing." edge session harness side harness;
+failure_code induced_dependency_failure "Dependency failure" "Issues with external dependencies leading to system instability." edge harness vendor side provider;
+failure_code induced_tooling_script_failure "Tooling script failure" "Failures in tooling and script execution due to host configuration." edge harness host side environment;
+failure_code induced_search_reranking_failure "Search reranking failure" "Issues with search and reranking mechanisms affecting information retrieval." edge model harness side model;
+failure_code induced_inconsistency_alignment "Inconsistency alignment" "Inconsistencies in ontology alignment leading to system instability." edge harness model side model;
+failure_code induced_mining_failure "Mining failure" "Failures in mining processes leading to missing primitives." edge miner harness side harness;
 
 # Jargon candidates: words that look like vocabulary but are not declared as
 # a term or literature entry. Linked documents fail while they use one; declare
@@ -195,33 +386,416 @@ jargon "sim-to-real";
 jargon "preview leak";
 jargon "reward hacking";
 
+# Ordinary uses: phrases in one README where a term's spelling is ordinary
+# English or another system's word, not the term. The vocabulary scan neither
+# reports nor links the term's mentions inside the phrase, and an ordinary use
+# that covers no mention is a finding, so this list cannot go stale. Every
+# entry was read in context when the unlinked-terms signal went to 0 (#351);
+# add one only with its reason.
+ordinary mount ".github/actions/ocaml-toolchain/README.md" "launcher mounts `.git/csf-ocaml-toolchain/`"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "app/warden/README.md" "bind mount, not"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary inspect "csf/compiler/architecture/README.md" "Go-source inspection; its"
+  "Examining something by reading it, not CSF's inspection operations.";
+ordinary inspect "csf/compiler/architecture/README.md" "for inspection. Other"
+  "Examining something by reading it, not CSF's inspection operations.";
+ordinary inspect "csf/compiler/architecture/README.md" "for inspection, not"
+  "Examining something by reading it, not CSF's inspection operations.";
+ordinary check "csf/compiler/language/README.md" "state. Check mode"
+  "The generator's check mode, not the loop step.";
+ordinary check "csf/examples/simulators/README.md" "Check at least"
+  "An ordinary English verb or column heading, not the loop step.";
+ordinary mount "csf/examples/simulators/README.md" "mounts those volumes"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "csf/examples/simulators/README.md" "alone mounts the"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary schema "examples/csf-agent/README.md" "JSON Schema."
+  "JSON Schema or a PostgreSQL schema namespace, not a component's SQL migrations.";
+ordinary scope "examples/csf-agent/README.md" "Follow-up scope: CSF-owned"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary mount "examples/csf-consumer/README.md" "repository mounted. It"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "examples/custom-brand/README.md" "| mounts the"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/custom-brand/README.md" "`WithHTTPService` mounts the"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/custom-ui-page/README.md" "it mounts the"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/custom-ui-page/README.md" "**`WithHTTPService`** mounts anything"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/custom-ui-page/README.md" "a mounted page"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/external-consumer/README.md" "mounts its own"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/gotth/chat/README.md" "is mounted at"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/gotth/chat/README.md" "mounted anywhere else"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/gotth/chat/README.md" "The mount path"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary checkpoint "examples/gotth/counter/README.md" "is checkpoint 3's;"
+  "A numbered project milestone, not a saved task record.";
+ordinary scope "examples/gotth/counter/README.md" "it is a scope"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary scope "examples/gotth/counter/README.md" "a scope call,"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary checkpoint "examples/gotth/dashboard/README.md" "at checkpoint 2"
+  "A numbered project milestone, not a saved task record.";
+ordinary mount "examples/widget/README.md" "not mount it."
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "examples/widget/README.md" "mount. It then"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "examples/widget/README.md" "the mount path"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/widget/candaws/README.md" "the mount path"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "examples/widget/candaws/README.md" "that mounts its"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary core "infra/README.md" "CSF core start"
+  "The essential part of CSF or Deploy's Core service, not a CPU core.";
+ordinary core "infra/README.md" "CSF core path"
+  "The essential part of CSF or Deploy's Core service, not a CPU core.";
+ordinary core "infra/README.md" "by the core"
+  "The essential part of CSF or Deploy's Core service, not a CPU core.";
+ordinary core "infra/README.md" "CSF core total"
+  "The essential part of CSF or Deploy's Core service, not a CPU core.";
+ordinary mount "infra/README.md" "schema, mounts persistent"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary core "infra/README.md" "boundary; core CSF"
+  "The essential part of CSF or Deploy's Core service, not a CPU core.";
+ordinary mount "infra/deploy-kit/README.md" "— not mounted"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "infra/deploy-kit/README.md" "not mounted at"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary checkpoint "infra/deploy-kit/README.md" "read-back, checkpoint, and"
+  "A storage write cadence, not a saved task record.";
+ordinary mount "infra/deploy-kit/README.md" "and its mounts"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary core "infra/deploy-kit/README.md" "with core. It"
+  "The essential part of CSF or Deploy's Core service, not a CPU core.";
+ordinary mount "infra/deploy-kit/README.md" "mounts the"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/gotth/README.md" "that mounts it;"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "pkg/gotth/README.md" "nil mount hook"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/gotth/bench/README.md" "carry. Mount both,"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/gotth/bench/README.md" "is mounted rather"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/gotth/bench/README.md" "a mount that"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary scope "pkg/gotth/bench/README.md" "write scope of"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary mount "pkg/gotth/bench/README.md" "own mount path,"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary inspect "pkg/gotth/bench/README.md" "by inspection —"
+  "Examining something by reading it, not CSF's inspection operations.";
+ordinary scope "pkg/gotth/bench/README.md" "`session` scope is"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary scope "pkg/gotth/bench/README.md" "write scope. |"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary checkpoint "pkg/gotth/bench/README.md" "api-surface checkpoint 3"
+  "A numbered project milestone, not a saved task record.";
+ordinary mount "pkg/gotth/docs/README.md" "at mount, authorize"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary checkpoint "pkg/gotth/docs/README.md" "closes checkpoint 1,"
+  "A numbered project milestone, not a saved task record.";
+ordinary mount "pkg/gotth/docs/bench/data/g2-baseline/README.md" "dialed, mounted, live,"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/gotth/docs/bench/data/g2-baseline/README.md" "one mount record"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary check "pkg/gotth/docs/bench/data/g2-baseline/remeasure-2026-08-05/README.md" "| Check |"
+  "An ordinary English verb or column heading, not the loop step.";
+ordinary mount "pkg/httpserver/README.md" "generated-route mounting pattern:"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary context "pkg/pgmem/README.md" "data. Context cancellation"
+  "Go's context.Context, not the information supplied to a model.";
+ordinary schema "pkg/pgmem/README.md" "to `Schema` methods"
+  "JSON Schema or a PostgreSQL schema namespace, not a component's SQL migrations.";
+ordinary schema "pkg/pgmem/README.md" "a `Schema` for"
+  "JSON Schema or a PostgreSQL schema namespace, not a component's SQL migrations.";
+ordinary mount "pkg/widget/README.md" "mounts them through,"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/README.md" "`Register`, `Mount`, `Reduce`,"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/README.md" "for each mounted"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/README.md" "when mounted on"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/README.md" "mounting does not."
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/README.md" "`Mount`/`Unmount` follow each"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/README.md" "of \"mounting a"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary choose "pkg/widget/README.md" "publication. Choose the"
+  "An ordinary English verb or column heading, not the loop step.";
+ordinary check "pkg/widget/README.md" "socket. Check construction"
+  "An ordinary English verb or column heading, not the loop step.";
+ordinary mount "pkg/widget/README.md" "before mounting. The"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "pkg/widget/docs/README.md" "that mount into"
+  "gotth-live's per-connection widget mount, not a service attached to its parent's lifecycle.";
+ordinary mount "services/copilot-adapter/README.md" "Both mount on"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "services/copilot-adapter/README.md" "dependency, mounts the"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "services/copilot-adapter/README.md" "composition mounts the"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "services/copilot-adapter/README.md" "mount point), `handlers.go`"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary schema "services/copilot-adapter/spec/README.md" "Schema dialect | JSON Schema"
+  "JSON Schema or a PostgreSQL schema namespace, not a component's SQL migrations.";
+ordinary schema "services/copilot-adapter/spec/README.md" "upstream JSON Schema"
+  "JSON Schema or a PostgreSQL schema namespace, not a component's SQL migrations.";
+ordinary schema "services/copilot-adapter/spec/README.md" "JSON Schema but"
+  "JSON Schema or a PostgreSQL schema namespace, not a component's SQL migrations.";
+ordinary mount "services/copilot-adapter/ui/README.md" "bundle mounted by"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "services/copilot-adapter/widget-ui/README.md" "`Register` mounts `/v1/kanban/view`"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "services/copilot-adapter/workbench/README.md" "to mount the"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "services/relay/README.md" "(`csf.Service.AgentMCPHandler`, mounted by"
+  "Registering HTTP routes or a page at a path, which the mount term excludes.";
+ordinary mount "tools/devcontainer/README.md" "authentication mounts or"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary mount "tools/devcontainer/README.md" "and mounts. The"
+  "A container, volume or filesystem mount, not a service attached to its parent's lifecycle.";
+ordinary scope "tools/gorilla_mux_lint/README.md" "paths, scope and"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary check "tools/kit/README.md" "machine. Check each"
+  "An ordinary English verb or column heading, not the loop step.";
+ordinary check "tools/kit/README.md" "| Check |"
+  "An ordinary English verb or column heading, not the loop step.";
+ordinary scope "xetcas/README.md" "The scope is"
+  "The extent of a piece of work or a check, not a lifetime.";
+ordinary application ".github/workflows/README.md" "or application credential."
+  "A GitHub App credential, not an application process.";
+ordinary service "app/csf/native/README.md" "services. The service"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "app/csf/native/README.md" "database, search service,"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "app/csf/native/README.md" "the minimal runtime:"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "app/csf/native/README.md" "or start services."
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "app/csf/native/README.md" "12 runtime libraries"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "app/csf/native/README.md" "Debian `libstdc++6` runtime."
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "app/csf/native/README.md" "this service environment"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "app/csf/native/README.md" "the service environment"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "app/csf/native/README.md" "service credentials from"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "app/csf/native/README.md" "selected services. Each"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "app/csf/native/README.md" "primary service units"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "app/csf/native/README.md" "session runtime."
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "app/warden/README.md" "at runtime through"
+  "At run time, not the runtime.";
+ordinary app "app/warden/README.md" "Gmail app password."
+  "A Google account app password, not a runnable composition.";
+ordinary app "app/warden/README.md" "an **App Password**"
+  "A Google account app password, not a runnable composition.";
+ordinary app "app/warden/README.md" "App passwords). Use that 16-character app"
+  "A Google account app password, not a runnable composition.";
+ordinary runtime "app/warden/deploy/README.md" "at runtime without"
+  "At run time, not the runtime.";
+ordinary application "csf/compiler/third_party/tools_opam/README.md" "clean application before"
+  "The act of applying a patch or an update, not a runnable composition.";
+ordinary runtime "csf/editor/README.md" "runtime together. There"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "csf/editor/README.md" "The runtime is"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "csf/editor/README.md" "highlighting service is"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "csf/examples/knowledge/README.md" "embedding service, or"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "csf/examples/proof/README.md" "compilers, runtimes, integer"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "csf/examples/simulators/README.md" "3.11 runtime because"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "examples/custom-brand/README.md" "or service, and"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/external-consumer/README.md" "or service —"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary runtime "examples/gotth/chat/README.md" "client runtime is"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "examples/gotth/counter/README.md" "client runtime is"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "examples/gotth/counter/README.md" "the runtime classifies"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "examples/gotth/dashboard/README.md" "client runtime is"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "examples/gotth/dashboard/README.md" "runtime's `applied()` closes"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "examples/widget/README.md" "five services rather"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "cloud services, five"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "| Service | Category"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "each service. A"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "each service directory's"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "each service's **engine**"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "no service mesh,"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "| Service | Goroutines"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "sixth service would"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "per service.** Every"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary service "examples/widget/candaws/README.md" "Every service has"
+  "A service in the product or cloud-offering sense, not a CSF service.";
+ordinary runtime "extensions/copilot-pair/README.md" "Copilot runtime and"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "extensions/copilot-pair/README.md" "CDN at runtime."
+  "At run time, not the runtime.";
+ordinary service "infra/README.md" "services needed by"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary application "infra/README.md" "no application authentication"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/README.md" "training services. The"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/README.md" "not services started"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/README.md" "explicit service check"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "infra/README.md" "Python runtime, GPU"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "infra/README.md" "service. It binds"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/README.md" "services do not"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "infra/deploy-kit/README.md" "independent runtime literals."
+  "At run time, not the runtime.";
+ordinary service "infra/deploy-kit/README.md" "has service name"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/deploy-kit/README.md" "service stops, the"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/deploy-kit/README.md" "services before advancing"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "infra/deploy-kit/README.md" "Git service into"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary runtime "pkg/gotth/README.md" "— the client runtime"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "client runtime on"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "serves the runtime's"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "the runtime's `<script>`"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "the runtime, which"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "client runtime turns"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "Client runtime, on"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "The runtime and"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "Proto runtime it"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "runtime is the"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/README.md" "client runtime's source,"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/bench/README.md" "a runtime one,"
+  "At run time, not the runtime.";
+ordinary application "pkg/gotth/bench/README.md" "\"halts application of"
+  "The act of applying a patch or an update, not a runnable composition.";
+ordinary runtime "pkg/gotth/bench/README.md" "runtime's controlled/uncontrolled rule: a non-empty server render overwrites the live value, an empty one leaves it alone — which is what makes F-CHT-8 and CHT-7 true even while the log repaints twice a second. The `<form>` is because the runtime"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/docs/README.md" "client runtime is"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/docs/README.md" "the runtime model"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/docs/README.md" "the runtime is"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/docs/README.md" "The runtime, annotation"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/docs/README.md" "the runtime does"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "pkg/gotth/test/internal/conformance/testdata/README.md" "the client runtime,"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "services/copilot-adapter/ui/README.md" "session runtime status"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "services/copilot-adapter/ui/README.md" "all runtime fields."
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary runtime "services/copilot-adapter/widget-ui/README.md" "session runtime status:"
+  "Another system's runtime (a language, library, browser client or Copilot session), not a CSF application process's runtime.";
+ordinary service "tools/csf-operator/README.md" "evidence path, service"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary service "tools/csf-operator/README.md" "Compose service and"
+  "A systemd unit, Compose service or external server, not a CSF service.";
+ordinary assignment "app/csf/native/README.md" "environment assignments. Spaces"
+  "An environment variable assignment, not a task given to an agent.";
+ordinary agent "infra/deploy-kit/README.md" "on the node agent"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "infra/deploy-kit/README.md" "node agents advance"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary assignment "infra/deploy-kit/README.md" "assignment runs only:"
+  "The node executor's Compose assignment, not a task given to an agent.";
+ordinary assignment "infra/deploy-kit/README.md" "approved live assignment."
+  "The node executor's Compose assignment, not a task given to an agent.";
+ordinary agent "infra/deploy-kit/README.md" "live agent `8094`;"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "infra/deploy-kit/README.md" "`7717`, live agent `8094` |"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "infra/deploy-kit/README.md" "agent endpoint from"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "infra/deploy-kit/README.md" "the agent and"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "infra/deploy-kit/README.md" "shared agent token"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "infra/deploy-kit/README.md" "agent. Core approves an exact commit subtree and digest; the agent"
+  "Deploy's node agent daemon, not a named worker.";
+ordinary agent "xetcas/README.md" "transfer agent —"
+  "Git LFS's custom transfer agent program, not a named worker.";
+
 # Human glossary sections (docs/GLOSSARY.md). Every term is in exactly one.
 section loop "The improvement loop" "The steps CSF uses to describe how an agent system gets better over time: look at what happened, decide, act, judge the result and keep the evidence. Some steps exist today; others are planned." "A controller runs in a simulator (Execute), its score is compared with a fixed baseline (Evaluate), and the run is kept with its sources (Save evidence) so the next attempt can start from it." {
-  observe; retrieve; choose; check; execute; evaluate; save_evidence; ouroboros; select_controller; retrain;
+  observe; retrieve; choose; check; execute; evaluate; save_evidence; ouroboros; miner; precheck; fixer; merge_train; struggle_rate; compounding_rate; structure_per_intervention; generic_gate; tenant_gate; mutation_score; labeler; failure_code; fault_side; select_controller; retrain;
 }
 section agents "Agents, brains and tasks" "Who does the work and how work is handed out: agents are named workers, a brain is the model loop behind one, and assignments and checkpoints let work move between agents." "An agent is given an assignment with a ticket; it saves a task checkpoint before handing off, and another agent resumes from that checkpoint." {
-  human; brain; agent; assignment; checkpoint; work_continuity; session; context; agent_address; host; network; relay; intake; model; stub; copilot; claudecode; turn_executor; vendor;
+  human; brain; agent; assignment; slice_dispatcher; checkpoint; work_continuity; session; session_suspend; context; agent_address; host; network; relay; intake; model; stub; copilot; claudecode; ollama; copilotcli; turn_executor; jev; system_one; system_two; typed_question; decision_hole; cost_event; cost_model; fleet_hit_ratio; area_signature; vendor; recall; protocol; message_kind;
 }
 section runtime "Applications, runtimes and services" "How CSF code runs: an application is one process with one runtime, and services are the parts mounted into it. These words are reserved; a widget or a page is never an application." "The csf binary is an application. Its runtime starts the Workbench service and the HTTP listener, and stops them in reverse order on shutdown." {
-  application; runtime; host_runtime; app; process; service; http_service; mount; manager; scope; lazy_service; ownership_transfer; goroutine; thread; core; workers; cron; trigger; occurrence;
+  application; runtime; host_runtime; app; process; service; http_service; mount; manager; scope; lazy_service; ownership_transfer; goroutine; thread; core; workers; cron; trigger; occurrence; action; hook; pointcut; aspect; weaving; memory;
 }
 section boundaries "Boundaries and capabilities" "Where code may leave its own process or touch the operating system. Every crossing goes through a capability the service was given when it was built." "A service that needs a database receives a database capability in its constructor; a service that receives none cannot open a socket." {
-  io; tier; in_process; kernel_io; process_boundary; capability; inproc; kernel; leaf; ipc; net; proto; proc; docker; clock; http; grpc; config; database_io; db; csfpg; mock; fs; ros; pkg; eventually; placement; ratchet;
+  io; tier; in_process; kernel_io; process_boundary; capability; inproc; kernel; leaf; ipc; net; proto; proc; docker; hfjobs; clock; http; grpc; config; database_io; db; csfpg; github; mock; fs; ros; pkg; eventually; placement; ratchet; ontology_alignment; sandbox; sandbox_launcher; session_container; docker_proxy;
 }
 section web "The web layer and widgets" "How people and agents reach CSF: the generated HTTP, CLI and MCP operations, the Workbench, and gotth-live, which owns live widgets in the browser." "Opening the Workbench creates one live UI session; its Kanban cards are widgets drawn by gotth-live inside the same process." {
-  widget; gotth_live; live_ui_service; ui_session; web; widgets; bench; ops_view; api; httpapi; webui; httpserver; browserroutes; transport_adapter; mcp; contracts;
+  widget; widget_definition; gotth_live; live_ui_service; ui_session; web; widgets; bench; ops_view; workbench; host_profile; verified_action; api; httpapi; webui; httpserver; browserroutes; transport_adapter; mcp; contracts; humans_zone;
 }
 section knowledge "Knowledge, storage and observation" "What CSF keeps and how you look at it later: saved sources and their links, the database, search, dashboards and experiment results." "An ingested paper is stored in PostgreSQL, indexed in OpenSearch, and found again by a search operation." {
-  knowledge; symbolic; schema; store; opensearch; inspect; views; experiments;
+  knowledge; symbolic; database; schema; data_structure; store; opensearch; inspect; views; experiments; provenance_class;
 }
 section control "Controllers and hardware" "The robot-facing side: the external ROS-side spine controller and the devices it drives, none of which CSF runs, and the compilers CSF does own." "The csf binary is granted the stub spine, so its snapshot reports no spine connected; a host that grants a ROS transport gets the spine's observations instead." {
   compiler; compile; spine; hardware; engine;
 }
 section simulation "Simulation jobs" "How CSF runs a simulator: a request is admitted and recorded, a worker starts a container, and the results are kept for inspection." "SubmitSimulation records a CARLA job, a worker starts the container and records its progress, and InspectSimulation reads the saved results." {
-  jobs; submit; admitted; start_job; local_job; poll_job; observations; inspect_job;
+  jobs; bootstrap_job; submit; admitted; start_job; local_job; poll_job; observations; inspect_job; backtest;
 }
 section assignment_flow "Preparing an agent assignment" "The steps that turn an agent definition file into submitted work with a receipt." "An agent.json file is prepared into an immutable plan, sent as Workbench requests, and answered with a receipt linking the agent, ticket, session and worktree." {
-  source_recipe; prepare; plan; requests; worktree; receipt; session_gate;
+  source_recipe; prepare; plan; requests; worktree; receipt; session_gate; reply_gate; unvetted_term; research_check; background_result; endpoint_registry; operator_affect; operator_correction; question_gate; recorded_ruling; measured_quantity;
+}
+section code_workflow "The code workflow" "How a change reaches main in CSF: declare it, generate everything else, pass the merge gate, open a pull request, let the merge train merge it, and keep a change record. The same steps are the template every change reuses." "Six JEV terms are added to architecture.csf, the generator writes the dictionary, glossary and diagram, check-generated passes, and the merge train merges the pull request." {
+  declaration; generate; merge_gate; pull_request; change_record;
+}
+section state "State and concurrency" "How state changes once all of it lives in PostgreSQL: every change is a serializable transaction over a snapshot, the rules are schema constraints, and anything with an outside effect runs in a worker after the commit." "Two agents each add a child to a directory that has 15; both read 15, but the serializable commit aborts one with 40001, its rerun sees 16, and the at-most-16 constraint refuses it." {
+  snapshot; serializable_transaction; schema_constraint; row_trigger; commit_bell; river_worker; representable_state;
 }
 section deployment "Deployment" "How applications reach machines: a control plane holds desired state and approvals, an agent harness proposes changes, and a node executor on each machine applies them. Shell and Compose material lives in the deployment kit." "An operator approves a change proposed through the agent harness; deploy places it on a node, and that node's executor runs docker compose up and returns a receipt." {
   deploy; nodeexec; harness; infra; deploy_kit;
@@ -234,6 +808,7 @@ linked "csf/README.md";
 linked "pkg/cron/README.md";
 linked "services/cron/README.md";
 linked "services/opsview/README.md";
+linked "services/ouroboros/README.md";
 
 diagram architecture TB {
   group host : process;
@@ -281,7 +856,7 @@ diagram improvement LR {
   node execute : execute existing;
   node evaluate : evaluate existing;
   node save_evidence : save_evidence existing;
-  node ouroboros : ouroboros planned;
+  node ouroboros : ouroboros existing;
   node select_controller : select_controller planned;
   edge observe planned retrieve;
   edge retrieve planned choose;
@@ -291,8 +866,8 @@ diagram improvement LR {
   edge evaluate existing save_evidence;
   edge evaluate planned select_controller;
   edge select_controller planned choose label "next agent iteration";
-  edge save_evidence planned ouroboros;
-  edge ouroboros planned observe label "next iteration";
+  edge save_evidence existing ouroboros;
+  edge ouroboros existing observe label "next iteration";
 }
 
 diagram simulation LR {
@@ -310,6 +885,72 @@ diagram simulation LR {
   edge poll_job existing observations;
   edge poll_job existing local_job label "continue while running";
   edge inspect_job existing observations label "read state and artifact references";
+}
+
+diagram code_workflow LR {
+  node declare : declaration existing;
+  node emit : generate existing;
+  node gate : merge_gate planned;
+  node propose : pull_request existing;
+  node merge : merge_train existing;
+  node record : change_record planned;
+  edge declare existing emit;
+  edge emit existing gate;
+  edge gate planned declare label "a rule fails: change the declaration, never the output";
+  edge gate planned propose label "every check passes";
+  edge propose existing merge;
+  edge merge planned record;
+}
+
+diagram bootstrap LR {
+  group job : bootstrap_job;
+  node archive_in : hfjobs existing;
+  node mine : miner existing in job;
+  node csfc : compiler existing in job;
+  node ask : typed_question planned in job;
+  node decide : system_one planned in job;
+  node hole : decision_hole planned in job;
+  node executor : turn_executor existing in job;
+  node generate : system_two planned in job;
+  node checks : check existing in job;
+  node archive_out : hfjobs planned;
+  edge archive_in planned mine label "repository archive in";
+  edge mine existing csfc label "facts";
+  edge csfc planned ask;
+  edge ask planned decide label "batched, one forward pass";
+  edge decide planned csfc label "p above the knee: csfc writes";
+  edge decide planned hole label "p below the knee, or no option fits";
+  edge hole planned executor;
+  edge executor planned generate label "Copilot, own provider";
+  edge generate planned checks;
+  edge csfc planned checks;
+  edge checks planned ask label "a rule fails";
+  edge checks planned archive_out label "every rule holds";
+}
+
+diagram concurrency LR {
+  node agent_a : agent existing;
+  node agent_b : agent existing;
+  node snap : snapshot planned;
+  node txn : serializable_transaction planned;
+  node trig : row_trigger planned;
+  node rules : schema_constraint planned;
+  node good : representable_state planned;
+  node bell : commit_bell planned;
+  node worker : river_worker planned;
+  node decide : system_one planned;
+  edge agent_a planned snap label "a csf word: one SQL template";
+  edge agent_b planned snap label "at the same moment";
+  edge snap planned txn label "write rows";
+  edge txn planned trig label "each changed row";
+  edge txn planned rules label "at commit";
+  edge rules planned snap label "write skew: one gets 40001 and reruns";
+  edge rules planned good label "every rule holds";
+  edge good planned snap label "the next snapshot";
+  edge trig planned bell label "rings only if it commits";
+  edge bell planned worker;
+  edge worker planned decide label "open asks, one batch";
+  edge worker planned txn label "result in a new transaction";
 }
 
 diagram agent_assignment LR {
@@ -336,7 +977,7 @@ north_star correctness {
   goal "End-to-end correctness of a robot software stack, proven relative to stated assumptions and checked against them at runtime. The physical world and the models in it are not proven; the envelope around them is: check before execute, contracts at every io boundary, and runtime monitors with a safe fallback.";
   milestone typed_io in_progress "Every io boundary is a typed capability: a service crosses only what its constructor was granted, and the io tree is sorted by crossing tier. Process launch and PostgreSQL are capabilities today; the move into the tier-sorted io directories is planned." {
     uses io; uses tier; uses capability;
-    evidence path "ipc/proc"; evidence path "ipc/db/csfpg";
+    evidence path "io/ipc/proc"; evidence path "io/ipc/db/csfpg";
     evidence pr 290; evidence pr 301; evidence pr 321; evidence issue 264;
   }
   milestone resolved_tiers planned "Each crossing's tier is resolved from runtime and placement state instead of being declared by hand." {
@@ -345,30 +986,67 @@ north_star correctness {
   }
   milestone ros_seam in_progress "The low-level controller is reached only through the ros seam, whose contract is proven ROS-side and monitored CSF-side with a safe fallback. The stub that answers every call with a typed not-connected error ships; the transport, proof and monitor are planned." {
     uses ros; uses spine; uses check;
-    evidence path "ipc/ros"; evidence pr 299;
+    evidence path "io/net/ros"; evidence pr 299;
     cites keymaera_x; cites veriphy;
   }
-  milestone turn_executors in_progress "Turn executors are interchangeable behind one contract while CSF owns the session, its context and its tools. Claude Code runs as the first turn executor; CSF does not yet own the session's context." {
-    uses turn_executor; uses session; uses claudecode;
-    evidence path "ipc/model/claudecode"; evidence path "examples/claudecode"; evidence pr 322;
+  milestone turn_executors in_progress "Turn executors are interchangeable behind one contract while CSF owns the session, its context and its tools. Claude Code and the Copilot CLI run as turn executors under the same session gates, chosen by the recipe; CSF does not yet own the session's context." {
+    uses turn_executor; uses session; uses claudecode; uses copilotcli;
+    evidence path "io/net/model/claudecode"; evidence path "examples/claudecode"; evidence path "io/net/model/copilotcli"; evidence pr 322;
   }
   milestone compilability in_progress "Every unit of the system climbs the compilability ladder from prose to structured, typed, checked and finally discharged, where a checker discharges a stated proof obligation. csfc checks the declared architecture against its Go source on every change, and its check-generated command states lifetime and cleanup obligations that it does not yet discharge." {
     uses compiler; uses compile; uses contracts;
     evidence path "csf/compiler/architecture"; evidence issue 329;
     cites compcert; cites sel4;
   }
-  milestone self_improvement in_progress "The system improves itself through Ouroboros, under gates it may not change: mined evidence proposes each change and every accepted change is an operator-approved pull request. Session mining exists in the source monorepo, outside this repository; the CSF service is planned." {
-    uses ouroboros; uses evaluate; uses save_evidence;
-    evidence pr 237;
+  milestone self_improvement in_progress "The system improves itself through Ouroboros, under gates it may not change: mined evidence proposes each change and every accepted change is an operator-approved pull request. The mining loop runs inside CSF: miners mine every log as it changes, a pre-check decides at no model cost which tickets a fixer can take, fixers run through the harness under a daily budget, the merge train merges what passes the gate, and the compounding rate is measured and shown. The slice dispatcher launches the ready slice graph within measured limits with no orchestrator. Unattended fixer launch waits for sandboxed launch." {
+    uses ouroboros; uses miner; uses precheck; uses fixer; uses merge_train; uses compounding_rate; uses slice_dispatcher;
+    evidence path "services/ouroboros"; evidence path "services/dispatch"; evidence pr 237;
   }
   milestone typed_documentation in_progress "No hand-written documentation: every claim is typed data in architecture.csf and its prose is generated, this section included." {
     uses compiler; uses compile;
     evidence path "csf/compiler/language/architecture.csf"; evidence path "docs/GLOSSARY.md"; evidence pr 333;
   }
+  milestone post_training planned "CSF post-trains its own model on its traces and the corrections its operator accepted, once the harness eval suite can score a post-trained model against the frozen one on the same tickets withheld from training. Until then CSF improves the harness only. Deferred by the operator on 2026-10-05; the question is csf_staging issue 415, prompted by NeoHorse-1." {
+    uses ouroboros; uses turn_executor; uses brain;
+    cites neohorse_1;
+  }
 }
 
 document "examples/csf-agent/README.md" { agent_assignment; }
 
-document "csf/README.md" { architecture; improvement; simulation; }
+document "csf/README.md" { architecture; improvement; simulation; bootstrap; code_workflow; concurrency; }
 
-document "README.md" { correctness; architecture; improvement; }
+document "README.md" { correctness; architecture; improvement; components; }
+
+relation store places data_structure;
+relation store same_as ansi_sparc_architecture;
+relation data_structure specializes ansi_sparc_architecture;
+relation hook advises action;
+relation aspect bundles hook;
+relation aspect bundles pointcut;
+relation pointcut specifies action;
+relation weaving specializes aspect_oriented_programming;
+relation service performs action;
+relation retrieve reads recall;
+relation recall diverges memory "Use recall for cross-session agent knowledge, not agent memory or long-term memory.";
+relation backtest same_as backtest_pitfalls;
+relation backtest cites walk_forward_analysis;
+relation protocol specializes kqml;
+relation message_kind has_semantics check;
+relation agent communicates_via protocol;
+relation humans_zone owned_by human;
+relation provenance_class same_as prov_dm;
+relation provenance_class specializes green_provenance_queries;
+relation recall specializes cohen_levesque_intentions;
+relation memory diverges recall "Memory is physical RAM; recall is cross-session knowledge persisted outside the process.";
+
+# Human glossary sections (docs/GLOSSARY.md). Every term is in exactly one.
+policy routing {
+  class "preempt direct interrupt queue";
+  kappa_c "16";
+  kappa_u "0.152";
+  kappa_q unmeasured;
+  kappa_l "1.0";
+  kappa_d "100GB";
+  kappa_b unmeasured;
+}

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/candacelabs/csf/pkg/atomicfile"
 )
 
 // The files of one run directory, <state directory>/<assignment id>.
@@ -23,7 +25,6 @@ const (
 
 	runDirectoryMode = 0o700
 	runFileMode      = 0o600
-	temporarySuffix  = ".tmp"
 )
 
 // ErrNoRunState reports a run directory with no recorded run.
@@ -44,6 +45,8 @@ type RunState struct {
 	Branch           string `json:"branch"`
 	BaseBranch       string `json:"base_branch"`
 	PullRequestTitle string `json:"pull_request_title"`
+	// WorkspaceMode is the workspace configuration: "normal" or "patch".
+	WorkspaceMode string `json:"workspace_mode"`
 	// Turns counts the turns started on the session, so a gate attributes its
 	// decisions to the turn that is running.
 	Turns int `json:"turns"`
@@ -52,6 +55,20 @@ type RunState struct {
 	LastPushTime int64 `json:"last_push_time,omitempty"`
 	// Model is the LLM model the session runs on, needed by the commit hook.
 	Model string `json:"model,omitempty"`
+	// Executor is the turn executor the session runs on. A run recorded
+	// before executors were chosen has none and ran on Claude Code.
+	Executor Executor `json:"executor,omitempty"`
+	// BuildContainerID is the ID of the long-lived build container for this session.
+	BuildContainerID string `json:"build_container_id,omitempty"`
+}
+
+// TurnExecutor is the turn executor the run is on: the recorded one, or
+// Claude Code for a run recorded before executors were chosen.
+func (state *RunState) TurnExecutor() Executor {
+	if state.Executor == "" {
+		return ExecutorClaudeCode
+	}
+	return state.Executor
 }
 
 // RunDirectory is the deterministic directory of an assignment's run.
@@ -85,13 +102,9 @@ func WriteRunState(directory string, state *RunState) error {
 	return replaceFile(filepath.Join(directory, RunStateFile), content)
 }
 
-// replaceFile writes content beside target and renames it into place.
+// replaceFile replaces target with content whole.
 func replaceFile(target string, content []byte) error {
-	temporary := target + temporarySuffix
-	if err := os.WriteFile(temporary, content, runFileMode); err != nil {
-		return fmt.Errorf("harness session: write %s: %w", filepath.Base(target), err)
-	}
-	if err := os.Rename(temporary, target); err != nil {
+	if err := atomicfile.WriteFile(target, content, runFileMode); err != nil {
 		return fmt.Errorf("harness session: replace %s: %w", filepath.Base(target), err)
 	}
 	return nil

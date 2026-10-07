@@ -12,7 +12,7 @@ The compiler uses this module's pinned OCaml 5.3.0 toolchain and standard
 library. It accepts structured flowcharts only. Node and group names come from
 term definitions; edges optionally carry a plain-language relationship. Nodes
 show their declared existing/planned status. Existing edges are solid and planned
-edges dotted. These are documentation statements, not runtime verification.
+edges dotted. These are documentation statements, not [runtime](../../docs/generated/ontology_cgen.md#term-runtime) verification.
 
 This directory owns CSF's documentation language and diagrams. The monorepo
 builds these exported sources directly; there is no compatibility copy. The
@@ -69,6 +69,7 @@ the handwritten-Mermaid check.
 | `literature id "Name" "meaning" "how CSF uses it" "citation" "https://..." forms ...;` | A word borrowed from published work. Every citation is checked against its DOI or arXiv record before it is written. |
 | `retired id "word" "replacement";` | A word the ontology no longer defines, such as a retired product name. |
 | `jargon "word";` | A declared candidate that must become a term or literature entry before a linked document uses it. |
+| `ordinary id "path" "phrase" "reason";` | An ordinary use: see below. |
 | `section id "Title" "summary" "example" { term; ... }` | A glossary group. When sections exist, every term is in exactly one. |
 | `linked "README.md";` | A Markdown file whose vocabulary must be linked. |
 
@@ -84,13 +85,34 @@ everywhere except fenced code. The full rules are in the comment above
 `scan_vocabulary` in `compiler.ml`.
 
 `write` also generates `docs/GLOSSARY.md`: a plain-language, grouped reference
-for humans with examples and cited literature terms. Its banner tells agents not
+for humans with examples and cited literature terms. Its banner tells [agents](../../docs/generated/ontology_cgen.md#term-agent) not
 to read it; the dictionary is canonical. To report findings for any Markdown
 file without writing:
 
 ```sh
 bazel-bin/csf/compiler/language/generate.exe --root "$PWD" lint docs/extending.md
 ```
+
+`link` is the [fixer](../../docs/generated/ontology_cgen.md#term-fixer): it rewrites, in place, exactly the unlinked mentions
+`lint` reports, so a linked file lints clean, and a second run changes
+nothing. With no paths it links every tracked `README.md`, the files the
+[ontology alignment](../../docs/generated/ontology_cgen.md#term-ontology_alignment) score's `unlinked-terms` signal counts; `write` runs it over
+the same files after generating, and `csf docs link [-repo DIR] [PATH...]`
+builds the generator and runs it. Lint and link both skip generated
+`<!-- csf:... -->` blocks, whose renderer links them, and never read or write
+under `humans/`.
+
+```sh
+bazel-bin/csf/compiler/language/generate.exe --root "$PWD" link
+```
+
+Where a term's spelling is ordinary English or another system's word, such as
+a Docker volume [mount](../../docs/generated/ontology_cgen.md#term-mount) or a browser's client [runtime](../../docs/generated/ontology_cgen.md#term-runtime), an `ordinary` declaration
+names the document, a phrase around the mention and the reason. Lint and link
+leave that term's mentions inside the phrase alone. An ordinary use that covers
+no mention, or whose phrase contains another term's mention, is a blocking
+finding, so the list cannot go stale and linking a neighbouring term cannot
+break it.
 
 ## North star
 
@@ -121,7 +143,7 @@ numerators and denominators. OCaml `.ml` and `.mli` files are excluded from both
 code counts: the generator language is outside this metric's policy, whether
 a file is generated or non-generated. They contribute to `excluded_files`,
 as do code files under the exact archive prefix `candace/pkg/gotth/` (the entire
-gotth-live package, including generated files). These exclusions do not apply to
+[gotth-live](../../docs/generated/ontology_cgen.md#term-gotth_live) package, including generated files). These exclusions do not apply to
 docgen: Markdown under that prefix keeps its independent calculation. The code
 percentage therefore describes the selected corpus, not all shipped code.
 

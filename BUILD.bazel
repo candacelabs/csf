@@ -20,6 +20,12 @@ load("@gazelle//:def.bzl", "gazelle")
 # own checker, not by this module.
 # gazelle:exclude pkg/gotth/docs/guide/_samples
 
+# pkg/collections/testdata is fixture data, not a Go package: the golden under
+# it is the exact source the generator must emit, read by a native test through
+# an exports_files edge. Gazelle must not turn it into a buildable library.
+# gazelle:exclude pkg/collections/testdata
+# gazelle:exclude csf/compiler/testdata/golden/rest_client/io
+
 # github.com/pganalyze/pg_query_go/v6 is fetched by //:MODULE.bazel as a plain
 # archive with hand-written build files patched in, not through the go_deps
 # extension, so Gazelle's default repository name for it does not exist here.

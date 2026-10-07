@@ -24,6 +24,7 @@ on:
   push:
     branches:
       - main
+      - 'release/**'
   pull_request:
     types: [opened, synchronize, reopened, labeled, unlabeled]
     paths:
@@ -63,7 +64,7 @@ permissions:
 jobs:
   ocaml_repository:
     name: Prepare pinned tooling and opam metadata
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -77,7 +78,7 @@ jobs:
   ocaml_bytecode:
     needs: ocaml_repository
     name: Prepare the OCaml bytecode bootstrap
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -91,7 +92,7 @@ jobs:
   ocaml_compiler:
     needs: ocaml_bytecode
     name: Prepare the pinned OCaml compiler
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -105,7 +106,7 @@ jobs:
   ocaml_toolchain:
     name: Prepare the locked OCaml libraries
     needs: ocaml_compiler
-    if: ${{ github.event.repository.private == false }}
+    if: ${{ (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
@@ -117,7 +118,7 @@ jobs:
           mode: prepare
 
   score:
-    if: ${{ github.event_name != 'pull_request' && github.event.repository.private == false }}
+    if: ${{ github.event_name != 'pull_request' && (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     needs: ocaml_toolchain
     name: Record the ontology alignment score
     runs-on: ubuntu-24.04
@@ -153,7 +154,7 @@ jobs:
           retention-days: 90
 
   ratchet:
-    if: ${{ github.event_name == 'pull_request' && github.event.repository.private == false }}
+    if: ${{ github.event_name == 'pull_request' && (github.event.repository.private == false || startsWith(github.base_ref || github.ref_name, 'release/')) }}
     needs: ocaml_toolchain
     name: Ontology alignment does not regress
     runs-on: ubuntu-24.04

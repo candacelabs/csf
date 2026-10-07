@@ -99,6 +99,92 @@ let diagnostics db (architecture : architecture) findings =
     let at, details = locate f.place values in
     { at; code = f.code; message = f.message (List.map text details) })) findings
 
+(* The tree census answers a question outside declaration resolution: is every
+   tracked file in a directory whose declaration allows its kind? Facts computes
+   the prefix relations the rules cannot; the rules are shared with the
+   declaration checks. An empty [paths] (an unreadable checkout) yields no
+   offense rather than a false one. *)
+type tree_report = {
+  offenses : diagnostic list;
+  directories_declared : int;
+  directories_tracked : int;
+  fanout : (string * int) list;
+}
+
+let tree_diagnostics (architecture : architecture) paths =
+  let db = database architecture in
+  Datalog.DB.add_facts db (Facts.tree_facts architecture paths);
+  let at = { file = architecture.at.file; line = 1; column = 1 } in
+  let kind_of = ask db "offense_kind" 2
+    |> List.map (function [file; kind] -> text file, text kind | _ -> assert false) in
+  let offenses = ask db "offense" 3 |> List.map (function
+    | [_tree; file; cause] -> let path = text file in match text cause with
+        | "undeclared" ->
+            { at; code = "tree_undeclared"; message = path ^ " is in no declared directory." }
+        | "kind_not_allowed" ->
+            { at; code = "tree_kind_not_allowed";
+              message = path ^ " has kind " ^ List.assoc path kind_of ^ ", which its directory does not allow." }
+        | "csf_outside_csf" ->
+            { at; code = "tree_csf_outside_csf"; message = path ^ " is a CSF source outside csf/." }
+        | cause -> invalid_arg ("unknown tree offense: " ^ cause)
+    | _ -> assert false) in
+  let fanout = ask db "fanout" 2
+    |> List.map (function [directory; count] -> text directory, number count | _ -> assert false)
+    |> List.sort compare in
+  let tier_mismatch = ask db "tier_mismatch" 3 |> List.map (function
+    | [directory; expected; crossed] ->
+        let directory = text directory and expected = text expected and crossed = text crossed in
+        { at; code = "tree_tier_mismatch";
+          message = directory ^ " lives under the " ^ expected ^ " tier but its declaration names " ^ crossed ^ "." }
+    | _ -> assert false) in
+  let io_children_stray = ask db "io_children_stray" 1 |> List.map (function
+    | [directory] ->
+        { at; code = "tree_io_children_stray";
+          message = text directory ^ " sits under io/ but is not one of the four tier directories." }
+    | _ -> assert false) in
+  let io_children_missing = ask db "io_children_missing" 1 |> List.map (function
+    | [tier] ->
+        { at; code = "tree_io_children_missing";
+          message = "io/ has no " ^ text tier ^ " tier directory." }
+    | _ -> assert false) in
+  { offenses = offenses @ tier_mismatch @ io_children_stray @ io_children_missing;
+    directories_declared = List.length architecture.directories;
+    directories_tracked = Facts.tracked_directories paths; fanout }
+
+(* The JEV-writability census answers a second question outside declaration
+   resolution: can one JEV pick write each production of the CSF grammars? The
+   same [offense] relation answers it, tagged with the [grammar] tree, so the
+   grammar sites go into a fresh database where no tracked file or census fact
+   exists and a grammar site cannot appear among the tree offenses. An empty
+   [sites] yields no offense rather than a false one; the report always carries
+   the census, which is the meter the gate watches. *)
+type grammar_report = {
+  offenses : diagnostic list;
+  use_sites : int;
+  bounded_use_sites : int;
+}
+
+let grammar_diagnostics (sites : Grammar.use_site list) =
+  let db = Datalog.DB.create () in
+  Datalog.setup_default db;
+  Datalog.DB.add_builtin db (Datalog_top_down.String "count") count;
+  Datalog.DB.add_clauses db (Lazy.force program);
+  Datalog.DB.add_facts db (Facts.grammar_facts sites);
+  let located = List.map (fun site -> Grammar.site_id site, site) sites in
+  let offenses = ask db "offense" 3 |> List.filter_map (function
+    | [tree; site; cause] when text tree = "grammar" ->
+        let id = text site in
+        let site = List.assoc id located in
+        (match text cause with
+         | "unbounded" ->
+             Some { at = { file = site.Grammar.file; line = 1; column = 1 };
+               code = "grammar_unbounded";
+               message = id ^ " is not writable by one JEV pick: it offers free text or more than sixteen alternatives." }
+         | cause -> invalid_arg ("unknown grammar offense: " ^ cause))
+    | _ -> None) |> List.sort compare in
+  let bounded, total = Grammar.share sites in
+  { offenses; use_sites = total; bounded_use_sites = bounded }
+
 (* Checks on one record. *)
 let process_diagnostics (process : process) = match process.kind with
   | Go when not (Facts.present process.entrypoint) ->

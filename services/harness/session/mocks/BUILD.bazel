@@ -2,12 +2,17 @@ load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "mocks",
-    srcs = ["mock_turn_executor.go"],
+    srcs = [
+        "mock_session_containers.go",
+        "mock_turn_executor.go",
+    ],
     importpath = "github.com/candacelabs/csf/services/harness/session/mocks",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/model",
-        "//ipc/model/claudecode",
+        "//io/ipc/docker",
+        "//io/kernel/sandbox",
+        "//io/net/model",
+        "//io/net/model/claudecode",
         "//services/harness/session",
         "@org_uber_go_mock//gomock",
     ],

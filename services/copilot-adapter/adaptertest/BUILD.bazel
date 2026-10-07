@@ -1,8 +1,9 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "adaptertest",
     srcs = [
+        "memory_listener.go",
         "mock_network.go",
         "server.go",
         "store.go",
@@ -10,13 +11,25 @@ go_library(
     importpath = "github.com/candacelabs/csf/services/copilot-adapter/adaptertest",
     visibility = ["//visibility:public"],
     deps = [
-        "//ipc/db/csfpg",
-        "//ipc/net/http",
+        "//io/net/http",
         "//pkg/pgmem",
         "//pkg/sqlmigrate",
         "//runtime",
+        "//services/copilot-adapter",
         "//services/copilot-adapter/store",
-        "@org_golang_google_grpc//test/bufconn",
         "@org_uber_go_mock//gomock",
+    ],
+)
+
+go_test(
+    name = "adaptertest_test",
+    srcs = [
+        "adaptertest_suite_test.go",
+        "server_test.go",
+    ],
+    deps = [
+        ":adaptertest",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
     ],
 )

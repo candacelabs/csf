@@ -1,7 +1,7 @@
 # The custom-brand example
 
-Deploy wearing another product's identity: a different name, a
-different agent, a different mark, a different palette, an extra sidebar entry,
+[Deploy](../../csf/docs/generated/ontology_cgen.md#term-deploy) wearing another product's identity: a different name, a
+different [agent](../../csf/docs/generated/ontology_cgen.md#term-agent), a different mark, a different palette, an extra sidebar entry,
 and a page of the embedding product's own.
 
 **Harborlight is invented for this example.** It is not a real product,
@@ -37,7 +37,7 @@ go test ./examples/custom-brand
 
 | Seam | Option | What it replaces |
 |---|---|---|
-| Identity | `bootstrap.WithBrand` | the product name, the agent name, the wordmark, the design tokens |
+| Identity | `bootstrap.WithBrand` | the product name, the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) name, the wordmark, the design tokens |
 | Presentation files | `bootstrap.WithUIOverlay` | resolves templates and assets before the embedded ones; here, one glyph |
 | Sidebar | `bootstrap.WithNavItem` | appends one entry after Core's Home, Apps, Fleet, Activity |
 | Routes | `bootstrap.WithHTTPService` | mounts the page that entry links to |
@@ -48,7 +48,7 @@ All four are in [`main.go`](main.go)'s `seams`; the values are in
 ### The two brand-bearing strings
 
 `ProductName` and `AgentName` are the only UI copy the seam makes data. They
-replace "Candace Deploy" and "Claw" in titles, aria-labels, and the sentences that
+replace "Candace [Deploy](../../csf/docs/generated/ontology_cgen.md#term-deploy)" and "Claw" in titles, aria-labels, and the sentences that
 name the system or the thing acting for the operator. Everything else stays
 literal: the page still says "Harborlight, across your whole fleet" over a
 sentence nobody had to translate.
@@ -62,7 +62,7 @@ the configured brand into every snapshot it produces.
 
 `Wordmark` is **markup, not text**: the UI emits it verbatim, exactly like a
 template the operator wrote. Write it as a reviewed constant of your program and
-never assemble one from a browser request, a fleet node, or an agent. It cannot
+never assemble one from a browser request, a fleet node, or an [agent](../../csf/docs/generated/ontology_cgen.md#term-agent). It cannot
 smuggle a script past the page's Content-Security-Policy, but it can restyle or
 deface the shell.
 
@@ -124,13 +124,13 @@ that a sidebar entry and a route agree.
 The page links `app.css` and the generated brand stylesheet, which is the whole
 reason it looks like the rest of the product: the palette is a served
 stylesheet, so anything that links it is branded, including a page Core has
-never heard of. Core does not hand a registered service its runtime, so a page
+never heard of. Core does not hand a registered [service](../../csf/docs/generated/ontology_cgen.md#term-service) its [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime), so a page
 that needs live state reads the snapshot endpoint like any other client.
 
 ## What does not move
 
 - **Routes.** `/claws/...`, the API, and the asset URL space are untouched. The
-  agent's name is data; the paths the browser client posts to are not.
+  [agent](../../csf/docs/generated/ontology_cgen.md#term-agent)'s name is data; the paths the browser client posts to are not.
 - **The Content-Security-Policy.** Still `script-src 'self'` and
   `style-src 'self'`, with nothing inlined anywhere in this example.
 - **Every other string.** Only the two brand-bearing names are keyed.

@@ -10,18 +10,25 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/candacelabs/csf/csf"
-	"github.com/candacelabs/csf/ipc/model/claudecode"
+	iofs "github.com/candacelabs/csf/io/kernel/fs"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
+	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/pkg/atomicfile"
 	"github.com/candacelabs/csf/pkg/mailbox"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"github.com/candacelabs/csf/runtime"
+	"github.com/candacelabs/csf/services/harness/routing"
 	"github.com/candacelabs/csf/services/harness/session"
+	"github.com/candacelabs/csf/services/harness/verify"
 )
 
 var (
@@ -52,11 +59,14 @@ var (
 // The environment every session's turn executor inherits for Bazel: the
 // shared, content-addressed disk cache under the state directory and an
 // output base of its own under the run directory, removed when the session
-// ends. The OCaml toolchain cache is also shared across sessions and built once.
+// ends.
 const (
-	bazelDiskCacheVariable      = "CANDACE_BAZEL_DISK_CACHE"
-	bazelOutputVariable         = "CANDACE_BAZEL_CACHE"
-	ocamlToolchainCacheVariable = "CANDACE_OCAML_TOOLCHAIN_CACHE"
+	// BazelDiskCacheVariable, BazelOutputVariable and
+	// OCamlToolchainCacheVariable name the three caches in the environment
+	// of every program the harness, or a service beside it, runs Bazel in.
+	BazelDiskCacheVariable      = "CANDACE_BAZEL_DISK_CACHE"
+	BazelOutputVariable         = "CANDACE_BAZEL_CACHE"
+	OCamlToolchainCacheVariable = "CANDACE_OCAML_TOOLCHAIN_CACHE"
 	// BazelDiskCacheDirectory is the shared cache, under the state directory.
 	BazelDiskCacheDirectory = "bazel-disk-cache"
 	// BazelOutputDirectory is a session's output base, under its run directory.
@@ -159,10 +169,36 @@ func WithInterruptBudget(budget time.Duration) AgentSessionServiceOption {
 	}
 }
 
-// WithHostPID names the process every session runs in, for List.
+// WithHostPID names the process every session runs in, for List and for
+// finding each session's executor among its children.
 func WithHostPID(pid int) AgentSessionServiceOption {
 	return func(service *AgentSessionService) error {
 		service.hostPID = pid
+		return nil
+	}
+}
+
+// WithProcessTable grants the host's process table, as /proc. With it the
+// service closes idle executors, never one with a live background child, and
+// samples the resident memory of the harness and its executors into the
+// resident series. Without it executors stay open and nothing is sampled.
+func WithProcessTable(processes iofs.IFiles) AgentSessionServiceOption {
+	return func(service *AgentSessionService) error {
+		if processes == nil {
+			return fmt.Errorf("%w: nil process table", ErrInvalidServiceOption)
+		}
+		service.processes = processes
+		return nil
+	}
+}
+
+// WithResidentSampleInterval sets how often the resident series is sampled.
+func WithResidentSampleInterval(interval time.Duration) AgentSessionServiceOption {
+	return func(service *AgentSessionService) error {
+		if interval <= 0 {
+			return fmt.Errorf("%w: resident sample interval must be positive", ErrInvalidServiceOption)
+		}
+		service.residentInterval = interval
 		return nil
 	}
 }
@@ -200,7 +236,18 @@ type AgentSessionService struct {
 	closeBudget     time.Duration
 	hostPID         int
 	observers       []SessionObserver
+	launcher        proc.ILauncher
 	registry        *mailbox.Mailbox[registry]
+	// processes is the process table, when granted; idleBound is derived at
+	// Start from the state directory's run records.
+	processes        iofs.IFiles
+	residentInterval time.Duration
+	idleBound        IdleBoundReport
+	// executorDefault is the default the host starts with when no switch has
+	// been recorded under the state directory.
+	executorDefault *harnessv1.AgentExecutorDefault
+	// resumed is closed once Start's first pass over the open runs is done.
+	resumed chan struct{}
 }
 
 var _ runtime.IService = (*AgentSessionService)(nil)
@@ -215,6 +262,12 @@ type registry struct {
 	largestRun uint64
 	// held is why admission is held; empty while sessions are admitted.
 	held string
+	// resumes counts sessions resumed after a suspend, and the latest resumed
+	// turn's time to first token is kept for the resident series.
+	resumes                  int
+	resumeTimeToFirstTokenMs float64
+	// executorDefault is what a recipe naming no executor runs on.
+	executorDefault *harnessv1.AgentExecutorDefault
 }
 
 // sessionRecord is one session as the registry sees it. The owner goroutine
@@ -224,8 +277,16 @@ type sessionRecord struct {
 	state   *harnessv1.AgentSessionState
 	receipt *pb.AgentAssignmentReceipt
 	queue   []queuedMessage
-	// wake is poked when the queue or the cancel flag changes.
-	wake chan struct{}
+	// nextSeq is the next sequence number to assign to a queued message.
+	nextSeq uint64
+	// wake is poked when the queue or the cancel flag changes; idle when the
+	// idle bound has passed with the session between turns, carrying the
+	// generation of the wait that armed it so a late timer is ignored.
+	wake           chan struct{}
+	idle           chan uint64
+	idleGeneration uint64
+	// idleSince is when the session was suspended; zero while its executor is open.
+	idleSince time.Time
 	// cancelRequested is canceled by Cancel; the owner observes it at its
 	// safepoints and during a turn.
 	cancelRequested context.Context
@@ -237,35 +298,74 @@ type sessionRecord struct {
 	open    *session.OpenSession
 	openErr error
 	scope   *runtime.Scope
+	// Activity counters: updated as events are recorded.
+	lastEventAt   time.Time
+	eventsLast10m uint32
+	lastCommand   string
+	lastTool      string
+	// deliveredMessages maps receipt IDs to their delivery times for read receipts.
+	deliveredMessages map[string]time.Time
+	// runningTurnMessage is the message currently running, or nil between turns.
+	// Set by turns() when starting a turn, cleared when turn completes.
+	runningTurnMessage *queuedMessage
+	// interruptSignal is sent to when an interrupt-class message arrives during a running turn.
+	interruptSignal chan *queuedMessage
 	// directory is the run directory; resume is set when a previous harness
 	// process left the run open there, so it is reopened, not created.
 	directory string
 	resume    bool
-	// inflight is the text of the turn running now, persisted with the queue
-	// so a restart mid-turn delivers it again.
-	inflight string
+	// inflight is the message of the turn running now, persisted with the
+	// queue so a restart mid-turn delivers it again; nil between turns.
+	inflight *queuedMessage
 }
 
 // persistedQueue is the queue as the run directory keeps it across restarts.
 type persistedQueue struct {
-	Inflight string   `json:"inflight,omitempty"`
-	Queued   []string `json:"queued"`
+	Inflight *persistedMessage  `json:"inflight,omitempty"`
+	Queued   []persistedMessage `json:"queued"`
+}
+
+// persistedMessage is one queued message as the run directory keeps it. A
+// queue written before messages carried an author holds bare strings; one
+// reads back as a message that is not the operator's.
+type persistedMessage struct {
+	Text     string `json:"text"`
+	Operator bool   `json:"operator,omitempty"`
+}
+
+func (message *persistedMessage) UnmarshalJSON(data []byte) error {
+	var text string
+	if json.Unmarshal(data, &text) == nil {
+		*message = persistedMessage{Text: text}
+		return nil
+	}
+	type plain persistedMessage
+	var decoded plain
+	if err := json.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	*message = persistedMessage(decoded)
+	return nil
+}
+
+func persisted(message *queuedMessage) *persistedMessage {
+	if message == nil {
+		return nil
+	}
+	return &persistedMessage{Text: message.text, Operator: message.operator}
 }
 
 // persistQueue writes the record's queue to its run directory. It runs on the
 // registry, where the queue is owned.
 func (service *AgentSessionService) persistQueue(record *sessionRecord) {
-	saved := persistedQueue{Inflight: record.inflight, Queued: []string{}}
+	saved := persistedQueue{Inflight: persisted(record.inflight), Queued: []persistedMessage{}}
 	for _, message := range record.queue {
-		saved.Queued = append(saved.Queued, message.text)
+		saved.Queued = append(saved.Queued, *persisted(&message))
 	}
 	content, err := json.Marshal(saved)
 	if err == nil {
 		path := filepath.Join(record.directory, QueueFile)
-		err = os.WriteFile(path+".tmp", content, stateFileMode)
-		if err == nil {
-			err = os.Rename(path+".tmp", path)
-		}
+		err = atomicfile.WriteFile(path, content, stateFileMode)
 	}
 	if err != nil {
 		service.logger.Warn("harness: queue not persisted", "assignment", record.state.GetAssignmentId(), "error", err)
@@ -273,8 +373,8 @@ func (service *AgentSessionService) persistQueue(record *sessionRecord) {
 }
 
 // restoredQueue is the queue a previous process persisted, with the turn it
-// was running delivered again first.
-func restoredQueue(directory string) []string {
+// was running delivered again first. The turns are the caller's to number.
+func restoredQueue(directory string) []queuedMessage {
 	content, err := os.ReadFile(filepath.Join(directory, QueueFile))
 	if err != nil {
 		return nil
@@ -283,28 +383,49 @@ func restoredQueue(directory string) []string {
 	if json.Unmarshal(content, &saved) != nil {
 		return nil
 	}
-	texts := []string{}
-	if saved.Inflight != "" {
-		texts = append(texts, RedeliveredPrefix+saved.Inflight)
+	messages := []queuedMessage{}
+	if saved.Inflight != nil && saved.Inflight.Text != "" {
+		messages = append(messages, queuedMessage{text: RedeliveredPrefix + saved.Inflight.Text, operator: saved.Inflight.Operator})
 	}
-	return append(texts, saved.Queued...)
+	for _, message := range saved.Queued {
+		messages = append(messages, queuedMessage{text: message.Text, operator: message.Operator})
+	}
+	return messages
 }
 
+// queuedMessage is one message waiting for its turn: its text, the turn it
+// was acknowledged as, and whether it is the operator's own words.
 type queuedMessage struct {
-	text string
-	turn uint32
+	text          string
+	turn          uint32
+	receipt       string
+	priorityClass harnessv1.MessagePriorityClass
+	operator      bool
+	sequence      uint64
+	timestamp     *timestamppb.Timestamp
+}
+
+// turnOptions are the session turn options the message carries.
+func (message *queuedMessage) turnOptions() []session.TurnOption {
+	if message.operator {
+		return []session.TurnOption{session.OperatorAuthored()}
+	}
+	return nil
 }
 
 // NewAgentSessionService validates the whole option set before building the
 // service. [WithSessionRunner] is required.
 func NewAgentSessionService(options ...AgentSessionServiceOption) (*AgentSessionService, error) {
 	service := &AgentSessionService{
-		measures:        HostMeasures{},
-		clock:           SystemClock{},
-		logger:          slog.New(slog.DiscardHandler),
-		interruptBudget: DefaultInterruptBudget,
-		closeBudget:     DefaultCloseBudget,
-		registry:        mailbox.New[registry](),
+		measures:         HostMeasures{},
+		clock:            SystemClock{},
+		logger:           slog.New(slog.DiscardHandler),
+		interruptBudget:  DefaultInterruptBudget,
+		closeBudget:      DefaultCloseBudget,
+		residentInterval: DefaultResidentSampleInterval,
+		registry:         mailbox.New[registry](),
+		executorDefault:  &harnessv1.AgentExecutorDefault{Executor: string(session.ExecutorClaudeCode)},
+		resumed:          make(chan struct{}),
 	}
 	for _, option := range options {
 		if option == nil {
@@ -321,18 +442,23 @@ func NewAgentSessionService(options ...AgentSessionServiceOption) (*AgentSession
 }
 
 // Start creates the shared Bazel disk cache, measures the existing runs for
-// the disk floor and starts the registry owner on the scope. The registry
-// retires when the scope is canceled; every session's child scope is canceled
-// with it and joined by it.
+// the disk floor and the idle bound, and starts the registry owner on the
+// scope. The registry retires when the scope is canceled; every session's
+// child scope is canceled with it and joined by it. With a process table
+// granted, the resident series sampler runs on the scope too.
 func (service *AgentSessionService) Start(scope *runtime.Scope) error {
 	if err := os.MkdirAll(service.bazelDiskCache(), stateDirectoryMode); err != nil {
 		return fmt.Errorf("harness: create the Bazel disk cache: %w", err)
+	}
+	if err := service.seedModelPolicy(); err != nil {
+		return err
 	}
 	largest, err := measureRuns(scope.Context(), service.measures, service.runner.StateDirectory())
 	if err != nil {
 		service.logger.Warn("harness: runs not measured", "error", err)
 	}
-	table := &registry{scope: scope, sessions: map[string]*sessionRecord{}, largestRun: largest}
+	service.idleBound = service.deriveIdleBound()
+	table := &registry{scope: scope, sessions: map[string]*sessionRecord{}, largestRun: largest, executorDefault: service.recordedExecutorDefault()}
 	if err := scope.GoOwner(registryOwner, func(ctx context.Context) error {
 		stopRetire := context.AfterFunc(ctx, func() {
 			_ = service.registry.Submit(func(_ *registry) bool { return true })
@@ -343,34 +469,34 @@ func (service *AgentSessionService) Start(scope *runtime.Scope) error {
 	}); err != nil {
 		return err
 	}
+	if service.processes != nil {
+		if err := scope.GoOwner(residentOwner, service.sampleResident); err != nil {
+			return err
+		}
+	}
 	return scope.Go(service.resumeOpenRuns)
 }
 
-// resumeOpenRuns reopens every run a previous process left open: a run
-// directory with a recorded recipe and run record and no end. Each is
-// submitted again under its assignment, which reopens it on its recorded
-// conversation.
-func (service *AgentSessionService) resumeOpenRuns(ctx context.Context) error {
-	entries, err := os.ReadDir(service.runner.StateDirectory())
+// deriveIdleBound measures the gaps between turns in the state directory's
+// run records and derives the idle bound from them; the prompt cache lifetime
+// is the fallback before two gaps exist. The derivation is logged beside the
+// bound.
+func (service *AgentSessionService) deriveIdleBound() IdleBoundReport {
+	gaps, err := TurnGaps(service.runner.StateDirectory())
 	if err != nil {
-		service.logger.Warn("harness: open runs not listed", "error", err)
-		return nil
+		service.logger.Warn("harness: turn gaps not measured", "error", err)
 	}
-	for _, entry := range entries {
-		directory := filepath.Join(service.runner.StateDirectory(), entry.Name())
-		if !entry.IsDir() || fileExists(filepath.Join(directory, EndedFile)) || !fileExists(filepath.Join(directory, session.RunStateFile)) {
-			continue
-		}
-		recipe, err := session.ReadRecipe(directory)
-		if err != nil {
-			continue
-		}
-		if _, err := service.Submit(ctx, &harnessv1.SubmitAgentSessionRequest{Recipe: recipe}); err != nil {
-			service.logger.Warn("harness: open run not resumed", "assignment", entry.Name(), "error", err)
-		}
-	}
-	return nil
+	report := IdleBound(gaps, routing.DefaultTTL)
+	service.logger.Info("harness: idle bound derived", "derivation", report.String(), "bound", report.Bound, "quantile", report.Quantile, "gaps", report.Gaps, "fallback", report.Fallback)
+	return report
 }
+
+// IdleBound is the derived idle bound with its derivation, after Start.
+func (service *AgentSessionService) IdleBound() IdleBoundReport { return service.idleBound }
+
+// Resumed is closed once Start's first resume pass has run: every open run a previous process
+// left is resumed or recorded as held in ResumeQueueFile, so a host that waits on it is ready only with them back.
+func (service *AgentSessionService) Resumed() <-chan struct{} { return service.resumed }
 
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
@@ -409,20 +535,39 @@ func (service *AgentSessionService) command(ctx context.Context, command func(ta
 // returns once the session is open, with its receipt, or with the failure
 // that kept it from opening.
 func (service *AgentSessionService) Submit(ctx context.Context, request *harnessv1.SubmitAgentSessionRequest) (*harnessv1.SubmitAgentSessionResponse, error) {
+	return service.submit(ctx, request, false)
+}
+
+// submit is Submit; a resume after a restart is held to the launch check,
+// which only reports on a new launch: a resume it does not admit is refused
+// with ErrResumeHeld and nothing is recorded.
+func (service *AgentSessionService) submit(ctx context.Context, request *harnessv1.SubmitAgentSessionRequest, resuming bool) (*harnessv1.SubmitAgentSessionResponse, error) {
+	// A new run whose recipe names no executor takes the host's default; a
+	// run already recorded reopens on what it recorded.
 	recipe := request.GetRecipe()
 	if recipe == nil {
 		return nil, fmt.Errorf("%w: a recipe is required", csf.ErrInvalidRequest)
+	}
+	id := recipe.GetAssignmentId()
+	directory := session.RunDirectory(service.runner.StateDirectory(), id)
+	_, recorded := session.ReadRunState(directory)
+	if recorded != nil && recipe.GetExecutor() == "" {
+		resolved, err := service.withExecutorDefault(ctx, recipe)
+		if err != nil {
+			return nil, err
+		}
+		recipe = resolved
 	}
 	plan, err := csf.PrepareAgentAssignment(recipe)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", csf.ErrInvalidRequest, err)
 	}
-	id := recipe.GetAssignmentId()
-	directory := session.RunDirectory(service.runner.StateDirectory(), id)
-	_, recorded := session.ReadRunState(directory)
+	// A recorded run is held to the policy too: it never resumes on a model
+	// the host no longer allows.
+	if err := service.admitModel(plan.GetRecipe().GetModel()); err != nil {
+		return nil, err
+	}
 	record := &sessionRecord{
-		directory: directory,
-		resume:    recorded == nil,
 		state: &harnessv1.AgentSessionState{
 			AssignmentId: id,
 			AgentId:      recipe.GetAgent().GetId(),
@@ -431,8 +576,13 @@ func (service *AgentSessionService) Submit(ctx context.Context, request *harness
 			StartedAt:    timestamppb.New(service.clock.Now()),
 			UpdatedAt:    timestamppb.New(service.clock.Now()),
 		},
-		wake:   make(chan struct{}, 1),
-		opened: make(chan struct{}),
+		directory:         directory,
+		resume:            recorded == nil,
+		wake:              make(chan struct{}, 1),
+		idle:              make(chan uint64, 1),
+		opened:            make(chan struct{}),
+		deliveredMessages: make(map[string]time.Time),
+		interruptSignal:   make(chan *queuedMessage, 1),
 	}
 	record.cancelRequested, record.requestCancel = context.WithCancelCause(context.Background())
 	var check *harnessv1.LaunchCheck
@@ -444,6 +594,18 @@ func (service *AgentSessionService) Submit(ctx context.Context, request *harness
 			return fmt.Errorf("%w: %s", ErrAdmissionHeld, table.held)
 		}
 		check = launchCheck(service.measures, service.runner.StateDirectory(), uint32(table.running()), table.largestRun)
+		// A launch the host cannot fit is refused even while the check is
+		// report-only: no report makes room for it. The refusal is skipped
+		// when the memory could not be read, which is a finding, not a bound.
+		if !check.GetMemoryFits() && check.GetMemoryAvailableBytes() > 0 {
+			return fmt.Errorf("%w: %s", ErrAdmissionHeld, strings.Join(check.GetFindings(), "; "))
+		}
+		if resuming {
+			check.ReportOnly = false
+			if !check.GetAdmitted() {
+				return fmt.Errorf("%w: %s", ErrResumeHeld, strings.Join(check.GetFindings(), "; "))
+			}
+		}
 		child, err := table.scope.Child(sessionScopePrefix + id)
 		if err != nil {
 			return err
@@ -498,6 +660,24 @@ func (service *AgentSessionService) ReleaseAdmission() {
 	})
 }
 
+// Check is the launch check a Submit made now would get, without submitting:
+// the worker cap from the cores and the one-minute load, and the disk floor
+// from the largest run directory measured so far. While admission is held it
+// reports ErrAdmissionHeld with the reason instead.
+func (service *AgentSessionService) Check(ctx context.Context) (*harnessv1.LaunchCheck, error) {
+	var check *harnessv1.LaunchCheck
+	if err := service.command(ctx, func(table *registry) error {
+		if table.held != "" {
+			return fmt.Errorf("%w: %s", ErrAdmissionHeld, table.held)
+		}
+		check = launchCheck(service.measures, service.runner.StateDirectory(), uint32(table.running()), table.largestRun)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return check, nil
+}
+
 // running counts the sessions that have not ended.
 func (table *registry) running() int {
 	count := 0
@@ -520,7 +700,7 @@ func finished(phase harnessv1.AgentSessionPhase) bool {
 }
 
 // Send queues message for the session's next turn and acknowledges it with
-// the turn's identifier.
+// a receipt containing the message state.
 func (service *AgentSessionService) Send(ctx context.Context, request *harnessv1.SendAgentSessionMessageRequest) (*harnessv1.SendAgentSessionMessageResponse, error) {
 	if err := harnessv1.ValidateSendAgentSessionMessageRequest(request); err != nil {
 		return nil, fmt.Errorf("%w: %w", csf.ErrInvalidRequest, err)
@@ -535,13 +715,122 @@ func (service *AgentSessionService) Send(ctx context.Context, request *harnessv1
 			return fmt.Errorf("%w: %s", ErrSessionFinished, request.GetAssignmentId())
 		}
 		turn := record.state.GetTurns() + uint32(len(record.queue)) + 1
-		record.queue = append(record.queue, queuedMessage{text: request.GetMessage(), turn: turn})
-		record.state.Queued = uint32(len(record.queue))
-		service.persistQueue(record)
-		record.state.UpdatedAt = timestamppb.New(service.clock.Now())
-		record.poke()
-		response.Session = proto.Clone(record.state).(*harnessv1.AgentSessionState)
+		receipt := uuid.New().String()
+		now := timestamppb.New(service.clock.Now())
+		message := queuedMessage{
+			text:          request.GetMessage(),
+			turn:          turn,
+			receipt:       receipt,
+			priorityClass: request.GetPriorityClass(),
+			operator:      request.GetOperatorAuthored(),
+			sequence:      record.nextSeq,
+			timestamp:     now,
+		}
+		record.nextSeq++
+		// Interrupt classes (PREEMPT, INTERRUPT) are inserted at head of their class;
+		// QUEUE class appended normally. Within a class, sequence order is stable.
+		if request.GetPriorityClass() == harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_PREEMPT ||
+			request.GetPriorityClass() == harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_INTERRUPT {
+			// Find insertion point: after last message of the same class
+			index := 0
+			for i := 0; i < len(record.queue); i++ {
+				if record.queue[i].priorityClass == request.GetPriorityClass() {
+					index = i + 1
+				}
+			}
+			record.queue = append(record.queue[:index], append([]queuedMessage{message}, record.queue[index:]...)...)
+		} else {
+			record.queue = append(record.queue, message)
+		}
 		response.TurnId = fmt.Sprint(turn)
+		service.persistQueue(record)
+		record.state.Queued = uint32(len(record.queue))
+		record.state.UpdatedAt = now
+		record.poke()
+
+		// If this is an interrupt-class message and a turn is running, signal the interrupt
+		if (request.GetPriorityClass() == harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_INTERRUPT ||
+			request.GetPriorityClass() == harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_PREEMPT) &&
+			record.runningTurnMessage != nil {
+			select {
+			case record.interruptSignal <- &message:
+			default:
+				// Already signaled, ignore
+			}
+		}
+
+		response.Session = proto.Clone(record.state).(*harnessv1.AgentSessionState)
+		response.Receipt = &harnessv1.InboxMessage{
+			ReceiptId:     receipt,
+			Text:          request.GetMessage(),
+			State:         harnessv1.MessageState_MESSAGE_STATE_QUEUED,
+			SentAt:        now,
+			PriorityClass: request.GetPriorityClass(),
+			Sequence:      record.nextSeq - 1,
+		}
+		return nil
+	})
+	service.recordAction(ctx, request.GetAssignmentId(), session.ActionSend, err,
+		slog.Bool(session.KeyOperatorAuthored, request.GetOperatorAuthored()), slog.String(session.KeyTurnID, response.GetTurnId()),
+		slog.Bool(session.KeyQuestionWanted, request.GetQuestionWanted()))
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// Propose applies a proposed patch to a session's worktree.
+func (service *AgentSessionService) Propose(ctx context.Context, request *harnessv1.ProposeProposalRequest) (*harnessv1.ProposeProposalResponse, error) {
+	if err := harnessv1.ValidateProposal(request.GetProposal()); err != nil {
+		return nil, fmt.Errorf("%w: %w", csf.ErrInvalidRequest, err)
+	}
+	proposal := request.GetProposal()
+	response := &harnessv1.ProposeProposalResponse{}
+	err := service.command(ctx, func(table *registry) error {
+		record, err := table.lookup(proposal.GetAssignmentId())
+		if err != nil {
+			return err
+		}
+		// Wait for the session to be opened so we have the worktree path.
+		select {
+		case <-record.opened:
+			if record.openErr != nil {
+				response.Rejection = &harnessv1.Rejection{
+					Code:    harnessv1.Rejection_CODE_APPLY_FAILED,
+					Details: "session failed to open",
+				}
+				return nil
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		// Check if the workspace is in patch mode.
+		workspace := record.receipt.GetPlan().GetRecipe().GetWorkspace()
+		if workspace.GetMode() != "patch" {
+			response.Rejection = &harnessv1.Rejection{
+				Code:    harnessv1.Rejection_CODE_MODE_UNSUPPORTED,
+				Details: "workspace mode is not 'patch'",
+			}
+			return nil
+		}
+		// Apply the patch using the verifier.
+		verifier := verify.NewPatchVerifier(record.open.State().Worktree, service.launcher)
+		rejection := verifier.Apply(ctx, proposal)
+		if rejection != nil {
+			response.Rejection = rejection
+			return nil
+		}
+		// Commit the changes.
+		if err := verifier.Commit(ctx, proposal.GetMessage()); err != nil {
+			response.Rejection = &harnessv1.Rejection{
+				Code:    harnessv1.Rejection_CODE_APPLY_FAILED,
+				Details: fmt.Sprintf("failed to commit: %v", err),
+			}
+			return nil
+		}
+		// Return the updated session state.
+		record.state.UpdatedAt = timestamppb.New(service.clock.Now())
+		response.Session = proto.Clone(record.state).(*harnessv1.AgentSessionState)
 		return nil
 	})
 	if err != nil {
@@ -585,6 +874,172 @@ func (service *AgentSessionService) Get(ctx context.Context, request *harnessv1.
 	return response, nil
 }
 
+// ListInbox reports every message in a session's inbox with its state.
+func (service *AgentSessionService) ListInbox(ctx context.Context, request *harnessv1.ListInboxRequest) (*harnessv1.ListInboxResponse, error) {
+	if err := harnessv1.ValidateListInboxRequest(request); err != nil {
+		return nil, fmt.Errorf("%w: %w", csf.ErrInvalidRequest, err)
+	}
+	response := &harnessv1.ListInboxResponse{}
+	err := service.command(ctx, func(table *registry) error {
+		record, err := table.lookup(request.GetAssignmentId())
+		if err != nil {
+			return err
+		}
+		for _, queued := range record.queue {
+			response.Messages = append(response.Messages, &harnessv1.InboxMessage{
+				ReceiptId:     queued.receipt,
+				Text:          queued.text,
+				State:         harnessv1.MessageState_MESSAGE_STATE_QUEUED,
+				SentAt:        queued.timestamp,
+				PriorityClass: queued.priorityClass,
+				Sequence:      queued.sequence,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// MoveInboxMessage reorders a message to a specific index in the queue.
+func (service *AgentSessionService) MoveInboxMessage(ctx context.Context, request *harnessv1.MoveInboxMessageRequest) (*harnessv1.MoveInboxMessageResponse, error) {
+	if request == nil || request.GetAssignmentId() == "" || request.GetReceiptId() == "" {
+		return nil, fmt.Errorf("%w: invalid request", csf.ErrInvalidRequest)
+	}
+	response := &harnessv1.MoveInboxMessageResponse{}
+	err := service.command(ctx, func(table *registry) error {
+		record, err := table.lookup(request.GetAssignmentId())
+		if err != nil {
+			return err
+		}
+		index := -1
+		for i, msg := range record.queue {
+			if msg.receipt == request.GetReceiptId() {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			return fmt.Errorf("%w: receipt %s not found", csf.ErrNotFound, request.GetReceiptId())
+		}
+		msg := record.queue[index]
+		record.queue = append(record.queue[:index], record.queue[index+1:]...)
+		targetIndex := int(request.GetIndex())
+		if targetIndex > len(record.queue) {
+			targetIndex = len(record.queue)
+		}
+		record.queue = append(record.queue[:targetIndex], append([]queuedMessage{msg}, record.queue[targetIndex:]...)...)
+		record.state.UpdatedAt = timestamppb.New(service.clock.Now())
+		record.poke()
+		for _, queued := range record.queue {
+			response.Messages = append(response.Messages, &harnessv1.InboxMessage{
+				ReceiptId:     queued.receipt,
+				Text:          queued.text,
+				State:         harnessv1.MessageState_MESSAGE_STATE_QUEUED,
+				SentAt:        queued.timestamp,
+				PriorityClass: queued.priorityClass,
+				Sequence:      queued.sequence,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// TopInboxMessage promotes a message to the front of the queue.
+func (service *AgentSessionService) TopInboxMessage(ctx context.Context, request *harnessv1.TopInboxMessageRequest) (*harnessv1.TopInboxMessageResponse, error) {
+	if request == nil || request.GetAssignmentId() == "" || request.GetReceiptId() == "" {
+		return nil, fmt.Errorf("%w: invalid request", csf.ErrInvalidRequest)
+	}
+	response := &harnessv1.TopInboxMessageResponse{}
+	err := service.command(ctx, func(table *registry) error {
+		record, err := table.lookup(request.GetAssignmentId())
+		if err != nil {
+			return err
+		}
+		index := -1
+		for i, msg := range record.queue {
+			if msg.receipt == request.GetReceiptId() {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			return fmt.Errorf("%w: receipt %s not found", csf.ErrNotFound, request.GetReceiptId())
+		}
+		if index > 0 {
+			msg := record.queue[index]
+			record.queue = append(record.queue[:index], record.queue[index+1:]...)
+			record.queue = append([]queuedMessage{msg}, record.queue...)
+			record.state.UpdatedAt = timestamppb.New(service.clock.Now())
+			record.poke()
+		}
+		for _, queued := range record.queue {
+			response.Messages = append(response.Messages, &harnessv1.InboxMessage{
+				ReceiptId:     queued.receipt,
+				Text:          queued.text,
+				State:         harnessv1.MessageState_MESSAGE_STATE_QUEUED,
+				SentAt:        queued.timestamp,
+				PriorityClass: queued.priorityClass,
+				Sequence:      queued.sequence,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
+// DropInboxMessage removes a message from the queue.
+func (service *AgentSessionService) DropInboxMessage(ctx context.Context, request *harnessv1.DropInboxMessageRequest) (*harnessv1.DropInboxMessageResponse, error) {
+	if request == nil || request.GetAssignmentId() == "" || request.GetReceiptId() == "" {
+		return nil, fmt.Errorf("%w: invalid request", csf.ErrInvalidRequest)
+	}
+	response := &harnessv1.DropInboxMessageResponse{}
+	err := service.command(ctx, func(table *registry) error {
+		record, err := table.lookup(request.GetAssignmentId())
+		if err != nil {
+			return err
+		}
+		index := -1
+		for i, msg := range record.queue {
+			if msg.receipt == request.GetReceiptId() {
+				index = i
+				break
+			}
+		}
+		if index < 0 {
+			return fmt.Errorf("%w: receipt %s not found", csf.ErrNotFound, request.GetReceiptId())
+		}
+		record.queue = append(record.queue[:index], record.queue[index+1:]...)
+		record.state.Queued = uint32(len(record.queue))
+		record.state.UpdatedAt = timestamppb.New(service.clock.Now())
+		record.poke()
+		for _, queued := range record.queue {
+			response.Messages = append(response.Messages, &harnessv1.InboxMessage{
+				ReceiptId:     queued.receipt,
+				Text:          queued.text,
+				State:         harnessv1.MessageState_MESSAGE_STATE_QUEUED,
+				SentAt:        queued.timestamp,
+				PriorityClass: queued.priorityClass,
+				Sequence:      queued.sequence,
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
+}
+
 // Cancel asks the session's owner to stop at its next safepoint. Between
 // turns the owner stops at once; during a turn the executor is interrupted
 // and the owner stops when the turn reports its result, or kills the executor
@@ -611,6 +1066,7 @@ func (service *AgentSessionService) Cancel(ctx context.Context, request *harness
 		response.Session = proto.Clone(record.state).(*harnessv1.AgentSessionState)
 		return nil
 	})
+	service.recordAction(ctx, request.GetAssignmentId(), session.ActionCancel, err)
 	if err != nil {
 		return nil, err
 	}
@@ -660,6 +1116,19 @@ func (record *sessionRecord) poke() {
 	}
 }
 
+// pokeIdle tells the owner the idle bound passed for the wait of generation,
+// replacing a poke it has not read yet, without blocking.
+func (record *sessionRecord) pokeIdle(generation uint64) {
+	select {
+	case <-record.idle:
+	default:
+	}
+	select {
+	case record.idle <- generation:
+	default:
+	}
+}
+
 // own is one session's owner goroutine, on the session's child scope. It
 // opens the session, runs turns from the queue and stops at a safepoint when
 // canceled or when its scope ends.
@@ -673,9 +1142,9 @@ func (service *AgentSessionService) own(ctx context.Context, record *sessionReco
 		openRun = service.runner.Reopen
 	}
 	open, err := openRun(ctx, recipe,
-		bazelDiskCacheVariable+"="+service.bazelDiskCache(),
-		bazelOutputVariable+"="+outputBase,
-		ocamlToolchainCacheVariable+"="+ocamlToolchainCache)
+		BazelDiskCacheVariable+"="+service.bazelDiskCache(),
+		BazelOutputVariable+"="+outputBase,
+		OCamlToolchainCacheVariable+"="+ocamlToolchainCache)
 	if err != nil {
 		record.openErr = err
 		close(record.opened)
@@ -683,23 +1152,24 @@ func (service *AgentSessionService) own(ctx context.Context, record *sessionReco
 		return
 	}
 	state := open.State()
-	record.receipt = &pb.AgentAssignmentReceipt{Plan: open.Plan(), SessionId: state.SessionID, WorktreeId: state.Worktree, Branch: state.Branch, TraceId: state.TraceID}
+	record.receipt = &pb.AgentAssignmentReceipt{Plan: open.Plan(), SessionId: state.SessionID, WorktreeId: state.Worktree, Branch: state.Branch, TraceId: state.TraceID, Executor: string(state.TurnExecutor())}
 	record.open = open
 	service.transition(record, func(current *harnessv1.AgentSessionState) {
 		current.TraceId, current.Branch, current.Worktree = state.TraceID, state.Branch, state.Worktree
 		current.Phase = harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_OPEN
 	})
-	pending := []string{}
+	pending := []queuedMessage{}
 	if state.Turns == 0 {
-		pending = append(pending, open.FirstPrompt())
+		pending = append(pending, queuedMessage{text: open.FirstPrompt()})
 	}
 	if record.resume {
 		pending = append(pending, restoredQueue(runDirectory)...)
 	}
 	_ = service.command(context.WithoutCancel(ctx), func(table *registry) error {
 		restored := []queuedMessage{}
-		for index, text := range pending {
-			restored = append(restored, queuedMessage{text: text, turn: uint32(state.Turns + index + 1)})
+		for index, message := range pending {
+			message.turn = uint32(state.Turns + index + 1)
+			restored = append(restored, message)
 		}
 		record.queue = append(restored, record.queue...)
 		record.state.Queued = uint32(len(record.queue))
@@ -707,6 +1177,9 @@ func (service *AgentSessionService) own(ctx context.Context, record *sessionReco
 		service.persistQueue(record)
 		return nil
 	})
+	// The admission is recorded before the session is reported open, so it
+	// precedes the first turn's records in the log.
+	service.recordAction(ctx, id, session.ActionSubmit, nil)
 	close(record.opened)
 	phase, err := service.turns(ctx, record, open)
 	closeContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), service.closeBudget)
@@ -725,9 +1198,18 @@ func (service *AgentSessionService) own(ctx context.Context, record *sessionReco
 
 // turns runs the queue until a safepoint ends the session: a cancel observed
 // between turns, the scope ending, or the executor failing. It returns the
-// phase the session ends in.
+// phase the session ends in. Between turns the executor is closed once the
+// idle bound passes, and resumed for the next message.
 func (service *AgentSessionService) turns(ctx context.Context, record *sessionRecord, open *session.OpenSession) (harnessv1.AgentSessionPhase, error) {
 	for {
+		// A background result already waiting is the turn the executor is
+		// running now, so it is counted before a queued message's turn.
+		select {
+		case notification := <-open.BackgroundResults():
+			service.backgroundTurn(ctx, record, open, notification)
+			continue
+		default:
+		}
 		next, stop := service.dequeue(ctx, record)
 		switch {
 		case ctx.Err() != nil:
@@ -735,11 +1217,14 @@ func (service *AgentSessionService) turns(ctx context.Context, record *sessionRe
 		case stop:
 			return harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_CANCELED, nil
 		case next == nil:
-			select {
-			case <-record.wake:
-				continue
-			case <-ctx.Done():
+			if !service.await(ctx, record, open) {
 				return harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_CLOSED, nil
+			}
+			continue
+		}
+		if open.Suspended() {
+			if err := service.resume(ctx, record, open); err != nil {
+				return harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_FAILED, err
 			}
 		}
 		service.transition(record, func(current *harnessv1.AgentSessionState) {
@@ -750,11 +1235,14 @@ func (service *AgentSessionService) turns(ctx context.Context, record *sessionRe
 				current.Phase = harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_RUNNING
 			}
 		})
-		receipt, err := service.turn(ctx, record, open, next.text)
+		receipt, err := service.turn(ctx, record, open, next)
 		if ctx.Err() == nil {
-			_ = service.command(context.WithoutCancel(ctx), func(_ *registry) error {
-				record.inflight = ""
+			_ = service.command(context.WithoutCancel(ctx), func(table *registry) error {
+				record.inflight = nil
 				service.persistQueue(record)
+				if resumed := receipt.GetResumed(); resumed != nil {
+					table.resumeTimeToFirstTokenMs = resumed.GetTimeToFirstTokenMs()
+				}
 				return nil
 			})
 		}
@@ -782,18 +1270,116 @@ func (service *AgentSessionService) turns(ctx context.Context, record *sessionRe
 	}
 }
 
+// await waits between turns for the next message, the cancel, or the idle
+// bound. The bound is armed only with a process table granted and the
+// executor open: when it passes with nothing queued, no cancel and no live
+// background child, the session is suspended: its executor closes and it
+// stays open on its conversation.
+// It reports false when the scope ended.
+func (service *AgentSessionService) await(ctx context.Context, record *sessionRecord, open *session.OpenSession) bool {
+	record.idleGeneration++
+	generation := record.idleGeneration
+	if service.processes != nil && !open.Suspended() {
+		stop := service.clock.AfterFunc(service.idleBound.Bound, func() { record.pokeIdle(generation) })
+		defer stop()
+	}
+	for {
+		select {
+		case <-record.wake:
+			return true
+		case notification := <-open.BackgroundResults():
+			service.backgroundTurn(ctx, record, open, notification)
+			return true
+		case fired := <-record.idle:
+			if fired != generation {
+				continue
+			}
+			service.suspend(ctx, record, open)
+			return true
+		case <-ctx.Done():
+			return false
+		}
+	}
+}
+
+// suspend ends the executor when the session is still between turns
+// with nothing queued and no cancel, and its executor has no live child in
+// its process group; otherwise the executor stays and the next wait arms the
+// bound again. An executor the process table does not show is kept, since
+// its children cannot be seen either.
+func (service *AgentSessionService) suspend(ctx context.Context, record *sessionRecord, open *session.OpenSession) {
+	id := record.state.GetAssignmentId()
+	quiet := false
+	_ = service.command(context.WithoutCancel(ctx), func(_ *registry) error {
+		quiet = len(record.queue) == 0 && !record.cancel
+		return nil
+	})
+	if !quiet {
+		return
+	}
+	children, found := service.liveChildren(open.State().Worktree)
+	switch {
+	case !found:
+		service.logger.Info("harness: executor kept open: not found in the process table", "assignment", id)
+		return
+	case children > 0:
+		service.logger.Info("harness: executor kept open: live background children", "assignment", id, "children", children)
+		return
+	}
+	closeContext, cancel := context.WithTimeout(context.WithoutCancel(ctx), service.closeBudget)
+	defer cancel()
+	if err := open.Suspend(closeContext, service.idleBound.Bound); err != nil {
+		service.logger.Warn("harness: session suspended with error", "assignment", id, "error", err)
+	}
+	record.idleSince = service.clock.Now()
+	service.transition(record, func(state *harnessv1.AgentSessionState) { state.Suspended = true })
+	service.logger.Info("harness: session suspended", "assignment", id, "idle_bound", service.idleBound.Bound)
+}
+
+// resume opens a suspended session's executor again on its recorded conversation
+// for the next turn, and counts it.
+func (service *AgentSessionService) resume(ctx context.Context, record *sessionRecord, open *session.OpenSession) error {
+	closed := service.clock.Now().Sub(record.idleSince)
+	if err := open.Resume(ctx, closed); err != nil {
+		return err
+	}
+	record.idleSince = time.Time{}
+	_ = service.command(context.WithoutCancel(ctx), func(table *registry) error {
+		table.resumes++
+		return nil
+	})
+	service.transition(record, func(state *harnessv1.AgentSessionState) { state.Suspended = false })
+	service.logger.Info("harness: session resumed", "assignment", record.state.GetAssignmentId(), "suspended", closed)
+	return nil
+}
+
+// backgroundTurn counts the turn the executor started on a background
+// completion and records its typed result; the session's turn count follows.
+func (service *AgentSessionService) backgroundTurn(ctx context.Context, record *sessionRecord, open *session.OpenSession, notification claudecode.TaskNotification) {
+	if err := open.BackgroundResult(ctx, notification); err != nil {
+		service.logger.Warn("harness: background result not recorded", "assignment", record.state.GetAssignmentId(), "error", err)
+		return
+	}
+	service.transition(record, func(current *harnessv1.AgentSessionState) {
+		current.Turns = uint32(open.State().Turns)
+	})
+}
+
 // executorGone reports a turn error after which no further turn can run on
 // the open executor.
 func executorGone(err error) bool {
 	return errors.Is(err, claudecode.ErrSessionClosed) || errors.Is(err, claudecode.ErrTurnAbandoned) || errors.Is(err, claudecode.ErrTurnIncomplete)
 }
 
-// turn runs one turn and delivers a cancel that arrives during it: the
-// executor is interrupted, and killed if it reaches no safepoint within the
-// interrupt budget.
-func (service *AgentSessionService) turn(ctx context.Context, record *sessionRecord, open *session.OpenSession, prompt string) (*pb.AgentAssignmentReceipt, error) {
+// turn runs one turn on message and delivers a cancel that arrives during
+// it: the executor is interrupted, and killed if it reaches no safepoint
+// within the interrupt budget. A priority message arriving during the turn
+// interrupts it at a tool boundary, and the turn interrupted is queued again.
+func (service *AgentSessionService) turn(ctx context.Context, record *sessionRecord, open *session.OpenSession, message *queuedMessage) (*pb.AgentAssignmentReceipt, error) {
 	turnContext, endTurn := context.WithCancelCause(ctx)
 	defer endTurn(nil)
+
+	var priorityInterrupt *queuedMessage
 	stopWatching := context.AfterFunc(record.cancelRequested, func() {
 		if err := open.Interrupt(turnContext); err != nil {
 			service.logger.Warn("harness: interrupt not delivered", "assignment", record.state.GetAssignmentId(), "error", err)
@@ -803,14 +1389,54 @@ func (service *AgentSessionService) turn(ctx context.Context, record *sessionRec
 		service.clock.AfterFunc(service.interruptBudget, func() { endTurn(ErrInterruptBudget) })
 	})
 	defer stopWatching()
-	return open.Turn(turnContext, prompt)
+
+	// Watch for priority interrupts arriving during the turn
+	go func() {
+		select {
+		case msg := <-record.interruptSignal:
+			priorityInterrupt = msg
+			if err := open.Interrupt(turnContext); err != nil {
+				service.logger.Warn("harness: priority interrupt not delivered", "assignment", record.state.GetAssignmentId(), "error", err)
+			}
+		case <-turnContext.Done():
+		}
+	}()
+
+	receipt, err := open.Turn(turnContext, message.text, message.turnOptions()...)
+
+	// If a priority message interrupted this turn, re-queue the running message at its class head
+	if priorityInterrupt != nil && record.runningTurnMessage != nil {
+		service.command(context.WithoutCancel(ctx), func(table *registry) error {
+			// Re-insert the interrupted message at the head of its priority class
+			class := record.runningTurnMessage.priorityClass
+			index := 0
+			for i := 0; i < len(record.queue); i++ {
+				if record.queue[i].priorityClass == class {
+					index = i + 1
+					break
+				}
+			}
+			record.queue = append(record.queue[:index], append([]queuedMessage{*record.runningTurnMessage}, record.queue[index:]...)...)
+			record.state.Queued = uint32(len(record.queue))
+			return nil
+		})
+	}
+
+	record.runningTurnMessage = nil
+	return receipt, err
 }
 
-// dequeue takes the next message at a safepoint, or reports that the session
-// was canceled.
+// dequeue takes the next message at a safepoint, checking for interrupt-class
+// messages first with non-blocking select. If one arrives while a turn is
+// running, the turn is interrupted and the interrupt message runs next.
 func (service *AgentSessionService) dequeue(ctx context.Context, record *sessionRecord) (*queuedMessage, bool) {
 	var next *queuedMessage
 	stop := false
+	// Drain interrupt signal non-blocking if a turn just completed
+	select {
+	case <-record.interruptSignal:
+	default:
+	}
 	if err := service.command(context.WithoutCancel(ctx), func(table *registry) error {
 		if record.cancel {
 			stop = true
@@ -819,10 +1445,34 @@ func (service *AgentSessionService) dequeue(ctx context.Context, record *session
 		if len(record.queue) == 0 {
 			return nil
 		}
-		message := record.queue[0]
-		record.queue = record.queue[1:]
+		// Find the first message by priority class order: PREEMPT, INTERRUPT, QUEUE
+		index := -1
+		for _, class := range []harnessv1.MessagePriorityClass{
+			harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_PREEMPT,
+			harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_INTERRUPT,
+			harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_QUEUE,
+		} {
+			for i, msg := range record.queue {
+				// A message that names no class (the session's first prompt, a
+				// restored message, a Send that set none) is the QUEUE class.
+				unnamed := msg.priorityClass == harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_UNSPECIFIED
+				if msg.priorityClass == class || (unnamed && class == harnessv1.MessagePriorityClass_MESSAGE_PRIORITY_CLASS_QUEUE) {
+					index = i
+					break
+				}
+			}
+			if index >= 0 {
+				break
+			}
+		}
+		if index < 0 {
+			return nil
+		}
+		message := record.queue[index]
+		record.queue = append(record.queue[:index], record.queue[index+1:]...)
 		record.state.Queued = uint32(len(record.queue))
-		record.inflight = message.text
+		record.runningTurnMessage = &message
+		record.inflight = &message
 		service.persistQueue(record)
 		next = &message
 		return nil
@@ -839,7 +1489,9 @@ func (service *AgentSessionService) transition(record *sessionRecord, change fun
 	var changed *harnessv1.AgentSessionState
 	if err := service.command(context.Background(), func(_ *registry) error {
 		change(record.state)
-		record.state.UpdatedAt = timestamppb.New(service.clock.Now())
+		now := service.clock.Now()
+		record.state.UpdatedAt = timestamppb.New(now)
+		record.updateActivityCounters(now)
 		changed = proto.Clone(record.state).(*harnessv1.AgentSessionState)
 		return nil
 	}); err != nil {
@@ -848,8 +1500,25 @@ func (service *AgentSessionService) transition(record *sessionRecord, change fun
 	service.observe(changed)
 }
 
+// updateActivityCounters refreshes the session's activity metrics.
+func (record *sessionRecord) updateActivityCounters(now time.Time) {
+	record.lastEventAt = now
+	record.state.LastEventAt = timestamppb.New(now)
+	record.state.InboxDepth = uint32(len(record.queue))
+	record.state.EventsLast_10M = record.eventsLast10m
+	record.state.LastCommand = record.lastCommand
+	record.state.LastTool = record.lastTool
+}
+
 // finish records the session's end.
 func (service *AgentSessionService) finish(record *sessionRecord, phase harnessv1.AgentSessionPhase, err error) {
+	// The end is on disk before the phase says so, so whoever reads the
+	// phase can rely on a restart not reopening the run.
+	if phase == harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_CANCELED || phase == harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_FAILED {
+		if writeErr := os.WriteFile(filepath.Join(record.directory, EndedFile), []byte(phase.String()+"\n"), stateFileMode); writeErr != nil {
+			service.logger.Warn("harness: end not recorded", "assignment", record.state.GetAssignmentId(), "error", writeErr)
+		}
+	}
 	service.transition(record, func(state *harnessv1.AgentSessionState) {
 		state.Phase = phase
 		state.Queued = 0
@@ -858,10 +1527,5 @@ func (service *AgentSessionService) finish(record *sessionRecord, phase harnessv
 		}
 	})
 	record.requestCancel(context.Canceled)
-	if phase == harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_CANCELED || phase == harnessv1.AgentSessionPhase_AGENT_SESSION_PHASE_FAILED {
-		if writeErr := os.WriteFile(filepath.Join(record.directory, EndedFile), []byte(phase.String()+"\n"), stateFileMode); writeErr != nil {
-			service.logger.Warn("harness: end not recorded", "assignment", record.state.GetAssignmentId(), "error", writeErr)
-		}
-	}
 	service.logger.Info("harness: session finished", "assignment", record.state.GetAssignmentId(), "phase", phase.String(), "error", err)
 }

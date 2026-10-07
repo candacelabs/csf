@@ -16,7 +16,7 @@ let pinned_image text =
 let header = Codegen_header.render Codegen_header.Hash
 
 let public ?provenance ~image () =
-  Codegen_header.render ?provenance Codegen_header.Hash ^ "FROM " ^ pinned_image image ^ "\n" ^
+  Codegen_header.render ?provenance Codegen_header.Hash ^ "ARG TARGETARCH=amd64\nFROM " ^ pinned_image image ^ "\n" ^
   "USER root\nENTRYPOINT []\nCMD [\"/bin/bash\"]\nWORKDIR /workspace\n" ^
   "LABEL dis.shell=\"/bin/bash\"\n"
 

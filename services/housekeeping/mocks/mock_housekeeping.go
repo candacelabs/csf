@@ -14,7 +14,7 @@ import (
 	fs "io/fs"
 	reflect "reflect"
 
-	docker "github.com/candacelabs/csf/ipc/docker"
+	docker "github.com/candacelabs/csf/io/ipc/docker"
 	client "github.com/moby/moby/client"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -101,6 +101,21 @@ func (m *MockIContainers) DiskUsage(ctx context.Context, options client.DiskUsag
 func (mr *MockIContainersMockRecorder) DiskUsage(ctx, options any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DiskUsage", reflect.TypeOf((*MockIContainers)(nil).DiskUsage), ctx, options)
+}
+
+// Exec mocks base method.
+func (m *MockIContainers) Exec(ctx context.Context, name string, spec docker.ExecSpec) (docker.ExecResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Exec", ctx, name, spec)
+	ret0, _ := ret[0].(docker.ExecResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Exec indicates an expected call of Exec.
+func (mr *MockIContainersMockRecorder) Exec(ctx, name, spec any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Exec", reflect.TypeOf((*MockIContainers)(nil).Exec), ctx, name, spec)
 }
 
 // ImageList mocks base method.

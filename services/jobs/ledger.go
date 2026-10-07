@@ -9,7 +9,7 @@ import (
 	"slices"
 	"time"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
 	"github.com/jackc/pgx/v5"
 )
 

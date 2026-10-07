@@ -13,9 +13,9 @@
 // or computed from overlapping touch-sets (path globs and named hotspots):
 // two contending slices never run at once. No edge means parallel.
 //
-// Dispatch is list scheduling (pkg/listsched) of the frontier onto sessions
-// within a concurrency cap derived from the host's measured idle cores
-// (harness.WorkerCap). Rank is lexicographic: the upward critical-path
+// Dispatch is list scheduling (pkg/listsched) of the frontier, less the held
+// slices, onto sessions within an admission the slice dispatcher derives.
+// Rank is lexicographic: the upward critical-path
 // length of the slice in the depends_on graph (HEFT upward rank, unit
 // weights until durations have been measured), then the strongest urgency of
 // the intents attached to it, then enqueue order. No weight is hand-set; the
@@ -34,6 +34,35 @@
 // at its next safepoint; once that session reports CANCELED the slice it ran
 // is checkpointed and re-enqueued.
 //
+// # The slice dispatcher
+//
+// The dispatcher is a pass, [DispatchService.Dispatch], that the binary
+// runs as a cron trigger every [DispatcherInterval] and after every merge
+// the merge train makes, and once on start. A pass marks merged every slice
+// whose recorded pull request has merged ([WithMergeCheck]), measures each
+// limit ([Limit]) and launches the frontier — less the held slices and the
+// slices whose provider's rate limit admits no launches — up to the
+// admission: the dispatched sessions running plus the fewest launches any
+// unscoped limit allows. The limits are the harness's launch check (the
+// worker cap of idle cores and the disk floor; a held admission admits
+// none), and those the binary adds: the mining loop's daily budget
+// ([DailyBudgetLimit]) and the rate-limit headroom of the provider its
+// newest rate_limit_event came from, read from the session logs
+// ([RateLimit]). A rate limit is scoped to that provider, so one provider's
+// event never gates another's launches: it drops its own provider's slices
+// from the frontier rather than lowering the admission. Each limit records
+// its derivation, and a limit that cannot be measured admits no launch.
+// Between passes, enqueues, merges and session ends launch within the latest
+// admission at once.
+//
+// Pause and resume stop and restart every launch; hold and release keep one
+// slice from being launched. Each control carries its reason, is written to
+// csf_dispatch_controls and replayed on start. AddSlice, the four controls
+// and the snapshot are typed operations, served as MCP tools
+// ([DispatchService.Tools]) and HTTP routes ([DispatchService.Register]);
+// every pass and control publishes the
+// [Snapshot] to the binary's sink, which writes [SnapshotFile].
+//
 // # Ownership
 //
 // The graph is an in-process store owned by one goroutine, which pops
@@ -45,6 +74,6 @@
 //
 // Sessions are reached through ISessionHost, which services/harness's
 // AgentSessionService satisfies, and session completion arrives through
-// ObserveSession, which the host wires as a harness session observer. There
-// is no polling.
+// ObserveSession, which the host wires as a harness session observer. The
+// pass reads what has no event: the limits and the pull requests' state.
 package dispatch

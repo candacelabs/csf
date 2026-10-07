@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "longturns",
+    srcs = ["detector.go"],
+    importpath = "github.com/candacelabs/csf/services/harness/longturns",
+    visibility = [
+        "//app/harness:__subpackages__",
+        "//services/harness:__subpackages__",
+    ],
+)
+
+go_test(
+    name = "longturns_test",
+    srcs = ["detector_test.go"],
+    deps = [
+        ":longturns",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

@@ -17,8 +17,8 @@ import (
 	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
-	"github.com/candacelabs/csf/ipc"
-	"github.com/candacelabs/csf/ipc/model/copilot"
+	csfio "github.com/candacelabs/csf/io"
+	"github.com/candacelabs/csf/io/net/model/copilot"
 	"github.com/candacelabs/csf/pkg/eventually"
 	intakev1 "github.com/candacelabs/csf/proto/candace/intake/v1"
 	"github.com/candacelabs/csf/runtime"
@@ -27,12 +27,12 @@ import (
 )
 
 const (
-	repository                                = "example/widgets"
+	repository                                = "candacelabs/widgets"
 	pullRequest                               = 7
 	reviewer                    relay.AgentID = "reviewer"
 	apiBase                                   = "https://api.github.example.invalid"
-	eventsPath                                = "/repos/example/widgets/events?per_page=100"
-	runsPath                                  = "/repos/example/widgets/actions/runs?status=failure&per_page=30"
+	eventsPath                                = "/repos/candacelabs/widgets/events?per_page=100"
+	runsPath                                  = "/repos/candacelabs/widgets/actions/runs?status=failure&per_page=30"
 	eventsETag                                = `W/"events-v1"`
 	pollInterval                              = 30 * time.Second
 	reviewerUUID                              = "5d0c4b5e-8e2f-4f3e-9f53-1b7a3c1d9a07"
@@ -67,23 +67,23 @@ var deliveryBudget = eventually.Budget{Within: 10 * time.Second}
 const eventsPage = `[
  {"id":"5","type":"IssueCommentEvent","actor":{"login":"csf-bot"},"created_at":"2026-10-01T12:03:30Z",
   "payload":{"action":"created","issue":{"number":7,"pull_request":{"url":"x"}},
-   "comment":{"id":505,"html_url":"https://github.com/example/widgets/pull/7#issuecomment-505","body":"rebased","user":{"login":"csf-bot"}}}},
+   "comment":{"id":505,"html_url":"https://github.com/candacelabs/widgets/pull/7#issuecomment-505","body":"rebased","user":{"login":"csf-bot"}}}},
  {"id":"4","type":"PushEvent","actor":{"login":"octo"},"created_at":"2026-10-01T12:03:00Z","payload":{}},
  {"id":"3","type":"PullRequestReviewEvent","actor":{"login":"octo"},"created_at":"2026-10-01T12:02:00Z",
   "payload":{"action":"created","pull_request":{"number":7},
-   "review":{"id":502,"state":"CHANGES_REQUESTED","body":"tighten the backoff","html_url":"https://github.com/example/widgets/pull/7#pullrequestreview-502","user":{"login":"octo"}}}},
+   "review":{"id":502,"state":"CHANGES_REQUESTED","body":"tighten the backoff","html_url":"https://github.com/candacelabs/widgets/pull/7#pullrequestreview-502","user":{"login":"octo"}}}},
  {"id":"2","type":"IssueCommentEvent","actor":{"login":"octo"},"created_at":"2026-10-01T12:01:00Z",
   "payload":{"action":"created","issue":{"number":7,"pull_request":{"url":"x"}},
-   "comment":{"id":501,"html_url":"https://github.com/example/widgets/pull/7#issuecomment-501","body":"please rebase","user":{"login":"octo"}}}},
+   "comment":{"id":501,"html_url":"https://github.com/candacelabs/widgets/pull/7#issuecomment-501","body":"please rebase","user":{"login":"octo"}}}},
  {"id":"1","type":"IssueCommentEvent","actor":{"login":"octo"},"created_at":"2026-10-01T11:00:00Z",
   "payload":{"action":"created","issue":{"number":7,"pull_request":{"url":"x"}},
-   "comment":{"id":500,"html_url":"https://github.com/example/widgets/pull/7#issuecomment-500","body":"old news","user":{"login":"octo"}}}}
+   "comment":{"id":500,"html_url":"https://github.com/candacelabs/widgets/pull/7#issuecomment-500","body":"old news","user":{"login":"octo"}}}}
 ]`
 
 // runsPage holds one failed run linked to the pull request.
 const runsPage = `{"total_count":1,"workflow_runs":[
  {"id":900,"name":"CI","run_attempt":1,"conclusion":"failure","head_branch":"feature",
-  "html_url":"https://github.com/example/widgets/actions/runs/900","updated_at":"2026-10-01T12:04:00Z",
+  "html_url":"https://github.com/candacelabs/widgets/actions/runs/900","updated_at":"2026-10-01T12:04:00Z",
   "actor":{"login":"octo"},"pull_requests":[{"number":7}]}
 ]}`
 
@@ -248,7 +248,7 @@ var _ = Describe("EventIntake", func() {
 			envelope, err := h.messenger.Receive(ctx, reviewer)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(envelope.From).To(Equal(h.intake.Source()))
-			Expect(envelope.Tier).To(Equal(ipc.TierInProcess))
+			Expect(envelope.Tier).To(Equal(csfio.TierInProcess))
 			Expect(envelope.Body.GetSubject().GetNumber()).To(BeEquivalentTo(pullRequest))
 			kinds = append(kinds, envelope.Body.GetKind())
 		}

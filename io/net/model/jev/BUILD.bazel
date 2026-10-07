@@ -1,0 +1,42 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "jev",
+    srcs = [
+        "decider.go",
+        "eval.go",
+        "exchange.go",
+        "jev.go",
+        "ledger.go",
+        "ollama.go",
+        "space.go",
+    ],
+    embedsrcs = [
+        "testdata/csf_tree_questions.jsonl",
+        "testdata/eval_table.json",
+    ],
+    importpath = "github.com/candacelabs/csf/io/net/model/jev",
+    visibility = ["//visibility:public"],
+    deps = ["//io/net/http"],
+)
+
+go_test(
+    name = "jev_test",
+    srcs = [
+        "eval_test.go",
+        "jev_suite_test.go",
+        "ledger_test.go",
+        "mock_client_test.go",
+        "mock_decider_test.go",
+        "mock_generate_test.go",
+        "ollama_test.go",
+        "space_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":jev",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+        "@org_uber_go_mock//gomock",
+    ],
+)

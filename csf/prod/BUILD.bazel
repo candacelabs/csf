@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "prod",
+    srcs = [
+        "derived.go",
+        "golden.go",
+        "measure.go",
+        "reading.go",
+        "score.go",
+    ],
+    importpath = "github.com/candacelabs/csf/csf/prod",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "prod_test",
+    srcs = [
+        "derived_test.go",
+        "golden_test.go",
+        "measure_test.go",
+        "prod_suite_test.go",
+        "reading_test.go",
+        "score_test.go",
+    ],
+    deps = [
+        ":prod",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

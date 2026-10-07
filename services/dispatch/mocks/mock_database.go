@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	csfpg "github.com/candacelabs/csf/ipc/db/csfpg"
+	csfpg "github.com/candacelabs/csf/io/ipc/db/csfpg"
 	dispatch "github.com/candacelabs/csf/services/dispatch"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -40,6 +40,21 @@ func NewMockIDispatchQueries(ctrl *gomock.Controller) *MockIDispatchQueries {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockIDispatchQueries) EXPECT() *MockIDispatchQueriesMockRecorder {
 	return m.recorder
+}
+
+// InsertDispatchControl mocks base method.
+func (m *MockIDispatchQueries) InsertDispatchControl(ctx context.Context, arg csfpg.InsertDispatchControlParams) (csfpg.CsfDispatchControl, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertDispatchControl", ctx, arg)
+	ret0, _ := ret[0].(csfpg.CsfDispatchControl)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InsertDispatchControl indicates an expected call of InsertDispatchControl.
+func (mr *MockIDispatchQueriesMockRecorder) InsertDispatchControl(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertDispatchControl", reflect.TypeOf((*MockIDispatchQueries)(nil).InsertDispatchControl), ctx, arg)
 }
 
 // InsertIntent mocks base method.
@@ -84,6 +99,21 @@ func (m *MockIDispatchQueries) InsertSliceEdge(ctx context.Context, arg csfpg.In
 func (mr *MockIDispatchQueriesMockRecorder) InsertSliceEdge(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertSliceEdge", reflect.TypeOf((*MockIDispatchQueries)(nil).InsertSliceEdge), ctx, arg)
+}
+
+// ListDispatchControls mocks base method.
+func (m *MockIDispatchQueries) ListDispatchControls(ctx context.Context) ([]csfpg.CsfDispatchControl, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDispatchControls", ctx)
+	ret0, _ := ret[0].([]csfpg.CsfDispatchControl)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDispatchControls indicates an expected call of ListDispatchControls.
+func (mr *MockIDispatchQueriesMockRecorder) ListDispatchControls(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDispatchControls", reflect.TypeOf((*MockIDispatchQueries)(nil).ListDispatchControls), ctx)
 }
 
 // ListIntents mocks base method.
@@ -170,6 +200,21 @@ func (m *MockIDispatchDatabase) EXPECT() *MockIDispatchDatabaseMockRecorder {
 	return m.recorder
 }
 
+// InsertDispatchControl mocks base method.
+func (m *MockIDispatchDatabase) InsertDispatchControl(ctx context.Context, arg csfpg.InsertDispatchControlParams) (csfpg.CsfDispatchControl, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InsertDispatchControl", ctx, arg)
+	ret0, _ := ret[0].(csfpg.CsfDispatchControl)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InsertDispatchControl indicates an expected call of InsertDispatchControl.
+func (mr *MockIDispatchDatabaseMockRecorder) InsertDispatchControl(ctx, arg any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertDispatchControl", reflect.TypeOf((*MockIDispatchDatabase)(nil).InsertDispatchControl), ctx, arg)
+}
+
 // InsertIntent mocks base method.
 func (m *MockIDispatchDatabase) InsertIntent(ctx context.Context, arg csfpg.InsertIntentParams) (csfpg.CsfIntent, error) {
 	m.ctrl.T.Helper()
@@ -212,6 +257,21 @@ func (m *MockIDispatchDatabase) InsertSliceEdge(ctx context.Context, arg csfpg.I
 func (mr *MockIDispatchDatabaseMockRecorder) InsertSliceEdge(ctx, arg any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InsertSliceEdge", reflect.TypeOf((*MockIDispatchDatabase)(nil).InsertSliceEdge), ctx, arg)
+}
+
+// ListDispatchControls mocks base method.
+func (m *MockIDispatchDatabase) ListDispatchControls(ctx context.Context) ([]csfpg.CsfDispatchControl, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListDispatchControls", ctx)
+	ret0, _ := ret[0].([]csfpg.CsfDispatchControl)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ListDispatchControls indicates an expected call of ListDispatchControls.
+func (mr *MockIDispatchDatabaseMockRecorder) ListDispatchControls(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListDispatchControls", reflect.TypeOf((*MockIDispatchDatabase)(nil).ListDispatchControls), ctx)
 }
 
 // ListIntents mocks base method.

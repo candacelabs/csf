@@ -4,7 +4,9 @@ go_library(
     name = "obs",
     srcs = [
         "doc.go",
+        "label_opts.go",
         "log.go",
+        "measurement.go",
         "metrics.go",
         "trace.go",
     ],

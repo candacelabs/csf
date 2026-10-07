@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
-	"github.com/candacelabs/csf/ipc/db/csfpg"
-	"github.com/candacelabs/csf/ipc/proc"
+	"github.com/candacelabs/csf/io/ipc/db/csfpg"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/gin-gonic/gin"
 
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"

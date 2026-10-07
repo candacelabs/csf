@@ -55,5 +55,37 @@ func ValidateEvent(message *Event) error {
 			Value:     message.Summary,
 		}
 	}
+	if !(len(message.Branch) <= 255) {
+		return &liquidproto.Error{
+			Message:   "candace.intake.v1.Event",
+			Field:     "branch",
+			Predicate: "len(this) <= 255",
+			Value:     message.Branch,
+		}
+	}
+	if !(len(message.Base) <= 255) {
+		return &liquidproto.Error{
+			Message:   "candace.intake.v1.Event",
+			Field:     "base",
+			Predicate: "len(this) <= 255",
+			Value:     message.Base,
+		}
+	}
+	if !(len(message.Conclusion) <= 64) {
+		return &liquidproto.Error{
+			Message:   "candace.intake.v1.Event",
+			Field:     "conclusion",
+			Predicate: "len(this) <= 64",
+			Value:     message.Conclusion,
+		}
+	}
+	if !(len(message.Delivery) <= 64) {
+		return &liquidproto.Error{
+			Message:   "candace.intake.v1.Event",
+			Field:     "delivery",
+			Predicate: "len(this) <= 64",
+			Value:     message.Delivery,
+		}
+	}
 	return nil
 }

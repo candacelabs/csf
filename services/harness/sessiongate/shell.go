@@ -12,6 +12,8 @@ import (
 	"mvdan.cc/sh/v3/syntax"
 
 	"github.com/candacelabs/csf/pkg/argv"
+	"github.com/candacelabs/csf/pkg/collections"
+	"github.com/candacelabs/csf/services/await"
 )
 
 // Rule names a shell shape the wait gate rejects.
@@ -32,12 +34,33 @@ const (
 	RuleForegroundSleep Rule = "foreground_sleep"
 )
 
-// The replacement each rule's rejection names.
+// The replacement each rule's rejection names. A wait is CSF's await,
+// spelled as its command so the agent can run it as written.
 const (
-	replacementBackground = "start the command with run_in_background and wait for its completion notification"
-	replacementMonitor    = "wait for a condition with the Monitor tool"
+	replacementAwait      = "wait with `csf await %s -deadline DURATION`, which returns once the condition holds or fails at the deadline"
+	anyCondition          = "CONDITION"
+	conditionsListed      = "; the conditions are "
 	replacementOwnProcess = "track the process you started with run_in_background instead of searching command lines"
 )
+
+// awaitHint names the csf await condition, with its operands, that replaces
+// a poll loop running one of commands.
+type awaitHint struct {
+	commands  []string
+	condition await.Condition
+	operands  string
+}
+
+// awaitHints are tried in order against the commands a poll loop runs; the
+// first that matches names the condition. A loop none matches is told every
+// condition.
+var awaitHints = []awaitHint{
+	{commands: []string{"curl", "wget"}, condition: await.ConditionURLStatus, operands: "-url URL -status 200"},
+	{commands: []string{"gh"}, condition: await.ConditionPullRequestMerged, operands: "-pull-request URL"},
+	{commands: []string{"csf"}, condition: await.ConditionTurnFinished, operands: "-assignment ID"},
+	{commands: []string{"kill", "pgrep", "pidof", "ps"}, condition: await.ConditionHarnessStopped, operands: "-pid PID"},
+	{commands: []string{"uptime"}, condition: await.ConditionLoadBelow, operands: "-load LEVEL"},
+}
 
 // ErrUnparsedCommand reports a command the shell parser could not read.
 var ErrUnparsedCommand = errors.New("session gate: command is not valid shell")
@@ -47,16 +70,44 @@ type ShellFinding struct {
 	Rule Rule
 	// Snippet is the offending source text.
 	Snippet string
+	// Await is the csf await condition and operands that replace a poll
+	// loop, when the commands it runs name one.
+	Await string
 }
 
 // Replacement is what to do instead, as the rejection message states it.
 func (finding ShellFinding) Replacement() string {
-	switch finding.Rule {
-	case RuleSelfMatchingPgrep:
+	switch {
+	case finding.Rule == RuleSelfMatchingPgrep:
 		return replacementOwnProcess
+	case finding.Await != "":
+		return fmt.Sprintf(replacementAwait, finding.Await)
 	default:
-		return replacementBackground + ", or " + replacementMonitor
+		names := make([]string, 0)
+		for _, condition := range await.Conditions() {
+			names = append(names, string(condition))
+		}
+		return fmt.Sprintf(replacementAwait, anyCondition) + conditionsListed + strings.Join(names, ", ")
 	}
+}
+
+// hintFor is the condition and operands of the first hint whose commands
+// the loop runs, or empty.
+func hintFor(loop syntax.Node) string {
+	var names []string
+	syntax.Walk(loop, func(node syntax.Node) bool {
+		if call, ok := node.(*syntax.CallExpr); ok {
+			name, _ := commandWords(call)
+			names = append(names, name)
+		}
+		return true
+	})
+	for _, hint := range awaitHints {
+		if slices.ContainsFunc(hint.commands, func(command string) bool { return slices.Contains(names, command) }) {
+			return string(hint.condition) + " " + hint.operands
+		}
+	}
+	return ""
 }
 
 // Message is the rejection text the agent reads.
@@ -140,6 +191,7 @@ func (scan *shellScan) loop(node syntax.Node, body []*syntax.Stmt) {
 	if !scan.inReportedLoop() && slices.ContainsFunc(body, sleeps) {
 		scan.loops[node] = true
 		scan.report(RulePollLoop, node)
+		scan.findings[len(scan.findings)-1].Await = hintFor(node)
 	}
 }
 
@@ -166,22 +218,13 @@ func shellScript(arguments []string) (string, bool) {
 	if !argv.HasFlag(arguments, shellCommandString) {
 		return "", false
 	}
-	operand := slices.IndexFunc(arguments, isOperand)
-	if operand < 0 {
-		return "", false
-	}
-	return arguments[operand], true
+	return collections.NewKeyedList(isOperand, arguments).Get(true)
 }
 
 func isOperand(argument string) bool { return !strings.HasPrefix(argument, flagPrefix) }
 
 func (scan *shellScan) report(rule Rule, node syntax.Node) {
-	start, end := int(node.Pos().Offset()), int(node.End().Offset())
-	snippet := ""
-	if start >= 0 && end <= len(scan.source) && start <= end {
-		snippet = scan.source[start:end]
-	}
-	scan.findings = append(scan.findings, ShellFinding{Rule: rule, Snippet: strings.TrimSpace(snippet)})
+	scan.findings = append(scan.findings, ShellFinding{Rule: rule, Snippet: snippet(scan.source, node)})
 }
 
 // inBackground reports whether an enclosing statement runs as a job (&),
@@ -284,7 +327,6 @@ const (
 	commandGh        = "gh"
 	ghNounPR         = "pr"
 	ghVerbReady      = "ready"
-	ghUndo           = "--undo"
 )
 
 // RunsGitCommit reports whether command runs git commit anywhere in it,
@@ -292,16 +334,6 @@ const (
 func RunsGitCommit(command string) (bool, error) {
 	return runsCommand(command, func(name string, arguments []string) bool {
 		return name == commandGit && gitSubcommand(arguments) == subcommandCommit
-	})
-}
-
-// RunsPullRequestReady reports whether command marks a pull request ready
-// for review (gh pr ready, not gh pr ready --undo) anywhere in it, including
-// inside sh -c.
-func RunsPullRequestReady(command string) (bool, error) {
-	return runsCommand(command, func(name string, arguments []string) bool {
-		return name == commandGh && len(arguments) >= 2 && arguments[0] == ghNounPR &&
-			arguments[1] == ghVerbReady && !slices.Contains(arguments, ghUndo)
 	})
 }
 

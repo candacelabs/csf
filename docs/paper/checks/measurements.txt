@@ -1,0 +1,22 @@
+architecture.csf_lines|372|372|PASS|git -C '/tmp/csf_staging_check_2139079' show origin/main:csf/compiler/language/architecture.csf | wc -l
+diagram_blocks|4|4|PASS|git -C '/tmp/csf_staging_check_2139079' show origin/main:csf/compiler/language/architecture.csf | grep -c '^diagram'
+diagram_node_edge_group_lines|81|81|PASS|git -C '/tmp/csf_staging_check_2139079' show origin/main:csf/compiler/language/architecture.csf | awk '/^diagram.*{/,/^}/ { if (/^\s*(node|edge|group)\s/) count++ } END { print count }'
+markdown_files|211|212|FAIL|git -C '/tmp/csf_staging_check_2139079' ls-tree -r --name-only origin/main | grep -c '\.md$' || echo 0
+pkg_widget_files|83|83|PASS|git -C '/tmp/csf_staging_check_2139079' ls-tree -r --name-only origin/main | grep '^pkg/widget/' | wc -l
+widget_def_line34|contains:widget|YES|PASS|git -C '/tmp/csf_staging_check_2139079' show origin/main:csf/compiler/language/architecture.csf | sed -n '34p'
+widget_importers|>=3|40|PASS|git -C '/tmp/csf_staging_check_2139079' grep -l 'pkg/widget' origin/main -- '*.go' 2>/dev/null | grep -cE '(opsview|copilot-adapter|examples/widget)' || echo 0
+issue_294|exists|YES|PASS|gh issue view 294 -R "${CSF_SOURCE_REPO:?set CSF_SOURCE_REPO to the source monorepo}" --json title 2>/dev/null | grep -q title
+issue_330|exists|YES|PASS|gh issue view 330 -R "${CSF_SOURCE_REPO:?set CSF_SOURCE_REPO to the source monorepo}" --json title 2>/dev/null | grep -q title
+alignment_score|from_ratchet|UNVERIFIABLE|UNVERIFIABLE|needs ontology-score-*.json
+cs16_findings|from_ratchet|UNVERIFIABLE|UNVERIFIABLE|needs cs16-*.json
+architecture.csf_lines|372|372|PASS|git -C '/tmp/csf_staging_check_2139603' show origin/main:csf/compiler/language/architecture.csf | wc -l
+diagram_blocks|4|4|PASS|git -C '/tmp/csf_staging_check_2139603' show origin/main:csf/compiler/language/architecture.csf | grep -c '^diagram'
+diagram_node_edge_group_lines|81|81|PASS|git -C '/tmp/csf_staging_check_2139603' show origin/main:csf/compiler/language/architecture.csf | awk '/^diagram.*{/,/^}/ { if (/^\s*(node|edge|group)\s/) count++ } END { print count }'
+markdown_files|211|212|FAIL|git -C '/tmp/csf_staging_check_2139603' ls-tree -r --name-only origin/main | grep -c '\.md$' || echo 0
+pkg_widget_files|83|83|PASS|git -C '/tmp/csf_staging_check_2139603' ls-tree -r --name-only origin/main | grep '^pkg/widget/' | wc -l
+widget_def_line34|contains:widget|YES|PASS|git -C '/tmp/csf_staging_check_2139603' show origin/main:csf/compiler/language/architecture.csf | sed -n '34p'
+widget_importers|>=3|40|PASS|git -C '/tmp/csf_staging_check_2139603' grep -l 'pkg/widget' origin/main -- '*.go' 2>/dev/null | grep -cE '(opsview|copilot-adapter|examples/widget)' || echo 0
+issue_294|exists|YES|PASS|gh issue view 294 -R "${CSF_SOURCE_REPO:?set CSF_SOURCE_REPO to the source monorepo}" --json title 2>/dev/null | grep -q title
+issue_330|exists|YES|PASS|gh issue view 330 -R "${CSF_SOURCE_REPO:?set CSF_SOURCE_REPO to the source monorepo}" --json title 2>/dev/null | grep -q title
+alignment_score|from_ratchet|UNVERIFIABLE|UNVERIFIABLE|needs ontology-score-*.json
+cs16_findings|from_ratchet|UNVERIFIABLE|UNVERIFIABLE|needs cs16-*.json

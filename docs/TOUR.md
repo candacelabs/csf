@@ -32,20 +32,27 @@ or a database.
 
 ## The big picture
 
-Figure 1 puts every piece of CSF on one page. Read it clockwise from the top:
-each step feeds the next, and every step runs inside one Go process on the
-robot's housekeeping core. Each stop below zooms into one part of this circle.
+Figure 1 puts every piece of CSF on one page as two loops. Read the big loop
+clockwise from 1 · declare: each step feeds the next, and every step runs inside
+one Go process on the robot's housekeeping core. The small loop beside it is
+Ouroboros, which turns mistakes into gates; the panel at the bottom opens it up. Each stop below zooms into one part of this circle.
 Click the figure to open it full size.
 
 <a id="figure-1"></a>
 
-<p align="center"><a href="assets/tour/csf-master-diagram.svg"><img src="assets/tour/csf-master-diagram.svg" width="1000" alt="How CSF fits together on a robot's CPU 0"></a></p>
+<p align="center"><a href="assets/tour/csf-master-diagram.svg"><img src="assets/tour/csf-master-diagram.svg" width="1000" alt="How CSF fits together: the autonomy loop around CPU 0 and the Ouroboros mining loop beside it"></a></p>
 
-**Figure 1.** How CSF fits together. Eight parts sit clockwise around CPU 0:
-declare (the languages and csfc), run (the runtime library), show (gotth-live),
-change (the agent harness), ship (deploy and Warden), learn (xetcas; amber marks
-planned work), improve (Ouroboros) and evolve (RRSI). The centre is one Go process
-built on the `pkg/` primitives.
+**Figure 1.** How CSF fits together: two loops. The big loop builds the robot's
+autonomy. Six parts sit clockwise around CPU 0: declare (the languages and csfc),
+run (the runtime library), show (gotth-live), change (the agent harness), ship
+(deploy and Warden) and learn (xetcas; amber marks planned work). The centre is
+one Go process built on the `pkg/` primitives. Beside the agent harness sits the
+small loop, Ouroboros, whose method is RRSI: it takes every session's trace and
+hands back the next gate. The panel below opens it up: corpus, extract, rule,
+walk-forward backtest, gate, with the DRAFT-PR-LATE miner's real numbers
+([worked example](../services/ouroboros/README.md#worked-example-draft-pr-late)).
+Rose marks the steps that make LLM calls: the agent harness, an agent writing a
+miner, and `csf label` proposing labels. Every other box is deterministic code.
 
 ## 0. Words you will meet
 

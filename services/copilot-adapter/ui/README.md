@@ -1,7 +1,7 @@
 # Candace workbench UI
 
 The production browser workbench for the Copilot adapter. It is a Vite 6,
-React 18 and strict TypeScript bundle mounted by the Go service at `/ui/`.
+React 18 and strict TypeScript bundle mounted by the Go [service](../../../csf/docs/generated/ontology_cgen.md#term-service) at `/ui/`.
 There is no independent frontend server in production.
 
 ## Product surface
@@ -14,15 +14,15 @@ There is no independent frontend server in production.
   returns here from any chat, without changing existing session URLs.
 - `/ui/#/kanban` embeds the server-rendered task board inside the existing
   React shell. One gotth WebSocket updates keyed card regions. Explicit task
-  links connect sessions to authoritative checkpoints; session runtime status
-  remains visible separately. Task checkpoints are last observed; **Refresh task
-  checkpoints** reads external GitHub changes. There is no GitHub webhook or
+  links connect sessions to authoritative [checkpoints](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint); session runtime status
+  remains visible separately. Task [checkpoints](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) are last observed; **Refresh task
+  [checkpoints](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint)** reads external GitHub changes. There is no GitHub webhook or
   background board polling. Drag a grip between task-status columns, or use
   the keyboard-accessible **Move task** form. A drop submits the observed
-  checkpoint and target status; the card stays in its previous column until
+  [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) and target status; the card stays in its previous column until
   the server confirms the move. Blocked/operator moves require a reason.
   Unlinked sessions stay in Unassigned and cannot be moved until a current
-  checkpoint is available. Task, checkpoint and evidence links use server data.
+  [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) is available. Task, [checkpoint](../../../csf/docs/generated/ontology_cgen.md#term-checkpoint) and evidence links use server data.
 - `/ui/#/simulations` uses the same shell to inspect recorded runs, simulation
   steps, camera images, measurements, artifacts, trace URLs and bounded logs.
   Its browser types are generated from the existing CSF OpenAPI contract.
@@ -30,7 +30,7 @@ There is no independent frontend server in production.
   operator controls remain available through the existing simulation page.
 - `/ui/#/release` links to the installation's configured consumer guide through
   `VITE_CSF_RELEASE_URL`. It carries no embedded deployment or release receipts.
-- The Workbench reads shared custom CSS and refreshes it every five seconds
+- The [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) reads shared custom CSS and refreshes it every five seconds
   while the tab is visible, including when focus returns. A failed refresh
   leaves the last successful CSS in place. Visit `/ui/?theme=default` to bypass
   shared CSS in that tab and recover from a broken override.
@@ -93,14 +93,14 @@ For local development with Node 22, run `npm run dev` from this directory.
 Vite serves the UI below `/ui/` and proxies `/v1` and `/healthz` to
 `http://127.0.0.1:8090`. Start the [public host](../README.md#run-it-as-a-plain-binary)
 with `--listen 127.0.0.1:8090` and `--origin` set to the Vite browser origin.
-The development proxy covers the Workbench routes; use the built bundle on the
+The development proxy covers the [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) routes; use the built bundle on the
 CSF host to exercise the CSF HTTP routes from the same origin.
 
-For a Workbench bundled with CSF, set `VITE_CSF_DASHBOARD_URL=/` at build time
+For a [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) bundled with CSF, set `VITE_CSF_DASHBOARD_URL=/` at build time
 to add a **CSF dashboard** link to the sidebar. An absolute dashboard URL also
-works. Leave the variable unset for a standalone Workbench; no dashboard link
+works. Leave the variable unset for a standalone [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench); no dashboard link
 is rendered by default. This setting supplies the origin for the CSF API;
-Copilot session requests remain on the Workbench origin.
+Copilot session requests remain on the [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) origin.
 Home and the sidebar share the same destination registry. Optionally set
 `VITE_CSF_RELEASE_URL` to the deployment's reviewed guide or receipt URL to add
 **Release & evidence** to both. That page links to the configured guide; it
@@ -159,5 +159,5 @@ listeners. A later `start` creates a fresh session. Vite proxies `/v1` including
 WebSocket upgrades for the same lifecycle in development.
 
 [SortableJS documentation](https://github.com/SortableJS/Sortable) owns drag
-behavior; the application bridge uses `Sortable.create(column, { handle,
+behavior; the [application](../../../csf/docs/generated/ontology_cgen.md#term-application) bridge uses `Sortable.create(column, { handle,
 onStart, onMove, onEnd })` and `sortable.destroy()` at route cleanup.

@@ -8,6 +8,7 @@ import (
 	"github.com/candacelabs/csf/pkg/httpserver"
 	copilotadapter "github.com/candacelabs/csf/services/copilot-adapter"
 	"github.com/candacelabs/csf/services/copilot-adapter/adaptertest"
+	"github.com/candacelabs/csf/services/copilot-adapter/store"
 	"github.com/candacelabs/csf/services/copilot-adapter/workbench"
 	"github.com/candacelabs/csf/services/cron/crontest"
 	"github.com/gin-gonic/gin"
@@ -23,10 +24,10 @@ var _ = Describe("Workbench composition in another host", func() {
 		terminal := NewMockITerminalManager(controller)
 		terminal.EXPECT().Close().Return(nil)
 		persistence := adaptertest.OpenStore(GinkgoT())
-		adapter, err := copilotadapter.NewCopilotAdapter(copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence),
+		adapter, err := copilotadapter.NewCopilotAdapter(copilotadapter.WithBridge(bridge), copilotadapter.WithStore(persistence.Store),
 			copilotadapter.WithWorktreeManager(NewMockIWorktreeManager(controller)), copilotadapter.WithTerminalManager(terminal),
-			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT())))
-		composed := &workbench.Workbench{Adapter: adapter, Store: persistence.PostgresStore}
+			copilotadapter.WithScheduleStore(crontest.OpenStore(GinkgoT()).Store))
+		composed := &workbench.Workbench{Adapter: adapter, Store: persistence.Store.(*store.PostgresStore)}
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(composed.Adapter.Close)
 		router := httpserver.NewEngine("shared-host-test")

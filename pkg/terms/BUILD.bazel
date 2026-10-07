@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "terms",
+    srcs = [
+        "stem.go",
+        "terms.go",
+    ],
+    embedsrcs = ["stoplist.txt"],
+    importpath = "github.com/candacelabs/csf/pkg/terms",
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "terms_test",
+    srcs = [
+        "stem_internal_test.go",
+        "terms_suite_test.go",
+        "terms_test.go",
+    ],
+    embed = [":terms"],
+    deps = [
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

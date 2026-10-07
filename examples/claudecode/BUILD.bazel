@@ -6,8 +6,8 @@ go_library(
     importpath = "github.com/candacelabs/csf/examples/claudecode",
     visibility = ["//visibility:private"],
     deps = [
-        "//ipc/model/claudecode",
-        "//ipc/proc",
+        "//io/ipc/proc",
+        "//io/net/model/claudecode",
         "@com_github_google_uuid//:uuid",
     ],
 )

@@ -16,7 +16,9 @@ import (
 const (
 	HookPreToolUse  = "PreToolUse"
 	HookPostToolUse = "PostToolUse"
-	// ToolBash is the tool both gates watch.
+	// HookStop is the turn executor's end-of-turn event: the reply gate's.
+	HookStop = "Stop"
+	// ToolBash is the tool the two tool gates watch.
 	ToolBash = "Bash"
 
 	hookTypeCommand = "command"
@@ -28,10 +30,42 @@ const (
 	// builds, two ontology measurements, the full house lint) before a pull
 	// request is marked ready.
 	readyGateTimeoutSeconds = 3600
+	// replyGateTimeoutSeconds bounds one Stop gate call: it reads the run's
+	// event log and nothing else.
+	replyGateTimeoutSeconds = 60
 )
 
+// gatedEvents are the hook events the harness installs, in settings order.
+var gatedEvents = []string{HookPreToolUse, HookPostToolUse, HookStop}
+
 // gateTimeouts is each gated event's hook timeout.
-var gateTimeouts = map[string]int{HookPreToolUse: readyGateTimeoutSeconds, HookPostToolUse: gateTimeoutSeconds}
+var gateTimeouts = map[string]int{HookPreToolUse: readyGateTimeoutSeconds, HookPostToolUse: gateTimeoutSeconds, HookStop: replyGateTimeoutSeconds}
+
+// gateMatchers is the tools each gated event's hook is limited to, as the
+// regular expression Claude Code matches tool names with; an event with none
+// fires on every occurrence, which is all Stop offers. Before a tool runs the
+// gates watch Bash, AskUserQuestion, which puts questions to the operator,
+// the GitHub tool that marks a pull request ready, which the ready gate
+// holds to the merge checks, and Grep and Glob, which the search gate
+// counts.
+var gateMatchers = map[string]string{
+	HookPreToolUse:  strings.Join([]string{ToolBash, ToolAskUserQuestion, ToolReadyPullRequest, ToolGrep, ToolGlob}, "|"),
+	HookPostToolUse: ToolBash,
+}
+
+const (
+	// ToolAskUserQuestion is the turn executor's tool for putting a question
+	// to the operator; the question gate judges it before it is shown.
+	ToolAskUserQuestion = "AskUserQuestion"
+	// ReadyToolName is the CSF GitHub tool that marks a draft ready, and
+	// ToolReadyPullRequest its name as a session's turn executor calls it.
+	ReadyToolName        = "MarkPullRequestReady"
+	ToolReadyPullRequest = "mcp__" + MCPServerName + "__" + ReadyToolName
+	// ToolGrep and ToolGlob are the turn executor's search tools; a chain of
+	// them is the search gate's.
+	ToolGrep = "Grep"
+	ToolGlob = "Glob"
+)
 
 // claudeSettings is the part of the Claude Code settings schema the harness
 // writes: one command hook per gated event.
@@ -40,7 +74,7 @@ type claudeSettings struct {
 }
 
 type hookMatcher struct {
-	Matcher string        `json:"matcher"`
+	Matcher string        `json:"matcher,omitempty"`
 	Hooks   []hookCommand `json:"hooks"`
 }
 
@@ -54,13 +88,13 @@ type hookCommand struct {
 // calls gateCommand with the event name and the run directory appended.
 func sessionSettings(gateCommand []string, runDirectory string) ([]byte, error) {
 	settings := claudeSettings{Hooks: map[string][]hookMatcher{}}
-	for _, event := range []string{HookPreToolUse, HookPostToolUse} {
+	for _, event := range gatedEvents {
 		command, err := shellCommand(append(append([]string{}, gateCommand...), event, runDirectory))
 		if err != nil {
 			return nil, err
 		}
 		settings.Hooks[event] = []hookMatcher{{
-			Matcher: ToolBash,
+			Matcher: gateMatchers[event],
 			Hooks:   []hookCommand{{Type: hookTypeCommand, Command: command, Timeout: gateTimeouts[event]}},
 		}}
 	}

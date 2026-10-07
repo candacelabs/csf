@@ -90,13 +90,29 @@ property. The registry, rather than workflow flags, decides which findings block
 | INTERFACE-RETURNS | Advisory specialist | Existing Go type analyzer across tracked first-party modules; `error` exempt, other interface results and returned interface-bearing structs reported. |
 | FUNCTION-LENGTH | Advisory specialist | Pinned golangci-lint `funlen` over the module: over 60 non-comment lines, no statement threshold. |
 | CS-15 | Advisory | `go` statements in selected Go, tests included, whose enclosing function or literal shows no owner: no `.Wait()` call, no receive, `range` or waiter call (`Eventually(done)`) on a channel the [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine) sends on or closes, and no context-driven exit (`.Done()`/`.Err()` or a context value) in the [goroutine](../../csf/docs/generated/ontology_cgen.md#term-goroutine). |
-| CS-16 | Advisory | Outside `ipc/`, in selected Go, tests included: import-resolved `net.Listen*`/`net.Dial*`, package-level `net/http` `ListenAndServe`/`ListenAndServeTLS`/`Serve`/`ServeTLS`, `grpc.NewClient`/`Dial`/`DialContext`, and `net.Dialer`/`net.ListenConfig` literals. Outside `ipc/proc/`, tests included: imports of `os/exec` and `github.com/creack/pty`, and import-resolved `os.StartProcess`, `syscall.Exec`/`ForkExec`/`StartProcess`. Method calls are not resolved. |
+| CS-16 | Advisory | Outside `io/`, in selected Go, tests included: import-resolved `net.Listen*`/`net.Dial*`, package-level `net/http` `ListenAndServe`/`ListenAndServeTLS`/`Serve`/`ServeTLS`, `grpc.NewClient`/`Dial`/`DialContext`, and `net.Dialer`/`net.ListenConfig` literals. Outside `io/ipc/proc/`, tests included: imports of `os/exec` and `github.com/creack/pty`, and import-resolved `os.StartProcess`, `syscall.Exec`/`ForkExec`/`StartProcess`. Method calls are not resolved. |
 | CS-17 | Advisory | Import-resolved `os.Getenv`, `os.LookupEnv` and `os.Environ` calls in selected Go, tests included, outside `runtime/config/` and a binary's own `app/<name>/config/`. `os.Setenv` and `GinkgoT().Setenv` write and are not reported. |
+| ATOMIC-WRITE | Mandatory | Outside `pkg/atomicfile/`, in selected Go, tests included: an import-resolved `os.Rename` whose enclosing function or literal also calls `os.WriteFile`, `os.Create`, `os.CreateTemp` or `os.OpenFile`. |
 | CS-18-MOCKGEN | Advisory | Exported, mockable interfaces in selected non-test Go (excluding package `main`) not covered by a `//go:generate` mockgen directive whose `-destination` is a tracked file with the MockGen generated header. Source-mode `-source` paths resolve relative to the directive; package-mode import paths resolve through the tracked `go.mod` module table. |
 | CS-18-CROSSING | Advisory | In every handwritten `_test.go` file, in-package and external: import-resolved listen/dial, package-level `net/http` serving, `httptest.NewServer`/`NewTLSServer`/`NewUnstartedServer`, `os/exec.Command`/`CommandContext`, `pgxpool.New`/`NewWithConfig`, `pgx.Connect`/`ConnectConfig`, `database/sql.Open` with a `pgx`/`postgres` driver literal, and `testcontainers-go` imports. A file whose leading `//go:build` constraint names the positive `acceptance` tag is the labelled acceptance suite and is out of [scope](../../csf/docs/generated/ontology_cgen.md#term-scope). |
 | CS-18-EXTERNAL | Advisory | A non-`main` package whose selected non-test files declare exported API with no same-directory `<name>_test` package holding a `Test*`/`Example*`/`Fuzz*` function or a Ginkgo `Describe`/`DescribeTable`. One finding per package, at the first exporting file's package clause. |
+| CS-19 | Advisory | Four shapes the typed ask refuses: an import of `reflect`; a decoder filling a variable whose type is an anonymous `struct` literal; a `map[string]string` literal carrying a stringified typed field, in a package that parses a string back with `strconv`; and a local helper that reimplements a `pkg/collections` primitive (a membership toggle over `slices.Index`+`slices.Delete`, or a `(T, bool)` lookup over `slices.IndexFunc`). The fix is type parameters, a named record type, a typed field in place of its string form, and the exported `pkg/collections` primitives. |
+| CS-20 | Advisory | Every compound type carries a name. Native locators: a Go function or method returning three or more values; a Go `struct` type literal that is not the body of a declared type (the empty `struct{}` set idiom declares no field and is exempt); an OCaml value tuple of arity three or more; a `.csf` kind field written inline as a bare `record` or a `[...]` list; and a `.dl` relation a rule body reads that no `relation` declaration or clause head in the file introduces. Generated files are exempt. |
+| CS-21 | Advisory | Code of one type lives together. Native locators: a role-named Go file (`options.go`, `metrics.go`, `errors.go`, …) declaring two or more top-level types; a Go method whose receiver type is declared in another selected file the method's file is not named for; and a generated role-named file whose generator declares no layout. A file named `<snake(type)>.go` or `<snake(type)>_<concern>.go` is the allowed shape. |
+| CS-20-HOST | Advisory | In selected non-test Go, one `runtime.NewHostRuntime` per [application](../../csf/docs/generated/ontology_cgen.md#term-application), read across the whole `app/<name>/cmd` package: any count other than exactly one is the offense. |
+| CS-20-RUNTIME | Advisory | A `runtime.NewHostRuntime` call in selected non-test Go whose package is not `main`: the one host [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) of a process is built in its binary's main package. |
+| CS-20-SPAWN | Advisory | An `os/exec` import in selected non-test Go outside `io/ipc/proc/`: subprocess spawn is routed through `proc.ILauncher`, taken in the constructor. |
+| CS-20-LISTEN | Advisory | A socket bind in selected non-test Go outside `io/` and a package-`main` file: an import-resolved `net.Listen*` or package-level `net/http` `ListenAndServe`/`ListenAndServeTLS`, or a `.ListenAndServe`/`.ListenAndServeTLS` method call. A `net.ListenConfig` literal and a `.Listen`/`.Serve` method serving a bound listener are not binds. |
+| NO-MAIN-TEST | Advisory | A handwritten `_test.go` file whose package clause is `main` or `main_test`: specs live in the default test package or a named package, with the code under test in a library package. |
 | ONTOLOGY-DIRS | Advisory | Directories holding tracked Go whose role-position segment (the first under the repository root, and every one below `ipc`, `runtime` or `web`) is not a term identifier, or its plural, in `csf/compiler/language/architecture.csf`; catch-all names at any depth. `internal` is transparent. |
 | GOROUTINE-SHARED-STATE | Advisory | An immediately launched Go closure captures a variable also accessed later by its caller, and at least one access is a write. Reports the write and launch/caller lines when local analysis cannot match synchronization. |
+
+CS-20, CS-21, CS-20-HOST, CS-20-RUNTIME, CS-20-SPAWN, CS-20-LISTEN and
+NO-MAIN-TEST are advisory by operator ruling (2026-10-06): "WE NEED TO RELAX
+MERGE GATES THAT ARE STOPPING US FROM GETTING TO 100% CONSISTENCY" and "you can
+relax pre-existing invariants if our chief invariants need to be compromised".
+Their findings stay in every report and a scan error still fails; a rule
+returns to mandatory only in the change that drives its count to zero.
 
 The mandatory `DEPENDENCIES` rule reuses the OCaml Gorilla dependency checker.
 `check-house-lint.sh --test` runs its native regression target, and the complete
@@ -232,12 +248,12 @@ one run. [`alignment.ml`](alignment.ml) owns the definition and
 |---|---|---|
 | `csfc-check` | 10 | `csfc check` diagnostics for `csf/architecture/architecture.csf` |
 | `generated-drift` | 10 | `csfc check-generated` drift plus files the language generator's `check` reports as differing |
-| `cs-16` | 5 | CS-16 findings: crossings outside `ipc/` |
+| `cs-16` | 5 | CS-16 findings: crossings outside `io/` |
 | `cs-15` | 3 | CS-15 findings: [goroutines](../../csf/docs/generated/ontology_cgen.md#term-goroutine) with no visible owner |
 | `cs-17` | 3 | CS-17 findings: environment reads outside `runtime/config` |
 | `ontology-dirs` | 3 | ONTOLOGY-DIRS findings |
 | `retired-vocabulary` | 2 | retired words in tracked `**/README.md`, from the language generator's `lint` |
-| `unlinked-terms` | 1 | unlinked ontology terms in the same READMEs |
+| `unlinked-terms` | 1 | unlinked ontology terms in the same READMEs, outside `humans/` |
 
 `penalty = sum(weight * count)` over measured signals and
 `score = penalty / (penalty + 1000)`: lower is better, 0 means every measured
@@ -262,6 +278,11 @@ root `README.md` before it compares documents. Unlinked terms contribute 739
 (739 findings at weight 1), `cs-16` 240 (48), `cs-15` 108 (36), `cs-17` 93
 (31) and `ontology-dirs` 18 (6); `csfc-check` and `retired-vocabulary` are
 clean. Linking README terms is the largest single lever on the score.
+
+The language generator's `link` verb took `unlinked-terms` from 739 to 0
+(#351), with 185 declared ordinary uses where a spelling is not the term, and
+the signal has been blocking since: one new unlinked mention fails the
+[ratchet](../../csf/docs/generated/ontology_cgen.md#term-ratchet). `generate write` and `csf docs link` fix one.
 
 ### Pull-request ratchet and PR descriptions
 

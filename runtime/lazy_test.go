@@ -10,8 +10,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"go.uber.org/goleak"
 	"github.com/onsi/gomega/types"
+	"go.uber.org/goleak"
 	"go.uber.org/mock/gomock"
 
 	"github.com/candacelabs/csf/pkg/eventually"

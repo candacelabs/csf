@@ -9,7 +9,7 @@ go_library(
     ],
     importpath = "github.com/candacelabs/csf/pkg/gotth/internal/cmd/gotth-live-dev",
     visibility = ["//visibility:private"],
-    deps = ["//ipc/proc"],
+    deps = ["//io/ipc/proc"],
 )
 
 go_binary(
@@ -26,7 +26,7 @@ go_test(
     ],
     embed = [":gotth-live-dev_lib"],
     deps = [
-        "//ipc/proc",
+        "//io/ipc/proc",
         "@com_github_onsi_ginkgo_v2//:ginkgo",
         "@com_github_onsi_gomega//:gomega",
     ],

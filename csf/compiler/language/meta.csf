@@ -1,0 +1,76 @@
+// The kinds CSF's own languages accept, declared in CSF itself (slice
+// kinds_declared, ticket #487). Each name is one production of the
+// documentation grammar (grammar.ebnf) or the architecture grammar
+// (architecture/language.ebnf), named by its home; kind and relation are this
+// meta language's own kinds, so the language closes over itself. meta_test
+// holds every name here to the grammar it mirrors, so no edit can drift
+// silently, and #486 and #489 declare their kinds through this same mechanism.
+//
+// The documentation grammar also carries a relation kind (an edge between term
+// instances) and a policy kind. relation therefore appears in the documentation
+// home here AND in the meta home below, where it names the meta language's own
+// edge declaration; the two are different kinds, an instance edge vs a schema
+// edge.
+
+kind "term"         in documentation;
+kind "literature"   in documentation;
+kind "relation"     in documentation;
+kind "retired"      in documentation;
+kind "jargon"       in documentation;
+kind "section"      in documentation;
+kind "linked"       in documentation;
+kind "diagram"      in documentation;
+kind "north_star"   in documentation;
+kind "document"     in documentation;
+kind "policy"       in documentation;
+kind "failure_code" in documentation;
+
+kind "process"      in architecture;
+kind "scope"        in architecture;
+kind "component"    in architecture;
+kind "dependency"   in architecture;
+kind "connection"   in architecture;
+kind "scan"         in architecture;
+kind "generated"    in architecture;
+kind "directory"    in architecture;
+
+kind "kind"         in meta;
+kind "relation"     in meta;
+
+// The decision vocabulary (#520): a question is the one declaration the CSF
+// language, the decision tree, the directory tree and the CLI project from, and
+// an option is one branch of it. They are meta kinds because they name no
+// production of either language grammar; the documentation and architecture
+// homes stay exactly the grammars' alternatives.
+kind "question"     in meta;
+kind "option"       in meta;
+
+// The slice planner's decisions (#529): the closed set a dispatch pass checks,
+// in order, when a queued slice does not run. Declaring them here lets the
+// planner grammar (architecture/slice_planner.ebnf) be emitted from kinds by
+// the same generator as the other grammars, so it names no free text and a hand
+// edit cannot drift from this list.
+kind "depends_on"   in planner;
+kind "held"         in planner;
+kind "contends"     in planner;
+kind "paused"       in planner;
+kind "rate"         in planner;
+kind "capacity"     in planner;
+kind "next_pass"    in planner;
+
+// Edges two kinds carry, as the grammars spell them: a document names
+// diagrams and north stars, a section lists terms, a failure code's endpoints
+// are terms, and an architecture joins components to their process, scope and
+// peers.
+relation "document"     -> "diagram";
+relation "document"     -> "north_star";
+relation "section"      -> "term";
+relation "failure_code" -> "term";
+relation "component"    -> "process";
+relation "component"    -> "scope";
+relation "dependency"   -> "component";
+relation "connection"   -> "component";
+
+// A question refines into its options, and an option may leaf at a question.
+relation "question"     -> "option";
+relation "option"       -> "question";

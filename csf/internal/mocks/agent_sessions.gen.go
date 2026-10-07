@@ -56,6 +56,21 @@ func (mr *MockIAgentSessionsMockRecorder) Cancel(ctx, request any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockIAgentSessions)(nil).Cancel), ctx, request)
 }
 
+// CheckAdmission mocks base method.
+func (m *MockIAgentSessions) CheckAdmission(ctx context.Context, request *harnessv1.CheckAgentSessionAdmissionRequest) (*harnessv1.CheckAgentSessionAdmissionResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAdmission", ctx, request)
+	ret0, _ := ret[0].(*harnessv1.CheckAgentSessionAdmissionResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckAdmission indicates an expected call of CheckAdmission.
+func (mr *MockIAgentSessionsMockRecorder) CheckAdmission(ctx, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAdmission", reflect.TypeOf((*MockIAgentSessions)(nil).CheckAdmission), ctx, request)
+}
+
 // Get mocks base method.
 func (m *MockIAgentSessions) Get(ctx context.Context, request *harnessv1.GetAgentSessionRequest) (*harnessv1.GetAgentSessionResponse, error) {
 	m.ctrl.T.Helper()
@@ -69,6 +84,21 @@ func (m *MockIAgentSessions) Get(ctx context.Context, request *harnessv1.GetAgen
 func (mr *MockIAgentSessionsMockRecorder) Get(ctx, request any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockIAgentSessions)(nil).Get), ctx, request)
+}
+
+// GetExecutorDefault mocks base method.
+func (m *MockIAgentSessions) GetExecutorDefault(ctx context.Context, request *harnessv1.GetAgentExecutorDefaultRequest) (*harnessv1.GetAgentExecutorDefaultResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetExecutorDefault", ctx, request)
+	ret0, _ := ret[0].(*harnessv1.GetAgentExecutorDefaultResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetExecutorDefault indicates an expected call of GetExecutorDefault.
+func (mr *MockIAgentSessionsMockRecorder) GetExecutorDefault(ctx, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetExecutorDefault", reflect.TypeOf((*MockIAgentSessions)(nil).GetExecutorDefault), ctx, request)
 }
 
 // List mocks base method.
@@ -86,6 +116,51 @@ func (mr *MockIAgentSessionsMockRecorder) List(ctx, request any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockIAgentSessions)(nil).List), ctx, request)
 }
 
+// Merge mocks base method.
+func (m *MockIAgentSessions) Merge(ctx context.Context, request *harnessv1.MergeAgentSessionPullRequestRequest) (*harnessv1.MergeAgentSessionPullRequestResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Merge", ctx, request)
+	ret0, _ := ret[0].(*harnessv1.MergeAgentSessionPullRequestResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Merge indicates an expected call of Merge.
+func (mr *MockIAgentSessionsMockRecorder) Merge(ctx, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Merge", reflect.TypeOf((*MockIAgentSessions)(nil).Merge), ctx, request)
+}
+
+// Ready mocks base method.
+func (m *MockIAgentSessions) Ready(ctx context.Context, request *harnessv1.ReadyAgentSessionPullRequestRequest) (*harnessv1.ReadyAgentSessionPullRequestResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Ready", ctx, request)
+	ret0, _ := ret[0].(*harnessv1.ReadyAgentSessionPullRequestResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Ready indicates an expected call of Ready.
+func (mr *MockIAgentSessionsMockRecorder) Ready(ctx, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ready", reflect.TypeOf((*MockIAgentSessions)(nil).Ready), ctx, request)
+}
+
+// RecordRuling mocks base method.
+func (m *MockIAgentSessions) RecordRuling(ctx context.Context, request *harnessv1.RecordRulingRequest) (*harnessv1.RecordRulingResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecordRuling", ctx, request)
+	ret0, _ := ret[0].(*harnessv1.RecordRulingResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RecordRuling indicates an expected call of RecordRuling.
+func (mr *MockIAgentSessionsMockRecorder) RecordRuling(ctx, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordRuling", reflect.TypeOf((*MockIAgentSessions)(nil).RecordRuling), ctx, request)
+}
+
 // Send mocks base method.
 func (m *MockIAgentSessions) Send(ctx context.Context, request *harnessv1.SendAgentSessionMessageRequest) (*harnessv1.SendAgentSessionMessageResponse, error) {
 	m.ctrl.T.Helper()
@@ -99,6 +174,21 @@ func (m *MockIAgentSessions) Send(ctx context.Context, request *harnessv1.SendAg
 func (mr *MockIAgentSessionsMockRecorder) Send(ctx, request any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockIAgentSessions)(nil).Send), ctx, request)
+}
+
+// SetExecutorDefault mocks base method.
+func (m *MockIAgentSessions) SetExecutorDefault(ctx context.Context, request *harnessv1.SetAgentExecutorDefaultRequest) (*harnessv1.SetAgentExecutorDefaultResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetExecutorDefault", ctx, request)
+	ret0, _ := ret[0].(*harnessv1.SetAgentExecutorDefaultResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SetExecutorDefault indicates an expected call of SetExecutorDefault.
+func (mr *MockIAgentSessionsMockRecorder) SetExecutorDefault(ctx, request any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetExecutorDefault", reflect.TypeOf((*MockIAgentSessions)(nil).SetExecutorDefault), ctx, request)
 }
 
 // Stop mocks base method.

@@ -28,19 +28,34 @@ public_schemas=(
   candace/brainspine/v1/brainspine.proto
   candace/agent/v1/agent.proto
   candace/harness/v1/harness.proto
+  candace/harness/v1/costs.proto
   candace/dispatch/v1/dispatch.proto
 )
+
+# The ouroboros contract's records live beside their OCaml encoders; their Go
+# bindings land where the go_package option says, under proto/.
+contract_schema_dir=services/ouroboros/contract
+contract_schema=records.proto
+contract_generated=proto/candace/ouroboros/v1/records
 
 protoc -I "${module_root}/pkg" -I "${module_root}/proto" -I /usr/local/include \
   "--go_out=module=github.com/candacelabs/csf:${output}" \
   "--plugin=protoc-gen-liquidproto=${plugin_dir}/protoc-gen-liquidproto" \
   "--liquidproto_out=module=github.com/candacelabs/csf:${output}" \
   "${public_schemas[@]}"
+protoc -I "${module_root}/${contract_schema_dir}" -I "${module_root}/pkg" -I /usr/local/include \
+  "--go_out=module=github.com/candacelabs/csf:${output}" \
+  "--plugin=protoc-gen-liquidproto=${plugin_dir}/protoc-gen-liquidproto" \
+  "--liquidproto_out=module=github.com/candacelabs/csf:${output}" \
+  "${contract_schema}"
 if [[ "${mode}" == check ]]; then
   for schema in "${public_schemas[@]}"; do
     for suffix in .pb.go _liquid.pb.go; do
       generated="proto/${schema%.proto}${suffix}"
       diff -u "${module_root}/${generated}" "${output}/${generated}"
     done
+  done
+  for suffix in .pb.go _liquid.pb.go; do
+    diff -u "${module_root}/${contract_generated}${suffix}" "${output}/${contract_generated}${suffix}"
   done
 fi

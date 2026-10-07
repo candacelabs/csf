@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	ipcnet "github.com/candacelabs/csf/ipc/net"
+	ionet "github.com/candacelabs/csf/io/net"
 )
 
 var _ = Describe("copied Copilot history", func() {
@@ -265,7 +265,7 @@ type historyFixtureRuntime struct {
 // opened through the socket capability: the SDK dials its runtime by URL and
 // takes no dialer, so this is the one place the spec needs a real address.
 func newHistoryFixtureRuntime() *historyFixtureRuntime {
-	listener, err := ipcnet.NewHostNetwork().Listen(context.Background(), "tcp", "127.0.0.1:0")
+	listener, err := ionet.NewHostNetwork().Listen(context.Background(), "tcp", "127.0.0.1:0")
 	Expect(err).NotTo(HaveOccurred())
 	runtime := &historyFixtureRuntime{listener: listener, done: make(chan struct{})}
 	go runtime.serve()

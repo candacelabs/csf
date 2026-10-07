@@ -3,15 +3,19 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "live",
     srcs = [
+        "anonymous_identity.go",
         "app.go",
+        "app_devreload.go",
+        "app_document.go",
+        "app_page.go",
+        "app_templ.go",
         "config.go",
+        "config_error.go",
         "core.go",
-        "devreload.go",
         "doc.go",
-        "document.go",
+        "limits.go",
         "livebridge.go",
-        "page.go",
-        "templ.go",
+        "snapshot_param.go",
     ],
     embedsrcs = [
         "clientjs/gotth-live-dev-reload.min.js",
@@ -57,7 +61,7 @@ go_test(
     ],
     embed = [":live"],
     deps = [
-        "//ipc/net/http",
+        "//io/net/http",
         "//pkg/eventually",
         "//pkg/gotth/internal/obs",
         "//pkg/gotth/internal/obstest",

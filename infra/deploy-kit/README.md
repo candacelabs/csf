@@ -1,6 +1,6 @@
 # Deploy prototype
 
-Deploy turns one Linux box into a private agent-operated app lab with a
+[Deploy](../../csf/docs/generated/ontology_cgen.md#term-deploy) turns one Linux box into a private agent-operated [app](../../csf/docs/generated/ontology_cgen.md#term-app) lab with a
 local visual control plane. The default install is deliberately harmless: it
 runs the demo harness and makes the node executor run Compose's
 read-only configuration preflight, then return the exact mutation plan without
@@ -45,7 +45,7 @@ and nowhere else.
 
 ## Quick start
 
-Requirements: Linux, Git, Docker Engine with Compose v2.20 or newer, and
+Requirements: Linux, Git, Docker [Engine](../../csf/docs/generated/ontology_cgen.md#term-engine) with Compose v2.20 or newer, and
 OpenSSL.
 
 ```bash
@@ -64,13 +64,13 @@ requests. `./install.sh` is safe to run again and preserves materialized values
 in its mode-600 `.env`. It prints the address only after the Core health
 endpoint and its durable database are ready.
 
-| Invocation | Agent harness | Executor | Host Docker socket |
+| Invocation | [Agent harness](../../csf/docs/generated/ontology_cgen.md#term-harness) | Executor | Host Docker socket |
 |---|---|---|---|
 | `./install.sh` | simulated | dry run | absent |
 | `./install.sh --copilot` | official CLI 1.0.80 | dry run | absent |
-| `./install.sh --copilot --live-executor` | official CLI 1.0.80 | live | agent only |
+| `./install.sh --copilot --live-executor` | official CLI 1.0.80 | live | [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) only |
 | `./install.sh --opencode` | pinned OpenCode 1.18.21 sidecar | dry run | absent |
-| `./install.sh --opencode --live-executor` | pinned OpenCode 1.18.21 sidecar | live | agent only |
+| `./install.sh --opencode --live-executor` | pinned OpenCode 1.18.21 sidecar | live | [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) only |
 
 `DEPLOY_HARNESS_BACKEND=demo|copilot-cli|ollama|opencode` is the canonical Core selector.
 Bare Core defaults to `copilot-cli`; the safe local installer and Compose stack
@@ -98,7 +98,7 @@ upstream; the generator itself is part of the canonical monorepo and is not
 included here. `compose.yaml` owns container structure only; every command that
 reconstructs the project layers the generated overlay on it.
 
-The ignored runtime `.env` is data, not policy. The installer never sources it
+The ignored [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) `.env` is data, not policy. The installer never sources it
 and atomically rewrites exactly the secret, host, and explicit operator values
 declared by `Candacefile`; policy defaults and the pass-through provider API
 keys (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`) are not
@@ -113,7 +113,7 @@ the invoking process environment.
 
 The built-in Copilot CLI, Ollama, demo, and OpenCode adapters are defaults, not
 a closed plugin list. A custom Go binary can replace the harness through
-`services/harness` and compose its own ordered services through
+`services/harness` and compose its own ordered [services](../../csf/docs/generated/ontology_cgen.md#term-service) through
 `services/deploy/component`, while retaining Core's Warden view, PostgreSQL
 state, approval queue, reconciliation, receipts, HTTP API, and Web UI:
 
@@ -129,14 +129,14 @@ if err := bootstrap.Run(
 ```
 
 `services/deploy/component` is the second compile-time boundary: a definition
-names a service the embedding repository already owns and declares the other
+names a [service](../../csf/docs/generated/ontology_cgen.md#term-service) the embedding repository already owns and declares the other
 definitions it requires by pointer identity, and Core resolves its own built-in
 steps together with every registered component into one topologically ordered
 bring-up list, assembling each before the harness is constructed, starting each
 before the harness starts, and stopping each in reverse after it closes.
 
 The same composition root rebrands the operator UI. `bootstrap.WithBrand` takes
-one `webui.Brand` — product name, agent name, wordmark, and the design tokens
+one `webui.Brand` — product name, [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) name, wordmark, and the design tokens
 the stylesheet declares on `:root` — and Core reads it in two places: the names
 travel in every snapshot it produces, and the web UI renders the wordmark and
 serves the palette as a generated same-origin stylesheet. The zero brand is the
@@ -180,7 +180,7 @@ checkout pinned to the same export commit, the complete fleet deployment is:
 ```
 
 The deployer snapshots and hashes the executable, layers it over the standard
-Core runtime, and records both its SHA-256 and export revision in the receipt.
+Core [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime), and records both its SHA-256 and export revision in the receipt.
 It refuses a custom binary built from a different deploy commit, so Core,
 Warden, and the node agents advance as one compatible release. No provider
 credential, external source checkout, or custom image registry is required.
@@ -194,10 +194,10 @@ exported into the installer is rewritten into that mode-600 file and reused by
 later runs, while a token discovered from `GH_TOKEN`, `GITHUB_TOKEN`,
 `gh auth token`, or the interactive prompt is used only for the run that
 discovered it. The selected credential is supplied to Copilot CLI, GitHub CLI,
-and Git's GitHub credential helper, so the agent can commit, push, and use `gh`
+and Git's GitHub credential helper, so the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) can commit, push, and use `gh`
 from the same workspace. GitHub documents the supported order in
 [Authenticating GitHub Copilot CLI](https://docs.github.com/en/copilot/how-tos/copilot-cli/set-up-copilot-cli/authenticate-copilot-cli).
-Deploy follows GitHub's [external headless CLI pattern](https://docs.github.com/en/copilot/how-tos/copilot-sdk/setup/backend-services)
+[Deploy](../../csf/docs/generated/ontology_cgen.md#term-deploy) follows GitHub's [external headless CLI pattern](https://docs.github.com/en/copilot/how-tos/copilot-sdk/setup/backend-services)
 without shipping a Copilot image. `install-copilot.sh` reuses the exact
 official host binary when available or verifies both the pinned Linux x64
 release archive and extracted binary before placing it in digest-addressed,
@@ -211,9 +211,9 @@ Docker socket is host-root-equivalent. Core and Copilot never receive it.
 `./install.sh --opencode` builds the reviewed OpenCode `v1.18.21` Linux x64
 release from its upstream archive and published SHA-256, then runs
 `opencode serve` in a separate private container in the same Compose project.
-OpenCode owns the agent, model, and tool loop. The browser talks only to Core at
+OpenCode owns the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent), model, and tool loop. The browser talks only to Core at
 the published `0.0.0.0:7780` listener; the OpenCode port and Basic-auth
-credential are never published. OpenCode gets the writable app workspace and
+credential are never published. OpenCode gets the writable [app](../../csf/docs/generated/ontology_cgen.md#term-app) workspace and
 its own persistent state, but no PostgreSQL, Warden, node-agent network, or
 Docker socket.
 
@@ -238,7 +238,7 @@ The root-owned managed OpenCode policy permits workspace reads/edits and the
 repository's ordinary build/test/status commands. It denies external-directory
 access and other shell commands, and a project-local config cannot override it.
 That policy is defense in depth, not the sandbox: the container and its mounts
-are the hard boundary, the app workspace is intentionally writable, and the
+are the hard boundary, the [app](../../csf/docs/generated/ontology_cgen.md#term-app) workspace is intentionally writable, and the
 sidecar has neither the Docker socket nor a route to the control network. Use a
 scoped provider credential and keep secrets out of the workspace; a credential
 available to the OpenCode process is not isolated from code it runs. The first
@@ -252,7 +252,7 @@ active work. OpenCode does not yet provide a supported soft mid-turn injection
 API, so its implementation aborts the active OpenCode turn before submitting
 the replacement. Candace owns those queue, provider-specific steering,
 normalized-event, and run-fencing semantics. The current mappings and prompt
-queue are in memory, so a Core restart does not yet provide durable replay.
+queue are in [memory](../../csf/docs/generated/ontology_cgen.md#term-memory), so a Core restart does not yet provide durable replay.
 
 ### Disposable Claw chat acceptance
 
@@ -276,9 +276,9 @@ acceptance.
 
 ## Apps are just Compose directories
 
-Each app is a directory below `apps/` containing a Compose file. The checked-in
+Each [app](../../csf/docs/generated/ontology_cgen.md#term-app) is a directory below `apps/` containing a Compose file. The checked-in
 `hello` example has service name `hello`, project name
-`deploy-hello`, and path `hello` — and it is the whole app, two files:
+`deploy-hello`, and path `hello` — and it is the whole [app](../../csf/docs/generated/ontology_cgen.md#term-app), two files:
 
 ```text
 apps/hello/
@@ -311,11 +311,11 @@ docker compose ... config --quiet
 docker compose ... up -d --remove-orphans hello
 ```
 
-The agent never runs `down`, deletes volumes, changes the host firewall, or
+The [agent](../../csf/docs/generated/ontology_cgen.md#term-agent) never runs `down`, deletes volumes, changes the host firewall, or
 edits Docker daemon settings. The example would be reachable only on
 <http://127.0.0.1:18080> after an explicitly approved live assignment.
 The installer initializes `apps/` as a local `main` Git repository and
-commits only the checked-in hello app when no `HEAD` exists. It never replaces
+commits only the checked-in hello [app](../../csf/docs/generated/ontology_cgen.md#term-app) when no `HEAD` exists. It never replaces
 an existing repository or history. The demo node advertises
 `environment=prototype` and `runtime=compose`, so label placement can be tried
 without inventing another node.
@@ -323,9 +323,9 @@ without inventing another node.
 Verified revision snapshots are bounded to 128 entries and 4 GiB by default;
 override `NODEEXEC_REVISION_MAX_ENTRIES` or
 `NODEEXEC_REVISION_MAX_BYTES` when installing. A full cache keeps
-existing snapshots usable but rejects new revisions. Because a live app may
+existing snapshots usable but rejects new revisions. Because a live [app](../../csf/docs/generated/ontology_cgen.md#term-app) may
 bind-mount a snapshot, cleanup is deliberately manual: stop reconciliation and
-the agent, remove only unused directories below the configured revision root,
+the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent), remove only unused directories below the configured revision root,
 then restart it.
 
 ## Operations
@@ -336,7 +336,7 @@ then restart it.
 ```
 
 Uninstall removes only prototype containers and networks. PostgreSQL data,
-receipts, app files, runtime state, and `.env` remain. Remove them manually
+receipts, [app](../../csf/docs/generated/ontology_cgen.md#term-app) files, [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) state, and `.env` remain. Remove them manually
 only when their loss is intentional.
 
 ## Three-node fleet
@@ -383,7 +383,7 @@ network, put it behind your own authenticating reverse proxy.
 The control node runs the singleton Core/control stack. Warden's leader remains
 a dynamic three-voter quorum decision and may be any node. Labels describe only
 declared facts: the control node has `role=control`, both workers have
-`role=worker`, and the GPU worker also has `gpu=true`. Ordinary apps select
+`role=worker`, and the GPU worker also has `gpu=true`. Ordinary [apps](../../csf/docs/generated/ontology_cgen.md#term-app) select
 `role=worker`; exact-node and leader placement remain explicit operator
 choices. Core leaves `NODEEXEC_URL` empty and derives a selected node's
 agent endpoint from its Warden address plus port 8094.
@@ -395,7 +395,7 @@ the control node. Each remote role keeps one uncompressed Docker archive below
 transfers rolling block deltas, retaining resumable partials without changing
 the currently loaded images. The first transfer is necessarily complete. A
 node checks the complete archive SHA-256 before `docker load`, then the deployer
-checks every loaded image's canonical runtime fingerprint before any live
+checks every loaded image's canonical [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) fingerprint before any live
 writer is stopped. The Copilot CLI is not packaged as a deploy image: the
 installer reuses an exact compatible host binary or checksum-installs pinned
 CLI 1.0.80 below the user-owned fleet state, then bind-mounts that binary
@@ -411,7 +411,7 @@ require GitHub/Copilot credentials. It pulls the manifest-pinned official
 Ollama 0.20.4 image directly on the GPU worker, persists models below the fleet
 state root, and pulls `qwen3:8b`. Before Core activates, a bounded warm-up must
 prove the model is tool-capable, loaded at the configured context, and fully
-resident in GPU memory. The observed model digest, model/context policy, image
+resident in GPU [memory](../../csf/docs/generated/ontology_cgen.md#term-memory). The observed model digest, model/context policy, image
 reference, and image digest are recorded in the immutable release evidence and
 operator receipt. Neither the Ollama image nor its model is sent to the
 control node or the non-GPU worker.
@@ -419,13 +419,13 @@ control node or the non-GPU worker.
 On first cutover, the command discovers the running legacy `/workspace`, stops
 the updater and writers, and takes consistent Git and PostgreSQL snapshots. The
 Copilot backend additionally inherits its nonempty token without printing it
-and snapshots durable Copilot/Core runtime. The Ollama backend never reads
-those credentials or packages that runtime; its model is already pulled,
+and snapshots durable Copilot/Core [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime). The Ollama backend never reads
+those credentials or packages that [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime); its model is already pulled,
 warmed, and verified before cutover begins. The command restores and
 fingerprints PostgreSQL on the control node before Core starts. The old
 containers, volume, state, and dirty infrastructure checkout remain intact for
 rollback.
-Upgrades reuse the current control state and app repository, back up the
+Upgrades reuse the current control state and [app](../../csf/docs/generated/ontology_cgen.md#term-app) repository, back up the
 database, advance workers first, and cut the singleton control stack over last.
 
 Success requires Core health, the exact Git source HEAD, both authenticated
@@ -434,7 +434,7 @@ term, leader, voter/address set, and three alive peers. The command prints the
 UI URL plus a mode-600 receipt containing its exact rollback and the host
 Copilot binary path and digest, or the selected Ollama image/model evidence.
 
-Deploy and rollback serialize through `receipt_root/operator.lock`. Before any
+[Deploy](../../csf/docs/generated/ontology_cgen.md#term-deploy) and rollback serialize through `receipt_root/operator.lock`. Before any
 service stops, the installer fsyncs a mode-600 cutover journal. After an
 interruption, rerun from the same operator account or with the same
 `DEPLOY_FLEET_RECEIPT_ROOT`. This is an operator-side
@@ -458,7 +458,7 @@ default. From the healthy bootstrap-node checkout, run once:
 
 The bootstrapper inherits the host's authenticated `gh` credential into a
 mode-600 credential file, briefly quiesces the current stack while adopting
-its `.env`, app workspace, and file-backed runtime, then restarts the same
+its `.env`, [app](../../csf/docs/generated/ontology_cgen.md#term-app) workspace, and file-backed [runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime), then restarts the same
 Copilot plus dry-run mode from the external state root. A failed adoption
 restores the original state root. It then starts a separate `deploy-cd`
 Compose project. The updater runs with the
@@ -468,8 +468,8 @@ contract exists on `main`, it remains armed and leaves the current stack alone.
 
 After the merge that introduces deploy, and after later relevant merges, it
 checks out the exact `main` revision in its managed checkout and runs real
-Copilot mode with the dry-run executor. Mutable `.env`, app Git history, and
-runtime state live under the external deploy root rather than the checkout.
+Copilot mode with the dry-run executor. Mutable `.env`, [app](../../csf/docs/generated/ontology_cgen.md#term-app) Git history, and
+[runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) state live under the external deploy root rather than the checkout.
 The updater verifies the loopback health endpoint and all five required
 services before advancing its revision receipt. A failed candidate is marked
 on GitHub, rolled back to the exact previously recorded revision, reverified,
@@ -515,7 +515,7 @@ releases rather than running the system:
 An external consumer that wants its own Core builds it the supported way
 instead: pin that archive, compile a Core binary against
 `services/harness`, and layer the executable over the standard
-runtime with `Dockerfile.core.external` — which is exactly what `./fleet.sh
+[runtime](../../csf/docs/generated/ontology_cgen.md#term-runtime) with `Dockerfile.core.external` — which is exactly what `./fleet.sh
 deploy --harness custom --core-binary ... --core-export-revision ...` consumes.
 
 ## Isolation
@@ -525,7 +525,7 @@ deploy --harness custom --core-binary ... --core-export-revision ...` consumes.
 - The Copilot CLI is on a separate outbound network with core. It cannot route
   to PostgreSQL, Warden, the executor, or the Docker socket.
 - Core bridges decisions between the networks but has no Docker socket and
-  mounts the app workspace read-only.
+  mounts the [app](../../csf/docs/generated/ontology_cgen.md#term-app) workspace read-only.
 - The live executor is the sole socket holder. The default dry-run executor
   has no socket at all.
 
@@ -537,18 +537,18 @@ deploy --harness custom --core-binary ... --core-export-revision ...` consumes.
   built-in authentication, TLS, or a configured reverse proxy.
 - Copilot mode requires a Copilot entitlement and consumes the configured
   account's requests. Both installers checksum-pin the same Linux x86-64 host
-  binary; Deploy does not build, transmit, or retain a Copilot CLI image.
-- Each application replica remains a node-local Compose workload. Fleet
+  binary; [Deploy](../../csf/docs/generated/ontology_cgen.md#term-deploy) does not build, transmit, or retain a Copilot CLI image.
+- Each [application](../../csf/docs/generated/ontology_cgen.md#term-application) replica remains a node-local Compose workload. Fleet
   rollout, multi-worker replica placement, source distribution, database-aware
-  rollback, and the shared agent token are implemented; application ingress
+  rollback, and the shared agent token are implemented; [application](../../csf/docs/generated/ontology_cgen.md#term-application) ingress
   remains an explicit separate concern.
 - The one-box prototype shares one local Git object database with Core, Copilot, and
   its node agent. Core approves an exact commit subtree and digest; the agent
   independently materializes, verifies, and executes a sealed snapshot.
   Fleet workers instead fetch the approved commit synchronously from the
   control node's read-only Git service into agent-owned bare repositories.
-- A green container or API response is not proof that a deployed application
-  works for a real user; verify the app's actual local workflow.
+- A green container or API response is not proof that a deployed [application](../../csf/docs/generated/ontology_cgen.md#term-application)
+  works for a real user; verify the [app](../../csf/docs/generated/ontology_cgen.md#term-app)'s actual local workflow.
 
 The architecture - component ownership and failure semantics - is documented in
 the canonical monorepo, at `docs/deploy_architecture.md`, which this

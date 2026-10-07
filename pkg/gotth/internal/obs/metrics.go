@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 )
 
@@ -18,98 +16,6 @@ const SourceLabelCap = 64
 
 // SourceOverflowLabel is what a source value past the cap is recorded as.
 const SourceOverflowLabel = "other"
-
-// LabelOptionCap bounds how many distinct label values this package will hold
-// a pre-built measurement option for.
-//
-// Every label domain in this library is already bounded — by the protocol's
-// enumerations (frame kind, rejection reason, close code, patch operation,
-// transition result, panic site), by application registration (event name), or
-// by SourceLabelCap. The cap is the belt to those braces: a value past it is
-// still recorded, correctly and with the same attributes, it is simply built
-// per call rather than cached. A cache that could grow without bound would be
-// its own memory finding.
-const LabelOptionCap = 256
-
-// measurement is one pre-built label set, held in the two shapes the metric
-// API asks for.
-//
-// It exists because of what the alternative costs on a per-frame path.
-// metric.WithAttributes copies the KeyValue slice, sorts it, de-duplicates it,
-// computes a distinct key and heap-allocates the option — on EVERY call — and
-// the variadic call itself allocates the option slice. Measured against the G2
-// baseline that path was not merely allocation: it was deep enough to push the
-// connection read pump's goroutine stack past a doubling boundary, which
-// docs/bench/g2-baseline.md §5.1 attributed to observability and §6.1.2
-// required to be engineered down or escalated. The label sets here do not vary
-// per call — they vary per enumerated label VALUE — so they are built once.
-//
-// Nothing about what is emitted changes: same instrument, same attribute key,
-// same attribute value. Only the number of times the same set is constructed.
-type measurement struct {
-	add    []metric.AddOption
-	record []metric.RecordOption
-}
-
-// newMeasurement builds the option pair for one attribute set.
-func newMeasurement(kvs ...attribute.KeyValue) *measurement {
-	o := metric.WithAttributeSet(attribute.NewSet(kvs...))
-	return &measurement{
-		add:    []metric.AddOption{o},
-		record: []metric.RecordOption{o},
-	}
-}
-
-// noAttrs is the empty label set, for instruments recorded without one.
-var noAttrs = &measurement{}
-
-// labelOpts caches one measurement per value of a single label.
-//
-// sync.Map is the right structure here and not a lock: reads dominate by
-// orders of magnitude, the key space is enumerated, and after the first frame
-// of each kind every lookup is a read from the map's read-only half.
-type labelOpts struct {
-	key   string
-	held  atomic.Int64
-	cache sync.Map // string -> *measurement
-}
-
-func (l *labelOpts) of(value string) *measurement {
-	if m, ok := l.cache.Load(value); ok {
-		return m.(*measurement)
-	}
-	m := newMeasurement(attribute.String(l.key, value))
-	if l.held.Load() < LabelOptionCap {
-		if _, loaded := l.cache.LoadOrStore(value, m); !loaded {
-			l.held.Add(1)
-		}
-	}
-	return m
-}
-
-// pairOpts is labelOpts for the one metric carrying two labels.
-type pairOpts struct {
-	keyA, keyB string
-	held       atomic.Int64
-	cache      sync.Map // string -> *measurement
-}
-
-func (p *pairOpts) of(a, b string) *measurement {
-	// The separator is a NUL because it cannot appear in a Go source constant
-	// used as a label value here, so two different pairs cannot collide into
-	// one cache entry.
-	k := a + "\x00" + b
-	if m, ok := p.cache.Load(k); ok {
-		return m.(*measurement)
-	}
-	m := newMeasurement(attribute.String(p.keyA, a), attribute.String(p.keyB, b))
-	if p.held.Load() < LabelOptionCap {
-		if _, loaded := p.cache.LoadOrStore(k, m); !loaded {
-			p.held.Add(1)
-		}
-	}
-	return m
-}
 
 // Metrics is the library's metric set. A nil *Metrics is a fully valid,
 // fully disabled instrument: every method tests its receiver, so a
@@ -284,26 +190,6 @@ func NewMetrics(mp metric.MeterProvider) (*Metrics, error) {
 
 // Enabled reports whether metrics are being recorded.
 func (m *Metrics) Enabled() bool { return m != nil }
-
-// add records one counter increment under a pre-built label set.
-//
-// The option slice is passed rather than constructed, which is the difference
-// between one heap allocation per measurement and none: a variadic call site
-// builds a fresh slice, and the slice escapes into an interface method.
-func add(ctx context.Context, c metric.Int64Counter, n int64, o *measurement) {
-	if c == nil {
-		return
-	}
-	c.Add(ctx, n, o.add...)
-}
-
-// record does the same for an integer histogram.
-func record(ctx context.Context, h metric.Int64Histogram, v int64, o *measurement) {
-	if h == nil {
-		return
-	}
-	h.Record(ctx, v, o.record...)
-}
 
 // FrameReceived counts one accepted inbound frame and its size.
 //
