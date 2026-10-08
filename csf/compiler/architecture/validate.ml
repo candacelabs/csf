@@ -118,7 +118,7 @@ let tree_diagnostics (architecture : architecture) paths =
   let kind_of = ask db "offense_kind" 2
     |> List.map (function [file; kind] -> text file, text kind | _ -> assert false) in
   let offenses = ask db "offense" 3 |> List.map (function
-    | [_tree; file; cause] -> let path = text file in match text cause with
+    | [_tree; file; cause] -> let path = text file in (match text cause with
         | "undeclared" ->
             { at; code = "tree_undeclared"; message = path ^ " is in no declared directory." }
         | "kind_not_allowed" ->
@@ -126,7 +126,7 @@ let tree_diagnostics (architecture : architecture) paths =
               message = path ^ " has kind " ^ List.assoc path kind_of ^ ", which its directory does not allow." }
         | "csf_outside_csf" ->
             { at; code = "tree_csf_outside_csf"; message = path ^ " is a CSF source outside csf/." }
-        | cause -> invalid_arg ("unknown tree offense: " ^ cause)
+        | cause -> invalid_arg ("unknown tree offense: " ^ cause))
     | _ -> assert false) in
   let fanout = ask db "fanout" 2
     |> List.map (function [directory; count] -> text directory, number count | _ -> assert false)

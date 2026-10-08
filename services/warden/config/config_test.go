@@ -24,8 +24,6 @@ func writeTemp(name, contents string) string {
 	return p
 }
 
-func boolPtr(b bool) *bool { return &b }
-
 var _ = Describe("config Load", func() {
 	// TestLoadDefaultsOnly
 	It("loads the built-in defaults when no path or env is given", func() {

@@ -310,23 +310,6 @@ func crossref(doi string) *Citation {
 	}
 }
 
-func bibtexFromCrossref(doi string) string {
-	req, err := http.NewRequest("GET", "https://api.crossref.org/works/"+url.QueryEscape(doi), nil)
-	if err != nil {
-		return ""
-	}
-	req.Header.Set("Accept", "application/x-bibtex")
-
-	resp, err := httpClient.Do(req)
-	if err != nil || resp.StatusCode >= 400 {
-		return ""
-	}
-	defer resp.Body.Close()
-
-	data, _ := io.ReadAll(resp.Body)
-	return string(data)
-}
-
 func datacite(doi string) *Citation {
 	url := "https://api.datacite.org/dois/" + url.QueryEscape(doi)
 	body := fetch(url)

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/candacelabs/csf/io/net/github"
 	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/net/github"
 	"github.com/candacelabs/csf/services/harness/session"
 )
 

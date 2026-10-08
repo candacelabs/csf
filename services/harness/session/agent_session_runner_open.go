@@ -17,8 +17,8 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/candacelabs/csf/io/net/model/claudecode"
 	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/net/model/claudecode"
 	"github.com/candacelabs/csf/pkg/affect"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 )

@@ -222,6 +222,7 @@ services:
       opensearch: {condition: service_healthy}
       postgres: {condition: service_healthy}
     command:
+      - host
       - serve
       - --listen
       - 0.0.0.0:14111

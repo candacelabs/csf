@@ -26,7 +26,7 @@ let json_result = function
   | Ok document -> print_string document; flush stdout; 0
   | Error errors -> failed errors
 
-(** [Files] writes the projection directory; [Json] prints [Emit.json]. *)
+(** [Files] writes the projection directory; [Json] prints [Emit.Json.render]. *)
 type format = Files | Json
 
 let format =
@@ -98,6 +98,90 @@ let shell_command =
     ~doc:"Compile one service declaration into a Go shell, refusing an invariant violation.")
     Term.(const shell_run $ shell_grammar $ shell_out $ shell_declaration)
 
+(* --- the diagram verb --- *)
+
+(* The base is the declaration at the merge base with [--base], each side read
+   with its own revision's grammar; the head is the working tree, or
+   [--head], a proposed declaration such as a ticket's. Standard output is
+   one fenced Mermaid block, ready to paste into a pull request or a ticket. *)
+let default_base = "origin/main"
+
+let diagram_run revision root grammar_path source_path head =
+  let head_path path = if Filename.is_relative path then Filename.concat root path else path in
+  let head_source = Option.value head ~default:(head_path source_path) in
+  match Compiler.resolve_revision ~root ~revision ~grammar_path ~source_path,
+        Compiler.resolve_source ~grammar_path:(head_path grammar_path) ~source_path:head_source with
+  | Ok base, Ok head ->
+      print_string ("```mermaid\n" ^ Emit.Diagram.render ~base ~head ^ "```\n"); flush stdout; 0
+  | base, head ->
+      let errors = function Ok _ -> [] | Error errors -> errors in
+      failed (errors base @ errors head)
+
+let diagram_command =
+  Cmd.v (Cmd.info "diagram"
+    ~doc:"Print the declared-architecture change since the merge base with $(b,--base) as one Mermaid block.")
+    Term.(const diagram_run
+      $ Arg.(value & opt string default_base & info ["base"] ~docv:"REVISION"
+          ~doc:"The revision the change is measured from, through its merge base with HEAD.")
+      $ path "root" default_config.root "Repository root."
+      $ path "grammar" default_config.grammar_path "EBNF grammar, relative to the root."
+      $ path "source" default_config.source_path "Architecture source, relative to the root."
+      $ Arg.(value & opt (some string) None & info ["head"] ~docv:"PATH"
+          ~doc:"A proposed declaration to diff against the base instead of the working tree's source."))
+
+(* --- the ticket verb --- *)
+
+(* A ticket body is a template over one CSFL delta: the delta, the current
+   architecture, the expected diff, then any prose. The delta is spliced in
+   before the architecture block's closing brace, the result is resolved like
+   any declaration, so a ticket that would not compile is refused before it
+   is posted. *)
+let ticket_fence language text = "```" ^ language ^ "\n" ^ text ^ (if String.ends_with ~suffix:"\n" text then "" else "\n") ^ "```\n"
+
+let splice ~source ~delta =
+  match String.rindex_opt source '}' with
+  | None -> None
+  | Some closing -> Some (String.sub source 0 closing ^ delta ^ String.sub source closing (String.length source - closing))
+
+let ticket_run root grammar_path source_path delta_path prose_path =
+  let at_root path = if Filename.is_relative path then Filename.concat root path else path in
+  let read path = In_channel.with_open_bin path In_channel.input_all in
+  let io_error path message = [{ Model.at = { file = path; line = 1; column = 1 }; code = "CSF_IO"; message }] in
+  match read (at_root source_path), read delta_path with
+  | exception Sys_error message -> failed (io_error delta_path message)
+  | source, delta ->
+      match splice ~source ~delta with
+      | None -> failed (io_error source_path "no closing brace to splice the delta before")
+      | Some head_text ->
+          let head_path = Filename.temp_file "csfc-ticket" ".csf" in
+          Fun.protect ~finally:(fun () -> Sys.remove head_path) (fun () ->
+            Out_channel.with_open_bin head_path (fun channel -> output_string channel head_text);
+            let grammar_path = at_root grammar_path in
+            match Compiler.resolve_source ~grammar_path ~source_path:(at_root source_path),
+                  Compiler.resolve_source ~grammar_path ~source_path:head_path with
+            | Ok base, Ok head ->
+                let prose = match prose_path with None -> "" | Some path -> "\n---\n\n" ^ read path in
+                print_string (ticket_fence "csf" ("# added to " ^ source_path ^ "\n" ^ delta)
+                  ^ "\n**Current architecture**\n\n" ^ ticket_fence "mermaid" (Emit.Mermaid.render base)
+                  ^ "\n**Expected diff**\n\n" ^ ticket_fence "mermaid" (Emit.Diagram.render ~base ~head)
+                  ^ prose);
+                flush stdout; 0
+            | base, head ->
+                let errors = function Ok _ -> [] | Error errors -> errors in
+                failed (errors base @ errors head))
+
+let ticket_command =
+  Cmd.v (Cmd.info "ticket"
+    ~doc:"Print a ticket body from a CSFL delta: the delta, the current architecture, the expected diff, then any prose.")
+    Term.(const ticket_run
+      $ path "root" default_config.root "Repository root."
+      $ path "grammar" default_config.grammar_path "EBNF grammar, relative to the root."
+      $ path "source" default_config.source_path "Architecture source, relative to the root."
+      $ Arg.(required & opt (some string) None & info ["delta"] ~docv:"PATH"
+          ~doc:"The declarations the ticket adds, as CSFL lines of the architecture block.")
+      $ Arg.(value & opt (some string) None & info ["prose"] ~docv:"PATH"
+          ~doc:"Markdown that follows the CSFL and diagrams; omitted for a mining ticket."))
+
 (* Inject the runner only at the CLI boundary so argument tests need no source
    tree or writes. The end-to-end example separately exercises Compiler.run
    through the actual executable; injected tests alone do not establish that. *)
@@ -114,6 +198,8 @@ let command_with ?(json = Compiler.json) run =
         ~doc:"Check the architecture and write its projections, or print it as JSON.") emit;
       command Compiler.Check_generated "Check the architecture and reject projection drift.";
       shell_command;
+      diagram_command;
+      ticket_command;
     ]
 
 let command = command_with Compiler.run

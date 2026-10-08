@@ -8,8 +8,13 @@ exports_files([
     "python_grammar.BUILD.bazel",
 ])
 
+# Upstream source: its warnings are not ours to fix, so the repository-wide
+# -warn-error does not apply to it.
+UPSTREAM_OPTS = ["-w", "-a"]
+
 ocaml_module(
     name = "Tree_sitter",
+    opts = UPSTREAM_OPTS,
     cc_deps = ["@tree_sitter_ocaml_source//:stubs"],
     sig = "@tree_sitter_ocaml_source//:lib/tree_sitter.mli",
     struct = "@tree_sitter_ocaml_source//:lib/tree_sitter.ml",

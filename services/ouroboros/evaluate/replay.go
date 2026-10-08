@@ -19,9 +19,9 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/io/kernel/clock"
 	iofs "github.com/candacelabs/csf/io/kernel/fs"
-	"github.com/candacelabs/csf/io/ipc/proc"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"github.com/candacelabs/csf/services/harness/session"

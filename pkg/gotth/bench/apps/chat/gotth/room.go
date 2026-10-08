@@ -588,15 +588,6 @@ func (r *Rooms) pump(ctx context.Context, id live.ID, emit live.Emitter) error {
 	}
 }
 
-// Subscribers is how many sessions are subscribed. A leak spec reads it: a
-// teardown that did not unsubscribe leaves this above zero with every
-// connection closed.
-func (r *Rooms) Subscribers() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return len(r.subs)
-}
-
 // LogOf returns one room's log, for the first HTTP paint and for specs.
 func (r *Rooms) LogOf(roomID string) *Log {
 	i := RoomIndex(roomID)

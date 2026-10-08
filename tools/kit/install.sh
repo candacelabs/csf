@@ -28,7 +28,7 @@ readonly RUST_IMAGE="rust:1.91-bookworm"
 readonly RRSI_URL="https://github.com/candacelabs/rrsi.git"
 readonly RRSI_REVISION="e741cf3"
 readonly RRSI_CRATE="tools/rrsi-mine"
-readonly HARNESS_PACKAGE="./app/harness/cmd"
+readonly CSF_PACKAGE="./app/csf/cmd"
 
 repo=""
 prefix="$HOME/.local/bin"
@@ -78,7 +78,7 @@ docker run --rm --user "$user" \
   -e HOME=/tmp/kit-home -e GOTOOLCHAIN=local -e CGO_ENABLED=0 -e GOFLAGS=-modcacherw \
   -e GOMODCACHE=/state/mod -e GOCACHE=/state/build -e GOPATH=/state/path \
   -v "$ROOT:/src:ro" -v "$state/go:/state" -v "$staging:/out" -w /src \
-  "$GO_IMAGE" go build -trimpath -buildvcs=false -o /out/csf "$HARNESS_PACKAGE"
+  "$GO_IMAGE" go build -trimpath -buildvcs=false -o /out/csf "$CSF_PACKAGE"
 csf_usage="$("$staging/csf" 2>&1 || true)"
 [[ "$csf_usage" == *"usage: csf init"* ]] || die "the built csf does not print its usage"
 

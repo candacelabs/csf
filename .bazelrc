@@ -9,6 +9,11 @@ common --registry=https://raw.githubusercontent.com/obazl/registry/main/
 common --registry=https://bcr.bazel.build
 common --incompatible_autoload_externally=+@rules_cc
 
+# No warning is retained: every OCaml warning in the default set fails the
+# build. Upstream sources under csf/compiler/third_party opt out per target,
+# since their warnings are not ours to fix.
+build --@rules_ocaml//cfg/module:opts=-warn-error,+a
+
 # A failing build should print the command that failed, and a failing test
 # should print its log rather than a path to it.
 build --verbose_failures

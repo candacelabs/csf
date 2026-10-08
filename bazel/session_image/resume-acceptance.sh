@@ -14,7 +14,7 @@
 #
 # Usage: bazel/session_image/resume-acceptance.sh REPOSITORY CSF_BINARY EXECUTOR [BASE_COMMIT]
 #   REPOSITORY   a clone of this repository
-#   CSF_BINARY   csf built from this checkout (go build ./app/harness/cmd)
+#   CSF_BINARY   csf built from this checkout (go build ./app/csf/cmd)
 #   EXECUTOR     the executor CLI on the host, for the host-launched half
 #   BASE_COMMIT  a commit from before bazel/session_image.txt existed
 #                (default: the parent of the commit that added it)

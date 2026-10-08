@@ -145,12 +145,15 @@ let read_file path maximum =
       if count = 0 then Bytes.sub_string bytes 0 offset else fill (offset + count) in
     fill 0)
 
-let parse_files ~grammar_path ~source_path =
+let parse_files_as ~label ~grammar_path ~source_path =
   let read path maximum =
     try read_file path maximum with Sys_error message ->
       fail { Model.file = path; line = 1; column = 1 } "CSF_IO" message in
   try
     let grammar = read grammar_path 65536 in
     let source = read source_path (2 * 1024 * 1024) in
-    parse ~grammar_filename:grammar_path ~grammar ~source ~filename:source_path
+    parse ~grammar_filename:grammar_path ~grammar ~source ~filename:label
   with Error diagnostic -> Error [diagnostic]
+
+let parse_files ~grammar_path ~source_path =
+  parse_files_as ~label:source_path ~grammar_path ~source_path

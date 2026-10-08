@@ -87,6 +87,7 @@ class NativeUnitTests(unittest.TestCase):
     def test_csf_helpers_build_exact_argv_without_literal_plus_tokens(self):
         served = executed_argv(LIBEXEC / "csf-serve")
         self.assertEqual(served, [
+            "host",
             "serve",
             "--listen=127.0.0.1:14111",
             "--origin=http://127.0.0.1:14111",
@@ -107,6 +108,7 @@ class NativeUnitTests(unittest.TestCase):
             "CSF_DATABASE_CONFIG": "/run/credentials/database.json",
         })
         self.assertEqual(initialized, [
+            "host",
             "initialize",
             "--database-config=/run/credentials/database.json",
         ])

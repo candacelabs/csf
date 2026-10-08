@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 go_library(
     name = "evaluate",
     srcs = [
+        "build_evaluator.go",
         "citation.go",
         "hidden.go",
         "pool.go",
@@ -34,9 +35,11 @@ go_library(
 go_test(
     name = "evaluate_test",
     srcs = [
+        "build_evaluator_test.go",
         "citation_test.go",
         "evaluate_suite_test.go",
         "helpers_test.go",
+        "mock_build_evaluator_test.go",
         "mock_generate_test.go",
         "mock_launcher_test.go",
         "pool_test.go",
@@ -49,6 +52,7 @@ go_test(
         ":evaluate",
         "//io/ipc/proc",
         "//io/kernel/clock",
+        "//pkg/evaluate",
         "//proto/candace/brainspine/v1:brainspine",
         "//proto/candace/harness/v1:harness",
         "//services/cron/crontest",

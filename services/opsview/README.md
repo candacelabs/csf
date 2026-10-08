@@ -23,8 +23,7 @@ On a tailnet the operator opens `http://<tailnet address>:14120/` on a phone;
 the page is a single column there and a grid on a wider screen. Nothing here
 adds a public route, a proxy or a firewall rule: binding the tailnet address
 is the whole of the exposure, and that address is a flag, never a file in
-this tree. `csf view`, which served a read-only copy as a second process on
-14121, is retired and says so.
+this tree.
 
 Every address `csf serve` has served is in the
 [endpoint registry](../../csf/docs/generated/ontology_cgen.md#term-endpoint_registry), and `csf serve` refuses to start

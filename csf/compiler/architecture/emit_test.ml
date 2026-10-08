@@ -76,7 +76,7 @@ let fixture : Model.resolved = {
 }
 
 let test_typed_output () =
-  let output = Emit.ocaml fixture in
+  let output = Emit.Ocaml.render fixture in
   expect "generated module header missing"
     (String.starts_with ~prefix:(Codegen_header.render Codegen_header.Ocaml) output);
   expect "generated value is not typed" (contains output "let architecture : Model.architecture = {");
@@ -95,7 +95,7 @@ let test_typed_output () =
   expect "directory path lost" (contains output "Model.path = \"source\"")
 
 let test_diagram () =
-  let output = Emit.mermaid fixture in
+  let output = Emit.Mermaid.render fixture in
   expect "generated diagram header is not first"
     (String.starts_with ~prefix:(Codegen_header.render Codegen_header.Mermaid) output);
   expect "declaration boundary missing" (contains output "Declared architecture, not observed running state");
@@ -116,8 +116,46 @@ let test_diagram () =
   expect "label has raw HTML" (not (contains output "<script>"));
   expect "raw source survived escaping" (not (contains output injection))
 
+(* Head drops adapter, adds probe, moves manager from planned to existing and
+   turns the app-to-manager channel into a call. *)
+let test_diagram_diff () =
+  let was = fixture.architecture in
+  let probe = { (List.hd was.components) with Model.component_id = "probe"; source = None } in
+  let head : Model.resolved = { fixture with architecture = { was with
+    components = List.filter_map (fun (value : Model.component) -> match value.component_id with
+      | "adapter" -> None
+      | "manager" -> Some { value with state = Model.Existing }
+      | _ -> Some value) was.components @ [probe];
+    connections = List.filter_map (fun (value : Model.connection) -> match value.caller, value.callee with
+      | "adapter", _ -> None
+      | "app", "manager" -> Some { value with transport = Model.Call }
+      | _ -> Some value) was.connections } } in
+  let output = Emit.Diagram.render ~base:fixture ~head in
+  expect "diff boundary missing" (contains output "Declared architecture diff, not observed running state");
+  List.iter (fun name -> expect ("class missing " ^ name) (contains output ("classDef " ^ name ^ " fill:")))
+    ["service_added"; "adapter_removed"; "manager_changed"; "service_unchanged"; "process_go_unchanged"];
+  expect "role colour lost" (contains output "classDef library_unchanged fill:#fff1e5,");
+  expect "changed border lost" (contains output "classDef manager_changed fill:#fbefff,color:#3e1f79,stroke:#d29922");
+  expect "transport colour lost" (contains output "stroke:#bf3989,stroke-width:2px"
+    || contains output "stroke:#0e7c74,stroke-width:2px");
+  expect "added component unmarked" (contains output "[\"#43; probe<br/>");
+  expect "removed component not drawn" (contains output "[\"#45; adapter<br/>");
+  expect "changed component unmarked" (contains output "[\"#126; manager<br/>");
+  expect "earlier state lost" (contains output "<br/>state was planned\"]");
+  expect "changed connection lost what it was" (contains output "<br/>was channel #124; planned\"|");
+  expect "removed connection not drawn" (contains output "#45; device #124; planned");
+  expect "removed edge not styled" (contains output "stroke-dasharray:6 4\n");
+  expect "colour ends in an entity" (not (contains output ";\n"));
+  expect "raw source survived escaping" (not (contains output injection));
+  let same = Emit.Diagram.render ~base:fixture ~head:fixture in
+  List.iter (fun change -> expect ("identical revisions marked " ^ change)
+    (not (contains same ("_" ^ change ^ "\n")))) ["added"; "removed"; "changed"];
+  expect "moved declaration counted as a change" (Emit.Diagram.render ~base:fixture
+    ~head:{ fixture with architecture = { was with components = List.map (fun (value : Model.component) ->
+      { value with component_at = { at with line = 99 } }) was.components } } = same)
+
 let test_review () =
-  let output = Emit.review fixture in
+  let output = Emit.Review.render fixture in
   expect "generated review header is not first"
     (String.starts_with ~prefix:(Codegen_header.render Codegen_header.Markdown) output);
   expect "pending obligation absent" (contains output "manager | Implement lifecycle | Pending");
@@ -135,19 +173,19 @@ let test_empty_optionals () =
       dependencies = []; connections = []; scan_roots = []; generated_roots = []; directories = [] };
     scopes = []; components = []; connections = []; start_order = []; stop_order = []; obligations = [];
   } in
-  expect "empty declaration cannot be emitted" (contains (Emit.ocaml empty) "components = []");
-  expect "empty diagram contains invented nodes" (not (contains (Emit.mermaid empty) "subgraph"));
-  expect "empty review invents obligations" (contains (Emit.review empty) "No pending obligations");
-  expect "empty lifecycle invents an order" (contains (Emit.review empty) "None declared");
+  expect "empty declaration cannot be emitted" (contains (Emit.Ocaml.render empty) "components = []");
+  expect "empty diagram contains invented nodes" (not (contains (Emit.Mermaid.render empty) "subgraph"));
+  expect "empty review invents obligations" (contains (Emit.Review.render empty) "No pending obligations");
+  expect "empty lifecycle invents an order" (contains (Emit.Review.render empty) "None declared");
   expect "empty JSON invents components"
-    (Yojson.Safe.Util.member "components" (Yojson.Safe.from_string (Emit.json empty)) = `List []);
+    (Yojson.Safe.Util.member "components" (Yojson.Safe.from_string (Emit.Json.render empty)) = `List []);
   expect "empty JSON invents directories"
-    (Yojson.Safe.Util.member "directories" (Yojson.Safe.from_string (Emit.json empty)) = `List [])
+    (Yojson.Safe.Util.member "directories" (Yojson.Safe.from_string (Emit.Json.render empty)) = `List [])
 
 (* Parse the JSON with Yojson rather than matching text, so escaping and
    structure are checked as a consumer in another language would read them. *)
 let test_json () =
-  let document = Yojson.Safe.from_string (Emit.json fixture) in
+  let document = Yojson.Safe.from_string (Emit.Json.render fixture) in
   let open Yojson.Safe.Util in
   let field name value = member name value in
   let strings name values = List.map (fun value -> field name value |> to_string) values in
@@ -192,15 +230,17 @@ let test_json () =
   let obligations = field "obligations" document |> to_list in
   expect "obligation evidence lost" (List.map (field "evidence") obligations
     = [`Null; `String "test|`<tag>\nnext"]);
-  expect "JSON document lacks trailing newline" (String.ends_with ~suffix:"}\n" (Emit.json fixture))
+  expect "JSON document lacks trailing newline" (String.ends_with ~suffix:"}\n" (Emit.Json.render fixture))
 
 let test_determinism () =
   List.iter (fun project -> expect "projection changes across calls" (project fixture = project fixture))
-    [Emit.ocaml; Emit.mermaid; Emit.review; Emit.json]
+    [Emit.Ocaml.render; Emit.Mermaid.render; Emit.Review.render; Emit.Json.render;
+     (fun resolved -> Emit.Diagram.render ~base:resolved ~head:resolved)]
 
 let () =
   test_typed_output ();
   test_diagram ();
+  test_diagram_diff ();
   test_review ();
   test_empty_optionals ();
   test_json ();

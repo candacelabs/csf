@@ -366,19 +366,6 @@ func (c *cluster) electWithin(scope ...warden.NodeID) warden.NodeID {
 	return ""
 }
 
-// equalIDs reports whether two ID slices are element-wise equal.
-func equalIDs(a, b []warden.NodeID) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 // sortedIDs returns a sorted copy of ids.
 func sortedIDs(ids []warden.NodeID) []warden.NodeID {
 	out := append([]warden.NodeID(nil), ids...)
@@ -747,9 +734,4 @@ func (c *cluster) others(exclude ...warden.NodeID) []warden.NodeID {
 		}
 	}
 	return out
-}
-
-// sinceStart is the simulated elapsed time since the cluster booted.
-func (c *cluster) sinceStart() time.Duration {
-	return c.clock.Now().Sub(c.startAt)
 }

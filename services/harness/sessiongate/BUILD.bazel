@@ -7,6 +7,7 @@ go_library(
         "gate.go",
         "gate_call_commit.go",
         "gate_call_github.go",
+        "gate_call_mcp.go",
         "gate_call_question.go",
         "gate_call_ready.go",
         "gate_call_reply.go",

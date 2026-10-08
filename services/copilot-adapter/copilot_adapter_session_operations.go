@@ -399,18 +399,6 @@ func createdSessionView(row storedb.Session, policy PermissionPolicy) api.Sessio
 	return view
 }
 
-func (adapter *CopilotAdapter) ensureStartingSession(
-	ctx context.Context,
-	submission createSessionSubmission,
-	receipt storedb.SessionCreation,
-) (storedb.Session, PreparedWorktree, error) {
-	prepared, err := adapter.prepareSessionWorktree(ctx, submission, receipt.SessionID)
-	if err != nil {
-		return storedb.Session{}, PreparedWorktree{}, err
-	}
-	return adapter.ensureStartingSessionWithWorktree(ctx, submission, receipt, prepared)
-}
-
 func (adapter *CopilotAdapter) ensureStartingSessionWithWorktree(
 	ctx context.Context,
 	submission createSessionSubmission,

@@ -552,7 +552,7 @@ Create a private JSON file with `{"url":"postgres://..."}` and configure an
 existing repository and worktree directory. Keep credentials out of Git.
 
 ```sh
-./out/csf serve \
+./out/csf host serve \
   --listen 127.0.0.1:14111 --origin http://127.0.0.1:14111 \
   --workbench-database-config /absolute/private/workbench-db.json \
   --workbench-repository /absolute/consumer-repository \
@@ -568,7 +568,7 @@ accepts a caller-supplied database and backend, and has an explicit `Close`.
 The Copilot bridge is a deliberate external backend boundary; it does not turn
 the model execution loop into an embedded Go implementation.
 
-For your own composition, follow the [runnable CSF host](../app/csf/cmd/main.go)
+For your own composition, follow the [runnable CSF host](../app/csf/verbs/host_serve.go)
 and [Workbench lifecycle](../services/copilot-adapter/workbench/README.md).
 After constructing the [Workbench](docs/generated/ontology_cgen.md#term-bench) with its database, bridge, repository and
 worktree directory, call `Register(router)` and start the HTTP/MCP listener
@@ -581,7 +581,7 @@ Discover capabilities from [MCP](docs/generated/ontology_cgen.md#term-mcp) `tool
 into a second schema. The optional JSON CLI uses the same generated contract:
 
 ```sh
-printf '%s\n' '{}' | ./out/csf call --endpoint http://127.0.0.1:14111 GetSnapshot
+printf '%s\n' '{}' | ./out/csf host call --endpoint http://127.0.0.1:14111 GetSnapshot
 ```
 
 ## 9. Examples and boundaries

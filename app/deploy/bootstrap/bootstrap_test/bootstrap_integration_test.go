@@ -1,11 +1,9 @@
 package bootstrap_test
 
 import (
-	"net/http"
 	"testing"
 	"testing/fstest"
 
-	"github.com/gin-gonic/gin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -16,10 +14,6 @@ import (
 const testHTTPServicePath = "/test-service"
 
 type testHTTPService struct{}
-
-func (testHTTPService) Register(router gin.IRouter) {
-	router.GET(testHTTPServicePath, func(c *gin.Context) { c.Status(http.StatusNoContent) })
-}
 
 func TestBootstrapIntegration(t *testing.T) {
 	RegisterFailHandler(Fail)

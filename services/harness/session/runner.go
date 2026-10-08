@@ -27,11 +27,11 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/candacelabs/csf/csf"
+	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/kernel/sandbox"
 	"github.com/candacelabs/csf/io/net/model"
 	"github.com/candacelabs/csf/io/net/model/claudecode"
 	"github.com/candacelabs/csf/io/net/model/copilotcli"
-	"github.com/candacelabs/csf/io/ipc/proc"
-	"github.com/candacelabs/csf/io/kernel/sandbox"
 	"github.com/candacelabs/csf/pkg/affect"
 	"github.com/candacelabs/csf/pkg/telemetry"
 	"github.com/candacelabs/csf/pkg/terms"
@@ -115,6 +115,10 @@ const (
 	flagAllowedTools       = "--allowedTools"
 	flagAppendSystemPrompt = "--append-system-prompt"
 	flagMCPConfig          = "--mcp-config"
+	// flagStrictMCPConfig loads only the servers --mcp-config names, so no
+	// user or project MCP server reaches a session: csf is the only one
+	// (#654), and every other service is proxied through it.
+	flagStrictMCPConfig = "--strict-mcp-config"
 	// MCPServerName is the name sessions reach the host's own MCP server by,
 	// so its tools are spelled mcp__csf__<tool> in a recipe's allowed tools.
 	MCPServerName = "csf"
@@ -858,6 +862,7 @@ func (runner *AgentSessionRunner) turnArguments(plan *pb.AgentAssignmentPlan, se
 		flagPermissionMode, permissionDontAsk,
 		flagAppendSystemPrompt, recipe.GetAgent().GetInstructions(),
 		flagAllowedTools, strings.Join(recipe.GetWorkspace().GetAllowedTools(), toolSeparator),
+		flagStrictMCPConfig,
 	}
 	if runner.mcpURL != "" {
 		// Encoding a map of strings cannot fail.

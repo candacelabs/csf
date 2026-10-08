@@ -11,7 +11,7 @@
 #
 # Usage: bazel/session_image/acceptance.sh REPOSITORY CSF_BINARY [TAILNET_ADDRESS]
 #   REPOSITORY       a clone of this repository whose origin the session pushes to
-#   CSF_BINARY       csf built from this checkout (go build ./app/harness/cmd)
+#   CSF_BINARY       csf built from this checkout (go build ./app/csf/cmd)
 #   TAILNET_ADDRESS  host:port answering HTTP on the tailnet; default: this
 #                    host's `tailscale ip -4` at port 14120
 set -Eeuo pipefail

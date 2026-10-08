@@ -95,8 +95,18 @@ let test_reporting () =
        directories_declared = 2; directories_tracked = 5 }
      = "architecture=example mode=emit declarations=checked source=checked directories=2/5 obligations=3")
 
+(* A ticket's delta lands inside the architecture block, after every
+   declaration already there; a source with no block is refused. *)
+let test_ticket_splice () =
+  let source = "architecture a version 1 {\n  process host kind go;\n}\n" in
+  expect "delta not spliced before the closing brace"
+    (Cli.splice ~source ~delta:"  scope s under host;\n"
+      = Some "architecture a version 1 {\n  process host kind go;\n  scope s under host;\n}\n");
+  expect "a source with no block accepted a delta" (Cli.splice ~source:"no block" ~delta:"  x;\n" = None)
+
 let () =
   test_defaults ();
+  test_ticket_splice ();
   test_commands_and_options ();
   test_invalid_arguments ();
   test_json_format ();

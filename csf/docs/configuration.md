@@ -5,7 +5,7 @@ The public archive contains one ready-made CSF application binary at
 without copying CSF capability wiring into its own repository:
 
 ```sh
-bazel run @csf//app/csf/cmd:cmd -- serve
+bazel run @csf//app/csf/cmd:cmd -- host serve
 ```
 
 The binary owns its listener, signals and process lifetime. CSF services remain
@@ -43,7 +43,7 @@ For a same-binary smoke test using only optional settings:
 ```sh
 CSF_LISTEN=127.0.0.1:14111 \
 CSF_WORKBENCH_THEME_DIR=/path/to/consumer-theme \
-bazel run @csf//app/csf/cmd:cmd -- serve
+bazel run @csf//app/csf/cmd:cmd -- host serve
 ```
 
 The HTTP `GetWorkbenchTheme` operation reads the configured stylesheet. A

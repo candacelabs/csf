@@ -174,14 +174,3 @@ func (dashboard *Dashboard) Register(router gin.IRouter) {
 		ctx.Data(http.StatusOK, "text/html; charset=utf-8", dashboardHTML)
 	})
 }
-
-func writeProto(response http.ResponseWriter, message proto.Message) {
-	data, err := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(message)
-	if err != nil {
-		http.Error(response, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	response.Header().Set("Content-Type", "application/json")
-	response.Header().Set("Cache-Control", "no-store")
-	_, _ = response.Write(data)
-}

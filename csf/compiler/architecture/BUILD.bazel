@@ -145,14 +145,82 @@ ocaml_module(
 )
 
 ocaml_module(
-    name = "Emit",
-    sig = "emit.mli",
-    struct = "emit.ml",
+    name = "Emit__Label",
+    sig = "emit/label.mli",
+    struct = "emit/label.ml",
+    deps = [
+        ":Model",
+        ":Syntax_cgen",
+    ],
+)
+
+ocaml_module(
+    name = "Emit__Ocaml",
+    sig = "emit/ocaml.mli",
+    struct = "emit/ocaml.ml",
     deps = [
         ":Codegen_header",
         ":Model",
         ":Syntax_cgen",
+    ],
+)
+
+ocaml_module(
+    name = "Emit__Mermaid",
+    sig = "emit/mermaid.mli",
+    struct = "emit/mermaid.ml",
+    deps = [
+        ":Codegen_header",
+        ":Emit__Label",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Emit__Diagram",
+    sig = "emit/diagram.mli",
+    struct = "emit/diagram.ml",
+    deps = [
+        ":Emit__Label",
+        ":Model",
+        ":Syntax_cgen",
+    ],
+)
+
+ocaml_module(
+    name = "Emit__Review",
+    sig = "emit/review.mli",
+    struct = "emit/review.ml",
+    deps = [
+        ":Codegen_header",
+        ":Emit__Label",
+        ":Model",
+    ],
+)
+
+ocaml_module(
+    name = "Emit__Json",
+    sig = "emit/json.mli",
+    struct = "emit/json.ml",
+    deps = [
+        ":Emit__Label",
+        ":Model",
+        ":Syntax_cgen",
         "@opam.yojson//lib",
+    ],
+)
+
+ocaml_module(
+    name = "Emit",
+    sig = "emit/emit.mli",
+    struct = "emit/emit.ml",
+    deps = [
+        ":Emit__Diagram",
+        ":Emit__Json",
+        ":Emit__Label",
+        ":Emit__Mermaid",
+        ":Emit__Ocaml",
+        ":Emit__Review",
     ],
 )
 
@@ -187,11 +255,19 @@ ocaml_module(
 )
 
 ocaml_module(
+    name = "Git",
+    sig = "git.mli",
+    struct = "git.ml",
+    deps = ["@opam.ocamlsdk//unix/lib"],
+)
+
+ocaml_module(
     name = "Source_check",
     sig = "source_check.mli",
     struct = "source_check.ml",
     deps = [
         ":Generated_policy",
+        ":Git",
         ":Go_policy",
         ":Model",
         "//tools/gorilla_mux_lint:Checker",
@@ -207,6 +283,7 @@ ocaml_module(
         ":Decode",
         ":Emit",
         ":Frontend",
+        ":Git",
         ":Model",
         ":Source_check",
         ":Validate",
@@ -219,6 +296,7 @@ ocaml_module(
     struct = "cli.ml",
     deps = [
         ":Compiler",
+        ":Emit",
         ":Model",
         ":Shell",
         "@opam.cmdliner//lib",

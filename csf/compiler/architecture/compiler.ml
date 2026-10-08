@@ -33,8 +33,22 @@ let io_result file operation =
 
 (* Text to a resolved graph plus its tree census. The census needs the tracked
    inventory, which comes from git, so this is where the checkout is read. *)
+(* Recorded locations name the source relative to the checked root, so no
+   projection carries a host path however the source was named: a relative
+   path is kept, an absolute one inside the root loses the root's prefix, and
+   one outside the root is kept as given. *)
+let label ~root path =
+  if Filename.is_relative path then path
+  else
+    let prefix = Unix.realpath root ^ "/" in
+    let resolved = try Unix.realpath path with Unix.Unix_error _ -> path in
+    if String.starts_with ~prefix resolved then
+      String.sub resolved (String.length prefix) (String.length resolved - String.length prefix)
+    else path
+
 let analyze config =
-  let* syntax = Frontend.parse_files ~grammar_path:config.grammar_path ~source_path:config.source_path in
+  let* syntax = Frontend.parse_files_as ~label:(label ~root:config.root config.source_path)
+    ~grammar_path:config.grammar_path ~source_path:config.source_path in
   let* model = Decode.architecture syntax in
   let* resolved = Validate.resolve model in
   Ok (resolved, Validate.tree_diagnostics resolved.architecture (Source_check.tracked ~root:config.root))
@@ -54,15 +68,44 @@ let checked config = io_result config.source_path (fun () ->
 
 let compile config = Result.map fst (checked config)
 
+(* The declaration alone, resolved with no tree census: a past revision's
+   source is read from wherever it was checked out, not from the checkout. *)
+let resolve_source ~grammar_path ~source_path = io_result source_path (fun () ->
+  let* syntax = Frontend.parse_files ~grammar_path ~source_path in
+  let* model = Decode.architecture syntax in
+  Validate.resolve model)
+
+(* The declaration as it stood at the merge base of [revision] and HEAD: both
+   files come out of git into temporary copies and resolve like any other. *)
+let resolve_revision ~root ~revision ~grammar_path ~source_path =
+  let failure message = Error [{at = {file = source_path; line = 1; column = 1}; code = "CSF_GIT"; message}] in
+  match Git.output ~root ["merge-base"; revision; "HEAD"] with
+  | None -> failure ("no merge base between " ^ revision ^ " and HEAD")
+  | Some base ->
+      let base = String.trim base in
+      let shown path = Git.output ~root ["show"; base ^ ":" ^ path] in
+      match shown grammar_path, shown source_path with
+      | Some grammar, Some source -> io_result source_path (fun () ->
+          let copy contents =
+            let path = Filename.temp_file "csfc-base" ".txt" in
+            Out_channel.with_open_bin path (fun channel -> output_string channel contents);
+            path in
+          let grammar_copy = copy grammar in
+          Fun.protect ~finally:(fun () -> Sys.remove grammar_copy) (fun () ->
+            let source_copy = copy source in
+            Fun.protect ~finally:(fun () -> Sys.remove source_copy) (fun () ->
+              resolve_source ~grammar_path:grammar_copy ~source_path:source_copy)))
+      | _ -> failure (grammar_path ^ " or " ^ source_path ^ " is not in " ^ base)
+
 (* The panel ratio: declared directories over tracked directories. Reads the
    same git inventory the census does, without resolving the graph. *)
 let census ~root (architecture : Model.architecture) =
   (List.length architecture.directories, Facts.tracked_directories (Source_check.tracked ~root))
 
 let projections model = [
-  "csf_architecture_cgen.ml", Emit.ocaml model;
-  "architecture_cgen.mmd", Emit.mermaid model;
-  "review_cgen.md", Emit.review model;
+  "csf_architecture_cgen.ml", Emit.Ocaml.render model;
+  "architecture_cgen.mmd", Emit.Mermaid.render model;
+  "review_cgen.md", Emit.Review.render model;
 ]
 
 (* Rename a completed sibling file into place; readers never see a half-written
@@ -103,4 +146,4 @@ let run mode config = io_result config.output_path (fun () ->
     directories_tracked = tree.directories_tracked;
   })
 
-let json config = Result.map Emit.json (compile config)
+let json config = Result.map Emit.Json.render (compile config)

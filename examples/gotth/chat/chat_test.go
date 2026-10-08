@@ -653,8 +653,6 @@ var _ = Describe("Authorization", func() {
 
 type stranger struct{}
 
-func (stranger) Subject() string { return "stranger" }
-
 // ---------------------------------------------------------------------------
 
 // The FR-55 property that breaks naive implementations, stated on the

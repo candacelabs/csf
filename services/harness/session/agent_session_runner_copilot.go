@@ -10,10 +10,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/io/net/model"
 	"github.com/candacelabs/csf/io/net/model/claudecode"
 	"github.com/candacelabs/csf/io/net/model/copilotcli"
-	"github.com/candacelabs/csf/io/ipc/proc"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 )
 

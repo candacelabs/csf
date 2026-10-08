@@ -58,7 +58,7 @@ CSF and its required containers. Use `csf status`, `csf logs`, and `csf down`
 to manage the same app. `down` keeps its persistent data.
 
 For a consumer that already owns a Bazel workspace, the archive also provides
-the same application as `@csf//app/csf/cmd:cmd`. Run it with `serve` and set
+the same application as `@csf//app/csf/cmd:cmd`. Run it with `host serve` and set
 the `CSF_*` startup environment described in
 [the configuration contract](configuration.md); explicit flags override those
 environment defaults. The minimal runtime needs no database or provider, and

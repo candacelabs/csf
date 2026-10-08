@@ -3,3 +3,4 @@
 package evaluate_test
 
 //go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mock_launcher_test.go -package=evaluate_test github.com/candacelabs/csf/io/ipc/proc ILauncher
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mock_build_evaluator_test.go -package=evaluate_test github.com/candacelabs/csf/services/ouroboros/evaluate IReplayer,IRunRecords

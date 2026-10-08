@@ -142,7 +142,7 @@ docker run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp \
 ## Run it as a plain binary
 
 The adapter has no `cmd/` or flags of its own. The checked-in
-[`app/csf/cmd/main.go`](../../app/csf/cmd/main.go) is the
+[`app/csf/verbs/host_serve.go`](../../app/csf/verbs/host_serve.go) is the
 complete, compile-checked composition: it owns configuration, applies
 the adapter and cron migrations, constructs every required bridge, store,
 worktree, terminal and schedule dependency, mounts the adapter into Gin, and
@@ -161,7 +161,7 @@ run:
 
 ```bash
 (cd services/copilot-adapter/ui && npm ci && VITE_CSF_DASHBOARD_URL=/ npm run build)
-go run ./app/csf/cmd serve \
+go run ./app/csf/cmd host serve \
   --workbench-database-config /absolute/path/to/workbench-database.json \
   --workbench-repository /absolute/path/to/repository \
   --workbench-ui ./services/copilot-adapter/ui/dist
@@ -209,7 +209,7 @@ and `store/migrate.go` (the embedded migrations, the only schema source, applied
 never has a `cmd/`, and never ships a Dockerfile; those are one-to-one with a
 binary and live in `app/`:
 
-[`app/csf/cmd/main.go`](../../app/csf/cmd/main.go) is the
+[`app/csf/verbs/host_serve.go`](../../app/csf/verbs/host_serve.go) is the
 maintained reference composition. It supplies every required option and is
 compiled in CI, so consumers should follow that source instead of copying a
 partial constructor example that can drift out of date.

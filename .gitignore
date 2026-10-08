@@ -11,5 +11,10 @@ tools/csf-operator/target/
 /ontology-ratchet/
 /ontology-ratchet.md
 
-# A go build of app/harness/cmd at the root writes this binary; it is never source.
+# A go build of app/csf/cmd at the root writes this binary; it is never source.
 /cmd
+# Python bytecode a test or script run writes beside its source; never source.
+__pycache__/
+*.pyc
+# Git worktrees agent sessions create for isolated work; never source.
+/.claude/worktrees/

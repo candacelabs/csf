@@ -5,7 +5,7 @@ go_library(
     srcs = ["detector.go"],
     importpath = "github.com/candacelabs/csf/services/harness/longturns",
     visibility = [
-        "//app/harness:__subpackages__",
+        "//app/csf:__subpackages__",
         "//services/harness:__subpackages__",
     ],
 )

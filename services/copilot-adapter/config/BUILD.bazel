@@ -4,7 +4,7 @@ load("@rules_go//go:def.bzl", "go_library")
 exports_files(
     ["traces.defaults.json"],
     visibility = [
-        "//app/csf/cmd:__pkg__",
+        "//app/csf/verbs:__pkg__",
         "//services/copilot-adapter:__pkg__",
     ],
 )

@@ -19,9 +19,9 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/candacelabs/csf/csf"
+	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/io/net/model"
 	"github.com/candacelabs/csf/io/net/model/claudecode"
-	"github.com/candacelabs/csf/io/ipc/proc"
 	"github.com/candacelabs/csf/pkg/telemetry"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	"github.com/candacelabs/csf/services/harness/session"
@@ -252,7 +252,8 @@ var _ = Describe("AgentSessionRunner", func() {
 				"--permission-mode", "dontAsk",
 				"--append-system-prompt", instructions,
 				"--allowedTools", "Bash,Edit",
-			}))
+				"--strict-mcp-config",
+			}), "no MCP server but csf's own reaches a session (#654)")
 
 			settings, err := os.ReadFile(filepath.Join(run, session.SettingsFile))
 			Expect(err).NotTo(HaveOccurred())

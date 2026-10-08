@@ -19,8 +19,8 @@ import (
 	. "github.com/onsi/gomega"
 	"go.uber.org/mock/gomock"
 
-	iogithub "github.com/candacelabs/csf/io/net/github"
 	"github.com/candacelabs/csf/io/ipc/proc"
+	iogithub "github.com/candacelabs/csf/io/net/github"
 	"github.com/candacelabs/csf/pkg/telemetry"
 	"github.com/candacelabs/csf/services/harness/session"
 	"github.com/candacelabs/csf/services/harness/sessiongate"
@@ -153,7 +153,7 @@ var _ = Describe("SessionGate", func() {
 		})
 
 		It("denies a stop of csf serve", func() {
-			decision, err := operator.Handle(ctx, session.HookPreToolUse, hookInput(session.HookPreToolUse, session.ToolBash, "csf view -stop", false))
+			decision, err := operator.Handle(ctx, session.HookPreToolUse, hookInput(session.HookPreToolUse, session.ToolBash, "csf stop", false))
 			Expect(err).NotTo(HaveOccurred())
 			Expect(decision.HookSpecificOutput.PermissionDecision).To(Equal("deny"))
 			Expect(decision.HookSpecificOutput.PermissionDecisionReason).To(ContainSubstring("Workbench at http://127.0.0.1:14120/"))
@@ -353,6 +353,37 @@ var _ = Describe("SessionGate", func() {
 			},
 			Entry("watching a run", `gh run watch 42 --exit-status`),
 			Entry("the words in text", `echo "gh pr merge 16"`),
+		)
+	})
+
+	Describe("the MCP gate", func() {
+		call := func(tool string) []byte { return hookInput(session.HookPreToolUse, tool, "", false) }
+
+		DescribeTable("refuses a tool of any MCP server but csf, naming the server and csf",
+			func(tool string, server string) {
+				decision, err := gate.Handle(ctx, session.HookPreToolUse, call(tool))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(decision.HookSpecificOutput.PermissionDecision).To(Equal("deny"))
+				Expect(decision.HookSpecificOutput.PermissionDecisionReason).To(And(
+					ContainSubstring(string(sessiongate.RuleForeignMCP)),
+					ContainSubstring(`the MCP server "`+server+`"`),
+					ContainSubstring("csf is the only MCP server")))
+				Expect(gateRecords(directory)).To(ContainElement(And(
+					HaveKeyWithValue("gate", sessiongate.GateMCP), HaveKeyWithValue("decision", sessiongate.DecisionDeny))))
+			},
+			Entry("GitHub's own server", "mcp__github__issue_write", "github"),
+			Entry("a mail server", "mcp__Gmail__send_message", "Gmail"),
+			Entry("a server whose name starts like csf's", "mcp__csfx__anything", "csfx"),
+		)
+
+		DescribeTable("leaves csf's own tools and built-in tools alone",
+			func(tool string) {
+				decision, err := gate.Handle(ctx, session.HookPreToolUse, call(tool))
+				Expect(err).NotTo(HaveOccurred())
+				Expect(decision).To(BeNil())
+			},
+			Entry("a csf GitHub tool", "mcp__csf__IssuesGet"),
+			Entry("a built-in tool", "Read"),
 		)
 	})
 

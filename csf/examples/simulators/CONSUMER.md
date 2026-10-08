@@ -36,7 +36,7 @@ The current host profiles select CARLA or Isaac. Forks fitting those entrypoint 
 | Inspect training runs | Consumer's MLflow API/MCP when training is added | Experiment, metrics, model/dataset provenance and artifact storage. A complete training loop is not delivered by these workers. |
 | Modify consumer code | Consumer's existing repository/filesystem/build/test tools | Scoped checkout/worktree and its instructions. CSF does not require source rewriting or an extra agent runtime to schedule jobs. |
 
-The [generated OpenAPI](../../tools/codegen/generated/openapi/adapter.openapi.json) and [RPC definitions](../../tools/codegen/api/adapter.proto) own operation shapes. `csf call --endpoint <host> <Operation>` uses those same operations with protobuf JSON on stdin. The embedding host owns the router, configuration and lifecycle; simulator coordination and log projection run in its existing Go worker.
+The [generated OpenAPI](../../tools/codegen/generated/openapi/adapter.openapi.json) and [RPC definitions](../../tools/codegen/api/adapter.proto) own operation shapes. `csf host call --endpoint <host> <Operation>` uses those same operations with protobuf JSON on stdin. The embedding host owns the router, configuration and lifecycle; simulator coordination and log projection run in its existing Go worker.
 
 ## Remaining consumer work
 

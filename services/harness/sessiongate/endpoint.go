@@ -4,7 +4,6 @@ package sessiongate
 
 import (
 	"fmt"
-	"path"
 	"slices"
 	"strconv"
 	"strings"
@@ -17,15 +16,12 @@ import (
 // What the endpoint gate recognises: the commands that stop serving an
 // operator-facing endpoint, and the operator's own retirement verb.
 const (
-	commandCSF     = "csf"
-	commandHarness = "harness"
-	csfVerbStop    = "stop"
-	csfVerbView    = "view"
-	csfVerbServe   = "serve"
-	csfVerbRetire  = "retire"
+	commandCSF    = "csf"
+	csfVerbStop   = "stop"
+	csfVerbServe  = "serve"
+	csfVerbRetire = "retire"
 	// csfNounEndpoint is the csf verb that holds the operator's retire.
 	csfNounEndpoint = "endpoint"
-	csfFlagStop     = "stop"
 
 	commandKill    = "kill"
 	commandPkill   = "pkill"
@@ -68,8 +64,7 @@ func (finding EndpointFinding) Message() string {
 
 // FindEndpointStops parses command as bash and returns every command in it,
 // or in a literal script handed to sh -c, that stops serving an active
-// endpoint of the registry: csf stop or csf view -stop without a csf serve in
-// the same command, kill of the registered host process, pkill or killall
+// endpoint of the registry: csf stop without a csf serve in the same command, kill of the registered host process, pkill or killall
 // naming csf, and docker stop, rm or kill of an endpoint's container. csf
 // endpoint retire is returned too: it is the operator's.
 func FindEndpointStops(command string, registry endpoint.Registry) ([]EndpointFinding, error) {
@@ -132,13 +127,13 @@ func (scan *endpointScan) call(name string, arguments []string, text string) {
 	if len(operands) > 0 {
 		verb = operands[0]
 	}
-	csf := name == commandCSF || name == commandHarness
+	csf := name == commandCSF
 	switch {
 	case csf && verb == csfVerbServe:
 		scan.restarts = true
 	case csf && verb == csfNounEndpoint && slices.Contains(operands, csfVerbRetire):
 		scan.findings = append(scan.findings, scannedStop{EndpointFinding: EndpointFinding{Snippet: text, Retire: true}})
-	case csf && (verb == csfVerbStop || (verb == csfVerbView && slices.ContainsFunc(arguments, isStopFlag))),
+	case csf && verb == csfVerbStop,
 		name == commandKill && scan.pid > 0 && slices.Contains(operands, strconv.Itoa(scan.pid)),
 		(name == commandPkill || name == commandKillall) && slices.ContainsFunc(operands, namesHost):
 		scan.stop(text, true, func(served endpoint.Endpoint) bool { return served.Owner == endpoint.OwnerServe })
@@ -158,17 +153,9 @@ func (scan *endpointScan) stop(text string, hostStop bool, matches func(served e
 	}
 }
 
-// isStopFlag is Go's flag package spelling of -stop: one or two dashes, with
-// or without a value.
-func isStopFlag(argument string) bool {
-	name := strings.TrimPrefix(strings.TrimPrefix(argument, flagPrefix), flagPrefix)
-	name, _, _ = strings.Cut(name, assignment)
-	return argument != name && name == csfFlagStop
-}
-
 // namesHost reports a pkill or killall pattern that matches csf serve.
 func namesHost(pattern string) bool {
-	return strings.Contains(pattern, commandCSF) || path.Base(pattern) == commandHarness
+	return strings.Contains(pattern, commandCSF)
 }
 
 // dockerRemoves reports docker stop, rm or kill, also spelled docker

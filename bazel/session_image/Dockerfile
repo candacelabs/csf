@@ -22,7 +22,7 @@ COPY runtime/ ./runtime/
 COPY services/ ./services/
 COPY web/ ./web/
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS=linux GOTOOLCHAIN=local go build -trimpath -buildvcs=false -ldflags='-s -w' -o /out/csf ./app/harness/cmd
+    CGO_ENABLED=0 GOOS=linux GOTOOLCHAIN=local go build -trimpath -buildvcs=false -ldflags='-s -w' -o /out/csf ./app/csf/cmd
 
 FROM ${BUILD_IMAGE}
 USER root

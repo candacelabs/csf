@@ -9,7 +9,7 @@ printf '%s\n' 'agent-mcp-test-key' >/workspace/agent-mcp-key
 CSF_LISTEN=127.0.0.1:14111 \
 CSF_WORKBENCH_THEME_DIR=/workspace/theme \
 CSF_AGENT_MCP_KEY_FILE=/workspace/agent-mcp-key \
-  "$consumer_binary" serve >/workspace/runtime.log 2>&1 &
+  "$consumer_binary" host serve >/workspace/runtime.log 2>&1 &
 consumer_pid=$!
 trap 'kill -TERM "$consumer_pid" 2>/dev/null || true; wait "$consumer_pid" || true' EXIT
 

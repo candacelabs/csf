@@ -11,7 +11,7 @@ architecture csf version 1 {
   // the relay that calls it; lifecycle lazy is what makes that call valid.
   scope relay_inbox_run under application;
 
-  manager composition in host scope application source "app/csf/cmd" state existing lifecycle borrowed verification pending;
+  manager composition in host scope application source "app/csf/verbs" state existing lifecycle borrowed verification pending;
   service csf_services in host scope application source "csf" state existing lifecycle scoped verification pending;
   service workbench in host scope application source "services/copilot-adapter/workbench" state existing lifecycle scoped verification pending;
   library kanban_widgets in host scope application source "services/copilot-adapter/kanban" state existing lifecycle borrowed verification test "services/copilot-adapter/integration/workspace_test.go";
@@ -133,7 +133,7 @@ architecture csf version 1 {
   dir ".claude/skills/house-code-style/scripts" allowed ["py"];
   dir ".claude/skills/writing-new-tests" allowed ["md"];
   dir ".dis" allowed ["dockerfile"];
-  dir ".github" allowed [];
+  dir ".github" allowed ["md"];
   dir ".github/actions" allowed [];
   dir ".github/actions/bazel-runtime-cache" allowed ["py", "sh", "yml"];
   dir ".github/actions/ocaml-toolchain" allowed ["md", "sh", "yml"];
@@ -143,8 +143,6 @@ architecture csf version 1 {
   dir "app/csf" allowed ["dockerfile", "dockerignore", "sh"];
   dir "app/csf/archive" allowed ["go"];
   dir "app/csf/cmd" allowed ["bazel", "go"];
-  dir "app/csf/cmd/testdata" allowed [];
-  dir "app/csf/cmd/testdata/scoreboard" allowed ["json"];
   dir "app/csf/native" allowed ["json", "md", "py", "sh"];
   dir "app/csf/native/config" allowed ["example", "md"];
   dir "app/csf/native/libexec" allowed ["csf_initialize", "csf_serve", "minio_create_bucket", "postgresql_first_boot"];
@@ -155,13 +153,14 @@ architecture csf version 1 {
   dir "app/csf/native/receipt-rs/src" allowed ["rs"];
   dir "app/csf/native/systemd" allowed ["service"];
   dir "app/csf/native/sysusers" allowed ["conf"];
+  dir "app/csf/verbs" allowed ["bazel", "go"];
+  dir "app/csf/verbs/recipe" allowed ["json", "md"];
+  dir "app/csf/verbs/testdata" allowed [];
+  dir "app/csf/verbs/testdata/scoreboard" allowed ["json"];
   dir "app/deploy" allowed ["md"];
   dir "app/deploy/bootstrap" allowed ["bazel", "go"];
   dir "app/deploy/bootstrap/bootstrap_test" allowed ["bazel", "go"];
   dir "app/deploy/cmd" allowed ["bazel", "go"];
-  dir "app/harness" allowed [];
-  dir "app/harness/cmd" allowed ["bazel", "go"];
-  dir "app/harness/cmd/recipe" allowed ["json", "md"];
   dir "app/intake" allowed [];
   dir "app/intake/cmd" allowed ["bazel", "go"];
   dir "app/nodeexec" allowed ["dockerfile", "md"];
@@ -188,6 +187,7 @@ architecture csf version 1 {
   dir "csf/compiler" allowed ["bazel", "gitignore", "json", "md"];
   dir "csf/compiler/api_codegen" allowed ["bazel", "md", "ml"];
   dir "csf/compiler/architecture" allowed ["bazel", "dl", "ebnf", "md", "ml", "mli"];
+  dir "csf/compiler/architecture/emit" allowed ["ml", "mli"];
   dir "csf/compiler/collections_codegen" allowed ["bazel", "ml"];
   dir "csf/compiler/language" allowed ["bazel", "csf", "ebnf", "md", "ml", "mli", "py"];
   dir "csf/compiler/metric_compat" allowed ["bazel", "py"];
@@ -370,6 +370,13 @@ architecture csf version 1 {
   dir "pkg/cron" allowed ["bazel", "go", "md"];
   dir "pkg/cron/contract" allowed ["bazel", "go"];
   dir "pkg/cron/v1" allowed ["bazel", "go", "proto"];
+  dir "pkg/deadcode" allowed ["bazel", "go"];
+  dir "pkg/deadcode/testdata" allowed [];
+  dir "pkg/deadcode/testdata/module" allowed ["mod"];
+  dir "pkg/deadcode/testdata/module/cmd" allowed [];
+  dir "pkg/deadcode/testdata/module/cmd/app" allowed ["go"];
+  dir "pkg/deadcode/testdata/module/lib" allowed ["go"];
+  dir "pkg/evaluate" allowed ["bazel", "go"];
   dir "pkg/eventually" allowed ["bazel", "go"];
   dir "pkg/gotth" allowed ["bazel", "md", "sh"];
   dir "pkg/gotth/.dis" allowed ["bench", "dockerfile"];

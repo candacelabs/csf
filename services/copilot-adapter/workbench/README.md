@@ -14,7 +14,7 @@ persisted sessions. Until restoration succeeds, [Workbench](../../../csf/docs/ge
 `Adapter.RunSchedules(ctx)` under the caller's lifecycle and call `Close(ctx)`
 before closing the bridge and database. [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) closes its live board and
 adapter; the caller retains the bridge and database. The public
-[CSF host](../../../app/csf/cmd/main.go) uses this composition.
+[CSF host](../../../app/csf/verbs/host_serve.go) uses this composition.
 
 The UI build accepts `VITE_CSF_DASHBOARD_URL=/` for navigation to a cohosted board.
 An omitted value leaves the standalone [Workbench](../../../csf/docs/generated/ontology_cgen.md#term-bench) navigation unchanged.

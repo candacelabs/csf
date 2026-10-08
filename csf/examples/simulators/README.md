@@ -98,15 +98,15 @@ the operation. Vendor Python remains inside the simulator job container.
 
 ```sh
 printf '%s\n' '{"runId":"carla-camera-1","simulator":"SIMULATOR_CARLA","executor":"SIMULATION_EXECUTOR_LOCAL","steps":120,"captureEvery":20}' \
-  | csf call --endpoint http://127.0.0.1:14111 SubmitSimulation
+  | csf host call --endpoint http://127.0.0.1:14111 SubmitSimulation
 printf '%s\n' '{"runId":"carla-camera-1"}' \
-  | csf call --endpoint http://127.0.0.1:14111 InspectSimulation
+  | csf host call --endpoint http://127.0.0.1:14111 InspectSimulation
 printf '%s\n' '{"limit":20}' \
-  | csf call --endpoint http://127.0.0.1:14111 ListSimulations
+  | csf host call --endpoint http://127.0.0.1:14111 ListSimulations
 printf '%s\n' '{"runId":"carla-camera-1","maxBytes":65536}' \
-  | csf call --endpoint http://127.0.0.1:14111 ReadSimulationLogs
+  | csf host call --endpoint http://127.0.0.1:14111 ReadSimulationLogs
 printf '%s\n' '{"runId":"carla-camera-1"}' \
-  | csf call --endpoint http://127.0.0.1:14111 CancelSimulation
+  | csf host call --endpoint http://127.0.0.1:14111 CancelSimulation
 ```
 
 `captureEvery: 20` asks the worker to retain a real 640x360 vendor RGB frame

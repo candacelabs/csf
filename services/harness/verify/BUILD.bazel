@@ -5,7 +5,7 @@ go_library(
     srcs = ["verifier.go"],
     importpath = "github.com/candacelabs/csf/services/harness/verify",
     visibility = [
-        "//app/harness:__subpackages__",
+        "//app/csf:__subpackages__",
         "//services/harness:__subpackages__",
     ],
     deps = [

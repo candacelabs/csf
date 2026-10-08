@@ -41,8 +41,8 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/candacelabs/csf/io/net/github"
 	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/net/github"
 	"github.com/candacelabs/csf/services/harness/endpoint"
 	"github.com/candacelabs/csf/services/harness/session"
 )
@@ -277,6 +277,9 @@ func (gate *SessionGate) Handle(ctx context.Context, event string, input []byte)
 	case session.HookPreToolUse:
 		if hook.ToolName == session.ToolAskUserQuestion {
 			return call.question(ctx), nil
+		}
+		if denied := call.mcp(ctx); denied != nil {
+			return denied, nil
 		}
 		if denied := call.wait(ctx); denied != nil {
 			return denied, nil

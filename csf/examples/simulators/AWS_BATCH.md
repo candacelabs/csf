@@ -2,10 +2,10 @@
 
 | Operation | Generated command | Result |
 | --- | --- | --- |
-| Submit | `csf call --endpoint http://127.0.0.1:14111 SubmitSimulation` | Durable run identity and reserved admission budget |
-| Inspect | `csf call --endpoint http://127.0.0.1:14111 InspectSimulation` | Provider state, completed steps, latest measurements, artifact prefix, collection errors |
-| List | `csf call --endpoint http://127.0.0.1:14111 ListSimulations` | Recent runs |
-| Cancel | `csf call --endpoint http://127.0.0.1:14111 CancelSimulation` | Cancellation request; inspect until cleanup is confirmed |
+| Submit | `csf host call --endpoint http://127.0.0.1:14111 SubmitSimulation` | Durable run identity and reserved admission budget |
+| Inspect | `csf host call --endpoint http://127.0.0.1:14111 InspectSimulation` | Provider state, completed steps, latest measurements, artifact prefix, collection errors |
+| List | `csf host call --endpoint http://127.0.0.1:14111 ListSimulations` | Recent runs |
+| Cancel | `csf host call --endpoint http://127.0.0.1:14111 CancelSimulation` | Cancellation request; inspect until cleanup is confirmed |
 
 Requests arrive on stdin. The identical named tools are available through the
 shared `/mcp` endpoint, already configured in Copilot Workbench.

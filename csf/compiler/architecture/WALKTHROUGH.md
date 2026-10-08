@@ -99,7 +99,7 @@ service workbench in host scope application
 | [Decoder](decode.ml) | Builds a `Model.component`; rejects fields it cannot consume. | A newly added grammar field could silently disappear before validation. |
 | [Validator](validate.ml) and [rules](rules.dl) | Resolves `host` and `application` through Datalog rules over the model's facts; requires a scoped service lifetime. | A service could claim to borrow a lifetime without declaring its cleanup obligations. |
 | [Source check](source_check.ml) | Checks the declared path and recognized Go process-boundary APIs. | A valid declaration could refer to a missing implementation. |
-| [Emitter](emit.ml) | Produces typed OCaml, a diagram and unresolved obligations from the same model. | Three independently authored descriptions could drift. |
+| [Emitter](emit/emit.ml) | Produces typed OCaml, a diagram and unresolved obligations from the same model. | Three independently authored descriptions could drift. |
 
 `existing` means implementation is present. It does not mean deployed or verified.
 `verification pending` preserves that distinction. Even a test-file reference

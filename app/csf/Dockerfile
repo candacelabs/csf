@@ -53,4 +53,4 @@ ENV COPILOT_CLI_PATH=/usr/local/bin/copilot
 USER node
 EXPOSE 14111
 ENTRYPOINT ["/usr/local/bin/csf"]
-CMD ["serve", "--listen", "0.0.0.0:14111", "--workbench-ui", "/app/workbench-ui"]
+CMD ["host", "serve", "--listen", "0.0.0.0:14111", "--workbench-ui", "/app/workbench-ui"]

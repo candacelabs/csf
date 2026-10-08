@@ -5,6 +5,7 @@ go_library(
     srcs = [
         "decider.go",
         "eval.go",
+        "evaluator.go",
         "exchange.go",
         "jev.go",
         "ledger.go",

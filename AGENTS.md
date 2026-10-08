@@ -317,6 +317,14 @@ tools/bazel.sh run //:gazelle                 # regenerate BUILD files
 tools/check-bazel-metadata.sh                 # fail on generated-metadata drift
 ```
 
+That is the **hard pin**, and CI and every release build with it. On a
+developer machine that cannot reach the pinned toolchain, `csf bazel
+--pin=soft -- build //...` is the **soft pin**: host Bazel, the active opam
+switch, every package that drifts from `csf/compiler/opam.lock.json`
+printed, `MODULE.bazel.lock` untouched, and no inherited environment beyond
+`PATH`, `HOME` and `USER`. It is refused when `CI` is set. A soft build
+proves the code, not the pin. `csf bazel` with no `--pin` is the hard pin.
+
 `.bazelversion` (Bazel 9.2.0) and `MODULE.bazel` (rules_go 0.62.0, Gazelle
 0.52.2, Go SDK 1.26.5, rules_rust 0.73.0) are the only version authority;
 [`bazel/versions.bzl`](bazel/versions.bzl) mirrors them for Starlark and a test

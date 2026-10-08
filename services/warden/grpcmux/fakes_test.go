@@ -148,18 +148,6 @@ func (f *fakeViewSource) publish(v warden.ClusterView) {
 	f.signal(v)
 }
 
-// closeAll models the election loop shutting down: every subscription channel
-// is closed.
-func (f *fakeViewSource) closeAll() {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	for id, ch := range f.subs {
-		delete(f.subs, id)
-		f.active--
-		close(ch)
-	}
-}
-
 func (f *fakeViewSource) activeSubs() int {
 	f.mu.Lock()
 	defer f.mu.Unlock()

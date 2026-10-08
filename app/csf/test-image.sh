@@ -18,7 +18,7 @@ docker run --rm --network none --entrypoint /bin/bash "${csf_test_image}" -euo p
   git worktree add -b smoke "${csf_test_root}/worktree"
   cmp fixture.bin "${csf_test_root}/worktree/fixture.bin"
   git worktree remove "${csf_test_root}/worktree"
-  /app/candace-runtime serve --listen 127.0.0.1:14111 > "${csf_test_root}/runtime.log" 2>&1 &
+  /app/candace-runtime host serve --listen 127.0.0.1:14111 > "${csf_test_root}/runtime.log" 2>&1 &
   csf_test_pid=$!
   trap '\''kill "${csf_test_pid}" 2>/dev/null || true'\'' EXIT
   if ! curl --silent --show-error --fail --retry 10 --retry-connrefused --retry-delay 1 \

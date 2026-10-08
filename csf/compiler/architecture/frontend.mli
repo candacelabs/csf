@@ -35,3 +35,9 @@ val parse_text : grammar:string -> source:string -> filename:string ->
     messages or terminate the calling process. *)
 val parse_files : grammar_path:string -> source_path:string ->
   (node, Model.diagnostic list) result
+
+(** [parse_files], but source locations name the file [label] rather than the
+    path it was read from, so a caller decides how a recorded location names
+    it. File access failures still name the actual path. *)
+val parse_files_as : label:string -> grammar_path:string -> source_path:string ->
+  (node, Model.diagnostic list) result

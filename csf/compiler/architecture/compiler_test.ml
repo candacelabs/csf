@@ -92,6 +92,14 @@ let compiler_cases () = with_fixture (fun root write ->
   expect "unverified scope cannot emit closed architecture" (Result.is_error (Compiler.run Compiler.Emit closed));
   expect "failed compilation leaves outputs absent" (not (Sys.file_exists config.output_path));
   ignore (Compiler.run Compiler.Emit config |> require);
+  let emitted = In_channel.with_open_bin (Filename.concat config.output_path "csf_architecture_cgen.ml")
+    In_channel.input_all in
+  let contains text fragment =
+    let rec search offset = offset + String.length fragment <= String.length text &&
+      (String.sub text offset (String.length fragment) = fragment || search (offset + 1)) in
+    search 0 in
+  expect "absolute source path leaked into a projection" (not (contains emitted root));
+  expect "source location not relative to the root" (contains emitted "Model.file = \"architecture.csf\"");
   ignore (Compiler.run Compiler.Check_generated config |> require);
   write "generated/review_cgen.md" "stale";
   expect "library detects artifact drift" (Result.is_error (Compiler.run Compiler.Check_generated config));

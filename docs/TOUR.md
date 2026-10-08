@@ -467,7 +467,7 @@ should not. Writing "please don't" in a prompt does not stop it. A gate does.
 **Figure 11.** A harness session. A typed recipe becomes a session in its own git worktree; every command passes the session gate, and the first commit opens a draft pull request.
 
 **What it looks like.** A session starts from a typed recipe. This is the sample
-`csf init` writes, from [`app/harness/cmd/recipe/agent.json`](../app/harness/cmd/recipe/agent.json):
+`csf init` writes, from [`app/csf/verbs/recipe/agent.json`](../app/csf/verbs/recipe/agent.json):
 
 ```json
 {

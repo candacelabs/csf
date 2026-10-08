@@ -96,12 +96,6 @@ func toggled(set []string, key string, on bool) []string {
 	return set
 }
 
-func prefsEqual(previous ViewPrefs, next ViewPrefs) bool {
-	return slices.Equal(previous.Expanded, next.Expanded) && slices.Equal(previous.Internals, next.Internals) &&
-		slices.Equal(previous.Composing, next.Composing) && slices.Equal(previous.Opened, next.Opened) &&
-		previous.OthersOpen == next.OthersOpen && previous.Filter == next.Filter && previous.Show == next.Show && previous.Defined == next.Defined
-}
-
 // The view events a browser sends. Each changes only the viewer's view.
 const (
 	// EventInternals shows or hides a card's internals and raw activity.

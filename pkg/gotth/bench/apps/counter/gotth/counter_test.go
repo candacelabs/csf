@@ -395,8 +395,6 @@ func session(id live.ID) live.Session[live.AnonymousIdentity] {
 
 type anonymous struct{}
 
-func (anonymous) Subject() string { return "anonymous" }
-
 // mixedLog is one session's whole event log: the four operations F-CTR-2 names,
 // each followed by the sync the store pushes back, plus the keyboard path
 // F-CTR-6 adds. It is the log ReplayN replays.

@@ -79,13 +79,6 @@ func NewStubOpenTurnExecutor() *StubOpenTurnExecutor {
 	return &StubOpenTurnExecutor{StubTurnExecutor: NewStubTurnExecutor()}
 }
 
-// StubTurnExecutorFactory returns a factory that creates stub executors.
-func StubTurnExecutorFactory() TurnExecutorFactory {
-	return func(spec TurnExecutorSpec) (ITurnExecutor, error) {
-		return NewStubTurnExecutor(), nil
-	}
-}
-
 // StubOpenTurnExecutorFactory returns a factory that creates stub open executors.
 func StubOpenTurnExecutorFactory() OpenTurnExecutorFactory {
 	return func(ctx context.Context, spec TurnExecutorSpec) (IOpenTurnExecutor, error) {

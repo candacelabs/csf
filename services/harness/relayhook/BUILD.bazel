@@ -8,7 +8,7 @@ go_library(
         "settings.go",
     ],
     importpath = "github.com/candacelabs/csf/services/harness/relayhook",
-    visibility = ["//app/harness:__subpackages__"],
+    visibility = ["//app/csf:__subpackages__"],
     deps = [
         "//csf",
         "//pkg/atomicfile",

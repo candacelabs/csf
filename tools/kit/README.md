@@ -51,7 +51,7 @@ Add `--prefix <dir>` to install somewhere other than `$HOME/.local/bin`, and
 
 What it does, in order:
 
-1. Builds `csf` from `app/harness/cmd` inside the `golang:1.26.5-bookworm`
+1. Builds `csf` from `app/csf/cmd` inside the `golang:1.26.5-bookworm`
    container, running as you (not root), with its Go module cache under
    `<prefix>/.csf-kit/go`. Installs it as `<prefix>/csf`.
 2. Clones the public repository `candacelabs/rrsi` at the pinned revision
@@ -231,8 +231,7 @@ runs. You do not configure them; the event log shows each decision.
 - **The endpoint gate** keeps every address in the
   [endpoint registry](../../csf/docs/generated/ontology_cgen.md#term-endpoint_registry)
   served. It rejects a shell command that would stop serving one with no
-  retirement record: `csf stop` or `csf view -stop` without a `csf serve` in
-  the same command, a `kill` of the recorded `csf serve` process, `pkill` or
+  retirement record: `csf stop` without a `csf serve` in the same command, a `kill` of the recorded `csf serve` process, `pkill` or
   `killall` naming `csf`, and `docker stop`, `rm` or `kill` of a container an
   endpoint names. The reason names each endpoint, its addresses and its users.
   It also rejects `csf endpoint retire`, which records the operator's own
@@ -248,7 +247,7 @@ request without the [agent](../../csf/docs/generated/ontology_cgen.md#term-agent
 
 `<repo>/.csf/assignments/sample/agent.json` is an `AgentAssignmentRecipe`, the
 message defined in `proto/candace/brainspine/v1/brainspine.proto`. The
-`csf init` fills the templates in `app/harness/cmd/recipe/`, which are built into `csf`; edit the copy in your
+`csf init` fills the templates in `app/csf/verbs/recipe/`, which are built into `csf`; edit the copy in your
 repository to make your own [assignment](../../csf/docs/generated/ontology_cgen.md#term-assignment). One rule throughout: `branch` must
 differ from `base_branch`, and `allowed_tools` must not be empty.
 

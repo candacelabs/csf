@@ -46,7 +46,7 @@ jobs:
             --env GOCACHE=/tmp/go-cache --env GOMODCACHE=/tmp/go-modules \
             --env GOTOOLCHAIN=local --env GOFLAGS=-mod=readonly \
             golang:1.26.5-bookworm@sha256:6c5605ab3a9a9fb3c4eafe5b3d63cdbf3881caf113262b67862547b54a9db599 \
-            go build -trimpath -o "dist/$ASSET" ./app/harness/cmd
+            go build -trimpath -o "dist/$ASSET" ./app/csf/cmd
           (cd dist && sha256sum "$ASSET" > "$ASSET.sha256")
           cat "dist/$ASSET.sha256"
 

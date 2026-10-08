@@ -6,5 +6,5 @@ if [ -z "${CSF_DATABASE_CONFIG:-}" ]; then
   exit 1
 fi
 
-exec /opt/candace/csf/components/csf/bin/csf initialize \
+exec /opt/candace/csf/components/csf/bin/csf host initialize \
   "--database-config=${CSF_DATABASE_CONFIG}"

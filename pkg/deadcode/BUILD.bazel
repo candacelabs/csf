@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "deadcode",
+    srcs = [
+        "deadcode.go",
+        "fix.go",
+    ],
+    importpath = "github.com/candacelabs/csf/pkg/deadcode",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//pkg/atomicfile",
+        "@org_golang_x_tools//go/callgraph/rta",
+        "@org_golang_x_tools//go/packages",
+        "@org_golang_x_tools//go/ssa",
+        "@org_golang_x_tools//go/ssa/ssautil",
+        "@org_golang_x_tools//imports",
+    ],
+)
+
+go_test(
+    name = "deadcode_test",
+    srcs = [
+        "deadcode_acceptance_test.go",
+        "deadcode_suite_test.go",
+        "deadcode_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        ":deadcode",
+        "@com_github_onsi_ginkgo_v2//:ginkgo",
+        "@com_github_onsi_gomega//:gomega",
+    ],
+)

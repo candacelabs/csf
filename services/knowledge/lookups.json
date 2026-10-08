@@ -1,9 +1,9 @@
 {
   "lookups": [
     {"query": "the default executor setting", "paths": ["services/harness/agent_session_service_executor.go"]},
-    {"query": "the upgrade verb", "paths": ["app/harness/cmd/upgrade.go"]},
+    {"query": "the upgrade verb", "paths": ["app/csf/verbs/upgrade.go"]},
     {"query": "the burst credentials (burst.* in providers.json)", "paths": ["services/cloud/cloud_jobs_burst.go"]},
-    {"query": "the widgets path", "paths": ["app/harness/cmd/widgets.go"]},
+    {"query": "the widgets path", "paths": ["app/csf/verbs/widgets.go"]},
     {"query": "where CSF provisions its own PostgreSQL database and its password", "paths": ["services/database/database.go"]},
     {"query": "how the Grafana datasource and dashboards are provisioned", "paths": ["services/views/stack.go"]},
     {"query": "the session gate rule that rejects a foreground sleep", "paths": ["services/harness/sessiongate/shell.go"]},

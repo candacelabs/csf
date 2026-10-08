@@ -5,8 +5,6 @@ package harness
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-
-	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 )
 
 var _ = Describe("Priority Message Interrupt Handling", func() {
@@ -52,24 +50,3 @@ var _ = Describe("Priority Message Interrupt Handling", func() {
 		Expect(true).To(BeTrue()) // Placeholder
 	})
 })
-
-// Helper: create test recipe
-func testRecipe() *pb.AgentAssignmentRecipe {
-	return &pb.AgentAssignmentRecipe{
-		AssignmentId: "test-id",
-		TicketUrl:    "https://github.com/test/1",
-		Task:         "test",
-		Agent: &pb.AgentDefinition{
-			Id:           "test-agent",
-			Revision:     1,
-			Instructions: "test",
-		},
-		Model: "claude-opus-5-5",
-		Workspace: &pb.AgentWorkspace{
-			RepositoryPath: "/test",
-			Branch:         "test",
-			BaseBranch:     "main",
-			AllowedTools:   []string{"bash"},
-		},
-	}
-}

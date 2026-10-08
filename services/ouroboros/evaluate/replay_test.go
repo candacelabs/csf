@@ -14,8 +14,8 @@ import (
 	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	"github.com/candacelabs/csf/io/kernel/clock"
 	"github.com/candacelabs/csf/io/ipc/proc"
+	"github.com/candacelabs/csf/io/kernel/clock"
 	pb "github.com/candacelabs/csf/proto/candace/brainspine/v1"
 	harnessv1 "github.com/candacelabs/csf/proto/candace/harness/v1"
 	"github.com/candacelabs/csf/services/ouroboros/evaluate"
